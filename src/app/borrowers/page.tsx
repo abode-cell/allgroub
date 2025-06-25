@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useData } from '@/contexts/data-context';
 import type { Borrower } from '@/lib/types';
 
@@ -32,12 +33,20 @@ export default function BorrowersPage() {
   const { role } = useAuth();
   const { borrowers, addBorrower } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newBorrower, setNewBorrower] = useState({
+  const [newBorrower, setNewBorrower] = useState<{
+    name: string;
+    amount: string;
+    rate: string;
+    term: string;
+    loanType: 'اقساط' | 'مهلة';
+    status: Borrower['status'];
+  }>({
     name: '',
     amount: '',
     rate: '',
     term: '',
-    status: 'منتظم' as Borrower['status'],
+    loanType: 'اقساط',
+    status: 'منتظم',
   });
   
   const isEmployee = role === 'موظف';
@@ -50,10 +59,16 @@ export default function BorrowersPage() {
   const handleStatusChange = (value: Borrower['status']) => {
     setNewBorrower((prev) => ({ ...prev, status: value }));
   };
+  
+  const handleLoanTypeChange = (value: 'اقساط' | 'مهلة') => {
+    setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '' }));
+  };
+
 
   const handleAddBorrower = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBorrower.name || !newBorrower.amount || !newBorrower.rate || !newBorrower.term) {
+    const isInstallments = newBorrower.loanType === 'اقساط';
+    if (!newBorrower.name || !newBorrower.amount || (isInstallments && (!newBorrower.rate || !newBorrower.term))) {
       return;
     }
     
@@ -62,12 +77,13 @@ export default function BorrowersPage() {
     addBorrower({
       name: newBorrower.name,
       amount: Number(newBorrower.amount),
-      rate: Number(newBorrower.rate),
-      term: Number(newBorrower.term),
+      rate: Number(newBorrower.rate) || 0,
+      term: Number(newBorrower.term) || 0,
+      loanType: newBorrower.loanType,
       status: finalStatus,
     });
     setIsAddDialogOpen(false);
-    setNewBorrower({ name: '', amount: '', rate: '', term: '', status: 'منتظم' });
+    setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم' });
   };
 
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
@@ -133,34 +149,55 @@ export default function BorrowersPage() {
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="rate" className="text-right">
-                      الفائدة
-                    </Label>
-                    <Input
-                      id="rate"
-                      type="number"
-                      step="0.1"
-                      placeholder="نسبة الفائدة %"
-                      className="col-span-3"
-                      value={newBorrower.rate}
-                      onChange={handleInputChange}
-                      required
-                    />
+                    <Label className="text-right">نوع التمويل</Label>
+                    <RadioGroup
+                      value={newBorrower.loanType}
+                      onValueChange={handleLoanTypeChange}
+                      className="col-span-3 flex gap-4 rtl:space-x-reverse"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="اقساط" id="r1" />
+                        <Label htmlFor="r1">أقساط</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="مهلة" id="r2" />
+                        <Label htmlFor="r2">مهلة</Label>
+                      </div>
+                    </RadioGroup>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="term" className="text-right">
-                     المدة (سنوات)
-                    </Label>
-                    <Input
-                      id="term"
-                      type="number"
-                      placeholder="مدة القرض بالسنوات"
-                      className="col-span-3"
-                      value={newBorrower.term}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
+                  {newBorrower.loanType === 'اقساط' && (
+                    <>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="rate" className="text-right">
+                          الفائدة
+                        </Label>
+                        <Input
+                          id="rate"
+                          type="number"
+                          step="0.1"
+                          placeholder="نسبة الفائدة %"
+                          className="col-span-3"
+                          value={newBorrower.rate}
+                          onChange={handleInputChange}
+                          required={newBorrower.loanType === 'اقساط'}
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="term" className="text-right">
+                         المدة (سنوات)
+                        </Label>
+                        <Input
+                          id="term"
+                          type="number"
+                          placeholder="مدة القرض بالسنوات"
+                          className="col-span-3"
+                          value={newBorrower.term}
+                          onChange={handleInputChange}
+                          required={newBorrower.loanType === 'اقساط'}
+                        />
+                      </div>
+                    </>
+                  )}
                   {!isEmployee && (
                      <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="status" className="text-right">

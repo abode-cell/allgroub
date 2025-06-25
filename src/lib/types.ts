@@ -4,6 +4,7 @@ export type Borrower = {
   amount: number;
   rate: number;
   term: number; // in years
+  loanType: 'اقساط' | 'مهلة';
   status: 'منتظم' | 'متأخر' | 'مسدد بالكامل' | 'متعثر' | 'معلق' | 'مرفوض';
   next_due: string;
   submittedBy?: string;

@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import type { Borrower, Payment } from '@/lib/types';
@@ -80,7 +81,14 @@ export function BorrowersTable({
 
   const handleSaveChanges = () => {
     if (!selectedBorrower) return;
-    updateBorrower(selectedBorrower);
+
+    const borrowerToUpdate = { ...selectedBorrower };
+    if (borrowerToUpdate.loanType === 'مهلة') {
+      borrowerToUpdate.rate = 0;
+      borrowerToUpdate.term = 0;
+    }
+    
+    updateBorrower(borrowerToUpdate);
     setIsEditDialogOpen(false);
     setSelectedBorrower(null);
   };
@@ -94,7 +102,7 @@ export function BorrowersTable({
     const monthlyRate = borrower.rate / 100 / 12;
     const numberOfPayments = borrower.term * 12;
 
-    if (principal <= 0 || monthlyRate < 0 || numberOfPayments <= 0) {
+    if (principal <= 0 || monthlyRate < 0 || numberOfPayments <= 0 || borrower.loanType === 'مهلة') {
       return [];
     }
 
@@ -147,6 +155,7 @@ export function BorrowersTable({
               <TableRow>
                 <TableHead>اسم المقترض</TableHead>
                 <TableHead>مبلغ القرض</TableHead>
+                <TableHead>نوع التمويل</TableHead>
                 <TableHead>نسبة الفائدة</TableHead>
                 <TableHead>حالة السداد</TableHead>
                 <TableHead>الدفعة التالية</TableHead>
@@ -162,7 +171,8 @@ export function BorrowersTable({
                 <TableRow key={borrower.id}>
                   <TableCell className="font-medium">{borrower.name}</TableCell>
                   <TableCell>{formatCurrency(borrower.amount)}</TableCell>
-                  <TableCell>{borrower.rate}%</TableCell>
+                  <TableCell>{borrower.loanType}</TableCell>
+                  <TableCell>{borrower.loanType === 'اقساط' ? `${borrower.rate}%` : '-'}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[borrower.status] || 'outline'}>
                       {borrower.status === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
@@ -195,6 +205,7 @@ export function BorrowersTable({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() => handleViewScheduleClick(borrower)}
+                          disabled={borrower.loanType === 'مهلة'}
                         >
                           عرض جدول السداد
                         </DropdownMenuItem>
@@ -254,41 +265,68 @@ export function BorrowersTable({
                   className="col-span-3"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="rate" className="text-right">
-                  الفائدة
-                </Label>
-                <Input
-                  id="rate"
-                  type="number"
-                  step="0.1"
-                  value={selectedBorrower.rate}
-                  onChange={(e) =>
-                    setSelectedBorrower({
-                      ...selectedBorrower,
-                      rate: Number(e.target.value),
-                    })
-                  }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="term" className="text-right">
-                  المدة (سنوات)
-                </Label>
-                <Input
-                  id="term"
-                  type="number"
-                  value={selectedBorrower.term}
-                  onChange={(e) =>
-                    setSelectedBorrower({
-                      ...selectedBorrower,
-                      term: Number(e.target.value),
-                    })
-                  }
-                  className="col-span-3"
-                />
-              </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">نوع التمويل</Label>
+                    <RadioGroup
+                        value={selectedBorrower.loanType}
+                        onValueChange={(value) =>
+                            setSelectedBorrower({
+                            ...selectedBorrower,
+                            loanType: value as 'اقساط' | 'مهلة',
+                            })
+                        }
+                        className="col-span-3 flex gap-4 rtl:space-x-reverse"
+                        >
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="اقساط" id="edit-r1" />
+                            <Label htmlFor="edit-r1">أقساط</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="مهلة" id="edit-r2" />
+                            <Label htmlFor="edit-r2">مهلة</Label>
+                        </div>
+                    </RadioGroup>
+                </div>
+
+               {selectedBorrower.loanType === 'اقساط' && (
+                 <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="rate" className="text-right">
+                      الفائدة
+                    </Label>
+                    <Input
+                      id="rate"
+                      type="number"
+                      step="0.1"
+                      value={selectedBorrower.rate}
+                      onChange={(e) =>
+                        setSelectedBorrower({
+                          ...selectedBorrower,
+                          rate: Number(e.target.value),
+                        })
+                      }
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="term" className="text-right">
+                      المدة (سنوات)
+                    </Label>
+                    <Input
+                      id="term"
+                      type="number"
+                      value={selectedBorrower.term}
+                      onChange={(e) =>
+                        setSelectedBorrower({
+                          ...selectedBorrower,
+                          term: Number(e.target.value),
+                        })
+                      }
+                      className="col-span-3"
+                    />
+                  </div>
+                 </>
+               )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="status" className="text-right">
                   الحالة
@@ -354,15 +392,23 @@ export function BorrowersTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paymentSchedule.map((payment) => (
-                  <TableRow key={payment.month}>
-                    <TableCell>{payment.month}</TableCell>
-                    <TableCell>{formatCurrency(payment.payment)}</TableCell>
-                    <TableCell>{formatCurrency(payment.principal)}</TableCell>
-                    <TableCell>{formatCurrency(payment.interest)}</TableCell>
-                    <TableCell>{formatCurrency(payment.balance)}</TableCell>
+                {paymentSchedule.length > 0 ? (
+                  paymentSchedule.map((payment) => (
+                    <TableRow key={payment.month}>
+                      <TableCell>{payment.month}</TableCell>
+                      <TableCell>{formatCurrency(payment.payment)}</TableCell>
+                      <TableCell>{formatCurrency(payment.principal)}</TableCell>
+                      <TableCell>{formatCurrency(payment.interest)}</TableCell>
+                      <TableCell>{formatCurrency(payment.balance)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      لا يوجد جدول سداد لهذا النوع من التمويل.
+                    </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </ScrollArea>

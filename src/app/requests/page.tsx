@@ -102,6 +102,7 @@ export default function RequestsPage() {
                     <TableRow>
                       <TableHead>اسم المقترض</TableHead>
                       <TableHead>المبلغ المطلوب</TableHead>
+                      <TableHead>نوع التمويل</TableHead>
                       <TableHead>الفائدة</TableHead>
                       <TableHead>المدة (سنوات)</TableHead>
                       <TableHead>الإجراء</TableHead>
@@ -113,8 +114,9 @@ export default function RequestsPage() {
                         <TableRow key={borrower.id}>
                           <TableCell className="font-medium">{borrower.name}</TableCell>
                           <TableCell>{formatCurrency(borrower.amount)}</TableCell>
-                          <TableCell>{borrower.rate}%</TableCell>
-                          <TableCell>{borrower.term}</TableCell>
+                          <TableCell>{borrower.loanType}</TableCell>
+                          <TableCell>{borrower.loanType === 'اقساط' ? `${borrower.rate}%` : '-'}</TableCell>
+                          <TableCell>{borrower.loanType === 'اقساط' ? borrower.term : '-'}</TableCell>
                           <TableCell className="flex gap-2">
                             <Button size="sm" onClick={() => approveBorrower(borrower.id)}>
                               <Check className="ml-2 h-4 w-4" />
@@ -129,7 +131,7 @@ export default function RequestsPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center">
+                        <TableCell colSpan={6} className="text-center">
                           لا توجد طلبات مقترضين معلقة.
                         </TableCell>
                       </TableRow>
