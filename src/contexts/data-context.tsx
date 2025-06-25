@@ -4,19 +4,19 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback 
 import { borrowersData as initialBorrowers, investorsData as initialInvestors } from '@/lib/data';
 import type { Borrower, Investor, Withdrawal } from '@/lib/types';
 
-type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds' | 'withdrawalHistory'>;
+type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds' | 'withdrawalHistory' | 'rejectionReason' | 'submittedBy'>;
 
 type DataContextType = {
   borrowers: Borrower[];
   investors: Investor[];
-  addBorrower: (borrower: Omit<Borrower, 'id' | 'next_due'>) => void;
+  addBorrower: (borrower: Omit<Borrower, 'id' | 'next_due' | 'rejectionReason' | 'submittedBy'>) => void;
   updateBorrower: (borrower: Borrower) => void;
   approveBorrower: (borrowerId: string) => void;
-  rejectBorrower: (borrowerId: string) => void;
-  addInvestor: (investor: Omit<Investor, 'id' | 'date' | 'withdrawalHistory' | 'defaultedFunds' | 'fundedLoanIds'>) => void;
+  rejectBorrower: (borrowerId: string, reason: string) => void;
+  addInvestor: (investor: Omit<Investor, 'id' | 'date' | 'withdrawalHistory' | 'defaultedFunds' | 'fundedLoanIds' | 'rejectionReason' | 'submittedBy'>) => void;
   updateInvestor: (investor: UpdatableInvestor) => void;
   approveInvestor: (investorId: string) => void;
-  rejectInvestor: (investorId: string) => void;
+  rejectInvestor: (investorId: string, reason: string) => void;
   withdrawFromInvestor: (investorId: string, withdrawal: Omit<Withdrawal, 'id'|'date'>) => void;
 };
 
@@ -61,36 +61,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const approveBorrower = (borrowerId: string) => {
      const borrower = borrowers.find(b => b.id === borrowerId);
-     if (borrower) {
+     if (borrower && borrower.status === 'معلق') {
        updateBorrower({ ...borrower, status: 'منتظم' });
      }
   };
 
-  const rejectBorrower = (borrowerId: string) => {
-    setBorrowers(prev => prev.filter(b => b.id !== borrowerId));
+  const rejectBorrower = (borrowerId: string, reason: string) => {
+    const borrower = borrowers.find(b => b.id === borrowerId);
+     if (borrower && borrower.status === 'معلق') {
+       updateBorrower({ ...borrower, status: 'مرفوض', rejectionReason: reason });
+     }
   };
 
-  const addBorrower = (borrower: Omit<Borrower, 'id' | 'next_due'>) => {
+  const addBorrower = (borrower: Omit<Borrower, 'id' | 'next_due' | 'rejectionReason' | 'submittedBy'>) => {
     const newEntry: Borrower = {
       ...borrower,
       id: `bor_${Date.now()}`,
       next_due: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+      submittedBy: 'emp_01', // Hardcoded for simulation
     };
     setBorrowers(prev => [...prev, newEntry]);
   };
   
-  const approveInvestor = (investorId: string) => {
-     const investor = investors.find(i => i.id === investorId);
-     if (investor) {
-       const { defaultedFunds, fundedLoanIds, withdrawalHistory, ...updatableInvestor } = investor;
-       updateInvestor({ ...updatableInvestor, status: 'نشط' });
-     }
-  };
-
-  const rejectInvestor = (investorId: string) => {
-    setInvestors(prev => prev.filter(i => i.id !== investorId));
-  };
-
   const updateInvestor = (updatedInvestor: UpdatableInvestor) => {
     setInvestors(prevInvestors => prevInvestors.map(inv => {
       if (inv.id === updatedInvestor.id) {
@@ -102,8 +94,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return inv;
     }));
   };
+  
+  const approveInvestor = (investorId: string) => {
+     const investor = investors.find(i => i.id === investorId);
+     if (investor && investor.status === 'معلق') {
+        updateInvestorStatus(investor.id, 'نشط');
+     }
+  };
 
-  const addInvestor = (investor: Omit<Investor, 'id' | 'date' | 'withdrawalHistory'| 'defaultedFunds' | 'fundedLoanIds'>) => {
+  const rejectInvestor = (investorId: string, reason: string) => {
+    const investor = investors.find(i => i.id === investorId);
+    if (investor && investor.status === 'معلق') {
+        updateInvestorStatus(investor.id, 'مرفوض', reason);
+    }
+  };
+
+  const updateInvestorStatus = (investorId: string, status: Investor['status'], reason?: string) => {
+      setInvestors(prev => prev.map(inv => 
+        inv.id === investorId 
+          ? { ...inv, status, rejectionReason: reason } 
+          : inv
+      ));
+  }
+
+
+  const addInvestor = (investor: Omit<Investor, 'id' | 'date' | 'withdrawalHistory'| 'defaultedFunds' | 'fundedLoanIds' | 'rejectionReason' | 'submittedBy'>) => {
     const newEntry: Investor = {
       ...investor,
       id: `inv_${Date.now()}`,
@@ -111,6 +126,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       withdrawalHistory: [],
       defaultedFunds: 0, // Initially zero
       fundedLoanIds: [], // Initially empty
+      submittedBy: 'emp_01', // Hardcoded for simulation
     };
     setInvestors(prev => [...prev, newEntry]);
   };

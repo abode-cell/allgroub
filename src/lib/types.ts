@@ -4,8 +4,10 @@ export type Borrower = {
   amount: number;
   rate: number;
   term: number; // in years
-  status: 'منتظم' | 'متأخر' | 'مسدد بالكامل' | 'متعثر' | 'معلق';
+  status: 'منتظم' | 'متأخر' | 'مسدد بالكامل' | 'متعثر' | 'معلق' | 'مرفوض';
   next_due: string;
+  submittedBy?: string;
+  rejectionReason?: string;
 };
 
 export type Payment = {
@@ -28,8 +30,10 @@ export type Investor = {
   name: string;
   amount: number;
   date: string;
-  status: 'نشط' | 'غير نشط' | 'معلق';
+  status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض';
   withdrawalHistory: Withdrawal[];
   fundedLoanIds: string[];
   defaultedFunds: number;
+  submittedBy?: string;
+  rejectionReason?: string;
 };

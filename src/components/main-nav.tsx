@@ -13,6 +13,7 @@ import {
   FileText,
   Settings,
   ClipboardList,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   SidebarHeader,
@@ -44,6 +45,12 @@ const allMenuItems = [
     icon: Landmark,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },
+   {
+    href: '/my-requests',
+    label: 'طلباتي',
+    icon: ClipboardCheck,
+    roles: ['موظف'],
+  },
   {
     href: '/reports',
     label: 'التقارير',
@@ -52,7 +59,7 @@ const allMenuItems = [
   },
   {
     href: '/requests',
-    label: 'الطلبات',
+    label: 'الطلبات المعلقة',
     icon: ClipboardList,
     roles: ['مدير النظام', 'مدير المكتب'],
   },

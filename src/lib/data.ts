@@ -63,6 +63,18 @@ export const borrowersData: Borrower[] = [
     term: 3,
     status: 'معلق',
     next_due: '-',
+    submittedBy: 'emp_01',
+  },
+   {
+    id: 'bor_008',
+    name: 'ماجد قاسم (طلب مرفوض)',
+    amount: 20000,
+    rate: 9,
+    term: 2,
+    status: 'مرفوض',
+    next_due: '-',
+    submittedBy: 'emp_01',
+    rejectionReason: 'درجة ائتمان منخفضة',
   },
 ];
 
@@ -119,5 +131,16 @@ export const investorsData: Investor[] = [
     withdrawalHistory: [],
     fundedLoanIds: ['bor_003'],
     defaultedFunds: 0,
+  },
+   {
+    id: 'inv_006',
+    name: 'مستثمر جديد (معلق)',
+    amount: 150000,
+    date: '٢٠٢٤-٠٦-٢٠',
+    status: 'معلق',
+    withdrawalHistory: [],
+    fundedLoanIds: [],
+    defaultedFunds: 0,
+    submittedBy: 'emp_01',
   },
 ];
