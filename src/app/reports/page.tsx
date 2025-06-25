@@ -54,8 +54,8 @@ export default function ReportsPage() {
     const doc = new jsPDF();
     
     // Add the Amiri font to jsPDF. The font is base64 encoded.
-    // We remove whitespace and newlines to prevent an 'atob' error.
-    doc.addFileToVFS("Amiri-Regular.ttf", amiriFont.replace(/\s/g, ''));
+    // The font string in src/lib/fonts.ts is a single line to prevent 'atob' errors.
+    doc.addFileToVFS("Amiri-Regular.ttf", amiriFont);
     doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
 
     // Set the title, aligned to the right for RTL
