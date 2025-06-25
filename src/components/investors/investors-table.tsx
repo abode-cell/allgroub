@@ -30,7 +30,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type Investor = {
+export type Investor = {
   id: string;
   name: string;
   amount: number;
@@ -38,43 +38,10 @@ type Investor = {
   status: 'نشط' | 'غير نشط';
 };
 
-const investorsData: Investor[] = [
-  {
-    id: 'inv_001',
-    name: 'شركة الاستثمار الرائدة',
-    amount: 500000,
-    date: '٢٠٢٣-٠١-١٥',
-    status: 'نشط',
-  },
-  {
-    id: 'inv_002',
-    name: 'صندوق النمو المستدام',
-    amount: 250000,
-    date: '٢٠٢٣-٠٢-٢٠',
-    status: 'نشط',
-  },
-  {
-    id: 'inv_003',
-    name: 'أحمد عبدالله',
-    amount: 100000,
-    date: '٢٠٢٣-٠٣-١٠',
-    status: 'نشط',
-  },
-  {
-    id: 'inv_004',
-    name: 'نورة السعد',
-    amount: 300000,
-    date: '٢٠٢٣-٠٤-٠٥',
-    status: 'غير نشط',
-  },
-  {
-    id: 'inv_005',
-    name: 'مجموعة الأفق القابضة',
-    amount: 1000000,
-    date: '٢٠٢٣-٠٥-٠١',
-    status: 'نشط',
-  },
-];
+type InvestorsTableProps = {
+    investors: Investor[];
+    onUpdateInvestor: (investor: Investor) => void;
+}
 
 const statusVariant: { [key: string]: 'default' | 'secondary' } = {
   نشط: 'default',
@@ -87,8 +54,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export function InvestorsTable() {
-  const [investors, setInvestors] = useState<Investor[]>(investorsData);
+export function InvestorsTable({ investors, onUpdateInvestor }: InvestorsTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(
@@ -102,11 +68,7 @@ export function InvestorsTable() {
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    setInvestors(
-      investors.map((i) =>
-        i.id === selectedInvestor.id ? selectedInvestor : i
-      )
-    );
+    onUpdateInvestor(selectedInvestor);
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);
   };

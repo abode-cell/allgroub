@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-type Borrower = {
+export type Borrower = {
   id: string;
   name: string;
   amount: number;
@@ -41,7 +41,7 @@ type Borrower = {
   next_due: string;
 };
 
-type Payment = {
+export type Payment = {
   month: number;
   payment: number;
   principal: number;
@@ -49,53 +49,10 @@ type Payment = {
   balance: number;
 };
 
-const borrowersData: Borrower[] = [
-  {
-    id: 'bor_001',
-    name: 'خالد الغامدي',
-    amount: 75000,
-    rate: 5.5,
-    term: 5,
-    status: 'منتظم',
-    next_due: '٢٠٢٤-٠٧-١٥',
-  },
-  {
-    id: 'bor_002',
-    name: 'فاطمة الزهراء',
-    amount: 30000,
-    rate: 6,
-    term: 3,
-    status: 'متأخر',
-    next_due: '٢٠٢٤-٠٦-٢٥',
-  },
-  {
-    id: 'bor_003',
-    name: 'مؤسسة البناء الحديث',
-    amount: 250000,
-    rate: 4.8,
-    term: 10,
-    status: 'منتظم',
-    next_due: '٢٠٢٤-٠٧-٠١',
-  },
-  {
-    id: 'bor_004',
-    name: 'سارة إبراهيم',
-    amount: 15000,
-    rate: 7.2,
-    term: 2,
-    status: 'مسدد بالكامل',
-    next_due: '-',
-  },
-  {
-    id: 'bor_005',
-    name: 'عبدالرحمن الشهري',
-    amount: 120000,
-    rate: 5,
-    term: 7,
-    status: 'منتظم',
-    next_due: '٢٠٢٤-٠٧-١٠',
-  },
-];
+type BorrowersTableProps = {
+  borrowers: Borrower[];
+  onUpdateBorrower: (borrower: Borrower) => void;
+};
 
 const statusVariant: {
   [key: string]: 'default' | 'secondary' | 'destructive' | 'outline';
@@ -111,8 +68,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export function BorrowersTable() {
-  const [borrowers, setBorrowers] = useState<Borrower[]>(borrowersData);
+export function BorrowersTable({ borrowers, onUpdateBorrower }: BorrowersTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
@@ -127,9 +83,7 @@ export function BorrowersTable() {
 
   const handleSaveChanges = () => {
     if (!selectedBorrower) return;
-    setBorrowers(
-      borrowers.map((b) => (b.id === selectedBorrower.id ? selectedBorrower : b))
-    );
+    onUpdateBorrower(selectedBorrower);
     setIsEditDialogOpen(false);
     setSelectedBorrower(null);
   };
