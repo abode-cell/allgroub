@@ -90,7 +90,10 @@ const formatCurrency = (value: number) =>
 export function InvestorsTable() {
   const [investors, setInvestors] = useState<Investor[]>(investorsData);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(
+    null
+  );
 
   const handleEditClick = (investor: Investor) => {
     setSelectedInvestor({ ...investor });
@@ -99,9 +102,18 @@ export function InvestorsTable() {
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    setInvestors(investors.map(i => i.id === selectedInvestor.id ? selectedInvestor : i));
+    setInvestors(
+      investors.map((i) =>
+        i.id === selectedInvestor.id ? selectedInvestor : i
+      )
+    );
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);
+  };
+
+  const handleViewDetailsClick = (investor: Investor) => {
+    setSelectedInvestor(investor);
+    setIsDetailsDialogOpen(true);
   };
 
   return (
@@ -127,7 +139,9 @@ export function InvestorsTable() {
                   <TableCell>{formatCurrency(investor.amount)}</TableCell>
                   <TableCell>{investor.date}</TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant[investor.status] || 'default'}>
+                    <Badge
+                      variant={statusVariant[investor.status] || 'default'}
+                    >
                       {investor.status}
                     </Badge>
                   </TableCell>
@@ -140,8 +154,16 @@ export function InvestorsTable() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => handleEditClick(investor)}>تعديل</DropdownMenuItem>
-                        <DropdownMenuItem>عرض التفاصيل</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => handleEditClick(investor)}
+                        >
+                          تعديل
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => handleViewDetailsClick(investor)}
+                        >
+                          عرض التفاصيل
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -151,7 +173,7 @@ export function InvestorsTable() {
           </Table>
         </CardContent>
       </Card>
-      
+
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -169,7 +191,12 @@ export function InvestorsTable() {
                 <Input
                   id="name"
                   value={selectedInvestor.name}
-                  onChange={(e) => setSelectedInvestor({ ...selectedInvestor, name: e.target.value })}
+                  onChange={(e) =>
+                    setSelectedInvestor({
+                      ...selectedInvestor,
+                      name: e.target.value,
+                    })
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -181,18 +208,77 @@ export function InvestorsTable() {
                   id="amount"
                   type="number"
                   value={selectedInvestor.amount}
-                  onChange={(e) => setSelectedInvestor({ ...selectedInvestor, amount: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setSelectedInvestor({
+                      ...selectedInvestor,
+                      amount: Number(e.target.value),
+                    })
+                  }
                   className="col-span-3"
                 />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setIsEditDialogOpen(false)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsEditDialogOpen(false)}
+            >
               إلغاء
             </Button>
             <Button type="button" onClick={handleSaveChanges}>
               حفظ التغييرات
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>تفاصيل المستثمر</DialogTitle>
+            <DialogDescription>
+              عرض معلومات المستثمر {selectedInvestor?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedInvestor && (
+            <div className="grid gap-4 py-4 text-sm">
+              <div className="grid grid-cols-3 gap-2">
+                <p className="text-muted-foreground">الاسم:</p>
+                <p className="col-span-2 font-medium">
+                  {selectedInvestor.name}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <p className="text-muted-foreground">مبلغ الاستثمار:</p>
+                <p className="col-span-2 font-medium">
+                  {formatCurrency(selectedInvestor.amount)}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <p className="text-muted-foreground">تاريخ البدء:</p>
+                <p className="col-span-2 font-medium">
+                  {selectedInvestor.date}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <p className="text-muted-foreground">الحالة:</p>
+                <p className="col-span-2 font-medium">
+                  <Badge
+                    variant={statusVariant[selectedInvestor.status] || 'default'}
+                  >
+                    {selectedInvestor.status}
+                  </Badge>
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setIsDetailsDialogOpen(false)}
+            >
+              إغلاق
             </Button>
           </DialogFooter>
         </DialogContent>
