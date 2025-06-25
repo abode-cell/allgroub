@@ -12,6 +12,16 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
+const statusVariant: {
+  [key: string]: 'default' | 'secondary' | 'destructive' | 'outline';
+} = {
+  منتظم: 'default',
+  متأخر: 'destructive',
+  متعثر: 'destructive',
+  معلق: 'secondary',
+  'مسدد بالكامل': 'secondary',
+};
+
 
 export default function ReportsPage() {
   const { borrowers, investors } = useData();
@@ -21,23 +31,28 @@ export default function ReportsPage() {
     return investor ? investor.name : 'غير محدد';
   };
 
-  const defaultedLoans = borrowers.filter(b => b.status === 'متعثر' || b.status === 'معلق');
+  const loansForReport = borrowers.filter(b => 
+    b.status === 'متعثر' || 
+    b.status === 'معلق' ||
+    b.status === 'منتظم' ||
+    b.status === 'متأخر'
+  );
 
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">تقارير المخاطر والتعثر</h1>
+          <h1 className="text-3xl font-bold tracking-tight">تقرير حالة القروض</h1>
           <p className="text-muted-foreground mt-1">
-            نظرة تفصيلية على القروض المتعثرة والمعلقة والمستثمرين المتأثرين.
+            نظرة شاملة على جميع القروض النشطة، المعلقة، والمتعثرة.
           </p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>القروض المتعثرة والمعلقة</CardTitle>
+            <CardTitle>قائمة القروض</CardTitle>
             <CardDescription>
-              قائمة بجميع القروض التي تم تحديدها كمتعثرة أو معلقة.
+              قائمة بجميع القروض النشطة، المعلقة، والمتعثرة في النظام.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -46,18 +61,20 @@ export default function ReportsPage() {
                 <TableRow>
                   <TableHead>اسم المقترض</TableHead>
                   <TableHead>مبلغ القرض</TableHead>
+                  <TableHead>تاريخ القرض</TableHead>
                   <TableHead>الحالة</TableHead>
-                  <TableHead>المستثمر المتأثر</TableHead>
+                  <TableHead>المستثمر الممول</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {defaultedLoans.length > 0 ? (
-                  defaultedLoans.map((loan) => (
+                {loansForReport.length > 0 ? (
+                  loansForReport.map((loan) => (
                     <TableRow key={loan.id}>
                       <TableCell className="font-medium">{loan.name}</TableCell>
                       <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                      <TableCell>{loan.date}</TableCell>
                       <TableCell>
-                        <Badge variant={loan.status === 'متعثر' ? 'destructive' : 'secondary'}>
+                        <Badge variant={statusVariant[loan.status] || 'outline'}>
                           {loan.status}
                         </Badge>
                       </TableCell>
@@ -68,8 +85,8 @@ export default function ReportsPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center">
-                      لا توجد قروض متعثرة أو معلقة حاليًا.
+                    <TableCell colSpan={5} className="text-center">
+                      لا توجد قروض لعرضها في التقرير.
                     </TableCell>
                   </TableRow>
                 )}

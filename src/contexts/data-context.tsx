@@ -9,7 +9,7 @@ type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds' | 'wi
 type DataContextType = {
   borrowers: Borrower[];
   investors: Investor[];
-  addBorrower: (borrower: Omit<Borrower, 'id' | 'next_due' | 'rejectionReason' | 'submittedBy'>) => void;
+  addBorrower: (borrower: Omit<Borrower, 'id' | 'date' | 'next_due' | 'rejectionReason' | 'submittedBy'>) => void;
   updateBorrower: (borrower: Borrower) => void;
   approveBorrower: (borrowerId: string) => void;
   rejectBorrower: (borrowerId: string, reason: string) => void;
@@ -73,10 +73,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
      }
   };
 
-  const addBorrower = (borrower: Omit<Borrower, 'id' | 'next_due' | 'rejectionReason' | 'submittedBy'>) => {
+  const addBorrower = (borrower: Omit<Borrower, 'id' | 'date' | 'next_due' | 'rejectionReason' | 'submittedBy'>) => {
     const newEntry: Borrower = {
       ...borrower,
       id: `bor_${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
       next_due: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
       submittedBy: 'emp_01', // Hardcoded for simulation
     };
