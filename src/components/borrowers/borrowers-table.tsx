@@ -200,8 +200,9 @@ export function BorrowersTable({
                         )}
                         <DropdownMenuItem
                           onSelect={() => handleEditClick(borrower)}
+                          disabled={isEmployee}
                         >
-                          {isEmployee ? 'رفع طلب تعديل' : 'تعديل'}
+                          تعديل
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() => handleViewScheduleClick(borrower)}
@@ -223,11 +224,9 @@ export function BorrowersTable({
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{isEmployee ? 'رفع طلب تعديل مقترض' : 'تعديل المقترض'}</DialogTitle>
+            <DialogTitle>تعديل المقترض</DialogTitle>
             <DialogDescription>
-              {isEmployee
-                ? 'قم بتحديث التفاصيل وسيتم مراجعة طلبك.'
-                : 'قم بتحديث تفاصيل المقترض هنا. انقر على حفظ عند الانتهاء.'}
+              قم بتحديث تفاصيل المقترض هنا. انقر على حفظ عند الانتهاء.
             </DialogDescription>
           </DialogHeader>
           {selectedBorrower && (
@@ -381,7 +380,7 @@ export function BorrowersTable({
               إلغاء
             </Button>
             <Button type="button" onClick={handleSaveChanges}>
-             {isEmployee ? 'إرسال طلب التعديل' : 'حفظ التغييرات'}
+             حفظ التغييرات
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { InvestorsTable } from '@/components/investors/investors-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,15 +19,28 @@ import { PlusCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import type { Investor } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 
 export default function InvestorsPage() {
   const { role } = useAuth();
+  const router = useRouter();
   const { investors, addInvestor } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newInvestor, setNewInvestor] = useState({ name: '', amount: '' });
   
   const isEmployee = role === 'موظف';
+
+  useEffect(() => {
+    // Redirect employees away from this page
+    if (isEmployee) {
+      router.replace('/');
+    }
+  }, [role, isEmployee, router]);
+
+  if (isEmployee) {
+    return null; // Or a loading/access denied component
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -40,6 +53,7 @@ export default function InvestorsPage() {
       return;
     }
     
+    // For managers, the status is immediately 'active'
     const status: Investor['status'] = 'نشط';
     
     addInvestor({
@@ -56,8 +70,6 @@ export default function InvestorsPage() {
   const displayedInvestors =
     role === 'مستثمر'
       ? investors.filter((i) => i.id === 'inv_003') // Simulate showing only the logged-in investor
-      : isEmployee
-      ? investors.filter(i => ['inv_002', 'inv_004'].includes(i.id)) // Simulate limited view for employees
       : investors;
 
   return (

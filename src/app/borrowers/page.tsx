@@ -91,10 +91,6 @@ export default function BorrowersPage() {
 
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
 
-  const displayedBorrowers = isEmployee 
-    ? borrowers.filter(b => ['bor_001', 'bor_002', 'bor_005'].includes(b.id)) 
-    : borrowers;
-
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -250,7 +246,7 @@ export default function BorrowersPage() {
           </Dialog>
           )}
         </div>
-        <BorrowersTable borrowers={displayedBorrowers} />
+        <BorrowersTable borrowers={borrowers} />
       </main>
     </div>
   );
