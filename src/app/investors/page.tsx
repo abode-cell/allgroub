@@ -26,6 +26,8 @@ export default function InvestorsPage() {
   const { investors, addInvestor } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newInvestor, setNewInvestor] = useState({ name: '', amount: '' });
+  
+  const isEmployee = role === 'موظف';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -37,16 +39,19 @@ export default function InvestorsPage() {
     if (!newInvestor.name || !newInvestor.amount) {
       return;
     }
+    
+    const status: Investor['status'] = isEmployee ? 'معلق' : 'نشط';
+    
     addInvestor({
       name: newInvestor.name,
       amount: Number(newInvestor.amount),
+      status: status,
     });
     setIsAddDialogOpen(false);
     setNewInvestor({ name: '', amount: '' });
   };
   
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب';
-  const isEmployee = role === 'موظف';
 
   const displayedInvestors =
     role === 'مستثمر'

@@ -17,7 +17,7 @@ const formatCurrency = (value: number) =>
 
 export function InvestorDashboard() {
   const { user } = useAuth();
-  const { investors } = useData();
+  const { investors, borrowers } = useData();
 
   // Simulate fetching data for the logged-in investor
   const investor = investors.find(i => i.id === 'inv_003');
@@ -30,11 +30,15 @@ export function InvestorDashboard() {
     );
   }
 
-  const totalInvestment = investor.amount;
+  const totalInvestment = investor.amount + (investor.defaultedFunds || 0); // Total is what they put in initially
   const defaultedFunds = investor.defaultedFunds || 0;
+  
+  const activeInvestment = borrowers
+    .filter(b => investor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
+    .reduce((acc, b) => acc + b.amount, 0);
+
+  const idleFunds = investor.amount - activeInvestment;
   const dueProfits = totalInvestment * 0.12; // Simulated
-  const idleFunds = totalInvestment * 0.15; // Simulated
-  const activeInvestment = totalInvestment - defaultedFunds - idleFunds;
 
   return (
     <div className="flex flex-col flex-1">

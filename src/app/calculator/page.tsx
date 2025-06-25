@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -89,7 +89,10 @@ export default function CalculatorPage() {
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mt-4">
               <Card className="lg:col-span-1">
                 <CardHeader>
-                  <CardTitle>إدخال بيانات القسط</CardTitle>
+                  <CardTitle>تمويل الأقساط</CardTitle>
+                   <CardDescription>
+                    يتم حساب إجمالي الفائدة وتوزيعها كأرباح بين المؤسسة والمستثمر.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
@@ -124,7 +127,7 @@ export default function CalculatorPage() {
                     />
                   </div>
                   {showProfitDetails && (
-                    <div className="space-y-4">
+                    <div className="space-y-4 pt-4">
                       <Label htmlFor="investorShare">
                         حصة المستثمر من الأرباح: {investorShare}%
                       </Label>
@@ -178,7 +181,10 @@ export default function CalculatorPage() {
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mt-4">
                 <Card className="lg:col-span-1">
                   <CardHeader>
-                    <CardTitle>إدخال بيانات المهلة</CardTitle>
+                    <CardTitle>تمويل المهلة</CardTitle>
+                    <CardDescription>
+                      يتم احتساب ربح ثابت للمؤسسة بنسبة 20% وربح ثابت للمستثمر بنسبة 10% من أصل مبلغ القرض.
+                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="space-y-2">
@@ -191,9 +197,6 @@ export default function CalculatorPage() {
                         placeholder="أدخل مبلغ القرض"
                       />
                     </div>
-                     <p className='text-xs text-muted-foreground pt-4'>
-                      يتم احتساب ربح ثابت للمؤسسة بنسبة 20% وربح ثابت للمستثمر بنسبة 10% من أصل مبلغ القرض.
-                     </p>
                   </CardContent>
                 </Card>
 

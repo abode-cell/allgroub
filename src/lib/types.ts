@@ -28,7 +28,8 @@ export type Investor = {
   name: string;
   amount: number;
   date: string;
-  status: 'نشط' | 'غير نشط';
+  status: 'نشط' | 'غير نشط' | 'معلق';
   withdrawalHistory: Withdrawal[];
-  defaultedFunds?: number;
+  fundedLoanIds: string[];
+  defaultedFunds: number;
 };

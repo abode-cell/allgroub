@@ -1,10 +1,8 @@
 'use client'
 
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { defaultedLoanInvestorMap } from '@/lib/data';
 import type { Borrower } from '@/lib/types';
 import { useData } from '@/contexts/data-context';
 
@@ -18,8 +16,8 @@ const formatCurrency = (value: number) =>
 export default function ReportsPage() {
   const { borrowers, investors } = useData();
 
-  const getInvestorNameById = (investorId: string) => {
-    const investor = investors.find(inv => inv.id === investorId);
+  const getInvestorNameForLoan = (loanId: string) => {
+    const investor = investors.find(inv => inv.fundedLoanIds.includes(loanId));
     return investor ? investor.name : 'غير محدد';
   };
 
@@ -64,7 +62,7 @@ export default function ReportsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {getInvestorNameById(defaultedLoanInvestorMap[loan.id])}
+                        {getInvestorNameForLoan(loan.id)}
                       </TableCell>
                     </TableRow>
                   ))

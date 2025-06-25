@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -33,7 +33,6 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { Textarea } from '../ui/textarea';
-import { investorLoanMap } from '@/lib/data';
 import type { Investor } from '@/lib/types';
 
 
@@ -44,6 +43,7 @@ type InvestorsTableProps = {
 const statusVariant: { [key: string]: 'default' | 'secondary' } = {
   نشط: 'default',
   'غير نشط': 'secondary',
+  'معلق': 'secondary',
 };
 
 const formatCurrency = (value: number) =>
@@ -56,7 +56,7 @@ export function InvestorsTable({
   investors,
 }: InvestorsTableProps) {
   const { role } = useAuth();
-  const { borrowers, updateInvestor, withdrawFromInvestor } = useData();
+  const { borrowers, updateInvestor, withdrawFromInvestor, approveInvestor } = useData();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
@@ -72,11 +72,14 @@ export function InvestorsTable({
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    // We only pass the updatable part, defaultedFunds is managed by the context
     const { defaultedFunds, ...updatableInvestor } = selectedInvestor;
     updateInvestor(updatableInvestor);
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);
+  };
+  
+  const handleApproveClick = (investor: Investor) => {
+    approveInvestor(investor.id);
   };
 
   const handleViewDetailsClick = (investor: Investor) => {
@@ -113,8 +116,9 @@ export function InvestorsTable({
   const isEmployee = role === 'موظف';
       
   const getAssociatedDefaultedLoans = (investorId: string) => {
-    const loanIds = investorLoanMap[investorId] || [];
-    return borrowers.filter(loan => loanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'));
+    const investor = investors.find(inv => inv.id === investorId);
+    if (!investor) return [];
+    return borrowers.filter(loan => investor.fundedLoanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'));
   }
 
   return (
@@ -147,7 +151,7 @@ export function InvestorsTable({
                     <Badge
                       variant={statusVariant[investor.status] || 'default'}
                     >
-                      {investor.status}
+                      {investor.status === 'معلق' ? 'طلب معلق' : investor.status}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -159,6 +163,14 @@ export function InvestorsTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                         {canPerformActions && investor.status === 'معلق' && (
+                           <DropdownMenuItem
+                            onSelect={() => handleApproveClick(investor)}
+                          >
+                            <CheckCircle className="ml-2 h-4 w-4" />
+                            الموافقة على الطلب
+                          </DropdownMenuItem>
+                         )}
                          <DropdownMenuItem
                           onSelect={() => handleViewDetailsClick(investor)}
                         >
@@ -167,6 +179,7 @@ export function InvestorsTable({
                         {canEdit && (
                             <DropdownMenuItem
                               onSelect={() => handleEditClick(investor)}
+                              disabled={investor.status === 'معلق'}
                             >
                               {isEmployee ? 'رفع طلب تعديل' : 'تعديل'}
                             </DropdownMenuItem>
@@ -174,6 +187,7 @@ export function InvestorsTable({
                         {canPerformActions && (
                             <DropdownMenuItem
                               onSelect={() => handleWithdrawClick(investor)}
+                              disabled={investor.status === 'معلق'}
                             >
                               سحب الأموال
                             </DropdownMenuItem>
@@ -255,10 +269,13 @@ export function InvestorsTable({
             <DialogTitle>تفاصيل المستثمر: {selectedInvestor?.name}</DialogTitle>
           </DialogHeader>
           {selectedInvestor && (() => {
-            const defaultedFunds = selectedInvestor.defaultedFunds || 0;
-            const idleFunds = selectedInvestor.amount * 0.15; // Simulation
-            const activeInvestment = selectedInvestor.amount - defaultedFunds - idleFunds;
-            const dueProfits = selectedInvestor.amount * 0.12; // Simulation
+             const defaultedFunds = selectedInvestor.defaultedFunds || 0;
+            const activeInvestment = borrowers
+              .filter(b => selectedInvestor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
+              .reduce((acc, b) => acc + b.amount, 0);
+
+            const idleFunds = selectedInvestor.amount - activeInvestment;
+            const dueProfits = (selectedInvestor.amount + defaultedFunds) * 0.12; // Simulation
 
             return (
               <div className="grid gap-6 py-4">
@@ -269,7 +286,7 @@ export function InvestorsTable({
                   <CardContent className='grid grid-cols-2 gap-4 text-sm'>
                       <div className="flex flex-col space-y-1 p-2 bg-muted/50 rounded-md">
                         <span className='text-muted-foreground'>إجمالي الاستثمار</span>
-                        <span className='font-bold text-lg'>{formatCurrency(selectedInvestor.amount)}</span>
+                        <span className='font-bold text-lg'>{formatCurrency(selectedInvestor.amount + defaultedFunds)}</span>
                       </div>
                       <div className="flex flex-col space-y-1 p-2 bg-muted/50 rounded-md">
                         <span className='text-muted-foreground'>الأموال المستثمرة (النشطة)</span>

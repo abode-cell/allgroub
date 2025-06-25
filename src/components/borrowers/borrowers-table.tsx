@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, ShieldAlert } from 'lucide-react';
+import { MoreHorizontal, ShieldAlert, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -65,7 +65,7 @@ export function BorrowersTable({
   borrowers,
 }: BorrowersTableProps) {
   const { role } = useAuth();
-  const { updateBorrower } = useData();
+  const { updateBorrower, approveBorrower } = useData();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
@@ -83,6 +83,10 @@ export function BorrowersTable({
     updateBorrower(selectedBorrower);
     setIsEditDialogOpen(false);
     setSelectedBorrower(null);
+  };
+  
+  const handleApproveClick = (borrower: Borrower) => {
+    approveBorrower(borrower.id);
   };
 
   const generatePaymentSchedule = (borrower: Borrower): Payment[] => {
@@ -131,6 +135,7 @@ export function BorrowersTable({
   };
 
   const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+  const canApprove = role === 'مدير النظام' || role === 'مدير المكتب';
   const isEmployee = role === 'موظف';
 
   return (
@@ -161,7 +166,7 @@ export function BorrowersTable({
                   <TableCell>
                     <Badge variant={statusVariant[borrower.status] || 'outline'}>
                       {borrower.status === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
-                      {borrower.status}
+                      {borrower.status === 'معلق' ? 'طلب معلق' : borrower.status}
                     </Badge>
                   </TableCell>
                   <TableCell>{borrower.next_due}</TableCell>
@@ -175,6 +180,14 @@ export function BorrowersTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {canApprove && borrower.status === 'معلق' && (
+                           <DropdownMenuItem
+                            onSelect={() => handleApproveClick(borrower)}
+                          >
+                            <CheckCircle className="ml-2 h-4 w-4" />
+                            الموافقة على الطلب
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           onSelect={() => handleEditClick(borrower)}
                         >
@@ -288,6 +301,7 @@ export function BorrowersTable({
                       status: value as Borrower['status'],
                     })
                   }
+                  disabled={isEmployee && selectedBorrower.status === 'معلق'}
                 >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="اختر الحالة" />
@@ -296,7 +310,7 @@ export function BorrowersTable({
                     <SelectItem value="منتظم">منتظم</SelectItem>
                     <SelectItem value="متأخر">متأخر</SelectItem>
                     <SelectItem value="متعثر">متعثر</SelectItem>
-                    <SelectItem value="معلق">معلق</SelectItem>
+                    <SelectItem value="معلق">طلب معلق</SelectItem>
                     <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
                   </SelectContent>
                 </Select>

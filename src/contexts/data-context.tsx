@@ -1,19 +1,20 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { borrowersData as initialBorrowers, investorsData as initialInvestors, investorLoanMap } from '@/lib/data';
+import { borrowersData as initialBorrowers, investorsData as initialInvestors } from '@/lib/data';
 import type { Borrower, Investor, Withdrawal } from '@/lib/types';
 
-// Omit 'defaultedFunds' for adding/updating, as it will be calculated
-type UpdatableInvestor = Omit<Investor, 'defaultedFunds'>;
+type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds'>;
 
 type DataContextType = {
   borrowers: Borrower[];
   investors: Investor[];
   addBorrower: (borrower: Omit<Borrower, 'id' | 'next_due'>) => void;
   updateBorrower: (borrower: Borrower) => void;
-  addInvestor: (investor: Omit<UpdatableInvestor, 'id' | 'date' | 'status' | 'withdrawalHistory'>) => void;
+  approveBorrower: (borrowerId: string) => void;
+  addInvestor: (investor: Omit<Investor, 'id' | 'date' | 'withdrawalHistory' | 'defaultedFunds' | 'fundedLoanIds'>) => void;
   updateInvestor: (investor: UpdatableInvestor) => void;
+  approveInvestor: (investorId: string) => void;
   withdrawFromInvestor: (investorId: string, withdrawal: Omit<Withdrawal, 'id'|'date'>) => void;
 };
 
@@ -21,42 +22,48 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [borrowers, setBorrowers] = useState<Borrower[]>(initialBorrowers);
-  const [investors, setInvestors] = useState<Investor[]>([]);
+  const [investors, setInvestors] = useState<Investor[]>(initialInvestors);
 
-  const calculateDefaultedFunds = useCallback((investorId: string, currentBorrowers: Borrower[]): number => {
-    const loanIds = investorLoanMap[investorId] || [];
-    if (!loanIds.length) return 0;
+  const calculateDefaultedFunds = useCallback((investorId: string, currentBorrowers: Borrower[], allInvestors: Investor[]): number => {
+    const investor = allInvestors.find(inv => inv.id === investorId);
+    if (!investor) return 0;
     
     return currentBorrowers
-      .filter(loan => loanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'))
+      .filter(loan => investor.fundedLoanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'))
       .reduce((acc, loan) => acc + loan.amount, 0);
   }, []);
 
   useEffect(() => {
-    // Initial calculation of defaulted funds
-    const enrichedInvestors = initialInvestors.map(inv => ({
-      ...inv,
-      defaultedFunds: calculateDefaultedFunds(inv.id, borrowers),
-    }));
-    setInvestors(enrichedInvestors);
-  }, []); // Run only once on mount with initial data
+    // Initial calculation of defaulted funds and enrich investors
+    setInvestors(prevInvestors => 
+      prevInvestors.map(inv => ({
+        ...inv,
+        defaultedFunds: calculateDefaultedFunds(inv.id, borrowers, prevInvestors),
+      }))
+    );
+  }, [borrowers, calculateDefaultedFunds]);
 
   const updateBorrower = (updatedBorrower: Borrower) => {
     setBorrowers(prevBorrowers => {
         const newBorrowers = prevBorrowers.map(b => b.id === updatedBorrower.id ? updatedBorrower : b);
-
-        // After updating borrowers, recalculate defaulted funds for all investors
+        // Recalculate defaulted funds for all investors after a borrower's status might have changed
         setInvestors(prevInvestors => 
             prevInvestors.map(inv => ({
                 ...inv,
-                defaultedFunds: calculateDefaultedFunds(inv.id, newBorrowers)
+                defaultedFunds: calculateDefaultedFunds(inv.id, newBorrowers, prevInvestors)
             }))
         );
-
         return newBorrowers;
     });
   };
   
+  const approveBorrower = (borrowerId: string) => {
+     const borrower = borrowers.find(b => b.id === borrowerId);
+     if (borrower) {
+       updateBorrower({ ...borrower, status: 'منتظم' });
+     }
+  };
+
   const addBorrower = (borrower: Omit<Borrower, 'id' | 'next_due'>) => {
     const newEntry: Borrower = {
       ...borrower,
@@ -65,27 +72,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
     setBorrowers(prev => [...prev, newEntry]);
   };
+  
+  const approveInvestor = (investorId: string) => {
+     const investor = investors.find(i => i.id === investorId);
+     if (investor) {
+       const { defaultedFunds, ...updatableInvestor } = investor;
+       updateInvestor({ ...updatableInvestor, status: 'نشط' });
+     }
+  };
 
   const updateInvestor = (updatedInvestor: UpdatableInvestor) => {
     setInvestors(prevInvestors => prevInvestors.map(inv => {
       if (inv.id === updatedInvestor.id) {
         return {
+          ...inv,
           ...updatedInvestor,
-          defaultedFunds: inv.defaultedFunds // Keep the calculated value, it's managed by borrower updates
         };
       }
       return inv;
     }));
   };
 
-  const addInvestor = (investor: Omit<UpdatableInvestor, 'id' | 'date' | 'status' | 'withdrawalHistory'>) => {
+  const addInvestor = (investor: Omit<Investor, 'id' | 'date' | 'withdrawalHistory'| 'defaultedFunds' | 'fundedLoanIds'>) => {
     const newEntry: Investor = {
       ...investor,
       id: `inv_${Date.now()}`,
-      status: 'نشط',
       date: new Date().toISOString().split('T')[0],
       withdrawalHistory: [],
       defaultedFunds: 0, // Initially zero
+      fundedLoanIds: [], // Initially empty
     };
     setInvestors(prev => [...prev, newEntry]);
   };
@@ -110,7 +125,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
 
-  const value = { borrowers, investors, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor };
+  const value = { borrowers, investors, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

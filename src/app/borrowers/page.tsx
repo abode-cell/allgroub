@@ -39,6 +39,8 @@ export default function BorrowersPage() {
     term: '',
     status: 'منتظم' as Borrower['status'],
   });
+  
+  const isEmployee = role === 'موظف';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -54,19 +56,21 @@ export default function BorrowersPage() {
     if (!newBorrower.name || !newBorrower.amount || !newBorrower.rate || !newBorrower.term) {
       return;
     }
+    
+    const finalStatus: Borrower['status'] = isEmployee ? 'معلق' : newBorrower.status;
+
     addBorrower({
       name: newBorrower.name,
       amount: Number(newBorrower.amount),
       rate: Number(newBorrower.rate),
       term: Number(newBorrower.term),
-      status: newBorrower.status,
+      status: finalStatus,
     });
     setIsAddDialogOpen(false);
     setNewBorrower({ name: '', amount: '', rate: '', term: '', status: 'منتظم' });
   };
 
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
-  const isEmployee = role === 'موظف';
 
   const displayedBorrowers = isEmployee 
     ? borrowers.filter(b => ['bor_001', 'bor_002', 'bor_005'].includes(b.id)) 
@@ -157,26 +161,28 @@ export default function BorrowersPage() {
                       required
                     />
                   </div>
-                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="status" className="text-right">
-                      الحالة
-                    </Label>
-                     <Select
-                        value={newBorrower.status}
-                        onValueChange={(value: Borrower['status']) => handleStatusChange(value)}
-                      >
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="اختر الحالة" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="منتظم">منتظم</SelectItem>
-                          <SelectItem value="متأخر">متأخر</SelectItem>
-                           <SelectItem value="متعثر">متعثر</SelectItem>
-                           <SelectItem value="معلق">معلق</SelectItem>
-                          <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
-                        </SelectContent>
-                      </Select>
-                  </div>
+                  {!isEmployee && (
+                     <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="status" className="text-right">
+                        الحالة
+                      </Label>
+                       <Select
+                          value={newBorrower.status}
+                          onValueChange={(value: Borrower['status']) => handleStatusChange(value)}
+                        >
+                          <SelectTrigger className="col-span-3">
+                            <SelectValue placeholder="اختر الحالة" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="منتظم">منتظم</SelectItem>
+                            <SelectItem value="متأخر">متأخر</SelectItem>
+                             <SelectItem value="متعثر">متعثر</SelectItem>
+                             <SelectItem value="معلق">معلق</SelectItem>
+                            <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
+                          </SelectContent>
+                        </Select>
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>

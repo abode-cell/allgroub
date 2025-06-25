@@ -52,12 +52,21 @@ export const borrowersData: Borrower[] = [
     amount: 95000,
     rate: 5.2,
     term: 4,
-    status: 'معلق',
+    status: 'متعثر',
     next_due: '٢٠٢٤-٠٧-٢٠',
+  },
+   {
+    id: 'bor_007',
+    name: 'سليمان العلي (طلب جديد)',
+    amount: 45000,
+    rate: 8,
+    term: 3,
+    status: 'معلق',
+    next_due: '-',
   },
 ];
 
-export const investorsData: Omit<Investor, 'defaultedFunds'>[] = [
+export const investorsData: Investor[] = [
   {
     id: 'inv_001',
     name: 'شركة الاستثمار الرائدة',
@@ -65,6 +74,8 @@ export const investorsData: Omit<Investor, 'defaultedFunds'>[] = [
     date: '٢٠٢٣-٠١-١٥',
     status: 'نشط',
     withdrawalHistory: [{ id: 'wd_001', amount: 10000, reason: 'سحب دوري', date: '٢٠٢٤-٠٥-١٠' }],
+    fundedLoanIds: ['bor_001', 'bor_006'],
+    defaultedFunds: 0,
   },
   {
     id: 'inv_002',
@@ -73,6 +84,8 @@ export const investorsData: Omit<Investor, 'defaultedFunds'>[] = [
     date: '٢٠٢٣-٠٢-٢٠',
     status: 'نشط',
     withdrawalHistory: [],
+    fundedLoanIds: ['bor_002', 'bor_004'],
+    defaultedFunds: 0,
   },
   {
     id: 'inv_003',
@@ -84,6 +97,8 @@ export const investorsData: Omit<Investor, 'defaultedFunds'>[] = [
       { id: 'wd_002', amount: 5000, reason: 'أرباح', date: '٢٠٢٤-٠٦-٠١' },
       { id: 'wd_003', amount: 2000, reason: 'شخصي', date: '٢٠٢٤-٠٤-١٥' },
     ],
+    fundedLoanIds: ['bor_005'],
+    defaultedFunds: 0,
   },
   {
     id: 'inv_004',
@@ -92,6 +107,8 @@ export const investorsData: Omit<Investor, 'defaultedFunds'>[] = [
     date: '٢٠٢٣-٠٤-٠٥',
     status: 'غير نشط',
     withdrawalHistory: [],
+    fundedLoanIds: [],
+    defaultedFunds: 0,
   },
   {
     id: 'inv_005',
@@ -100,18 +117,7 @@ export const investorsData: Omit<Investor, 'defaultedFunds'>[] = [
     date: '٢٠٢٣-٠٥-٠١',
     status: 'نشط',
     withdrawalHistory: [],
+    fundedLoanIds: ['bor_003'],
+    defaultedFunds: 0,
   },
 ];
-
-// Simulate mapping of defaulted loans to investors
-export const defaultedLoanInvestorMap: { [loanId: string]: string } = {
-  'bor_003': 'inv_005', // 'مؤسسة البناء الحديث' -> 'مجموعة الأفق القابضة'
-  'bor_006': 'inv_001', // 'شركة النقل السريع' -> 'شركة الاستثمار الرائدة'
-};
-
-// Simulate mapping of loans to investors
-export const investorLoanMap: { [investorId: string]: string[] } = {
-  'inv_001': ['bor_006'],
-  'inv_003': [], // This investor has defaulted loans in the main data, let's connect one
-  'inv_005': ['bor_003'],
-};
