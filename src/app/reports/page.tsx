@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { borrowersData, investorsData, defaultedLoanInvestorMap } from '@/lib/data';
+import { defaultedLoanInvestorMap } from '@/lib/data';
 import type { Borrower } from '@/lib/types';
+import { useData } from '@/contexts/data-context';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('ar-SA', {
@@ -13,15 +14,16 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const getInvestorNameById = (investorId: string) => {
-  const investor = investorsData.find(inv => inv.id === investorId);
-  return investor ? investor.name : 'غير محدد';
-};
 
 export default function ReportsPage() {
-  const [defaultedLoans] = useState<Borrower[]>(
-    borrowersData.filter(b => b.status === 'متعثر' || b.status === 'معلق')
-  );
+  const { borrowers, investors } = useData();
+
+  const getInvestorNameById = (investorId: string) => {
+    const investor = investors.find(inv => inv.id === investorId);
+    return investor ? investor.name : 'غير محدد';
+  };
+
+  const defaultedLoans = borrowers.filter(b => b.status === 'متعثر' || b.status === 'معلق');
 
   return (
     <div className="flex flex-col flex-1">

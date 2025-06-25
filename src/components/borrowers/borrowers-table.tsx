@@ -38,11 +38,11 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useAuth } from '@/contexts/auth-context';
+import { useData } from '@/contexts/data-context';
 import type { Borrower, Payment } from '@/lib/types';
 
 type BorrowersTableProps = {
   borrowers: Borrower[];
-  onUpdateBorrower: (borrower: Borrower) => void;
 };
 
 const statusVariant: {
@@ -63,9 +63,9 @@ const formatCurrency = (value: number) =>
 
 export function BorrowersTable({
   borrowers,
-  onUpdateBorrower,
 }: BorrowersTableProps) {
   const { role } = useAuth();
+  const { updateBorrower } = useData();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
@@ -80,7 +80,7 @@ export function BorrowersTable({
 
   const handleSaveChanges = () => {
     if (!selectedBorrower) return;
-    onUpdateBorrower(selectedBorrower);
+    updateBorrower(selectedBorrower);
     setIsEditDialogOpen(false);
     setSelectedBorrower(null);
   };

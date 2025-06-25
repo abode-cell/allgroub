@@ -7,21 +7,20 @@ import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { useAuth } from '@/contexts/auth-context';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
-import { borrowersData } from '@/lib/data';
+import { useData } from '@/contexts/data-context';
 
 export default function DashboardPage() {
   const { role } = useAuth();
+  const { borrowers, investors } = useData();
 
   const totalCapital = 1250000;
   const loansGranted = 850000;
   const netProfit = 125000;
   const dueDebts = 75000;
   
-  const defaultedFunds = borrowersData
-    .filter((b) => b.status === 'متعثر' || b.status === 'معلق')
-    .reduce((acc, b) => acc + b.amount, 0);
+  const defaultedFunds = investors.reduce((acc, inv) => acc + (inv.defaultedFunds || 0), 0);
   
-  const totalLoanAmount = borrowersData.reduce((acc, b) => acc + b.amount, 0);
+  const totalLoanAmount = borrowers.reduce((acc, b) => acc + b.amount, 0);
   const defaultRate = totalLoanAmount > 0 ? (defaultedFunds / totalLoanAmount) * 100 : 0;
 
 
@@ -93,7 +92,7 @@ export default function DashboardPage() {
             <ProfitChart />
           </div>
           <div className="col-span-12 lg:col-span-3">
-            <LoansStatusChart data={borrowersData} />
+            <LoansStatusChart />
           </div>
         </div>
 

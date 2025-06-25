@@ -3,7 +3,7 @@
 import { CircleDollarSign, TrendingUp, ShieldX, Wallet, Briefcase } from 'lucide-react';
 import { KpiCard } from './kpi-card';
 import { ProfitChart } from './profit-chart';
-import { investorsData, borrowersData, investorLoanMap } from '@/lib/data';
+import { useData } from '@/contexts/data-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { useAuth } from '@/contexts/auth-context';
@@ -17,8 +17,10 @@ const formatCurrency = (value: number) =>
 
 export function InvestorDashboard() {
   const { user } = useAuth();
+  const { investors } = useData();
+
   // Simulate fetching data for the logged-in investor
-  const investor = investorsData.find(i => i.id === 'inv_003');
+  const investor = investors.find(i => i.id === 'inv_003');
 
   if (!investor) {
     return (
@@ -28,15 +30,8 @@ export function InvestorDashboard() {
     );
   }
 
-  const calculateDefaultedFunds = (investorId: string) => {
-    const loanIds = investorLoanMap[investorId] || [];
-    return borrowersData
-        .filter(loan => loanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'))
-        .reduce((acc, loan) => acc + loan.amount, 0);
-  };
-
   const totalInvestment = investor.amount;
-  const defaultedFunds = calculateDefaultedFunds(investor.id);
+  const defaultedFunds = investor.defaultedFunds || 0;
   const dueProfits = totalInvestment * 0.12; // Simulated
   const idleFunds = totalInvestment * 0.15; // Simulated
   const activeInvestment = totalInvestment - defaultedFunds - idleFunds;

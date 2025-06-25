@@ -16,6 +16,7 @@ import {
   ChartLegendContent,
 } from '@/components/ui/chart';
 import type { Borrower } from '@/lib/types';
+import { useData } from '@/contexts/data-context';
 
 const statusColors: { [key: string]: string } = {
   منتظم: 'hsl(var(--chart-1))',
@@ -34,9 +35,11 @@ const statusTranslations: { [key: string]: string } = {
 }
 
 
-export function LoansStatusChart({ data }: { data: Borrower[] }) {
+export function LoansStatusChart() {
+  const { borrowers } = useData();
+
   const chartData = Object.entries(
-    data.reduce((acc, borrower) => {
+    borrowers.reduce((acc, borrower) => {
       acc[borrower.status] = (acc[borrower.status] || 0) + 1;
       return acc;
     }, {} as { [key: string]: number })

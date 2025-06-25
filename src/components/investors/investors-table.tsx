@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -31,14 +31,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
+import { useData } from '@/contexts/data-context';
 import { Textarea } from '../ui/textarea';
-import { investorLoanMap, borrowersData } from '@/lib/data';
-import type { Withdrawal, Investor } from '@/lib/types';
+import { investorLoanMap } from '@/lib/data';
+import type { Investor } from '@/lib/types';
 
 
 type InvestorsTableProps = {
-  investors: Omit<Investor, 'defaultedFunds'>[];
-  onUpdateInvestor: (investor: Omit<Investor, 'defaultedFunds'>) => void;
+  investors: Investor[];
 };
 
 const statusVariant: { [key: string]: 'default' | 'secondary' } = {
@@ -54,35 +54,16 @@ const formatCurrency = (value: number) =>
 
 export function InvestorsTable({
   investors,
-  onUpdateInvestor,
 }: InvestorsTableProps) {
   const { role } = useAuth();
+  const { borrowers, updateInvestor, withdrawFromInvestor } = useData();
+
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
 
-  const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(
-    null
-  );
-  const [enrichedInvestors, setEnrichedInvestors] = useState<Investor[]>([]);
+  const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(null);
   const [withdrawal, setWithdrawal] = useState({ amount: '', reason: '' });
-
-
-  useEffect(() => {
-    const calculateDefaultedFunds = (investorId: string) => {
-        const loanIds = investorLoanMap[investorId] || [];
-        return borrowersData
-            .filter(loan => loanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'))
-            .reduce((acc, loan) => acc + loan.amount, 0);
-    };
-
-    const newEnrichedInvestors = investors.map(inv => ({
-        ...inv,
-        defaultedFunds: calculateDefaultedFunds(inv.id)
-    }));
-    setEnrichedInvestors(newEnrichedInvestors);
-  }, [investors]);
-
 
   const handleEditClick = (investor: Investor) => {
     setSelectedInvestor({ ...investor });
@@ -91,8 +72,9 @@ export function InvestorsTable({
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    const { defaultedFunds, ...originalInvestor } = selectedInvestor;
-    onUpdateInvestor(originalInvestor);
+    // We only pass the updatable part, defaultedFunds is managed by the context
+    const { defaultedFunds, ...updatableInvestor } = selectedInvestor;
+    updateInvestor(updatableInvestor);
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);
   };
@@ -116,22 +98,11 @@ export function InvestorsTable({
     e.preventDefault();
     if (!selectedInvestor || !withdrawal.amount || !withdrawal.reason) return;
     
-    const newWithdrawal: Withdrawal = {
-        id: `wd_${Date.now()}`,
-        amount: Number(withdrawal.amount),
-        reason: withdrawal.reason,
-        date: new Date().toISOString().split('T')[0]
-    };
+    withdrawFromInvestor(selectedInvestor.id, {
+      amount: Number(withdrawal.amount),
+      reason: withdrawal.reason
+    });
 
-    const updatedInvestor: Omit<Investor, 'defaultedFunds'> = {
-        ...selectedInvestor,
-        amount: selectedInvestor.amount - newWithdrawal.amount,
-        withdrawalHistory: [...selectedInvestor.withdrawalHistory, newWithdrawal]
-    };
-    delete (updatedInvestor as Partial<Investor>).defaultedFunds;
-
-
-    onUpdateInvestor(updatedInvestor);
     setIsWithdrawDialogOpen(false);
     setWithdrawal({ amount: '', reason: '' });
     setSelectedInvestor(null);
@@ -143,7 +114,7 @@ export function InvestorsTable({
       
   const getAssociatedDefaultedLoans = (investorId: string) => {
     const loanIds = investorLoanMap[investorId] || [];
-    return borrowersData.filter(loan => loanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'));
+    return borrowers.filter(loan => loanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'));
   }
 
   return (
@@ -164,7 +135,7 @@ export function InvestorsTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {enrichedInvestors.map((investor) => (
+              {investors.map((investor) => (
                 <TableRow key={investor.id}>
                   <TableCell className="font-medium">{investor.name}</TableCell>
                   <TableCell>{formatCurrency(investor.amount)}</TableCell>

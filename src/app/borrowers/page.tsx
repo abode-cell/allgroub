@@ -24,13 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { borrowersData } from '@/lib/data';
+import { useData } from '@/contexts/data-context';
 import type { Borrower } from '@/lib/types';
 
 
 export default function BorrowersPage() {
   const { role } = useAuth();
-  const [borrowers, setBorrowers] = useState<Borrower[]>(borrowersData);
+  const { borrowers, addBorrower } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newBorrower, setNewBorrower] = useState({
     name: '',
@@ -54,28 +54,23 @@ export default function BorrowersPage() {
     if (!newBorrower.name || !newBorrower.amount || !newBorrower.rate || !newBorrower.term) {
       return;
     }
-    const newEntry: Borrower = {
-      id: `bor_${Date.now()}`,
+    addBorrower({
       name: newBorrower.name,
       amount: Number(newBorrower.amount),
       rate: Number(newBorrower.rate),
       term: Number(newBorrower.term),
       status: newBorrower.status,
-      next_due: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
-    };
-    setBorrowers((prev) => [...prev, newEntry]);
+    });
     setIsAddDialogOpen(false);
     setNewBorrower({ name: '', amount: '', rate: '', term: '', status: 'منتظم' });
-  };
-
-  const handleUpdateBorrower = (updatedBorrower: Borrower) => {
-    setBorrowers(borrowers.map((b) => (b.id === updatedBorrower.id ? updatedBorrower : b)));
   };
 
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
   const isEmployee = role === 'موظف';
 
-  const displayedBorrowers = isEmployee ? borrowers.slice(0, 3) : borrowers;
+  const displayedBorrowers = isEmployee 
+    ? borrowers.filter(b => ['bor_001', 'bor_002', 'bor_005'].includes(b.id)) 
+    : borrowers;
 
   return (
     <div className="flex flex-col flex-1">
@@ -196,7 +191,7 @@ export default function BorrowersPage() {
           </Dialog>
           )}
         </div>
-        <BorrowersTable borrowers={displayedBorrowers} onUpdateBorrower={handleUpdateBorrower} />
+        <BorrowersTable borrowers={displayedBorrowers} />
       </main>
     </div>
   );

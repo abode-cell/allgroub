@@ -17,13 +17,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import { investorsData } from '@/lib/data';
+import { useData } from '@/contexts/data-context';
 import type { Investor } from '@/lib/types';
 
 
 export default function InvestorsPage() {
   const { role } = useAuth();
-  const [investors, setInvestors] = useState<Omit<Investor, 'defaultedFunds'>[]>(investorsData);
+  const { investors, addInvestor } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newInvestor, setNewInvestor] = useState({ name: '', amount: '' });
 
@@ -37,21 +37,12 @@ export default function InvestorsPage() {
     if (!newInvestor.name || !newInvestor.amount) {
       return;
     }
-    const newEntry: Omit<Investor, 'defaultedFunds'> = {
-      id: `inv_${Date.now()}`,
+    addInvestor({
       name: newInvestor.name,
       amount: Number(newInvestor.amount),
-      status: 'نشط',
-      date: new Date().toISOString().split('T')[0],
-      withdrawalHistory: []
-    };
-    setInvestors((prev) => [...prev, newEntry]);
+    });
     setIsAddDialogOpen(false);
     setNewInvestor({ name: '', amount: '' });
-  };
-
-  const handleUpdateInvestor = (updatedInvestor: Omit<Investor, 'defaultedFunds'>) => {
-    setInvestors(investors.map((i) => (i.id === updatedInvestor.id ? updatedInvestor : i)));
   };
   
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب';
@@ -61,7 +52,7 @@ export default function InvestorsPage() {
     role === 'مستثمر'
       ? investors.filter((i) => i.id === 'inv_003') // Simulate showing only the logged-in investor
       : isEmployee
-      ? investors.slice(0, 2) // Simulate limited view for employees
+      ? investors.filter(i => ['inv_002', 'inv_004'].includes(i.id)) // Simulate limited view for employees
       : investors;
 
   return (
@@ -134,7 +125,7 @@ export default function InvestorsPage() {
           </Dialog>
           )}
         </div>
-        <InvestorsTable investors={displayedInvestors} onUpdateInvestor={handleUpdateInvestor}/>
+        <InvestorsTable investors={displayedInvestors} />
       </main>
     </div>
   );
