@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { InvestorsTable, type Investor } from '@/components/investors/investors-table';
+import { InvestorsTable } from '@/components/investors/investors-table';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,54 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-
-export const investorsData: Omit<Investor, 'defaultedFunds'>[] = [
-  {
-    id: 'inv_001',
-    name: 'شركة الاستثمار الرائدة',
-    amount: 500000,
-    date: '٢٠٢٣-٠١-١٥',
-    status: 'نشط',
-    withdrawalHistory: [
-        { id: 'wd_001', amount: 10000, reason: 'سحب دوري', date: '٢٠٢٤-٠٥-١٠' }
-    ]
-  },
-  {
-    id: 'inv_002',
-    name: 'صندوق النمو المستدام',
-    amount: 250000,
-    date: '٢٠٢٣-٠٢-٢٠',
-    status: 'نشط',
-    withdrawalHistory: []
-  },
-  {
-    id: 'inv_003',
-    name: 'أحمد عبدالله (المستثمر)',
-    amount: 100000,
-    date: '٢٠٢٣-٠٣-١٠',
-    status: 'نشط',
-    withdrawalHistory: [
-        { id: 'wd_002', amount: 5000, reason: 'أرباح', date: '٢٠٢٤-٠٦-٠١' },
-        { id: 'wd_003', amount: 2000, reason: 'شخصي', date: '٢٠٢٤-٠٤-١٥' }
-    ]
-  },
-  {
-    id: 'inv_004',
-    name: 'نورة السعد',
-    amount: 300000,
-    date: '٢٠٢٣-٠٤-٠٥',
-    status: 'غير نشط',
-    withdrawalHistory: []
-  },
-  {
-    id: 'inv_005',
-    name: 'مجموعة الأفق القابضة',
-    amount: 1000000,
-    date: '٢٠٢٣-٠٥-٠١',
-    status: 'نشط',
-    withdrawalHistory: []
-  },
-];
+import { investorsData } from '@/lib/data';
+import type { Investor } from '@/lib/types';
 
 
 export default function InvestorsPage() {

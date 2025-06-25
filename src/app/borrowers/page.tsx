@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BorrowersTable, type Borrower } from '@/components/borrowers/borrowers-table';
+import { BorrowersTable } from '@/components/borrowers/borrowers-table';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,64 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { borrowersData } from '@/lib/data';
+import type { Borrower } from '@/lib/types';
 
-
-export const borrowersData: Borrower[] = [
-  {
-    id: 'bor_001',
-    name: 'خالد الغامدي',
-    amount: 75000,
-    rate: 5.5,
-    term: 5,
-    status: 'منتظم',
-    next_due: '٢٠٢٤-٠٧-١٥',
-  },
-  {
-    id: 'bor_002',
-    name: 'فاطمة الزهراء',
-    amount: 30000,
-    rate: 6,
-    term: 3,
-    status: 'متأخر',
-    next_due: '٢٠٢٤-٠٦-٢٥',
-  },
-  {
-    id: 'bor_003',
-    name: 'مؤسسة البناء الحديث',
-    amount: 250000,
-    rate: 4.8,
-    term: 10,
-    status: 'متعثر',
-    next_due: '٢٠٢٤-٠٧-٠١',
-  },
-  {
-    id: 'bor_004',
-    name: 'سارة إبراهيم',
-    amount: 15000,
-    rate: 7.2,
-    term: 2,
-    status: 'مسدد بالكامل',
-    next_due: '-',
-  },
-  {
-    id: 'bor_005',
-    name: 'عبدالرحمن الشهري',
-    amount: 120000,
-    rate: 5,
-    term: 7,
-    status: 'منتظم',
-    next_due: '٢٠٢٤-٠٧-١٠',
-  },
-   {
-    id: 'bor_006',
-    name: 'شركة النقل السريع',
-    amount: 95000,
-    rate: 5.2,
-    term: 4,
-    status: 'معلق',
-    next_due: '٢٠٢٤-٠٧-٢٠',
-  },
-];
 
 export default function BorrowersPage() {
   const { role } = useAuth();

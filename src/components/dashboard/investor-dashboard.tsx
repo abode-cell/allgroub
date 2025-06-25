@@ -3,11 +3,9 @@
 import { CircleDollarSign, TrendingUp, ShieldX, Wallet, Briefcase } from 'lucide-react';
 import { KpiCard } from './kpi-card';
 import { ProfitChart } from './profit-chart';
-import { investorsData } from '@/app/investors/page';
+import { investorsData, borrowersData, investorLoanMap } from '@/lib/data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { borrowersData } from '@/app/borrowers/page';
-import { investorLoanMap } from '../investors/investors-table';
 import { useAuth } from '@/contexts/auth-context';
 
 const formatCurrency = (value: number) =>

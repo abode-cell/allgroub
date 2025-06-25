@@ -15,7 +15,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart';
-import type { Borrower } from '../borrowers/borrowers-table';
+import type { Borrower } from '@/lib/types';
 
 const statusColors: { [key: string]: string } = {
   منتظم: 'hsl(var(--chart-1))',

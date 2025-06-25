@@ -38,24 +38,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useAuth } from '@/contexts/auth-context';
-
-export type Borrower = {
-  id: string;
-  name: string;
-  amount: number;
-  rate: number;
-  term: number; // in years
-  status: 'منتظم' | 'متأخر' | 'مسدد بالكامل' | 'متعثر' | 'معلق';
-  next_due: string;
-};
-
-export type Payment = {
-  month: number;
-  payment: number;
-  principal: number;
-  interest: number;
-  balance: number;
-};
+import type { Borrower, Payment } from '@/lib/types';
 
 type BorrowersTableProps = {
   borrowers: Borrower[];

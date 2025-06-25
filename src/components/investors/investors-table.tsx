@@ -32,24 +32,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import { Textarea } from '../ui/textarea';
-import { borrowersData } from '@/app/borrowers/page';
+import { investorLoanMap, borrowersData } from '@/lib/data';
+import type { Withdrawal, Investor } from '@/lib/types';
 
-export type Withdrawal = {
-  id: string;
-  amount: number;
-  reason: string;
-  date: string;
-};
-
-export type Investor = {
-  id:string;
-  name: string;
-  amount: number;
-  date: string;
-  status: 'نشط' | 'غير نشط';
-  withdrawalHistory: Withdrawal[];
-  defaultedFunds?: number;
-};
 
 type InvestorsTableProps = {
   investors: Omit<Investor, 'defaultedFunds'>[];
@@ -66,13 +51,6 @@ const formatCurrency = (value: number) =>
     style: 'currency',
     currency: 'SAR',
   }).format(value);
-
-// Simulate mapping of defaulted loans to investors
-export const investorLoanMap: { [investorId: string]: string[] } = {
-    'inv_001': ['bor_006'],
-    'inv_003': [], // This investor has defaulted loans in the main data, let's connect one
-    'inv_005': ['bor_003'],
-};
 
 export function InvestorsTable({
   investors,

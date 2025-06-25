@@ -7,7 +7,7 @@ import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { useAuth } from '@/contexts/auth-context';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
-import { borrowersData } from './borrowers/page';
+import { borrowersData } from '@/lib/data';
 
 export default function DashboardPage() {
   const { role } = useAuth();

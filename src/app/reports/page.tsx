@@ -4,20 +4,14 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { borrowersData, type Borrower } from '../borrowers/page';
-import { investorsData } from '../investors/page';
+import { borrowersData, investorsData, defaultedLoanInvestorMap } from '@/lib/data';
+import type { Borrower } from '@/lib/types';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('ar-SA', {
     style: 'currency',
     currency: 'SAR',
   }).format(value);
-
-// Simulate mapping of defaulted loans to investors
-const defaultedLoanInvestorMap: { [loanId: string]: string } = {
-  'bor_003': 'inv_005', // 'مؤسسة البناء الحديث' -> 'مجموعة الأفق القابضة'
-  'bor_006': 'inv_001', // 'شركة النقل السريع' -> 'شركة الاستثمار الرائدة'
-};
 
 const getInvestorNameById = (investorId: string) => {
   const investor = investorsData.find(inv => inv.id === investorId);
