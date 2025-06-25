@@ -5,6 +5,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import type { Borrower } from '@/lib/types';
 import { useData } from '@/contexts/data-context';
+import { Button } from '@/components/ui/button';
+import { FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+// Extend the jsPDF interface for the autoTable plugin
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('ar-SA', {
@@ -38,15 +49,36 @@ export default function ReportsPage() {
     b.status === 'متأخر'
   );
 
+  const handleExportPdf = () => {
+    const doc = new jsPDF();
+    doc.text("تقرير حالة القروض", 14, 16);
+    doc.autoTable({
+        html: '#loansTable',
+        startY: 20,
+        // Note: jsPDF has limited Arabic support without custom fonts.
+        // This might have rendering issues, but it's the best approach
+        // without embedding font files.
+        styles: { font: 'serif' }, // Use a generic font
+        theme: 'grid'
+    });
+    doc.save('loans-report.pdf');
+  }
+
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
-        <header>
-          <h1 className="text-3xl font-bold tracking-tight">تقرير حالة القروض</h1>
-          <p className="text-muted-foreground mt-1">
-            نظرة شاملة على جميع القروض النشطة، المعلقة، والمتعثرة.
-          </p>
-        </header>
+        <div className="flex items-center justify-between">
+            <header>
+            <h1 className="text-3xl font-bold tracking-tight">تقرير حالة القروض</h1>
+            <p className="text-muted-foreground mt-1">
+                نظرة شاملة على جميع القروض النشطة، المعلقة، والمتعثرة.
+            </p>
+            </header>
+            <Button onClick={handleExportPdf}>
+                <FileDown className="ml-2 h-4 w-4" />
+                تصدير PDF
+            </Button>
+        </div>
 
         <Card>
           <CardHeader>
@@ -56,7 +88,7 @@ export default function ReportsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
+            <Table id="loansTable">
               <TableHeader>
                 <TableRow>
                   <TableHead>اسم المقترض</TableHead>

@@ -9,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { MoreHorizontal, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -113,14 +113,7 @@ export function InvestorsTable({
 
   const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب';
   const canEdit = role === 'مدير النظام' || role === 'مدير المكتب';
-  const isEmployee = role === 'موظف';
       
-  const getAssociatedDefaultedLoans = (investorId: string) => {
-    const investor = investors.find(inv => inv.id === investorId);
-    if (!investor) return [];
-    return borrowers.filter(loan => investor.fundedLoanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'));
-  }
-
   return (
     <>
       <Card>
@@ -262,9 +255,12 @@ export function InvestorsTable({
         </DialogContent>
       </Dialog>
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>تفاصيل المستثمر: {selectedInvestor?.name}</DialogTitle>
+            <DialogDescription>
+              نظرة سريعة على الأداء المالي للمستثمر.
+            </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (() => {
              const defaultedFunds = selectedInvestor.defaultedFunds || 0;
@@ -273,112 +269,61 @@ export function InvestorsTable({
               .reduce((acc, b) => acc + b.amount, 0);
 
             const idleFunds = selectedInvestor.amount - activeInvestment;
-            const dueProfits = (selectedInvestor.amount + defaultedFunds) * 0.12; // Simulation
 
             return (
-              <div className="grid gap-6 py-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>الملخص المالي</CardTitle>
-                  </CardHeader>
-                  <CardContent className='grid grid-cols-2 gap-4 text-sm'>
-                      <div className="flex flex-col space-y-1 p-2 bg-muted/50 rounded-md">
-                        <span className='text-muted-foreground'>إجمالي الاستثمار</span>
-                        <span className='font-bold text-lg'>{formatCurrency(selectedInvestor.amount + defaultedFunds)}</span>
-                      </div>
-                      <div className="flex flex-col space-y-1 p-2 bg-muted/50 rounded-md">
-                        <span className='text-muted-foreground'>الأموال المستثمرة (النشطة)</span>
-                        <span className='font-bold text-lg text-green-600'>{formatCurrency(activeInvestment)}</span>
-                      </div>
-                      <div className="flex flex-col space-y-1 p-2 bg-muted/50 rounded-md">
-                        <span className='text-muted-foreground'>الأموال الخاملة</span>
-                        <span className='font-bold text-lg'>{formatCurrency(idleFunds)}</span>
-                      </div>
-                      <div className="flex flex-col space-y-1 p-2 bg-muted/50 rounded-md">
-                        <span className='text-muted-foreground'>الأموال المتعثرة</span>
-                        <span className='font-bold text-lg text-destructive'>{formatCurrency(defaultedFunds)}</span>
-                      </div>
-                       <div className="flex flex-col space-y-1 p-2 bg-muted/50 rounded-md col-span-2">
-                        <span className='text-muted-foreground'>الأرباح المستحقة (تقديري)</span>
-                        <span className='font-bold text-lg text-primary'>{formatCurrency(dueProfits)}</span>
-                      </div>
-                  </CardContent>
-                </Card>
+              <div className="grid gap-4 pt-4 text-sm">
+                <h4 className="font-semibold">الملخص المالي</h4>
+                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                    <div>
+                        <span className='text-muted-foreground'>إجمالي الاستثمار:</span>
+                        <span className='font-bold text-base float-left'>{formatCurrency(selectedInvestor.amount + defaultedFunds)}</span>
+                    </div>
+                    <div>
+                        <span className='text-muted-foreground'>الأموال النشطة:</span>
+                        <span className='font-bold text-base float-left text-green-600'>{formatCurrency(activeInvestment)}</span>
+                    </div>
+                    <div>
+                        <span className='text-muted-foreground'>الأموال الخاملة:</span>
+                        <span className='font-bold text-base float-left'>{formatCurrency(idleFunds)}</span>
+                    </div>
+                     <div>
+                        <span className='text-muted-foreground'>الأموال المتعثرة:</span>
+                        <span className='font-bold text-base float-left text-destructive'>{formatCurrency(defaultedFunds)}</span>
+                    </div>
+                </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>سجل عمليات السحب</CardTitle>
-                    <CardDescription>قائمة بجميع المبالغ المسحوبة من الحساب.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      {selectedInvestor.withdrawalHistory.length > 0 ? (
-                          <Table>
-                              <TableHeader>
-                                  <TableRow>
-                                      <TableHead>التاريخ</TableHead>
-                                      <TableHead>المبلغ</TableHead>
-                                      <TableHead>السبب</TableHead>
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {selectedInvestor.withdrawalHistory.map(w => (
-                                      <TableRow key={w.id}>
-                                          <TableCell>{w.date}</TableCell>
-                                          <TableCell>{formatCurrency(w.amount)}</TableCell>
-                                          <TableCell>{w.reason}</TableCell>
-                                      </TableRow>
-                                  ))}
-                              </TableBody>
-                          </Table>
-                      ) : (
-                          <p className='text-sm text-muted-foreground text-center py-4'>لا توجد عمليات سحب.</p>
-                      )}
-                  </CardContent>
-                </Card>
-
-                {getAssociatedDefaultedLoans(selectedInvestor.id).length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>القروض المتعثرة المرتبطة</CardTitle>
-                      <CardDescription>
-                        قائمة بالقروض المتعثرة التي تؤثر على هذا الاستثمار.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>اسم المقترض</TableHead>
-                            <TableHead>مبلغ القرض</TableHead>
-                            <TableHead>الحالة</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {getAssociatedDefaultedLoans(selectedInvestor.id).map(loan => (
-                            <TableRow key={loan.id}>
-                              <TableCell>{loan.name}</TableCell>
-                              <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                              <TableCell>
-                                <Badge variant="destructive">{loan.status}</Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
+                {selectedInvestor.withdrawalHistory.length > 0 && (
+                    <div>
+                        <h4 className="font-semibold mb-2 mt-2">آخر 3 عمليات سحب</h4>
+                        <div className="border rounded-md">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>التاريخ</TableHead>
+                                    <TableHead className="text-left">المبلغ</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedInvestor.withdrawalHistory.slice(0, 3).map(w => (
+                                    <TableRow key={w.id}>
+                                        <TableCell>{w.date}</TableCell>
+                                        <TableCell className="text-left">{formatCurrency(w.amount)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                        </div>
+                    </div>
                 )}
-
               </div>
             )
           })()}
-          <DialogFooter>
-            <Button
-              type="button"
-              onClick={() => setIsDetailsDialogOpen(false)}
-            >
-              إغلاق
-            </Button>
+          <DialogFooter className="mt-4">
+             <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                إغلاق
+                </Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
