@@ -1,0 +1,146 @@
+'use client';
+
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
+
+export default function CalculatorPage() {
+  const [loanAmount, setLoanAmount] = useState(100000);
+  const [interestRate, setInterestRate] = useState(5.5);
+  const [loanTerm, setLoanTerm] = useState(5);
+  const [investorShare, setInvestorShare] = useState(70);
+
+  const calculateLoan = () => {
+    if (!loanAmount || !interestRate || !loanTerm) {
+      return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0 };
+    }
+
+    const principal = parseFloat(loanAmount.toString());
+    const rate = parseFloat(interestRate.toString()) / 100 / 12;
+    const term = parseFloat(loanTerm.toString()) * 12;
+
+    if (principal <= 0 || rate < 0 || term <= 0) {
+      return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0, institutionProfit: 0, investorProfit: 0 };
+    }
+
+    const monthlyPayment = (principal * rate * Math.pow(1 + rate, term)) / (Math.pow(1 + rate, term) - 1);
+    const totalPayment = monthlyPayment * term;
+    const totalInterest = totalPayment - principal;
+    const institutionProfit = totalInterest * ((100 - investorShare) / 100);
+    const investorProfit = totalInterest * (investorShare / 100);
+
+    return {
+      monthlyPayment: isNaN(monthlyPayment) ? 0 : monthlyPayment,
+      totalInterest: isNaN(totalInterest) ? 0 : totalInterest,
+      totalPayment: isNaN(totalPayment) ? 0 : totalPayment,
+      institutionProfit: isNaN(institutionProfit) ? 0 : institutionProfit,
+      investorProfit: isNaN(investorProfit) ? 0 : investorProfit,
+    };
+  };
+
+  const results = calculateLoan();
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('ar-SA', {
+      style: 'currency',
+      currency: 'SAR',
+    }).format(value);
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      <main className="flex-1 space-y-8 p-4 md:p-8">
+        <header>
+          <h1 className="text-3xl font-bold tracking-tight">حاسبة القروض</h1>
+          <p className="text-muted-foreground mt-1">
+            تقدير العائد على الاستثمار لأقساط القروض.
+          </p>
+        </header>
+
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle>إدخال البيانات</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="loanAmount">مبلغ القرض (ر.س)</Label>
+                <Input
+                  id="loanAmount"
+                  type="number"
+                  value={loanAmount}
+                  onChange={(e) => setLoanAmount(Number(e.target.value))}
+                  placeholder="أدخل مبلغ القرض"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="interestRate">نسبة الفائدة السنوية (%)</Label>
+                <Input
+                  id="interestRate"
+                  type="number"
+                  step="0.1"
+                  value={interestRate}
+                  onChange={(e) => setInterestRate(Number(e.target.value))}
+                  placeholder="أدخل نسبة الفائدة"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="loanTerm">مدة القرض (سنوات)</Label>
+                <Input
+                  id="loanTerm"
+                  type="number"
+                  value={loanTerm}
+                  onChange={(e) => setLoanTerm(Number(e.target.value))}
+                  placeholder="أدخل مدة القرض"
+                />
+              </div>
+              <div className="space-y-4">
+                <Label htmlFor="investorShare">
+                  حصة المستثمر من الأرباح: {investorShare}%
+                </Label>
+                <Slider
+                  id="investorShare"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={[investorShare]}
+                  onValueChange={(value) => setInvestorShare(value[0])}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>النتائج التقديرية</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
+                <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">القسط الشهري</p>
+                    <p className="text-2xl font-bold">{formatCurrency(results.monthlyPayment)}</p>
+                </div>
+                 <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">إجمالي المبلغ المسدد</p>
+                    <p className="text-2xl font-bold">{formatCurrency(results.totalPayment)}</p>
+                </div>
+                 <div className="p-4 bg-muted rounded-lg col-span-1 md:col-span-2">
+                    <p className="text-sm text-muted-foreground">إجمالي الفوائد (الأرباح)</p>
+                    <p className="text-2xl font-bold">{formatCurrency(results.totalInterest)}</p>
+                </div>
+                <div className="p-4 bg-accent/10 rounded-lg">
+                    <p className="text-sm text-accent-foreground/80">ربح المؤسسة</p>
+                    <p className="text-2xl font-bold text-accent-foreground">{formatCurrency(results.institutionProfit)}</p>
+                </div>
+                 <div className="p-4 bg-primary/10 rounded-lg">
+                    <p className="text-sm text-primary/80">ربح المستثمرين</p>
+                    <p className="text-2xl font-bold text-primary">{formatCurrency(results.investorProfit)}</p>
+                </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+}
