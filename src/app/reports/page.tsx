@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { FileDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { amiriFont } from '@/lib/fonts';
 
 // Extend the jsPDF interface for the autoTable plugin
 declare module 'jspdf' {
@@ -51,15 +52,31 @@ export default function ReportsPage() {
 
   const handleExportPdf = () => {
     const doc = new jsPDF();
-    doc.text("تقرير حالة القروض", 14, 16);
+    
+    // Add the Amiri font to jsPDF. The font is base64 encoded.
+    doc.addFileToVFS("Amiri-Regular.ttf", amiriFont);
+    doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+    doc.setFont("Amiri");
+
+    // Set the title, aligned to the right for RTL
+    doc.text("تقرير حالة القروض", 195, 16, { align: 'right' });
+    
     doc.autoTable({
         html: '#loansTable',
         startY: 20,
-        // Note: jsPDF has limited Arabic support without custom fonts.
-        // This might have rendering issues, but it's the best approach
-        // without embedding font files.
-        styles: { font: 'serif' }, // Use a generic font
-        theme: 'grid'
+        theme: 'grid',
+        headStyles: {
+            font: "Amiri",
+            halign: 'center', // Center headers for a clean look
+        },
+        styles: {
+            font: "Amiri",
+            halign: 'right', // Right-align body content for Arabic
+        },
+        didDrawPage: (data) => {
+            // This hook ensures the font is correctly set for each page.
+            doc.setFont("Amiri");
+        }
     });
     doc.save('loans-report.pdf');
   }
