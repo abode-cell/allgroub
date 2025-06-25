@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { useRole } from '@/contexts/role-context';
+import { useAuth } from '@/contexts/auth-context';
 
 export type Borrower = {
   id: string;
@@ -82,7 +82,7 @@ export function BorrowersTable({
   borrowers,
   onUpdateBorrower,
 }: BorrowersTableProps) {
-  const { role } = useRole();
+  const { role } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(

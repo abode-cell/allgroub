@@ -18,16 +18,10 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
-  SidebarContent,
-  SidebarFooter,
-  SidebarSeparator,
+  SidebarContent
 } from '@/components/ui/sidebar';
 import { Button } from './ui/button';
-import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { useRole, UserRole } from '@/contexts/role-context';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useAuth } from '@/contexts/auth-context';
 
 const allMenuItems = [
   {
@@ -70,7 +64,7 @@ const allMenuItems = [
 
 export function MainNav() {
   const pathname = usePathname();
-  const { role, setRole } = useRole();
+  const { role } = useAuth();
 
   const menuItems = allMenuItems.filter(item => item.roles.includes(role));
 
@@ -124,7 +118,7 @@ export function MainNav() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === item.href}
+                isActive={item.href === '/' ? pathname === item.href : pathname.startsWith(item.href)}
                 tooltip={item.label}
               >
                 <Link href={item.href}>
@@ -136,39 +130,6 @@ export function MainNav() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-       <SidebarSeparator />
-      <SidebarFooter>
-        <div className="flex flex-col gap-3 p-2">
-            <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">محاكاة الدور</Label>
-                 <Select value={role} onValueChange={(value: UserRole) => setRole(value)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="اختر دورًا" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="مدير النظام">مدير النظام</SelectItem>
-                        <SelectItem value="مدير المكتب">مدير المكتب</SelectItem>
-                        <SelectItem value="موظف">موظف</SelectItem>
-                        <SelectItem value="مستثمر">مستثمر</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="flex items-center gap-3 p-2 rounded-md bg-sidebar-accent">
-            <Avatar>
-                <AvatarImage data-ai-hint="profile picture" src="https://placehold.co/40x40.png" alt="User" />
-                <AvatarFallback>U</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col">
-                <span className="text-sm font-medium text-sidebar-foreground">
-                {role}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                admin@example.com
-                </span>
-            </div>
-            </div>
-        </div>
-      </SidebarFooter>
     </>
   );
 }

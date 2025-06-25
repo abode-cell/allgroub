@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
-import { useRole } from '@/contexts/role-context';
+import { useAuth } from '@/contexts/auth-context';
 import {
   Select,
   SelectContent,
@@ -84,7 +84,7 @@ export const borrowersData: Borrower[] = [
 ];
 
 export default function BorrowersPage() {
-  const { role } = useRole();
+  const { role } = useAuth();
   const [borrowers, setBorrowers] = useState<Borrower[]>(borrowersData);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newBorrower, setNewBorrower] = useState({
@@ -133,7 +133,7 @@ export default function BorrowersPage() {
   const displayedBorrowers = isEmployee ? borrowers.slice(0, 3) : borrowers;
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <div className="flex items-center justify-between">
           <header>

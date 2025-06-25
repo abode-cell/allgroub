@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { useRole } from '@/contexts/role-context';
+import { useAuth } from '@/contexts/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function CalculatorPage() {
-  const { role } = useRole();
+  const { role } = useAuth();
   const [loanAmount, setLoanAmount] = useState(100000);
   const [interestRate, setInterestRate] = useState(5.5);
   const [loanTerm, setLoanTerm] = useState(5);
@@ -71,7 +71,7 @@ export default function CalculatorPage() {
   const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب';
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">حاسبة القروض والأرباح</h1>

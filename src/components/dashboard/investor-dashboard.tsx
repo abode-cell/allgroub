@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { borrowersData } from '@/app/borrowers/page';
 import { investorLoanMap } from '../investors/investors-table';
+import { useAuth } from '@/contexts/auth-context';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('ar-SA', {
@@ -17,6 +18,7 @@ const formatCurrency = (value: number) =>
 
 
 export function InvestorDashboard() {
+  const { user } = useAuth();
   // Simulate fetching data for the logged-in investor
   const investor = investorsData.find(i => i.id === 'inv_003');
 
@@ -42,7 +44,7 @@ export function InvestorDashboard() {
   const activeInvestment = totalInvestment - defaultedFunds - idleFunds;
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">

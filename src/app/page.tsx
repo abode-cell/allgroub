@@ -5,12 +5,12 @@ import { KpiCard } from '@/components/dashboard/kpi-card';
 import { ProfitChart } from '@/components/dashboard/profit-chart';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
-import { useRole } from '@/contexts/role-context';
+import { useAuth } from '@/contexts/auth-context';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
 import { borrowersData } from './borrowers/page';
 
 export default function DashboardPage() {
-  const { role } = useRole();
+  const { role } = useAuth();
 
   const totalCapital = 1250000;
   const loansGranted = 850000;
@@ -30,7 +30,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">

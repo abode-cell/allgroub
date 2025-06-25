@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useRole } from '@/contexts/role-context';
+import { useAuth } from '@/contexts/auth-context';
 import { Textarea } from '../ui/textarea';
 import { borrowersData } from '@/app/borrowers/page';
 
@@ -78,7 +78,7 @@ export function InvestorsTable({
   investors,
   onUpdateInvestor,
 }: InvestorsTableProps) {
-  const { role } = useRole();
+  const { role } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);

@@ -1,13 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import {
-  Sidebar,
-  SidebarInset,
-  SidebarProvider,
-} from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/toaster';
-import { MainNav } from '@/components/main-nav';
-import { RoleProvider } from '@/contexts/role-context';
+import { AuthProvider } from '@/contexts/auth-context';
+import { ClientLayout } from '@/components/client-layout';
 
 export const metadata: Metadata = {
   title: 'منصة تمويل وإدارة استثمار متكاملة',
@@ -34,22 +29,12 @@ export default function RootLayout({
         ></link>
       </head>
       <body className="font-body antialiased">
-        <RoleProvider>
-          <SidebarProvider>
-            <Sidebar
-              side="right"
-              variant="sidebar"
-              collapsible="icon"
-              className="border-l"
-            >
-              <MainNav />
-            </Sidebar>
-            <SidebarInset>
-              {children}
-              <Toaster />
-            </SidebarInset>
-          </SidebarProvider>
-        </RoleProvider>
+        <AuthProvider>
+          <ClientLayout>
+            {children}
+          </ClientLayout>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );
