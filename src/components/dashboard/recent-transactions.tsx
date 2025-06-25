@@ -21,7 +21,7 @@ const transactions = [
     type: 'صرف قرض',
     user: 'أحمد المحمدي',
     amount: '٥٠٬٠٠٠ ر.س',
-    date: '٢٠٢٣-٠٦-٢٣',
+    date: '2023-06-23',
     status: 'مكتمل',
   },
   {
@@ -29,7 +29,7 @@ const transactions = [
     type: 'دفعة مستثمر',
     user: 'شركة الأفق',
     amount: '١٠٠٬٠٠٠ ر.س',
-    date: '٢٠٢٣-٠٦-٢٢',
+    date: '2023-06-22',
     status: 'مكتمل',
   },
   {
@@ -37,7 +37,7 @@ const transactions = [
     type: 'سداد قسط',
     user: 'فاطمة الزهراء',
     amount: '٢٬٥٠٠ ر.س',
-    date: '٢٠٢٣-٠٦-٢١',
+    date: '2023-06-21',
     status: 'مكتمل',
   },
   {
@@ -45,7 +45,7 @@ const transactions = [
     type: 'صرف قرض',
     user: 'خالد الغامدي',
     amount: '٧٥٬٠٠٠ ر.س',
-    date: '٢٠٢٣-٠٦-٢٠',
+    date: '2023-06-20',
     status: 'قيد المعالجة',
   },
   {
@@ -53,7 +53,7 @@ const transactions = [
     type: 'سحب أرباح',
     user: 'نورة السعد',
     amount: '١٥٬٠٠٠ ر.س',
-    date: '٢٠٢٣-٠٦-١٩',
+    date: '2023-06-19',
     status: 'ملغي',
   },
 ];

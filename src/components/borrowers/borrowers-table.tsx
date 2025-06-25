@@ -158,7 +158,7 @@ export function BorrowersTable({
                 <TableHead>نوع التمويل</TableHead>
                 <TableHead>نسبة الفائدة</TableHead>
                 <TableHead>حالة السداد</TableHead>
-                <TableHead>الدفعة التالية</TableHead>
+                <TableHead>تاريخ الاستحقاق</TableHead>
                 {canPerformActions && (
                 <TableHead>
                   <span className="sr-only">الإجراءات</span>
@@ -179,7 +179,7 @@ export function BorrowersTable({
                       {borrower.status === 'معلق' ? 'طلب معلق' : borrower.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{borrower.next_due}</TableCell>
+                  <TableCell>{borrower.dueDate}</TableCell>
                   {canPerformActions && (
                   <TableCell>
                     <DropdownMenu>
@@ -327,6 +327,23 @@ export function BorrowersTable({
                   </div>
                  </>
                )}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="dueDate" className="text-right">
+                  تاريخ الاستحقاق
+                </Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={selectedBorrower.dueDate}
+                  onChange={(e) =>
+                    setSelectedBorrower({
+                      ...selectedBorrower,
+                      dueDate: e.target.value,
+                    })
+                  }
+                  className="col-span-3"
+                />
+              </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="status" className="text-right">
                   الحالة

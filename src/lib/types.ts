@@ -7,7 +7,7 @@ export type Borrower = {
   date: string;
   loanType: 'اقساط' | 'مهلة';
   status: 'منتظم' | 'متأخر' | 'مسدد بالكامل' | 'متعثر' | 'معلق' | 'مرفوض';
-  next_due: string;
+  dueDate: string;
   submittedBy?: string;
   rejectionReason?: string;
 };

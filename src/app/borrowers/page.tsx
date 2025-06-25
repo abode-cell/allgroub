@@ -40,6 +40,7 @@ export default function BorrowersPage() {
     term: string;
     loanType: 'اقساط' | 'مهلة';
     status: Borrower['status'];
+    dueDate: string;
   }>({
     name: '',
     amount: '',
@@ -47,6 +48,7 @@ export default function BorrowersPage() {
     term: '',
     loanType: 'اقساط',
     status: 'منتظم',
+    dueDate: '',
   });
   
   const isEmployee = role === 'موظف';
@@ -61,14 +63,14 @@ export default function BorrowersPage() {
   };
   
   const handleLoanTypeChange = (value: 'اقساط' | 'مهلة') => {
-    setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '' }));
+    setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '' }));
   };
 
 
   const handleAddBorrower = (e: React.FormEvent) => {
     e.preventDefault();
     const isInstallments = newBorrower.loanType === 'اقساط';
-    if (!newBorrower.name || !newBorrower.amount || (isInstallments && (!newBorrower.rate || !newBorrower.term))) {
+    if (!newBorrower.name || !newBorrower.amount || !newBorrower.dueDate || (isInstallments && (!newBorrower.rate || !newBorrower.term))) {
       return;
     }
     
@@ -81,9 +83,10 @@ export default function BorrowersPage() {
       term: Number(newBorrower.term) || 0,
       loanType: newBorrower.loanType,
       status: finalStatus,
+      dueDate: newBorrower.dueDate,
     });
     setIsAddDialogOpen(false);
-    setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم' });
+    setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '' });
   };
 
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
@@ -198,6 +201,19 @@ export default function BorrowersPage() {
                       </div>
                     </>
                   )}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="dueDate" className="text-right">
+                      تاريخ الاستحقاق
+                    </Label>
+                    <Input
+                      id="dueDate"
+                      type="date"
+                      className="col-span-3"
+                      value={newBorrower.dueDate}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
                   {!isEmployee && (
                      <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="status" className="text-right">
