@@ -148,6 +148,7 @@ export function BorrowersTable({
   };
 
   const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+  const isEmployee = role === 'موظف';
 
   return (
     <>
@@ -194,7 +195,7 @@ export function BorrowersTable({
                         <DropdownMenuItem
                           onSelect={() => handleEditClick(borrower)}
                         >
-                          تعديل
+                          {isEmployee ? 'رفع طلب تعديل' : 'تعديل'}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() => handleViewScheduleClick(borrower)}
@@ -215,9 +216,11 @@ export function BorrowersTable({
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>تعديل المقترض</DialogTitle>
+            <DialogTitle>{isEmployee ? 'رفع طلب تعديل مقترض' : 'تعديل المقترض'}</DialogTitle>
             <DialogDescription>
-              قم بتحديث تفاصيل المقترض هنا. انقر على حفظ عند الانتهاء.
+              {isEmployee
+                ? 'قم بتحديث التفاصيل وسيتم مراجعة طلبك.'
+                : 'قم بتحديث تفاصيل المقترض هنا. انقر على حفظ عند الانتهاء.'}
             </DialogDescription>
           </DialogHeader>
           {selectedBorrower && (
@@ -326,7 +329,7 @@ export function BorrowersTable({
               إلغاء
             </Button>
             <Button type="button" onClick={handleSaveChanges}>
-              حفظ التغييرات
+             {isEmployee ? 'إرسال طلب التعديل' : 'حفظ التغييرات'}
             </Button>
           </DialogFooter>
         </DialogContent>

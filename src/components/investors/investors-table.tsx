@@ -32,6 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRole } from '@/contexts/role-context';
 import { Textarea } from '../ui/textarea';
+import { borrowersData } from '@/app/borrowers/page';
 
 export type Withdrawal = {
   id: string;
@@ -65,6 +66,12 @@ const formatCurrency = (value: number) =>
     style: 'currency',
     currency: 'SAR',
   }).format(value);
+
+// Simulate mapping of defaulted loans to investors
+const investorLoanMap: { [investorId: string]: string[] } = {
+    'inv_001': ['bor_006'],
+    'inv_005': ['bor_003'],
+};
 
 export function InvestorsTable({
   investors,
@@ -131,11 +138,18 @@ export function InvestorsTable({
   }
 
   const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب';
+  const canEdit = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+  const isEmployee = role === 'موظف';
   
   const displayedInvestors =
     role === 'مستثمر'
       ? investors.filter((i) => i.id === 'inv_003') // Simulate showing only the logged-in investor
       : investors;
+      
+  const getAssociatedDefaultedLoans = (investorId: string) => {
+    const loanIds = investorLoanMap[investorId] || [];
+    return borrowersData.filter(loan => loanIds.includes(loan.id));
+  }
 
   return (
     <>
@@ -180,19 +194,19 @@ export function InvestorsTable({
                         >
                           عرض التفاصيل
                         </DropdownMenuItem>
-                        {canPerformActions && (
-                          <>
+                        {canEdit && (
                             <DropdownMenuItem
                               onSelect={() => handleEditClick(investor)}
                             >
-                              تعديل
+                              {isEmployee ? 'رفع طلب تعديل' : 'تعديل'}
                             </DropdownMenuItem>
+                        )}
+                        {canPerformActions && (
                             <DropdownMenuItem
                               onSelect={() => handleWithdrawClick(investor)}
                             >
                               سحب الأموال
                             </DropdownMenuItem>
-                          </>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -207,9 +221,11 @@ export function InvestorsTable({
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>تعديل المستثمر</DialogTitle>
+            <DialogTitle>{isEmployee ? 'رفع طلب تعديل مستثمر' : 'تعديل المستثمر'}</DialogTitle>
             <DialogDescription>
-              قم بتحديث تفاصيل المستثمر هنا. انقر على حفظ عند الانتهاء.
+              {isEmployee
+                ? 'قم بتحديث التفاصيل وسيتم مراجعة طلبك.'
+                : 'قم بتحديث تفاصيل المستثمر هنا. انقر على حفظ عند الانتهاء.'}
             </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (
@@ -258,7 +274,7 @@ export function InvestorsTable({
               إلغاء
             </Button>
             <Button type="button" onClick={handleSaveChanges}>
-              حفظ التغييرات
+              {isEmployee ? 'إرسال طلب التعديل' : 'حفظ التغييرات'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -324,6 +340,39 @@ export function InvestorsTable({
                     )}
                 </CardContent>
               </Card>
+
+              {getAssociatedDefaultedLoans(selectedInvestor.id).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>القروض المتعثرة المرتبطة</CardTitle>
+                    <CardDescription>
+                      قائمة بالقروض المتعثرة التي تؤثر على هذا الاستثمار.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>اسم المقترض</TableHead>
+                          <TableHead>مبلغ القرض</TableHead>
+                          <TableHead>الحالة</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {getAssociatedDefaultedLoans(selectedInvestor.id).map(loan => (
+                          <TableRow key={loan.id}>
+                            <TableCell>{loan.name}</TableCell>
+                            <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                            <TableCell>
+                              <Badge variant="destructive">{loan.status}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
 
             </div>
           )}

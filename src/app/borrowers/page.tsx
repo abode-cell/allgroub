@@ -128,6 +128,7 @@ export default function BorrowersPage() {
   };
 
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+  const isEmployee = role === 'موظف';
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -144,15 +145,17 @@ export default function BorrowersPage() {
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="ml-2 h-4 w-4" />
-                إضافة مقترض
+                {isEmployee ? 'رفع طلب إضافة مقترض' : 'إضافة مقترض'}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <form onSubmit={handleAddBorrower}>
                 <DialogHeader>
-                  <DialogTitle>إضافة مقترض جديد</DialogTitle>
+                  <DialogTitle>{isEmployee ? 'رفع طلب إضافة مقترض جديد' : 'إضافة مقترض جديد'}</DialogTitle>
                   <DialogDescription>
-                    أدخل تفاصيل المقترض الجديد هنا. انقر على حفظ عند الانتهاء.
+                    {isEmployee
+                      ? 'أدخل تفاصيل المقترض الجديد وسيتم مراجعة الطلب.'
+                      : 'أدخل تفاصيل المقترض الجديد هنا. انقر على حفظ عند الانتهاء.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -239,7 +242,7 @@ export default function BorrowersPage() {
                       إلغاء
                     </Button>
                   </DialogClose>
-                  <Button type="submit">حفظ</Button>
+                  <Button type="submit">{isEmployee ? 'إرسال الطلب' : 'حفظ'}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>

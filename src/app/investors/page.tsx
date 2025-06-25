@@ -106,7 +106,8 @@ export default function InvestorsPage() {
     setInvestors(investors.map((i) => (i.id === updatedInvestor.id ? updatedInvestor : i)));
   };
   
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب';
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+  const isEmployee = role === 'موظف';
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -123,15 +124,17 @@ export default function InvestorsPage() {
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="ml-2 h-4 w-4" />
-                إضافة مستثمر
+                {isEmployee ? 'رفع طلب إضافة مستثمر' : 'إضافة مستثمر'}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <form onSubmit={handleAddInvestor}>
                 <DialogHeader>
-                  <DialogTitle>إضافة مستثمر جديد</DialogTitle>
+                  <DialogTitle>{isEmployee ? 'رفع طلب إضافة مستثمر جديد' : 'إضافة مستثمر جديد'}</DialogTitle>
                   <DialogDescription>
-                    أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.
+                    {isEmployee 
+                      ? 'أدخل تفاصيل المستثمر وسيتم مراجعة الطلب.'
+                      : 'أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -169,7 +172,7 @@ export default function InvestorsPage() {
                       إلغاء
                     </Button>
                   </DialogClose>
-                  <Button type="submit">حفظ</Button>
+                  <Button type="submit">{isEmployee ? 'إرسال الطلب' : 'حفظ'}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>

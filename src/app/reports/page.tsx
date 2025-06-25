@@ -5,12 +5,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { borrowersData, type Borrower } from '../borrowers/page';
+import { investorsData } from '../investors/page';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('ar-SA', {
     style: 'currency',
     currency: 'SAR',
   }).format(value);
+
+// Simulate mapping of defaulted loans to investors
+const defaultedLoanInvestorMap: { [loanId: string]: string } = {
+  'bor_003': 'inv_005', // 'مؤسسة البناء الحديث' -> 'مجموعة الأفق القابضة'
+  'bor_006': 'inv_001', // 'شركة النقل السريع' -> 'شركة الاستثمار الرائدة'
+};
+
+const getInvestorNameById = (investorId: string) => {
+  const investor = investorsData.find(inv => inv.id === investorId);
+  return investor ? investor.name : 'غير محدد';
+};
 
 export default function ReportsPage() {
   const [defaultedLoans] = useState<Borrower[]>(
@@ -23,7 +35,7 @@ export default function ReportsPage() {
         <header>
           <h1 className="text-3xl font-bold tracking-tight">تقارير المخاطر والتعثر</h1>
           <p className="text-muted-foreground mt-1">
-            نظرة تفصيلية على القروض المتعثرة والمعلقة.
+            نظرة تفصيلية على القروض المتعثرة والمعلقة والمستثمرين المتأثرين.
           </p>
         </header>
 
@@ -41,7 +53,7 @@ export default function ReportsPage() {
                   <TableHead>اسم المقترض</TableHead>
                   <TableHead>مبلغ القرض</TableHead>
                   <TableHead>الحالة</TableHead>
-                  <TableHead>تاريخ الاستحقاق التالي</TableHead>
+                  <TableHead>المستثمر المتأثر</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -55,7 +67,9 @@ export default function ReportsPage() {
                           {loan.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{loan.next_due}</TableCell>
+                      <TableCell>
+                        {getInvestorNameById(defaultedLoanInvestorMap[loan.id])}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
