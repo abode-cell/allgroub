@@ -16,20 +16,25 @@ function FirebaseErrorDisplay() {
               <AlertTitle>خطأ في إعداد Firebase</AlertTitle>
               <AlertDescription>
                 <p className="mb-2">
-                    فشل الاتصال بـ Firebase. يرجى التأكد من أنك قمت بملء متغيرات البيئة بشكل صحيح في ملف `.env`.
+                    فشل الاتصال بـ Firebase. يبدو أن بيانات اعتماد مشروعك مفقودة في ملف <code>.env</code>.
                 </p>
-                <p className="mb-1 font-mono text-xs">
-                    NEXT_PUBLIC_FIREBASE_API_KEY
+                <p className="mb-3">
+                    لإصلاح هذا، يرجى نسخ بيانات اعتماد مشروعك من لوحة تحكم Firebase ولصقها في ملف <code>.env</code>. هذه المفاتيح سرية ولا يمكنني إضافتها بالنيابة عنك.
                 </p>
-                 <p className="mb-1 font-mono text-xs">
-                    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-                </p>
-                 <p className="mb-1 font-mono text-xs">
-                    NEXT_PUBLIC_FIREBASE_PROJECT_ID
-                </p>
-                 <p className="mb-4 font-mono text-xs">
-                    ...وغيرها من المتغيرات المطلوبة.
-                </p>
+                <div className="mb-4 rounded-md bg-muted p-3 text-muted-foreground">
+                    <p className="mb-1 font-mono text-xs">
+                        NEXT_PUBLIC_FIREBASE_API_KEY="..."
+                    </p>
+                    <p className="mb-1 font-mono text-xs">
+                        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="..."
+                    </p>
+                    <p className="mb-1 font-mono text-xs">
+                        NEXT_PUBLIC_FIREBASE_PROJECT_ID="..."
+                    </p>
+                     <p className="font-mono text-xs">
+                        ...وغيرها
+                    </p>
+                </div>
                 <p>
                     بعد تحديث الملف، قد تحتاج إلى إعادة تشغيل خادم التطوير.
                 </p>
