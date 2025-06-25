@@ -4,7 +4,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback 
 import { borrowersData as initialBorrowers, investorsData as initialInvestors } from '@/lib/data';
 import type { Borrower, Investor, Withdrawal } from '@/lib/types';
 
-type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds'>;
+type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds' | 'withdrawalHistory'>;
 
 type DataContextType = {
   borrowers: Borrower[];
@@ -12,9 +12,11 @@ type DataContextType = {
   addBorrower: (borrower: Omit<Borrower, 'id' | 'next_due'>) => void;
   updateBorrower: (borrower: Borrower) => void;
   approveBorrower: (borrowerId: string) => void;
+  rejectBorrower: (borrowerId: string) => void;
   addInvestor: (investor: Omit<Investor, 'id' | 'date' | 'withdrawalHistory' | 'defaultedFunds' | 'fundedLoanIds'>) => void;
   updateInvestor: (investor: UpdatableInvestor) => void;
   approveInvestor: (investorId: string) => void;
+  rejectInvestor: (investorId: string) => void;
   withdrawFromInvestor: (investorId: string, withdrawal: Omit<Withdrawal, 'id'|'date'>) => void;
 };
 
@@ -29,7 +31,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!investor) return 0;
     
     return currentBorrowers
-      .filter(loan => investor.fundedLoanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'))
+      .filter(loan => investor.fundedLoanIds.includes(loan.id) && (loan.status === 'متعثر'))
       .reduce((acc, loan) => acc + loan.amount, 0);
   }, []);
 
@@ -64,6 +66,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
      }
   };
 
+  const rejectBorrower = (borrowerId: string) => {
+    setBorrowers(prev => prev.filter(b => b.id !== borrowerId));
+  };
+
   const addBorrower = (borrower: Omit<Borrower, 'id' | 'next_due'>) => {
     const newEntry: Borrower = {
       ...borrower,
@@ -76,9 +82,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const approveInvestor = (investorId: string) => {
      const investor = investors.find(i => i.id === investorId);
      if (investor) {
-       const { defaultedFunds, ...updatableInvestor } = investor;
+       const { defaultedFunds, fundedLoanIds, withdrawalHistory, ...updatableInvestor } = investor;
        updateInvestor({ ...updatableInvestor, status: 'نشط' });
      }
+  };
+
+  const rejectInvestor = (investorId: string) => {
+    setInvestors(prev => prev.filter(i => i.id !== investorId));
   };
 
   const updateInvestor = (updatedInvestor: UpdatableInvestor) => {
@@ -125,7 +135,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
 
-  const value = { borrowers, investors, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor };
+  const value = { borrowers, investors, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

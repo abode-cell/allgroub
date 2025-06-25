@@ -12,6 +12,7 @@ import {
   PanelLeft,
   FileText,
   Settings,
+  ClipboardList,
 } from 'lucide-react';
 import {
   SidebarHeader,
@@ -47,6 +48,12 @@ const allMenuItems = [
     href: '/reports',
     label: 'التقارير',
     icon: FileText,
+    roles: ['مدير النظام', 'مدير المكتب'],
+  },
+  {
+    href: '/requests',
+    label: 'الطلبات',
+    icon: ClipboardList,
     roles: ['مدير النظام', 'مدير المكتب'],
   },
   {
