@@ -10,7 +10,8 @@ import {
   Calculator,
   BrainCircuit,
   PanelLeft,
-  FileText
+  FileText,
+  Settings,
 } from 'lucide-react';
 import {
   SidebarHeader,
@@ -18,7 +19,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
-  SidebarContent
+  SidebarContent,
 } from '@/components/ui/sidebar';
 import { Button } from './ui/button';
 import { useAuth } from '@/contexts/auth-context';
@@ -42,7 +43,7 @@ const allMenuItems = [
     icon: Landmark,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },
-   {
+  {
     href: '/reports',
     label: 'التقارير',
     icon: FileText,
@@ -60,13 +61,19 @@ const allMenuItems = [
     icon: BrainCircuit,
     roles: ['مدير النظام', 'مدير المكتب'],
   },
+  {
+    href: '/settings',
+    label: 'الإعدادات',
+    icon: Settings,
+    roles: ['مدير النظام', 'مدير المكتب'],
+  },
 ];
 
 export function MainNav() {
   const pathname = usePathname();
   const { role } = useAuth();
 
-  const menuItems = allMenuItems.filter(item => item.roles.includes(role));
+  const menuItems = allMenuItems.filter((item) => item.roles.includes(role));
 
   return (
     <>
@@ -118,7 +125,11 @@ export function MainNav() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={item.href === '/' ? pathname === item.href : pathname.startsWith(item.href)}
+                isActive={
+                  item.href === '/'
+                    ? pathname === item.href
+                    : pathname.startsWith(item.href)
+                }
                 tooltip={item.label}
               >
                 <Link href={item.href}>

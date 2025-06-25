@@ -1,0 +1,76 @@
+'use client';
+
+import { useAuth } from '@/contexts/auth-context';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { UserCog, Scale } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
+export default function SettingsPage() {
+  const { role } = useAuth();
+  const router = useRouter();
+
+  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
+
+  useEffect(() => {
+    if (!canViewPage) {
+      router.replace('/');
+    }
+  }, [role, canViewPage, router]);
+
+  if (!canViewPage) {
+    return null; // Or a loading/access denied component
+  }
+
+  return (
+    <div className="flex flex-col flex-1">
+      <main className="flex-1 space-y-8 p-4 md:p-8">
+        <header>
+          <h1 className="text-3xl font-bold tracking-tight">
+            إدارة الإعدادات والمستخدمين
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            التحكم في إعدادات النظام الأساسية وإدارة صلاحيات المستخدمين.
+          </p>
+        </header>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <UserCog className="h-8 w-8 text-primary mb-2" />
+              <CardTitle>إدارة المستخدمين والأدوار</CardTitle>
+              <CardDescription>
+                إضافة، تعديل، وحذف المستخدمين. تحديد الأدوار وتعيين الصلاحيات
+                للموظفين.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button disabled>إدارة المستخدمين (قريبًا)</Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Scale className="h-8 w-8 text-primary mb-2" />
+              <CardTitle>إعدادات سياسات التعثر</CardTitle>
+              <CardDescription>
+                تحديد سياسات التعامل مع القروض المتعثرة، نسب الخصم، والمدد
+                الزمنية.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button disabled>تعديل السياسات (قريبًا)</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+}
