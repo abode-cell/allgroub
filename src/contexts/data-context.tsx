@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { usersData as initialUsers, borrowersData as initialBorrowers, investorsData as initialInvestors } from '@/lib/data';
-import type { Borrower, Investor, Withdrawal, User } from '@/lib/types';
+import type { Borrower, Investor, Withdrawal, User, UserRole } from '@/lib/types';
 
 type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds' | 'withdrawalHistory' | 'rejectionReason' | 'submittedBy'>;
 
@@ -21,6 +21,7 @@ type DataContextType = {
   withdrawFromInvestor: (investorId: string, withdrawal: Omit<Withdrawal, 'id'|'date'>) => void;
   addUser: (user: Omit<User, 'id' | 'photoURL' | 'status'>) => void;
   updateUserStatus: (userId: string, status: User['status']) => void;
+  updateUserRole: (userId: string, role: UserRole) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -167,9 +168,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserStatus = (userId: string, status: User['status']) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, status } : u));
   };
+  
+  const updateUserRole = (userId: string, role: UserRole) => {
+    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, role } : u)));
+  };
 
 
-  const value = { borrowers, investors, users, addUser, updateUserStatus, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor };
+  const value = { borrowers, investors, users, addUser, updateUserStatus, updateUserRole, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
 
 
 export default function LoginPage() {
@@ -100,9 +101,12 @@ export default function LoginPage() {
                     {isSubmitting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
                     تسجيل الدخول
                 </Button>
-                <p className="text-xs text-center text-muted-foreground pt-2">
-                    لا يمكن إنشاء حسابات جديدة من هنا. يتم إنشاء الحسابات وتفعيلها بواسطة مدير النظام فقط.
-                </p>
+                 <div className="mt-4 text-center text-sm">
+                    ليس لديك حساب؟{' '}
+                    <Link href="/signup" className="underline">
+                        إنشاء حساب جديد
+                    </Link>
+                </div>
             </form>
         </CardContent>
       </Card>

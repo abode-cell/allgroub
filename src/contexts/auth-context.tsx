@@ -3,6 +3,8 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import type { User, UserRole } from '@/lib/types';
 import { useData } from './data-context';
 
+type SignUpCredentials = Omit<User, 'id' | 'photoURL' | 'status'>;
+
 // The user object in the context will be our custom User type
 type AuthContextType = {
   user: User | null;
@@ -11,12 +13,13 @@ type AuthContextType = {
   setRole: (role: UserRole) => void;
   signIn: (email: string) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
+  signUp: (credentials: SignUpCredentials) => Promise<{ success: boolean; message: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { users } = useData(); // Get users from DataProvider
+  const { users, addUser } = useData(); // Get users from DataProvider
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -66,7 +69,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem('authUser');
   };
 
-  const value = { user, loading, role, setRole, signIn, signOutUser };
+  const signUp = async (credentials: SignUpCredentials): Promise<{ success: boolean, message: string }> => {
+    const existingUser = users.find(u => u.email.toLowerCase() === credentials.email.toLowerCase());
+    if (existingUser) {
+        return { success: false, message: 'هذا البريد الإلكتروني مسجل بالفعل.' };
+    }
+    
+    // In a real app, you'd also save the hashed password. Here we just add the user.
+    addUser(credentials);
+
+    return { success: true, message: 'تم التسجيل بنجاح. حسابك في انتظار التفعيل.' };
+  };
+
+  const value = { user, loading, role, setRole, signIn, signOutUser, signUp };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
