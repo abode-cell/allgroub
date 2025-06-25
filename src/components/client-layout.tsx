@@ -6,9 +6,11 @@ import { MainNav } from '@/components/main-nav';
 import LoginPage from '@/app/login/page';
 import { Loader2 } from 'lucide-react';
 import { AppHeader } from './app-header';
+import { usePathname } from 'next/navigation';
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
 
   if (loading) {
     return (
@@ -19,9 +21,13 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
+    const isPublicPage = pathname === '/login' || pathname === '/signup';
+    if (isPublicPage) {
+      return <>{children}</>;
+    }
     return <LoginPage />;
   }
-  
+
   return (
     <SidebarProvider>
       <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l">
