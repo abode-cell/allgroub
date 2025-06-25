@@ -9,8 +9,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MoreHorizontal, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -26,22 +26,34 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useRole } from '@/contexts/role-context';
+import { Textarea } from '../ui/textarea';
+
+export type Withdrawal = {
+  id: string;
+  amount: number;
+  reason: string;
+  date: string;
+};
 
 export type Investor = {
-  id: string;
+  id:string;
   name: string;
   amount: number;
   date: string;
   status: 'نشط' | 'غير نشط';
+  defaultedFunds: number;
+  withdrawalHistory: Withdrawal[];
 };
 
 type InvestorsTableProps = {
-    investors: Investor[];
-    onUpdateInvestor: (investor: Investor) => void;
-}
+  investors: Investor[];
+  onUpdateInvestor: (investor: Investor) => void;
+};
 
 const statusVariant: { [key: string]: 'default' | 'secondary' } = {
   نشط: 'default',
@@ -54,12 +66,19 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export function InvestorsTable({ investors, onUpdateInvestor }: InvestorsTableProps) {
+export function InvestorsTable({
+  investors,
+  onUpdateInvestor,
+}: InvestorsTableProps) {
+  const { role } = useRole();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
+
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(
     null
   );
+  const [withdrawal, setWithdrawal] = useState({ amount: '', reason: '' });
 
   const handleEditClick = (investor: Investor) => {
     setSelectedInvestor({ ...investor });
@@ -78,6 +97,46 @@ export function InvestorsTable({ investors, onUpdateInvestor }: InvestorsTablePr
     setIsDetailsDialogOpen(true);
   };
 
+  const handleWithdrawClick = (investor: Investor) => {
+    setSelectedInvestor(investor);
+    setIsWithdrawDialogOpen(true);
+  };
+
+  const handleWithdrawalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setWithdrawal(prev => ({...prev, [id]: value}));
+  }
+
+  const handleConfirmWithdrawal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInvestor || !withdrawal.amount || !withdrawal.reason) return;
+    
+    const newWithdrawal: Withdrawal = {
+        id: `wd_${Date.now()}`,
+        amount: Number(withdrawal.amount),
+        reason: withdrawal.reason,
+        date: new Date().toISOString().split('T')[0]
+    };
+
+    const updatedInvestor: Investor = {
+        ...selectedInvestor,
+        amount: selectedInvestor.amount - newWithdrawal.amount,
+        withdrawalHistory: [...selectedInvestor.withdrawalHistory, newWithdrawal]
+    };
+
+    onUpdateInvestor(updatedInvestor);
+    setIsWithdrawDialogOpen(false);
+    setWithdrawal({ amount: '', reason: '' });
+    setSelectedInvestor(null);
+  }
+
+  const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب';
+  
+  const displayedInvestors =
+    role === 'مستثمر'
+      ? investors.filter((i) => i.id === 'inv_003') // Simulate showing only the logged-in investor
+      : investors;
+
   return (
     <>
       <Card>
@@ -95,7 +154,7 @@ export function InvestorsTable({ investors, onUpdateInvestor }: InvestorsTablePr
               </TableRow>
             </TableHeader>
             <TableBody>
-              {investors.map((investor) => (
+              {displayedInvestors.map((investor) => (
                 <TableRow key={investor.id}>
                   <TableCell className="font-medium">{investor.name}</TableCell>
                   <TableCell>{formatCurrency(investor.amount)}</TableCell>
@@ -116,16 +175,25 @@ export function InvestorsTable({ investors, onUpdateInvestor }: InvestorsTablePr
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => handleEditClick(investor)}
-                        >
-                          تعديل
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
+                         <DropdownMenuItem
                           onSelect={() => handleViewDetailsClick(investor)}
                         >
                           عرض التفاصيل
                         </DropdownMenuItem>
+                        {canPerformActions && (
+                          <>
+                            <DropdownMenuItem
+                              onSelect={() => handleEditClick(investor)}
+                            >
+                              تعديل
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => handleWithdrawClick(investor)}
+                            >
+                              سحب الأموال
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -196,43 +264,67 @@ export function InvestorsTable({ investors, onUpdateInvestor }: InvestorsTablePr
         </DialogContent>
       </Dialog>
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>تفاصيل المستثمر</DialogTitle>
-            <DialogDescription>
-              عرض معلومات المستثمر {selectedInvestor?.name}.
-            </DialogDescription>
+            <DialogTitle>تفاصيل المستثمر: {selectedInvestor?.name}</DialogTitle>
           </DialogHeader>
           {selectedInvestor && (
-            <div className="grid gap-4 py-4 text-sm">
-              <div className="grid grid-cols-3 gap-2">
-                <p className="text-muted-foreground">الاسم:</p>
-                <p className="col-span-2 font-medium">
-                  {selectedInvestor.name}
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <p className="text-muted-foreground">مبلغ الاستثمار:</p>
-                <p className="col-span-2 font-medium">
-                  {formatCurrency(selectedInvestor.amount)}
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <p className="text-muted-foreground">تاريخ البدء:</p>
-                <p className="col-span-2 font-medium">
-                  {selectedInvestor.date}
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <p className="text-muted-foreground">الحالة:</p>
-                <p className="col-span-2 font-medium">
-                  <Badge
-                    variant={statusVariant[selectedInvestor.status] || 'default'}
-                  >
-                    {selectedInvestor.status}
-                  </Badge>
-                </p>
-              </div>
+            <div className="grid gap-6 py-4">
+               <Card>
+                <CardHeader>
+                  <CardTitle>الملخص المالي</CardTitle>
+                </CardHeader>
+                <CardContent className='grid grid-cols-2 gap-4 text-sm'>
+                   <div className="flex flex-col space-y-1">
+                      <span className='text-muted-foreground'>إجمالي الاستثمار</span>
+                      <span className='font-bold text-lg'>{formatCurrency(selectedInvestor.amount)}</span>
+                   </div>
+                    <div className="flex flex-col space-y-1">
+                      <span className='text-muted-foreground'>الأرباح المستحقة</span>
+                      <span className='font-bold text-lg text-green-600'>{formatCurrency(selectedInvestor.amount * 0.12)}</span>
+                   </div>
+                    <div className="flex flex-col space-y-1">
+                      <span className='text-muted-foreground'>الأموال الخاملة</span>
+                      <span className='font-bold text-lg'>{formatCurrency(selectedInvestor.amount * 0.15)}</span>
+                   </div>
+                    <div className="flex flex-col space-y-1">
+                      <span className='text-muted-foreground'>الأموال المتعثرة</span>
+                      <span className='font-bold text-lg text-destructive'>{formatCurrency(selectedInvestor.defaultedFunds)}</span>
+                   </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>سجل عمليات السحب</CardTitle>
+                  <CardDescription>قائمة بجميع المبالغ المسحوبة من الحساب.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {selectedInvestor.withdrawalHistory.length > 0 ? (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>التاريخ</TableHead>
+                                    <TableHead>المبلغ</TableHead>
+                                    <TableHead>السبب</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedInvestor.withdrawalHistory.map(w => (
+                                    <TableRow key={w.id}>
+                                        <TableCell>{w.date}</TableCell>
+                                        <TableCell>{formatCurrency(w.amount)}</TableCell>
+                                        <TableCell>{w.reason}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <p className='text-sm text-muted-foreground text-center py-4'>لا توجد عمليات سحب.</p>
+                    )}
+                </CardContent>
+              </Card>
+
             </div>
           )}
           <DialogFooter>
@@ -243,6 +335,50 @@ export function InvestorsTable({ investors, onUpdateInvestor }: InvestorsTablePr
               إغلاق
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleConfirmWithdrawal}>
+            <DialogHeader>
+              <DialogTitle>سحب أموال لـ {selectedInvestor?.name}</DialogTitle>
+              <DialogDescription>
+                أدخل المبلغ والسبب لعملية السحب.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="amount">المبلغ</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  placeholder="أدخل مبلغ السحب"
+                  value={withdrawal.amount}
+                  onChange={handleWithdrawalChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reason">السبب</Label>
+                <Textarea
+                  id="reason"
+                  placeholder="أدخل سبب السحب"
+                  value={withdrawal.reason}
+                  onChange={handleWithdrawalChange}
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  إلغاء
+                </Button>
+              </DialogClose>
+              <Button type="submit">تأكيد السحب</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </>

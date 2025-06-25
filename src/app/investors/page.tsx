@@ -16,14 +16,19 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
+import { useRole } from '@/contexts/role-context';
 
-const investorsData: Investor[] = [
+export const investorsData: Investor[] = [
   {
     id: 'inv_001',
     name: 'شركة الاستثمار الرائدة',
     amount: 500000,
     date: '٢٠٢٣-٠١-١٥',
     status: 'نشط',
+    defaultedFunds: 25000,
+    withdrawalHistory: [
+        { id: 'wd_001', amount: 10000, reason: 'سحب دوري', date: '٢٠٢٤-٠٥-١٠' }
+    ]
   },
   {
     id: 'inv_002',
@@ -31,13 +36,20 @@ const investorsData: Investor[] = [
     amount: 250000,
     date: '٢٠٢٣-٠٢-٢٠',
     status: 'نشط',
+    defaultedFunds: 0,
+    withdrawalHistory: []
   },
   {
     id: 'inv_003',
-    name: 'أحمد عبدالله',
+    name: 'أحمد عبدالله (المستثمر)',
     amount: 100000,
     date: '٢٠٢٣-٠٣-١٠',
     status: 'نشط',
+    defaultedFunds: 5000,
+    withdrawalHistory: [
+        { id: 'wd_002', amount: 5000, reason: 'أرباح', date: '٢٠٢٤-٠٦-٠١' },
+        { id: 'wd_003', amount: 2000, reason: 'شخصي', date: '٢٠٢٤-٠٤-١٥' }
+    ]
   },
   {
     id: 'inv_004',
@@ -45,6 +57,8 @@ const investorsData: Investor[] = [
     amount: 300000,
     date: '٢٠٢٣-٠٤-٠٥',
     status: 'غير نشط',
+    defaultedFunds: 0,
+    withdrawalHistory: []
   },
   {
     id: 'inv_005',
@@ -52,11 +66,14 @@ const investorsData: Investor[] = [
     amount: 1000000,
     date: '٢٠٢٣-٠٥-٠١',
     status: 'نشط',
+    defaultedFunds: 150000,
+    withdrawalHistory: []
   },
 ];
 
 
 export default function InvestorsPage() {
+  const { role } = useRole();
   const [investors, setInvestors] = useState<Investor[]>(investorsData);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newInvestor, setNewInvestor] = useState({ name: '', amount: '' });
@@ -77,6 +94,8 @@ export default function InvestorsPage() {
       amount: Number(newInvestor.amount),
       status: 'نشط',
       date: new Date().toISOString().split('T')[0],
+      defaultedFunds: 0,
+      withdrawalHistory: []
     };
     setInvestors((prev) => [...prev, newEntry]);
     setIsAddDialogOpen(false);
@@ -86,6 +105,8 @@ export default function InvestorsPage() {
   const handleUpdateInvestor = (updatedInvestor: Investor) => {
     setInvestors(investors.map((i) => (i.id === updatedInvestor.id ? updatedInvestor : i)));
   };
+  
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب';
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -97,6 +118,7 @@ export default function InvestorsPage() {
               عرض وإدارة قائمة المستثمرين في المنصة.
             </p>
           </header>
+          {showAddButton && (
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -152,6 +174,7 @@ export default function InvestorsPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
         </div>
         <InvestorsTable investors={investors} onUpdateInvestor={handleUpdateInvestor}/>
       </main>

@@ -1,10 +1,30 @@
-import { CircleDollarSign, Landmark, TrendingUp, Users } from 'lucide-react';
+'use client';
+
+import { CircleDollarSign, Landmark, ShieldX, TrendingUp, Users, FileText } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { ProfitChart } from '@/components/dashboard/profit-chart';
-import { LoansChart } from '@/components/dashboard/loans-chart';
+import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
+import { useRole } from '@/contexts/role-context';
+import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
+import { borrowersData } from './borrowers/page';
 
 export default function DashboardPage() {
+  const { role } = useRole();
+
+  const totalCapital = 1250000;
+  const loansGranted = 850000;
+  const netProfit = 125000;
+  const dueDebts = 75000;
+  const defaultedFunds = borrowersData
+    .filter((b) => b.status === 'متعثر')
+    .reduce((acc, b) => acc + b.amount, 0);
+
+
+  if (role === 'مستثمر') {
+    return <InvestorDashboard />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -17,7 +37,7 @@ export default function DashboardPage() {
           </p>
         </header>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <KpiCard
             title="إجمالي رأس المال"
             value="١٬٢٥٠٬٠٠٠ ر.س"
@@ -32,18 +52,27 @@ export default function DashboardPage() {
             icon={<Landmark className="size-6 text-muted-foreground" />}
             changeColor="text-green-500"
           />
-          <KpiCard
-            title="صافي الربح"
-            value="١٢٥٬٠٠٠ ر.س"
-            change="+١٥٪"
-            icon={<TrendingUp className="size-6 text-muted-foreground" />}
-            changeColor="text-green-500"
-          />
+           {role !== 'موظف' && (
+            <KpiCard
+              title="صافي الربح"
+              value="١٢٥٬٠٠٠ ر.س"
+              change="+١٥٪"
+              icon={<TrendingUp className="size-6 text-muted-foreground" />}
+              changeColor="text-green-500"
+            />
+          )}
           <KpiCard
             title="الديون المستحقة"
             value="٧٥٬٠٠٠ ر.س"
             change="-٢.١٪"
             icon={<Users className="size-6 text-muted-foreground" />}
+            changeColor="text-red-500"
+          />
+           <KpiCard
+            title="الأموال المتعثرة"
+            value={new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(defaultedFunds)}
+            change="+5.1%"
+            icon={<ShieldX className="size-6 text-muted-foreground" />}
             changeColor="text-red-500"
           />
         </div>
@@ -53,7 +82,7 @@ export default function DashboardPage() {
             <ProfitChart />
           </div>
           <div className="col-span-12 lg:col-span-3">
-            <LoansChart />
+            <LoansStatusChart data={borrowersData} />
           </div>
         </div>
 

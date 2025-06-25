@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -30,6 +30,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import { useRole } from '@/contexts/role-context';
 
 export type Borrower = {
   id: string;
@@ -37,7 +45,7 @@ export type Borrower = {
   amount: number;
   rate: number;
   term: number; // in years
-  status: 'منتظم' | 'متأخر' | 'مسدد بالكامل';
+  status: 'منتظم' | 'متأخر' | 'مسدد بالكامل' | 'متعثر' | 'معلق';
   next_due: string;
 };
 
@@ -59,6 +67,8 @@ const statusVariant: {
 } = {
   منتظم: 'default',
   متأخر: 'destructive',
+  متعثر: 'destructive',
+  معلق: 'secondary',
   'مسدد بالكامل': 'secondary',
 };
 
@@ -68,7 +78,11 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export function BorrowersTable({ borrowers, onUpdateBorrower }: BorrowersTableProps) {
+export function BorrowersTable({
+  borrowers,
+  onUpdateBorrower,
+}: BorrowersTableProps) {
+  const { role } = useRole();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
@@ -133,6 +147,8 @@ export function BorrowersTable({ borrowers, onUpdateBorrower }: BorrowersTablePr
     setIsScheduleDialogOpen(true);
   };
 
+  const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+
   return (
     <>
       <Card>
@@ -145,9 +161,11 @@ export function BorrowersTable({ borrowers, onUpdateBorrower }: BorrowersTablePr
                 <TableHead>نسبة الفائدة</TableHead>
                 <TableHead>حالة السداد</TableHead>
                 <TableHead>الدفعة التالية</TableHead>
+                {canPerformActions && (
                 <TableHead>
                   <span className="sr-only">الإجراءات</span>
                 </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -158,10 +176,12 @@ export function BorrowersTable({ borrowers, onUpdateBorrower }: BorrowersTablePr
                   <TableCell>{borrower.rate}%</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[borrower.status] || 'outline'}>
+                      {borrower.status === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
                       {borrower.status}
                     </Badge>
                   </TableCell>
                   <TableCell>{borrower.next_due}</TableCell>
+                  {canPerformActions && (
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -184,6 +204,7 @@ export function BorrowersTable({ borrowers, onUpdateBorrower }: BorrowersTablePr
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -268,6 +289,31 @@ export function BorrowersTable({ borrowers, onUpdateBorrower }: BorrowersTablePr
                   }
                   className="col-span-3"
                 />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="status" className="text-right">
+                  الحالة
+                </Label>
+                <Select
+                  value={selectedBorrower.status}
+                  onValueChange={(value) =>
+                    setSelectedBorrower({
+                      ...selectedBorrower,
+                      status: value as Borrower['status'],
+                    })
+                  }
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="اختر الحالة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="منتظم">منتظم</SelectItem>
+                    <SelectItem value="متأخر">متأخر</SelectItem>
+                    <SelectItem value="متعثر">متعثر</SelectItem>
+                    <SelectItem value="معلق">معلق</SelectItem>
+                    <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}

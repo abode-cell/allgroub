@@ -10,6 +10,7 @@ import {
   Calculator,
   BrainCircuit,
   PanelLeft,
+  FileText
 } from 'lucide-react';
 import {
   SidebarHeader,
@@ -19,41 +20,59 @@ import {
   SidebarTrigger,
   SidebarContent,
   SidebarFooter,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { useRole, UserRole } from '@/contexts/role-context';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-const menuItems = [
+const allMenuItems = [
   {
     href: '/',
     label: 'لوحة التحكم',
     icon: LayoutDashboard,
+    roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
   },
   {
     href: '/investors',
     label: 'المستثمرون',
     icon: Users,
+    roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },
   {
     href: '/borrowers',
     label: 'المقترضون',
     icon: Landmark,
+    roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
+  },
+   {
+    href: '/reports',
+    label: 'التقارير',
+    icon: FileText,
+    roles: ['مدير النظام', 'مدير المكتب'],
   },
   {
     href: '/calculator',
     label: 'حاسبة القروض',
     icon: Calculator,
+    roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },
   {
     href: '/summarize',
     label: 'تحليل بالذكاء الاصطناعي',
     icon: BrainCircuit,
+    roles: ['مدير النظام', 'مدير المكتب'],
   },
 ];
 
 export function MainNav() {
   const pathname = usePathname();
+  const { role, setRole } = useRole();
+
+  const menuItems = allMenuItems.filter(item => item.roles.includes(role));
 
   return (
     <>
@@ -117,20 +136,37 @@ export function MainNav() {
           ))}
         </SidebarMenu>
       </SidebarContent>
+       <SidebarSeparator />
       <SidebarFooter>
-        <div className="flex items-center gap-3 p-2 rounded-md bg-sidebar-accent">
-          <Avatar>
-            <AvatarImage src="https://placehold.co/40x40.png" alt="User" />
-            <AvatarFallback>U</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-sidebar-foreground">
-              مدير المنصة
-            </span>
-            <span className="text-xs text-muted-foreground">
-              admin@example.com
-            </span>
-          </div>
+        <div className="flex flex-col gap-3 p-2">
+            <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">محاكاة الدور</Label>
+                 <Select value={role} onValueChange={(value: UserRole) => setRole(value)}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="اختر دورًا" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="مدير النظام">مدير النظام</SelectItem>
+                        <SelectItem value="مدير المكتب">مدير المكتب</SelectItem>
+                        <SelectItem value="موظف">موظف</SelectItem>
+                        <SelectItem value="مستثمر">مستثمر</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="flex items-center gap-3 p-2 rounded-md bg-sidebar-accent">
+            <Avatar>
+                <AvatarImage data-ai-hint="profile picture" src="https://placehold.co/40x40.png" alt="User" />
+                <AvatarFallback>U</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+                <span className="text-sm font-medium text-sidebar-foreground">
+                {role}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                admin@example.com
+                </span>
+            </div>
+            </div>
         </div>
       </SidebarFooter>
     </>

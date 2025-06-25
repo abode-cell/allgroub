@@ -1,6 +1,6 @@
 'use client';
 
-import { Bar, BarChart, XAxis, YAxis, Tooltip } from 'recharts';
+import { Pie, PieChart, Cell } from 'recharts';
 import {
   Card,
   CardContent,
@@ -12,54 +12,74 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
 } from '@/components/ui/chart';
+import type { Borrower } from '../borrowers/borrowers-table';
 
-const chartData = [
-  { type: 'شخصي', amount: 275000 },
-  { type: 'عقاري', amount: 350000 },
-  { type: 'تجاري', amount: 150000 },
-  { type: 'سيارات', amount: 75000 },
-];
-
-const chartConfig = {
-  amount: {
-    label: 'المبلغ',
-    color: 'hsl(var(--chart-2))',
-  },
+const statusColors: { [key: string]: string } = {
+  منتظم: 'hsl(var(--chart-1))',
+  متأخر: 'hsl(var(--chart-5))',
+  متعثر: 'hsl(var(--destructive))',
+  معلق: 'hsl(var(--chart-3))',
+  'مسدد بالكامل': 'hsl(var(--chart-2))',
 };
 
-export function LoansChart() {
+const statusTranslations: { [key: string]: string } = {
+    'منتظم': 'Regular',
+    'متأخر': 'Late',
+    'متعثر': 'Defaulted',
+    'معلق': 'Suspended',
+    'مسدد بالكامل': 'Paid Off'
+}
+
+
+export function LoansStatusChart({ data }: { data: Borrower[] }) {
+  const chartData = Object.entries(
+    data.reduce((acc, borrower) => {
+      acc[borrower.status] = (acc[borrower.status] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number })
+  ).map(([name, value]) => ({ name, value, fill: statusColors[name] }));
+  
+  const chartConfig = chartData.reduce((acc, item) => {
+      acc[statusTranslations[item.name]] = {
+          label: item.name,
+          color: item.fill,
+      };
+      return acc;
+  }, {} as any);
+
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>توزيع القروض</CardTitle>
-        <CardDescription>حسب نوع القرض</CardDescription>
+        <CardTitle>حالة القروض</CardTitle>
+        <CardDescription>توزيع القروض حسب حالة السداد</CardDescription>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig}>
-          <BarChart
-            accessibilityLayer
-            data={chartData}
-            layout="vertical"
-            margin={{ right: 10 }}
-            dir="rtl"
-          >
-            <XAxis
-              type="number"
-              hide
-              tickFormatter={(value) => `${value / 1000} ألف`}
+      <CardContent className='flex items-center justify-center'>
+        <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[250px]">
+          <PieChart>
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
             />
-            <YAxis
-              dataKey="type"
-              type="category"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              width={60}
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              innerRadius={60}
+              strokeWidth={5}
+            >
+                {chartData.map((entry) => (
+                    <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                ))}
+            </Pie>
+            <ChartLegend
+              content={<ChartLegendContent nameKey="name" />}
+              className="-translate-y-[2rem] flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
             />
-            <Tooltip cursor={false} content={<ChartTooltipContent />} />
-            <Bar dataKey="amount" fill="var(--color-amount)" radius={5} />
-          </BarChart>
+          </PieChart>
         </ChartContainer>
       </CardContent>
     </Card>

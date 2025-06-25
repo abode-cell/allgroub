@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { format } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { useRole } from '@/contexts/role-context';
 
 export default function CalculatorPage() {
+  const { role } = useRole();
   const [loanAmount, setLoanAmount] = useState(100000);
   const [interestRate, setInterestRate] = useState(5.5);
   const [loanTerm, setLoanTerm] = useState(5);
@@ -48,6 +48,8 @@ export default function CalculatorPage() {
       style: 'currency',
       currency: 'SAR',
     }).format(value);
+    
+  const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب';
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -96,19 +98,21 @@ export default function CalculatorPage() {
                   placeholder="أدخل مدة القرض"
                 />
               </div>
-              <div className="space-y-4">
-                <Label htmlFor="investorShare">
-                  حصة المستثمر من الأرباح: {investorShare}%
-                </Label>
-                <Slider
-                  id="investorShare"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={[investorShare]}
-                  onValueChange={(value) => setInvestorShare(value[0])}
-                />
-              </div>
+              {showProfitDetails && (
+                <div className="space-y-4">
+                  <Label htmlFor="investorShare">
+                    حصة المستثمر من الأرباح: {investorShare}%
+                  </Label>
+                  <Slider
+                    id="investorShare"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={[investorShare]}
+                    onValueChange={(value) => setInvestorShare(value[0])}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -129,14 +133,18 @@ export default function CalculatorPage() {
                     <p className="text-sm text-muted-foreground">إجمالي الفوائد (الأرباح)</p>
                     <p className="text-2xl font-bold">{formatCurrency(results.totalInterest)}</p>
                 </div>
-                <div className="p-4 bg-accent/10 rounded-lg">
-                    <p className="text-sm text-accent-foreground/80">ربح المؤسسة</p>
-                    <p className="text-2xl font-bold text-accent-foreground">{formatCurrency(results.institutionProfit)}</p>
-                </div>
-                 <div className="p-4 bg-primary/10 rounded-lg">
-                    <p className="text-sm text-primary/80">ربح المستثمرين</p>
-                    <p className="text-2xl font-bold text-primary">{formatCurrency(results.investorProfit)}</p>
-                </div>
+                {showProfitDetails && (
+                  <>
+                    <div className="p-4 bg-accent/10 rounded-lg">
+                        <p className="text-sm text-accent-foreground/80">ربح المؤسسة</p>
+                        <p className="text-2xl font-bold text-accent-foreground">{formatCurrency(results.institutionProfit)}</p>
+                    </div>
+                     <div className="p-4 bg-primary/10 rounded-lg">
+                        <p className="text-sm text-primary/80">ربح المستثمرين</p>
+                        <p className="text-2xl font-bold text-primary">{formatCurrency(results.investorProfit)}</p>
+                    </div>
+                  </>
+                )}
             </CardContent>
           </Card>
         </div>

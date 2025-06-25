@@ -16,8 +16,17 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
+import { useRole } from '@/contexts/role-context';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-const borrowersData: Borrower[] = [
+
+export const borrowersData: Borrower[] = [
   {
     id: 'bor_001',
     name: 'خالد الغامدي',
@@ -42,7 +51,7 @@ const borrowersData: Borrower[] = [
     amount: 250000,
     rate: 4.8,
     term: 10,
-    status: 'منتظم',
+    status: 'متعثر',
     next_due: '٢٠٢٤-٠٧-٠١',
   },
   {
@@ -63,16 +72,36 @@ const borrowersData: Borrower[] = [
     status: 'منتظم',
     next_due: '٢٠٢٤-٠٧-١٠',
   },
+   {
+    id: 'bor_006',
+    name: 'شركة النقل السريع',
+    amount: 95000,
+    rate: 5.2,
+    term: 4,
+    status: 'معلق',
+    next_due: '٢٠٢٤-٠٧-٢٠',
+  },
 ];
 
 export default function BorrowersPage() {
+  const { role } = useRole();
   const [borrowers, setBorrowers] = useState<Borrower[]>(borrowersData);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newBorrower, setNewBorrower] = useState({ name: '', amount: '', rate: '', term: '' });
+  const [newBorrower, setNewBorrower] = useState({
+    name: '',
+    amount: '',
+    rate: '',
+    term: '',
+    status: 'منتظم' as Borrower['status'],
+  });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setNewBorrower((prev) => ({ ...prev, [id]: value }));
+  };
+  
+  const handleStatusChange = (value: Borrower['status']) => {
+    setNewBorrower((prev) => ({ ...prev, status: value }));
   };
 
   const handleAddBorrower = (e: React.FormEvent) => {
@@ -86,18 +115,19 @@ export default function BorrowersPage() {
       amount: Number(newBorrower.amount),
       rate: Number(newBorrower.rate),
       term: Number(newBorrower.term),
-      status: 'منتظم',
+      status: newBorrower.status,
       next_due: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
     };
     setBorrowers((prev) => [...prev, newEntry]);
     setIsAddDialogOpen(false);
-    setNewBorrower({ name: '', amount: '', rate: '', term: '' });
+    setNewBorrower({ name: '', amount: '', rate: '', term: '', status: 'منتظم' });
   };
 
   const handleUpdateBorrower = (updatedBorrower: Borrower) => {
     setBorrowers(borrowers.map((b) => (b.id === updatedBorrower.id ? updatedBorrower : b)));
   };
 
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -109,6 +139,7 @@ export default function BorrowersPage() {
               عرض وإدارة قائمة المقترضين في المنصة.
             </p>
           </header>
+          {showAddButton && (
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -181,6 +212,26 @@ export default function BorrowersPage() {
                       required
                     />
                   </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="status" className="text-right">
+                      الحالة
+                    </Label>
+                     <Select
+                        value={newBorrower.status}
+                        onValueChange={(value: Borrower['status']) => handleStatusChange(value)}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="اختر الحالة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="منتظم">منتظم</SelectItem>
+                          <SelectItem value="متأخر">متأخر</SelectItem>
+                           <SelectItem value="متعثر">متعثر</SelectItem>
+                           <SelectItem value="معلق">معلق</SelectItem>
+                          <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
+                        </SelectContent>
+                      </Select>
+                  </div>
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
@@ -193,6 +244,7 @@ export default function BorrowersPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
         </div>
         <BorrowersTable borrowers={borrowers} onUpdateBorrower={handleUpdateBorrower} />
       </main>
