@@ -8,97 +8,175 @@ import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { useAuth } from '@/contexts/auth-context';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
 import { useData } from '@/contexts/data-context';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { Borrower } from '@/lib/types';
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('ar-SA', {
+    style: 'currency',
+    currency: 'SAR',
+  }).format(value);
+
+const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
+  const { role } = useAuth();
+  const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
+  const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
+  const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
+  const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
+  const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
+  
+  const netProfit = 125000;
+  const dueDebts = 75000;
+
+  const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <KpiCard
+          title="القروض الممنوحة (أقساط)"
+          value={formatCurrency(installmentLoansGranted)}
+          change=""
+          icon={<Landmark className="size-6 text-muted-foreground" />}
+        />
+        {showSensitiveData && (
+             <KpiCard
+                title="صافي الربح"
+                value={formatCurrency(netProfit)}
+                change="+١٥٪"
+                icon={<TrendingUp className="size-6 text-muted-foreground" />}
+                changeColor="text-green-500"
+            />
+        )}
+        <KpiCard
+          title="الديون المستحقة"
+          value={formatCurrency(dueDebts)}
+          change="-٢.١٪"
+          icon={<Users className="size-6 text-muted-foreground" />}
+          changeColor="text-red-500"
+        />
+        <KpiCard
+          title="الأموال المتعثرة (أقساط)"
+          value={formatCurrency(installmentDefaultedFunds)}
+          change=""
+          icon={<ShieldX className="size-6 text-muted-foreground" />}
+          changeColor="text-red-500"
+        />
+        <KpiCard
+          title="نسبة التعثر (أقساط)"
+          value={`${installmentDefaultRate.toFixed(1)}%`}
+          change=""
+          icon={<ShieldAlert className="size-6 text-muted-foreground" />}
+          changeColor="text-red-500"
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-12 lg:col-span-4">
+          <ProfitChart />
+        </div>
+        <div className="col-span-12 lg:col-span-3">
+          <LoansStatusChart borrowers={installmentLoans} />
+        </div>
+      </div>
+
+      <div>
+        <RecentTransactions />
+      </div>
+    </div>
+  );
+};
+
+
+const GracePeriodDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
+    const { role } = useAuth();
+    const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
+    const gracePeriodLoansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
+    const gracePeriodDefaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
+    const gracePeriodDefaultRate = gracePeriodLoansGranted > 0 ? (gracePeriodDefaultedFunds / gracePeriodLoansGranted) * 100 : 0;
+    const gracePeriodProfit = gracePeriodLoansGranted * 0.30;
+    
+    const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
+
+    return (
+        <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <KpiCard
+                    title="التمويل الممنوح (مهلة)"
+                    value={formatCurrency(gracePeriodLoansGranted)}
+                    change=""
+                    icon={<Landmark className="size-6 text-muted-foreground" />}
+                />
+                 {showSensitiveData && (
+                    <KpiCard
+                        title="إجمالي الأرباح المتوقعة"
+                        value={formatCurrency(gracePeriodProfit)}
+                        change="30% من الأصل"
+                        icon={<TrendingUp className="size-6 text-muted-foreground" />}
+                        changeColor='text-green-500'
+                    />
+                 )}
+                 <KpiCard
+                    title="الأموال المتعثرة (مهلة)"
+                    value={formatCurrency(gracePeriodDefaultedFunds)}
+                    change={`${gracePeriodDefaultRate.toFixed(1)}% نسبة التعثر`}
+                    icon={<ShieldX className="size-6 text-muted-foreground" />}
+                    changeColor="text-red-500"
+                />
+            </div>
+            <LoansStatusChart borrowers={gracePeriodLoans} />
+        </div>
+    );
+};
 
 export default function DashboardPage() {
   const { role } = useAuth();
   const { borrowers, investors } = useData();
 
-  const totalCapital = 1250000;
-  const loansGranted = 850000;
-  const netProfit = 125000;
-  const dueDebts = 75000;
-  
-  const defaultedFunds = investors.reduce((acc, inv) => acc + (inv.defaultedFunds || 0), 0);
-  
-  const totalLoanAmount = borrowers.reduce((acc, b) => acc + b.amount, 0);
-  const defaultRate = totalLoanAmount > 0 ? (defaultedFunds / totalLoanAmount) * 100 : 0;
-
-
   if (role === 'مستثمر') {
     return <InvestorDashboard />;
   }
 
+  const totalCapital = investors.reduce((acc, inv) => acc + inv.amount + (inv.defaultedFunds || 0), 0);
+  const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
+  
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
-        <header>
-          <h1 className="text-3xl font-bold tracking-tight">
-            لوحة التحكم المالية
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            نظرة عامة على أداء منصتك المالية.
-          </p>
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              لوحة التحكم المالية
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              نظرة عامة على أداء منصتك المالية.
+            </p>
+          </div>
+          {showSensitiveData && (
+            <div className="min-w-[250px]">
+                <KpiCard
+                    title="إجمالي رأس المال"
+                    value={formatCurrency(totalCapital)}
+                    change=""
+                    icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
+                />
+            </div>
+          )}
         </header>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <KpiCard
-            title="إجمالي رأس المال"
-            value="١٬٢٥٠٬٠٠٠ ر.س"
-            change="+١٢.٥٪"
-            icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
-            changeColor="text-green-500"
-          />
-          <KpiCard
-            title="القروض الممنوحة"
-            value="٨٥٠٬٠٠٠ ر.س"
-            change="+٨.٢٪"
-            icon={<Landmark className="size-6 text-muted-foreground" />}
-            changeColor="text-green-500"
-          />
-           {role !== 'موظف' && (
-            <KpiCard
-              title="صافي الربح"
-              value="١٢٥٬٠٠٠ ر.س"
-              change="+١٥٪"
-              icon={<TrendingUp className="size-6 text-muted-foreground" />}
-              changeColor="text-green-500"
-            />
-          )}
-          <KpiCard
-            title="الديون المستحقة"
-            value="٧٥٬٠٠٠ ر.س"
-            change="-٢.١٪"
-            icon={<Users className="size-6 text-muted-foreground" />}
-            changeColor="text-red-500"
-          />
-           <KpiCard
-            title="الأموال المتعثرة"
-            value={new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(defaultedFunds)}
-            change="+5.1%"
-            icon={<ShieldX className="size-6 text-muted-foreground" />}
-            changeColor="text-red-500"
-          />
-           <KpiCard
-            title="نسبة التعثر"
-            value={`${defaultRate.toFixed(1)}%`}
-            change=""
-            icon={<ShieldAlert className="size-6 text-muted-foreground" />}
-            changeColor="text-red-500"
-          />
-        </div>
+        <Tabs defaultValue="installments" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="installments">تمويل الأقساط</TabsTrigger>
+                <TabsTrigger value="grace-period">تمويل المهلة</TabsTrigger>
+            </TabsList>
+            <TabsContent value="installments" className="mt-6">
+                <InstallmentsDashboard borrowers={borrowers} />
+            </TabsContent>
+            <TabsContent value="grace-period" className="mt-6">
+                <GracePeriodDashboard borrowers={borrowers} />
+            </TabsContent>
+        </Tabs>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <div className="col-span-12 lg:col-span-4">
-            <ProfitChart />
-          </div>
-          <div className="col-span-12 lg:col-span-3">
-            <LoansStatusChart />
-          </div>
-        </div>
-
-        <div>
-          <RecentTransactions />
-        </div>
       </main>
     </div>
   );
