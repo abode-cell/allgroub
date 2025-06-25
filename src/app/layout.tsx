@@ -30,12 +30,12 @@ export default function RootLayout({
         ></link>
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
-          <DataProvider>
+        <DataProvider>
+          <AuthProvider>
             <ClientLayout>{children}</ClientLayout>
-          </DataProvider>
+          </AuthProvider>
           <Toaster />
-        </AuthProvider>
+        </DataProvider>
       </body>
     </html>
   );

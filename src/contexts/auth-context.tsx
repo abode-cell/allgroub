@@ -1,103 +1,72 @@
 'use client';
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { User, IdTokenResult } from 'firebase/auth';
-import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider, firebaseInitialized } from '@/lib/firebase';
+import type { User, UserRole } from '@/lib/types';
+import { useData } from './data-context';
 
-export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'موظف' | 'مستثمر';
-
-// A mock user for development when Firebase is not configured
-const mockUser: User = {
-  uid: 'mock-user-id',
-  email: 'user@example.com',
-  displayName: 'مستخدم تجريبي',
-  photoURL: 'https://placehold.co/40x40.png',
-  emailVerified: true,
-  isAnonymous: false,
-  metadata: {
-    creationTime: new Date().toISOString(),
-    lastSignInTime: new Date().toISOString(),
-  },
-  providerData: [],
-  providerId: 'mock',
-  tenantId: null,
-  delete: async () => { console.warn('Mock delete called'); },
-  getIdToken: async () => 'mock-token',
-  getIdTokenResult: async (): Promise<IdTokenResult> => ({
-    token: 'mock-token',
-    claims: {},
-    authTime: new Date().toISOString(),
-    issuedAtTime: new Date().toISOString(),
-    signInProvider: 'mock',
-    signInSecondFactor: null,
-    expirationTime: new Date(Date.now() + 3600 * 1000).toISOString(),
-  }),
-  reload: async () => { console.warn('Mock reload called'); },
-  toJSON: () => ({
-    uid: 'mock-user-id',
-    email: 'user@example.com',
-    displayName: 'مستخدم تجريبي',
-    photoURL: 'https://placehold.co/40x40.png',
-  }),
-};
-
-
+// The user object in the context will be our custom User type
 type AuthContextType = {
   user: User | null;
   loading: boolean;
   role: UserRole;
   setRole: (role: UserRole) => void;
-  signInWithGoogle: () => Promise<any>;
-  signOutUser: () => Promise<void>;
-  isFirebaseReady: boolean;
+  signIn: (email: string) => Promise<{ success: boolean; message: string }>;
+  signOutUser: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { users } = useData(); // Get users from DataProvider
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Role simulation is still needed if one user can switch roles
   const [role, setRole] = useState<UserRole>('مدير النظام');
 
   useEffect(() => {
-    if (firebaseInitialized && auth) {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setUser(user);
-        setLoading(false);
-        // Simple logic to map one user to investor role for demo
-        if (user?.email?.startsWith('investor')) {
-          setRole('مستثمر');
+    // On initial load, we can try to get a user from session storage for persistence
+    try {
+        const storedUser = sessionStorage.getItem('authUser');
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            // Verify user still exists in our user list
+            if (users.find(u => u.id === parsedUser.id)) {
+                setUser(parsedUser);
+                setRole(parsedUser.role);
+            }
         }
-      });
-      return () => unsubscribe();
-    } else {
-      // If Firebase is not configured, use a mock user for development.
-      console.warn("Firebase not configured. Using mock user for development.");
-      setUser(mockUser);
-      setLoading(false);
+    } catch (error) {
+        // Could be SSR or invalid JSON
+        console.error("Could not restore session:", error);
+        sessionStorage.removeItem('authUser');
     }
-  }, []);
+    setLoading(false);
+  }, [users]); // Re-run if users list changes (e.g. on activation)
+  
+  const signIn = async (email: string): Promise<{ success: boolean, message: string }> => {
+    const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-  const signInWithGoogle = () => {
-    if (!firebaseInitialized || !auth) {
-      console.warn("Firebase not configured. Simulating sign-in.");
-      setUser(mockUser);
-      setLoading(false);
-      return Promise.resolve();
+    if (!foundUser) {
+      return { success: false, message: 'المستخدم غير موجود.' };
     }
-    return signInWithPopup(auth, googleProvider);
+
+    if (foundUser.status === 'معلق') {
+      return { success: false, message: 'الحساب معلق. يرجى التواصل مع مدير النظام.' };
+    }
+
+    setUser(foundUser);
+    setRole(foundUser.role);
+    sessionStorage.setItem('authUser', JSON.stringify(foundUser)); // Persist session
+    return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
   };
 
   const signOutUser = () => {
-    if (!firebaseInitialized || !auth) {
-      console.warn("Firebase not configured. Simulating sign-out.");
-      setUser(null);
-      return Promise.resolve();
-    }
-    return signOut(auth);
+    setUser(null);
+    setRole('مدير النظام'); // Reset to default role on sign out
+    sessionStorage.removeItem('authUser');
   };
 
-  const value = { user, loading, role, setRole, signInWithGoogle, signOutUser, isFirebaseReady: firebaseInitialized };
+  const value = { user, loading, role, setRole, signIn, signOutUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

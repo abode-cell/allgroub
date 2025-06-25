@@ -1,3 +1,14 @@
+export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'موظف' | 'مستثمر';
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  photoURL: string;
+  role: UserRole;
+  status: 'نشط' | 'معلق';
+};
+
 export type Borrower = {
   id: string;
   name: string;
@@ -28,7 +39,7 @@ export type Withdrawal = {
 };
 
 export type Investor = {
-  id: string;
+  id:string;
   name: string;
   amount: number;
   date: string;

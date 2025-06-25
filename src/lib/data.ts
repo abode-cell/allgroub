@@ -1,4 +1,12 @@
-import type { Borrower, Investor } from '@/lib/types';
+import type { Borrower, Investor, User } from '@/lib/types';
+
+export const usersData: User[] = [
+    { id: 'user_001', name: 'مدير النظام', email: 'admin@system.com', photoURL: 'https://placehold.co/40x40.png', role: 'مدير النظام', status: 'نشط' },
+    { id: 'user_002', name: 'مدير المكتب', email: 'manager@office.com', photoURL: 'https://placehold.co/40x40.png', role: 'مدير المكتب', status: 'نشط' },
+    { id: 'user_003', name: 'أحمد عبدالله (المستثمر)', email: 'investor@demo.com', photoURL: 'https://placehold.co/40x40.png', role: 'مستثمر', status: 'نشط' },
+    { id: 'user_004', name: 'فهد (موظف)', email: 'employee@office.com', photoURL: 'https://placehold.co/40x40.png', role: 'موظف', status: 'نشط' },
+    { id: 'user_005', name: 'حساب معلق', email: 'pending@office.com', photoURL: 'https://placehold.co/40x40.png', role: 'موظف', status: 'معلق' },
+];
 
 export const borrowersData: Borrower[] = [
   {

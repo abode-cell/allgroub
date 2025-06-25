@@ -1,14 +1,15 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { borrowersData as initialBorrowers, investorsData as initialInvestors } from '@/lib/data';
-import type { Borrower, Investor, Withdrawal } from '@/lib/types';
+import { usersData as initialUsers, borrowersData as initialBorrowers, investorsData as initialInvestors } from '@/lib/data';
+import type { Borrower, Investor, Withdrawal, User } from '@/lib/types';
 
 type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds' | 'withdrawalHistory' | 'rejectionReason' | 'submittedBy'>;
 
 type DataContextType = {
   borrowers: Borrower[];
   investors: Investor[];
+  users: User[];
   addBorrower: (borrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy'>) => void;
   updateBorrower: (borrower: Borrower) => void;
   approveBorrower: (borrowerId: string) => void;
@@ -18,6 +19,8 @@ type DataContextType = {
   approveInvestor: (investorId: string) => void;
   rejectInvestor: (investorId: string, reason: string) => void;
   withdrawFromInvestor: (investorId: string, withdrawal: Omit<Withdrawal, 'id'|'date'>) => void;
+  addUser: (user: Omit<User, 'id' | 'photoURL' | 'status'>) => void;
+  updateUserStatus: (userId: string, status: User['status']) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -25,6 +28,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: ReactNode }) {
   const [borrowers, setBorrowers] = useState<Borrower[]>(initialBorrowers);
   const [investors, setInvestors] = useState<Investor[]>(initialInvestors);
+  const [users, setUsers] = useState<User[]>(initialUsers);
 
   const calculateDefaultedFunds = useCallback((investorId: string, currentBorrowers: Borrower[], allInvestors: Investor[]): number => {
     const investor = allInvestors.find(inv => inv.id === investorId);
@@ -150,8 +154,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const addUser = (user: Omit<User, 'id' | 'photoURL' | 'status'>) => {
+    const newUser: User = {
+      ...user,
+      id: `user_${Date.now()}`,
+      photoURL: 'https://placehold.co/40x40.png',
+      status: 'معلق', // New users are pending activation
+    };
+    setUsers(prev => [...prev, newUser]);
+  };
 
-  const value = { borrowers, investors, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor };
+  const updateUserStatus = (userId: string, status: User['status']) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status } : u));
+  };
+
+
+  const value = { borrowers, investors, users, addUser, updateUserStatus, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

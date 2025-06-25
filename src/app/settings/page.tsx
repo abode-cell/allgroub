@@ -9,9 +9,10 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserCog, Scale } from 'lucide-react';
+import { UserCog, Scale, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import Link from 'next/link';
 
 export default function SettingsPage() {
   const { role } = useAuth();
@@ -28,31 +29,37 @@ export default function SettingsPage() {
   if (!canViewPage) {
     return null; // Or a loading/access denied component
   }
+  
+  const canManageUsers = role === 'مدير النظام';
 
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">
-            إدارة الإعدادات والمستخدمين
+            الإعدادات
           </h1>
           <p className="text-muted-foreground mt-1">
-            التحكم في إعدادات النظام الأساسية وإدارة صلاحيات المستخدمين.
+            التحكم في إعدادات النظام الأساسية وإدارة المستخدمين.
           </p>
         </header>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card>
+          <Card className={!canManageUsers ? 'bg-muted/50' : ''}>
             <CardHeader>
               <UserCog className="h-8 w-8 text-primary mb-2" />
               <CardTitle>إدارة المستخدمين والأدوار</CardTitle>
               <CardDescription>
-                إضافة، تعديل، وحذف المستخدمين. تحديد الأدوار وتعيين الصلاحيات
-                للموظفين.
+                إضافة وتفعيل المستخدمين. هذه الميزة متاحة لمدير النظام فقط.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button disabled>إدارة المستخدمين (قريبًا)</Button>
+                <Button asChild disabled={!canManageUsers}>
+                    <Link href="/users">
+                        الانتقال إلى إدارة المستخدمين
+                        <ChevronLeft className="mr-2 h-4 w-4" />
+                    </Link>
+                </Button>
             </CardContent>
           </Card>
 

@@ -1,20 +1,23 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const GoogleIcon = () => (
-    <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-        <path fill="currentColor" d="M488 261.8C488 403.3 381.5 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 25.5 169.3 67.8L346.6 128.9c-29.1-28.1-66.5-45.1-107.9-45.1-84.1 0-152.2 68.2-152.2 152.2s68.1 152.2 152.2 152.2c91.3 0 135.2-63.5 139.7-96.1H248v-67.3h239.1c1.3 12.2 2.9 24.4 2.9 36.8z"></path>
-    </svg>
-);
 
 export default function LoginPage() {
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading, signIn } = useAuth();
   const router = useRouter();
+
+  const [email, setEmail] = useState('admin@system.com');
+  const [password, setPassword] = useState('password123'); // For simulation
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -22,16 +25,26 @@ export default function LoginPage() {
     }
   }, [user, loading, router]);
 
-  const handleSignIn = async () => {
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
     try {
-        await signInWithGoogle();
-        router.replace('/');
-    } catch (error) {
-        console.error("Error during sign in:", error);
+        const result = await signIn(email);
+        if (result.success) {
+            router.replace('/');
+        } else {
+            setError(result.message);
+        }
+    } catch (err) {
+        setError("حدث خطأ غير متوقع.");
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
-  if (loading || (!loading && user)) {
+  if (loading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -54,13 +67,43 @@ export default function LoginPage() {
           <CardDescription>قم بتسجيل الدخول للمتابعة إلى لوحة التحكم</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleSignIn} className="w-full">
-            <GoogleIcon />
-            تسجيل الدخول باستخدام جوجل
-          </Button>
-           <p className="text-xs text-center text-muted-foreground mt-4 px-4">
-             لا يتم إنشاء حسابات المستثمرين والموظفين من هنا. يتم إنشاؤها بواسطة المسؤول.
-           </p>
+            <form onSubmit={handleSignIn} className="space-y-4">
+                {error && (
+                    <Alert variant="destructive">
+                        <AlertTitle>خطأ في تسجيل الدخول</AlertTitle>
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
+                <div className="space-y-2">
+                    <Label htmlFor="email">البريد الإلكتروني</Label>
+                    <Input 
+                        id="email" 
+                        type="email" 
+                        placeholder="user@example.com" 
+                        required 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="password">كلمة المرور</Label>
+                    <Input 
+                        id="password" 
+                        type="password" 
+                        required 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                    />
+                </div>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
+                    تسجيل الدخول
+                </Button>
+                <p className="text-xs text-center text-muted-foreground pt-2">
+                    لا يمكن إنشاء حسابات جديدة من هنا. يتم إنشاء الحسابات وتفعيلها بواسطة مدير النظام فقط.
+                </p>
+            </form>
         </CardContent>
       </Card>
     </div>

@@ -1,11 +1,12 @@
 'use client';
-import { useAuth, UserRole } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Notifications } from './notifications';
 import { LogOut } from 'lucide-react';
+import type { UserRole } from '@/lib/types';
 
 export function AppHeader() {
     const { user, role, setRole, signOutUser } = useAuth();
@@ -33,12 +34,12 @@ export function AppHeader() {
                 </div>
                 <div className="flex items-center gap-3">
                     <Avatar>
-                        <AvatarImage data-ai-hint="profile picture" src={user?.photoURL ?? "https://placehold.co/40x40.png"} alt={user?.displayName ?? 'User'} />
-                        <AvatarFallback>{user?.displayName?.[0]?.toUpperCase() ?? 'U'}</AvatarFallback>
+                        <AvatarImage data-ai-hint="profile picture" src={user?.photoURL ?? "https://placehold.co/40x40.png"} alt={user?.name ?? 'User'} />
+                        <AvatarFallback>{user?.name?.[0]?.toUpperCase() ?? 'U'}</AvatarFallback>
                     </Avatar>
                      <div className="hidden md:flex flex-col">
                         <span className="text-sm font-medium text-foreground">
-                        {user?.displayName}
+                        {user?.name}
                         </span>
                         <span className="text-xs text-muted-foreground">
                         {user?.email}
