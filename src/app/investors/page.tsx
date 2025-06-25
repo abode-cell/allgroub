@@ -18,14 +18,13 @@ import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
 import { useRole } from '@/contexts/role-context';
 
-export const investorsData: Investor[] = [
+export const investorsData: Omit<Investor, 'defaultedFunds'>[] = [
   {
     id: 'inv_001',
     name: 'شركة الاستثمار الرائدة',
     amount: 500000,
     date: '٢٠٢٣-٠١-١٥',
     status: 'نشط',
-    defaultedFunds: 25000,
     withdrawalHistory: [
         { id: 'wd_001', amount: 10000, reason: 'سحب دوري', date: '٢٠٢٤-٠٥-١٠' }
     ]
@@ -36,7 +35,6 @@ export const investorsData: Investor[] = [
     amount: 250000,
     date: '٢٠٢٣-٠٢-٢٠',
     status: 'نشط',
-    defaultedFunds: 0,
     withdrawalHistory: []
   },
   {
@@ -45,7 +43,6 @@ export const investorsData: Investor[] = [
     amount: 100000,
     date: '٢٠٢٣-٠٣-١٠',
     status: 'نشط',
-    defaultedFunds: 5000,
     withdrawalHistory: [
         { id: 'wd_002', amount: 5000, reason: 'أرباح', date: '٢٠٢٤-٠٦-٠١' },
         { id: 'wd_003', amount: 2000, reason: 'شخصي', date: '٢٠٢٤-٠٤-١٥' }
@@ -57,7 +54,6 @@ export const investorsData: Investor[] = [
     amount: 300000,
     date: '٢٠٢٣-٠٤-٠٥',
     status: 'غير نشط',
-    defaultedFunds: 0,
     withdrawalHistory: []
   },
   {
@@ -66,7 +62,6 @@ export const investorsData: Investor[] = [
     amount: 1000000,
     date: '٢٠٢٣-٠٥-٠١',
     status: 'نشط',
-    defaultedFunds: 150000,
     withdrawalHistory: []
   },
 ];
@@ -74,7 +69,7 @@ export const investorsData: Investor[] = [
 
 export default function InvestorsPage() {
   const { role } = useRole();
-  const [investors, setInvestors] = useState<Investor[]>(investorsData);
+  const [investors, setInvestors] = useState<Omit<Investor, 'defaultedFunds'>[]>(investorsData);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newInvestor, setNewInvestor] = useState({ name: '', amount: '' });
 
@@ -88,13 +83,12 @@ export default function InvestorsPage() {
     if (!newInvestor.name || !newInvestor.amount) {
       return;
     }
-    const newEntry: Investor = {
+    const newEntry: Omit<Investor, 'defaultedFunds'> = {
       id: `inv_${Date.now()}`,
       name: newInvestor.name,
       amount: Number(newInvestor.amount),
       status: 'نشط',
       date: new Date().toISOString().split('T')[0],
-      defaultedFunds: 0,
       withdrawalHistory: []
     };
     setInvestors((prev) => [...prev, newEntry]);
@@ -102,12 +96,19 @@ export default function InvestorsPage() {
     setNewInvestor({ name: '', amount: '' });
   };
 
-  const handleUpdateInvestor = (updatedInvestor: Investor) => {
+  const handleUpdateInvestor = (updatedInvestor: Omit<Investor, 'defaultedFunds'>) => {
     setInvestors(investors.map((i) => (i.id === updatedInvestor.id ? updatedInvestor : i)));
   };
   
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب';
   const isEmployee = role === 'موظف';
+
+  const displayedInvestors =
+    role === 'مستثمر'
+      ? investors.filter((i) => i.id === 'inv_003') // Simulate showing only the logged-in investor
+      : isEmployee
+      ? investors.slice(0, 2) // Simulate limited view for employees
+      : investors;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -179,7 +180,7 @@ export default function InvestorsPage() {
           </Dialog>
           )}
         </div>
-        <InvestorsTable investors={investors} onUpdateInvestor={handleUpdateInvestor}/>
+        <InvestorsTable investors={displayedInvestors} onUpdateInvestor={handleUpdateInvestor}/>
       </main>
     </div>
   );

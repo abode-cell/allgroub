@@ -1,11 +1,13 @@
 'use client';
 
-import { CircleDollarSign, TrendingUp, ShieldX, Wallet } from 'lucide-react';
+import { CircleDollarSign, TrendingUp, ShieldX, Wallet, Briefcase } from 'lucide-react';
 import { KpiCard } from './kpi-card';
 import { ProfitChart } from './profit-chart';
 import { investorsData } from '@/app/investors/page';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { borrowersData } from '@/app/borrowers/page';
+import { investorLoanMap } from '../investors/investors-table';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('ar-SA', {
@@ -26,9 +28,18 @@ export function InvestorDashboard() {
     );
   }
 
+  const calculateDefaultedFunds = (investorId: string) => {
+    const loanIds = investorLoanMap[investorId] || [];
+    return borrowersData
+        .filter(loan => loanIds.includes(loan.id) && (loan.status === 'متعثر' || loan.status === 'معلق'))
+        .reduce((acc, loan) => acc + loan.amount, 0);
+  };
+
   const totalInvestment = investor.amount;
+  const defaultedFunds = calculateDefaultedFunds(investor.id);
   const dueProfits = totalInvestment * 0.12; // Simulated
   const idleFunds = totalInvestment * 0.15; // Simulated
+  const activeInvestment = totalInvestment - defaultedFunds - idleFunds;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -42,19 +53,18 @@ export function InvestorDashboard() {
           </p>
         </header>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <KpiCard
             title="إجمالي الاستثمار"
             value={formatCurrency(totalInvestment)}
-            change="+2.5٪"
+            change=""
             icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
-            changeColor="text-green-500"
           />
           <KpiCard
-            title="الأرباح المستحقة"
-            value={formatCurrency(dueProfits)}
-            change="+5٪"
-            icon={<TrendingUp className="size-6 text-muted-foreground" />}
+            title="الأموال المستثمرة"
+            value={formatCurrency(activeInvestment)}
+            change="النشطة"
+            icon={<Briefcase className="size-6 text-muted-foreground" />}
             changeColor="text-green-500"
           />
           <KpiCard
@@ -63,9 +73,16 @@ export function InvestorDashboard() {
             change=""
             icon={<Wallet className="size-6 text-muted-foreground" />}
           />
+           <KpiCard
+            title="الأرباح المستحقة"
+            value={formatCurrency(dueProfits)}
+            change="+5٪"
+            icon={<TrendingUp className="size-6 text-muted-foreground" />}
+            changeColor="text-green-500"
+          />
           <KpiCard
             title="الأموال المتعثرة"
-            value={formatCurrency(investor.defaultedFunds)}
+            value={formatCurrency(defaultedFunds)}
             change=""
             icon={<ShieldX className="size-6 text-muted-foreground" />}
             changeColor="text-red-500"

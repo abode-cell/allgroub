@@ -130,6 +130,8 @@ export default function BorrowersPage() {
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
   const isEmployee = role === 'موظف';
 
+  const displayedBorrowers = isEmployee ? borrowers.slice(0, 3) : borrowers;
+
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -249,7 +251,7 @@ export default function BorrowersPage() {
           </Dialog>
           )}
         </div>
-        <BorrowersTable borrowers={borrowers} onUpdateBorrower={handleUpdateBorrower} />
+        <BorrowersTable borrowers={displayedBorrowers} onUpdateBorrower={handleUpdateBorrower} />
       </main>
     </div>
   );

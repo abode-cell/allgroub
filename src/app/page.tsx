@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleDollarSign, Landmark, ShieldX, TrendingUp, Users, FileText } from 'lucide-react';
+import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { ProfitChart } from '@/components/dashboard/profit-chart';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
@@ -16,9 +16,13 @@ export default function DashboardPage() {
   const loansGranted = 850000;
   const netProfit = 125000;
   const dueDebts = 75000;
+  
   const defaultedFunds = borrowersData
-    .filter((b) => b.status === 'متعثر')
+    .filter((b) => b.status === 'متعثر' || b.status === 'معلق')
     .reduce((acc, b) => acc + b.amount, 0);
+  
+  const totalLoanAmount = borrowersData.reduce((acc, b) => acc + b.amount, 0);
+  const defaultRate = totalLoanAmount > 0 ? (defaultedFunds / totalLoanAmount) * 100 : 0;
 
 
   if (role === 'مستثمر') {
@@ -37,7 +41,7 @@ export default function DashboardPage() {
           </p>
         </header>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <KpiCard
             title="إجمالي رأس المال"
             value="١٬٢٥٠٬٠٠٠ ر.س"
@@ -73,6 +77,13 @@ export default function DashboardPage() {
             value={new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(defaultedFunds)}
             change="+5.1%"
             icon={<ShieldX className="size-6 text-muted-foreground" />}
+            changeColor="text-red-500"
+          />
+           <KpiCard
+            title="نسبة التعثر"
+            value={`${defaultRate.toFixed(1)}%`}
+            change=""
+            icon={<ShieldAlert className="size-6 text-muted-foreground" />}
             changeColor="text-red-500"
           />
         </div>
