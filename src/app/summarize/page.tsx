@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Loader2, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
 const initialState: FormState = {
   message: '',
@@ -21,12 +22,12 @@ function SubmitButton() {
       {pending ? (
         <>
           <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-          جاري التلخيص...
+          جاري التحليل...
         </>
       ) : (
         <>
           <Wand2 className="ml-2 h-4 w-4" />
-          لخص المستند
+          حلل المستند
         </>
       )}
     </Button>
@@ -41,10 +42,10 @@ export default function SummarizePage() {
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">
-            تلخيص المستندات بالذكاء الاصطناعي
+            تحليل المستندات بالذكاء الاصطناعي
           </h1>
           <p className="text-muted-foreground mt-1">
-            ألصق نص المستند أدناه للحصول على ملخص سريع ودقيق.
+            احصل على ملخص سريع وقرار مدعوم بالذكاء الاصطناعي حول أهمية المعلومات.
           </p>
         </header>
 
@@ -77,7 +78,7 @@ export default function SummarizePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>الملخص</CardTitle>
+              <CardTitle>التحليل والقرار</CardTitle>
             </CardHeader>
             <CardContent>
               {state.message && !state.summary && (
@@ -87,21 +88,43 @@ export default function SummarizePage() {
                  </Alert>
               )}
               {state.summary ? (
-                <div className="space-y-4">
+                <div className="space-y-6">
                    <Alert variant="default" className='bg-primary/10 border-primary/20'>
-                    <AlertTitle className='text-primary'>تلخيص ناجح!</AlertTitle>
+                    <AlertTitle className='text-primary'>تحليل ناجح!</AlertTitle>
                     <AlertDescription className='text-primary/80'>
                        {state.message}
                     </AlertDescription>
                   </Alert>
-                  <div className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap p-4 bg-muted rounded-md">
-                    {state.summary}
+                  <div>
+                    <h3 className="font-semibold mb-2 text-lg">الملخص</h3>
+                    <div className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap p-4 bg-muted rounded-md">
+                      {state.summary}
+                    </div>
                   </div>
+
+                  {state.decision && (
+                    <div>
+                      <h3 className="font-semibold mb-2 text-lg">قرار الذكاء الاصطناعي</h3>
+                      <div className="p-4 bg-muted rounded-md space-y-4">
+                        <div className="flex items-center gap-4">
+                          <span className="font-medium">هل يجب دمج المعلومة؟</span>
+                          <Badge variant={state.decision.shouldIntegrate ? 'default' : 'destructive'}>
+                            {state.decision.shouldIntegrate ? 'نعم' : 'لا'}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="font-medium mb-1">السبب:</p>
+                          <p className="text-sm text-muted-foreground">{state.decision.reasoning}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-[300px] bg-muted rounded-md">
                   <p className="text-muted-foreground">
-                    سيظهر الملخص هنا بعد التحليل.
+                    سيظهر الملخص والقرار هنا بعد التحليل.
                   </p>
                 </div>
               )}

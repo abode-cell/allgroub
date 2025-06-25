@@ -47,7 +47,7 @@ const menuItems = [
   },
   {
     href: '/summarize',
-    label: 'تلخيص بالذكاء الاصطناعي',
+    label: 'تحليل بالذكاء الاصطناعي',
     icon: BrainCircuit,
   },
 ];

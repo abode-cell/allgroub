@@ -13,6 +13,10 @@ export type FormState = {
   message: string;
   summary?: string;
   issues?: Record<string, string[]>;
+  decision?: {
+    shouldIntegrate: boolean;
+    reasoning: string;
+  };
 };
 
 export async function onSummarize(prevState: FormState, formData: FormData): Promise<FormState> {
@@ -29,12 +33,13 @@ export async function onSummarize(prevState: FormState, formData: FormData): Pro
 
   try {
     const result = await summarizeInvestmentDocument({ documentText: validatedFields.data.documentText });
-    if (!result.summary) {
-       return { message: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص. حاول مرة أخرى بنص مختلف.' };
+    if (!result.summary || !result.decision) {
+       return { message: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص وقرار. حاول مرة أخرى بنص مختلف.' };
     }
     return {
-      message: 'تم تلخيص المستند بنجاح!',
+      message: 'تم تحليل المستند بنجاح!',
       summary: result.summary,
+      decision: result.decision,
     };
   } catch (error) {
     console.error(error);

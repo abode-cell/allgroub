@@ -19,6 +19,20 @@ export type SummarizeInvestmentDocumentInput = z.infer<typeof SummarizeInvestmen
 
 const SummarizeInvestmentDocumentOutputSchema = z.object({
   summary: z.string().describe('A concise summary of the document.'),
+  decision: z
+    .object({
+      shouldIntegrate: z
+        .boolean()
+        .describe(
+          'Whether the information in this document is critical and should be integrated.'
+        ),
+      reasoning: z
+        .string()
+        .describe('The reasoning behind the decision to integrate or not.'),
+    })
+    .describe(
+      'An AI-powered decision on whether to integrate the information from the document.'
+    ),
 });
 export type SummarizeInvestmentDocumentOutput = z.infer<typeof SummarizeInvestmentDocumentOutputSchema>;
 
@@ -32,7 +46,13 @@ const prompt = ai.definePrompt({
   name: 'summarizeInvestmentDocumentPrompt',
   input: {schema: SummarizeInvestmentDocumentInputSchema},
   output: {schema: SummarizeInvestmentDocumentOutputSchema},
-  prompt: `You are an expert financial analyst. Please provide a concise summary of the following investment document:\n\n{{{documentText}}}`,
+  prompt: `You are an expert financial analyst. Your task is to analyze the following investment document.
+First, provide a concise summary of the document.
+Second, make a decision on whether the information presented is critical and should be integrated into our system. Provide a clear "yes" or "no" for the 'shouldIntegrate' field.
+Third, provide a brief reasoning for your decision.
+
+Document Text:
+{{{documentText}}}`,
 });
 
 const summarizeInvestmentDocumentFlow = ai.defineFlow(
