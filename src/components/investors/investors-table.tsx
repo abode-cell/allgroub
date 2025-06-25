@@ -112,7 +112,7 @@ export function InvestorsTable({
   }
 
   const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب';
-  const canEdit = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+  const canEdit = role === 'مدير النظام' || role === 'مدير المكتب';
   const isEmployee = role === 'موظف';
       
   const getAssociatedDefaultedLoans = (investorId: string) => {
@@ -181,7 +181,7 @@ export function InvestorsTable({
                               onSelect={() => handleEditClick(investor)}
                               disabled={investor.status === 'معلق'}
                             >
-                              {isEmployee ? 'رفع طلب تعديل' : 'تعديل'}
+                              تعديل
                             </DropdownMenuItem>
                         )}
                         {canPerformActions && (
@@ -205,11 +205,9 @@ export function InvestorsTable({
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{isEmployee ? 'رفع طلب تعديل مستثمر' : 'تعديل المستثمر'}</DialogTitle>
+            <DialogTitle>تعديل المستثمر</DialogTitle>
             <DialogDescription>
-              {isEmployee
-                ? 'قم بتحديث التفاصيل وسيتم مراجعة طلبك.'
-                : 'قم بتحديث تفاصيل المستثمر هنا. انقر على حفظ عند الانتهاء.'}
+              قم بتحديث تفاصيل المستثمر هنا. انقر على حفظ عند الانتهاء.
             </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (
@@ -258,7 +256,7 @@ export function InvestorsTable({
               إلغاء
             </Button>
             <Button type="button" onClick={handleSaveChanges}>
-              {isEmployee ? 'إرسال طلب التعديل' : 'حفظ التغييرات'}
+              حفظ التغييرات
             </Button>
           </DialogFooter>
         </DialogContent>

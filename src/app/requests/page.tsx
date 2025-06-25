@@ -82,7 +82,7 @@ export default function RequestsPage() {
       <div className="flex flex-col flex-1">
         <main className="flex-1 space-y-8 p-4 md:p-8">
           <header>
-            <h1 className="text-3xl font-bold tracking-tight">مراجعة الطلبات المعلقة</h1>
+            <h1 className="text-3xl font-bold tracking-tight">مراجعة الطلبات</h1>
             <p className="text-muted-foreground mt-1">
               مراجعة والموافقة على طلبات إضافة المقترضين والمستثمرين الجديدة.
             </p>

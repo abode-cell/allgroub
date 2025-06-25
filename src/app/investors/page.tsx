@@ -40,7 +40,7 @@ export default function InvestorsPage() {
       return;
     }
     
-    const status: Investor['status'] = isEmployee ? 'معلق' : 'نشط';
+    const status: Investor['status'] = 'نشط';
     
     addInvestor({
       name: newInvestor.name,
@@ -75,17 +75,15 @@ export default function InvestorsPage() {
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="ml-2 h-4 w-4" />
-                {isEmployee ? 'رفع طلب إضافة مستثمر' : 'إضافة مستثمر'}
+                إضافة مستثمر
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <form onSubmit={handleAddInvestor}>
                 <DialogHeader>
-                  <DialogTitle>{isEmployee ? 'رفع طلب إضافة مستثمر جديد' : 'إضافة مستثمر جديد'}</DialogTitle>
+                  <DialogTitle>إضافة مستثمر جديد</DialogTitle>
                   <DialogDescription>
-                    {isEmployee 
-                      ? 'أدخل تفاصيل المستثمر وسيتم مراجعة الطلب.'
-                      : 'أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.'}
+                    أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -123,7 +121,7 @@ export default function InvestorsPage() {
                       إلغاء
                     </Button>
                   </DialogClose>
-                  <Button type="submit">{isEmployee ? 'إرسال الطلب' : 'حفظ'}</Button>
+                  <Button type="submit">حفظ</Button>
                 </DialogFooter>
               </form>
             </DialogContent>

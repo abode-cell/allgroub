@@ -14,6 +14,7 @@ import {
   Settings,
   ClipboardList,
   ClipboardCheck,
+  Bell,
 } from 'lucide-react';
 import {
   SidebarHeader,
@@ -59,9 +60,15 @@ const allMenuItems = [
   },
   {
     href: '/requests',
-    label: 'الطلبات المعلقة',
+    label: 'الطلبات',
     icon: ClipboardList,
     roles: ['مدير النظام', 'مدير المكتب'],
+  },
+  {
+    href: '/notifications',
+    label: 'التنبيهات',
+    icon: Bell,
+    roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
   },
   {
     href: '/calculator',
