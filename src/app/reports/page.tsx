@@ -62,6 +62,7 @@ export default function ReportsPage() {
                   <TableHead>اسم المقترض</TableHead>
                   <TableHead>مبلغ القرض</TableHead>
                   <TableHead>تاريخ القرض</TableHead>
+                  <TableHead>تاريخ الاستحقاق</TableHead>
                   <TableHead>الحالة</TableHead>
                   <TableHead>المستثمر الممول</TableHead>
                 </TableRow>
@@ -73,6 +74,7 @@ export default function ReportsPage() {
                       <TableCell className="font-medium">{loan.name}</TableCell>
                       <TableCell>{formatCurrency(loan.amount)}</TableCell>
                       <TableCell>{loan.date}</TableCell>
+                      <TableCell>{loan.dueDate}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant[loan.status] || 'outline'}>
                           {loan.status}
@@ -85,7 +87,7 @@ export default function ReportsPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
+                    <TableCell colSpan={6} className="text-center">
                       لا توجد قروض لعرضها في التقرير.
                     </TableCell>
                   </TableRow>
