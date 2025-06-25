@@ -22,6 +22,7 @@ type DataContextType = {
   addUser: (user: Omit<User, 'id' | 'photoURL' | 'status'>) => void;
   updateUserStatus: (userId: string, status: User['status']) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
+  deleteUser: (userId: string) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -173,8 +174,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setUsers(prev => prev.map(u => (u.id === userId ? { ...u, role } : u)));
   };
 
+  const deleteUser = (userId: string) => {
+    setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+  };
 
-  const value = { borrowers, investors, users, addUser, updateUserStatus, updateUserRole, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor };
+
+  const value = { borrowers, investors, users, addUser, updateUserStatus, updateUserRole, addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, deleteUser };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
