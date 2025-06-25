@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
+import { useState, useEffect, useRef } from 'react';
 
 const staticNotifications = {
   all: [
@@ -37,6 +38,7 @@ const formatCurrency = (value: number) =>
 export function Notifications() {
   const { role } = useAuth();
   const { borrowers, investors } = useData();
+  const [hasUnseen, setHasUnseen] = useState(false);
 
   const getNotificationsForRole = () => {
     let notifications: { id: string; title: string; description: string }[] = [];
@@ -137,14 +139,29 @@ export function Notifications() {
   };
 
   const relevantNotifications = getNotificationsForRole();
+  const notificationCount = relevantNotifications.length;
+  const prevNotificationCountRef = useRef(notificationCount);
+
+  useEffect(() => {
+    if (notificationCount > prevNotificationCountRef.current) {
+      setHasUnseen(true);
+    }
+    prevNotificationCountRef.current = notificationCount;
+  }, [notificationCount]);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      setHasUnseen(false);
+    }
+  };
 
   return (
-    <Popover>
+    <Popover onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="icon" className="relative shrink-0">
           <Bell className="h-4 w-4" />
           <span className="sr-only">فتح التنبيهات</span>
-          {relevantNotifications.length > 0 && (
+          {hasUnseen && relevantNotifications.length > 0 && (
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
