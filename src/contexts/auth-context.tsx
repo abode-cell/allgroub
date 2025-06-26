@@ -52,17 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) {
           // Enhanced error logging
           console.error('--- Supabase Profile Fetch Error ---');
+          // Log the full error object to see all properties, not just message
           console.error('Full Error Object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
           console.error('Message:', error.message || 'No message');
           console.error('Details:', error.details || 'No details');
           console.error('Code:', error.code || 'No code');
 
           let description = 'لم نتمكن من جلب بيانات حسابك.';
-          // Provide a more helpful message if the standard one is missing
+          // Provide a more helpful message if the standard one is missing or generic
           if (error.message && !error.message.includes('object')) { 
             description += ` السبب: ${error.message}`;
           } else {
-            description += ' حدث خطأ غير معروف في الاتصال بقاعدة البيانات. الرجاء التأكد من اتصالك بالإنترنت وتطبيق إعدادات الأمان.';
+            description += ' حدث خطأ غير معروف في الاتصال بقاعدة البيانات. الرجاء التأكد من تطبيق سياسات الأمان (RLS) بشكل صحيح.';
           }
 
           toast({
@@ -74,6 +75,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           await supabase.auth.signOut();
           setUser(null);
+        } else if (profiles && profiles.length === 0) {
+            // NEW: Handle case where user exists in auth but not in profiles
+            console.error('--- Supabase Profile Not Found ---');
+            console.error('User exists in auth.users but not in public.profiles. User ID:', supaUser.id);
+            toast({
+                variant: 'destructive',
+                title: 'خطأ في الحساب',
+                description: 'لم يتم العثور على ملفك الشخصي. قد يكون السبب هو عدم تفعيل trigger إنشاء المستخدمين في Supabase. يرجى مراجعة الإعدادات أو التواصل مع الدعم.',
+                duration: 9000,
+            });
+            await supabase.auth.signOut();
+            setUser(null);
         } else if (profiles && profiles.length === 1) {
           const profile = profiles[0];
           if (profile.status === 'معلق') {
@@ -98,12 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUser(fullUser);
           }
         } else {
-            // This handles cases where no profile is found or duplicates exist.
+            // This handles cases where duplicates exist.
             let description = 'لم يتم العثور على ملفك الشخصي. الرجاء التواصل مع مدير النظام.';
             if (profiles && profiles.length > 1) {
                 description = 'تم العثور على ملفات شخصية مكررة. الرجاء التواصل مع مدير النظام.';
-            } else if (profiles && profiles.length === 0) {
-                description = 'لم يتم العثور على ملفك الشخصي المرتبط بهذا الحساب. يرجى التواصل مع مدير النظام لإنشائه.';
             }
             toast({
                 variant: 'destructive',
@@ -160,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: {
           name: credentials.name,
           photoURL: 'https://placehold.co/40x40.png',
-          // Set default role and status for admin activation
+          // Default role and status for admin activation. These are picked up by the trigger.
           role: 'موظف',
           status: 'معلق',
         },
