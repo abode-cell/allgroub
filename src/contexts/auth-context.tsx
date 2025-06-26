@@ -118,7 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (profileError || !profile) {
         await supabase.auth.signOut();
-        const message = 'لم يتم العثور على ملف تعريف المستخدم.';
+        console.error("Profile fetch error:", profileError);
+        const message = 'فشل تحميل ملف المستخدم بعد تسجيل الدخول. قد تكون هذه مشكلة في أذونات قاعدة البيانات (RLS).';
         return { success: false, message };
     }
     
