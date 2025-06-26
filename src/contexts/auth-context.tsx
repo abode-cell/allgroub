@@ -95,8 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (authError) {
-      return { success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' };
+      if (authError.message.includes('Invalid login credentials')) {
+        return { success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' };
+      }
+      console.error('Supabase SignIn Error:', authError);
+      return { success: false, message: 'حدث خطأ أثناء تسجيل الدخول: ' + authError.message };
     }
+
     if (!authData.user) {
         return { success: false, message: 'فشل تسجيل الدخول، لم يتم العثور على المستخدم.' };
     }
@@ -142,19 +147,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
+      console.error("Supabase SignUp Error:", error);
+      let translatedMessage = 'حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.';
       if (error.message.includes('User already registered')) {
-        return { success: false, message: 'هذا البريد الإلكتروني مسجل بالفعل.' };
+        translatedMessage = 'هذا البريد الإلكتروني مسجل بالفعل.';
+      } else if (error.message.includes('Password should be at least')) {
+        translatedMessage = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
+      } else if (error.message.includes('invalid format')) {
+        translatedMessage = 'صيغة البريد الإلكتروني غير صالحة.';
+      } else {
+        // For other, more technical errors, show the original message to help with debugging.
+        translatedMessage = `حدث خطأ: ${error.message}`;
       }
-      return { success: false, message: 'حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.' };
+      return { success: false, message: translatedMessage };
     }
     
-    let message = 'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول. قد يتطلب حسابك تفعيل من مدير النظام.';
-    let requiresConfirmation = false;
-    
-    if (data.user && !data.session) {
-      // This case happens if "Confirm email" is enabled in Supabase project settings
+    const requiresConfirmation = data.user && !data.session;
+
+    let message = 'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول.';
+    if (requiresConfirmation) {
       message = 'خطوة أخيرة! لقد أرسلنا رابط تأكيد إلى بريدك الإلكتروني. الرجاء الضغط عليه لتفعيل حسابك.';
-      requiresConfirmation = true;
     }
 
     return { success: true, message, requiresConfirmation };
