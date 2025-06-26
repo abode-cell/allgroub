@@ -52,15 +52,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) {
           // Enhanced error logging
           console.error('--- Supabase Profile Fetch Error ---');
+          console.error('Full Error Object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
           console.error('Message:', error.message || 'No message');
           console.error('Details:', error.details || 'No details');
           console.error('Code:', error.code || 'No code');
-          console.error('Full Error Object:', JSON.stringify(error, null, 2));
           console.error('------------------------------------');
 
           let description = 'لم نتمكن من جلب بيانات حسابك.';
           // Provide a more helpful message if the standard one is missing
-          if (error.message) {
+          if (error.message && !error.message.includes('object')) { 
             description += ` السبب: ${error.message}`;
           } else {
             description += ' حدث خطأ غير معروف في الاتصال بقاعدة البيانات. الرجاء التأكد من اتصالك بالإنترنت والمحاولة مرة أخرى.';
