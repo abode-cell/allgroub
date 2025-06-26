@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { ClientLayout } from '@/components/client-layout';
 import { DataProvider } from '@/contexts/data-context';
+import { SupabaseProvider } from '@/contexts/supabase-context';
 
 export const metadata: Metadata = {
   title: 'منصة تمويل وإدارة استثمار متكاملة',
@@ -30,12 +31,14 @@ export default function RootLayout({
         ></link>
       </head>
       <body className="font-body antialiased">
-        <DataProvider>
+        <SupabaseProvider>
           <AuthProvider>
-            <ClientLayout>{children}</ClientLayout>
+            <DataProvider>
+              <ClientLayout>{children}</ClientLayout>
+            </DataProvider>
           </AuthProvider>
-          <Toaster />
-        </DataProvider>
+        </SupabaseProvider>
+        <Toaster />
       </body>
     </html>
   );

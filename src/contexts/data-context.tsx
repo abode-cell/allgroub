@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import type { Borrower, Investor, Withdrawal, User, UserRole } from '@/lib/types';
-import { createClient } from '@/lib/supabase/client';
 import { useAuth } from './auth-context';
+import { useSupabase } from './supabase-context';
 
 
 type UpdatableInvestor = Omit<Investor, 'defaultedFunds' | 'fundedLoanIds' | 'withdrawalHistory' | 'rejectionReason' | 'submittedBy'>;
@@ -28,9 +28,9 @@ type DataContextType = {
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
-const supabase = createClient();
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const { supabase } = useSupabase();
   const [borrowers, setBorrowers] = useState<Borrower[]>([]);
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -48,7 +48,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { data: usersData, error: usersError } = await supabase.from('profiles').select('*');
     if (usersData) setUsers(usersData);
     if(usersError) console.error("Error fetching users:", usersError);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     fetchAllData();

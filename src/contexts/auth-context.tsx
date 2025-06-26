@@ -1,8 +1,8 @@
 'use client';
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { User, UserRole } from '@/lib/types';
-import { createClient } from '@/lib/supabase/client';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { useSupabase } from './supabase-context';
 
 type SignUpCredentials = {
   name: User['name'];
@@ -21,9 +21,9 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const supabase = createClient();
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { supabase } = useSupabase();
   const [user, setUser] = useState<User | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     if (supabaseUser) {
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setLoading(false);
     }
-  }, [supabaseUser]);
+  }, [supabaseUser, supabase]);
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
