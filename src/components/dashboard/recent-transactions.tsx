@@ -15,48 +15,14 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-const transactions = [
-  {
-    id: 'txn_001',
-    type: 'صرف قرض',
-    user: 'أحمد المحمدي',
-    amount: '٥٠٬٠٠٠ ر.س',
-    date: '2023-06-23',
-    status: 'مكتمل',
-  },
-  {
-    id: 'txn_002',
-    type: 'دفعة مستثمر',
-    user: 'شركة الأفق',
-    amount: '١٠٠٬٠٠٠ ر.س',
-    date: '2023-06-22',
-    status: 'مكتمل',
-  },
-  {
-    id: 'txn_003',
-    type: 'سداد قسط',
-    user: 'فاطمة الزهراء',
-    amount: '٢٬٥٠٠ ر.س',
-    date: '2023-06-21',
-    status: 'مكتمل',
-  },
-  {
-    id: 'txn_004',
-    type: 'صرف قرض',
-    user: 'خالد الغامدي',
-    amount: '٧٥٬٠٠٠ ر.س',
-    date: '2023-06-20',
-    status: 'قيد المعالجة',
-  },
-  {
-    id: 'txn_005',
-    type: 'سحب أرباح',
-    user: 'نورة السعد',
-    amount: '١٥٬٠٠٠ ر.س',
-    date: '2023-06-19',
-    status: 'ملغي',
-  },
-];
+const transactions: {
+  id: string;
+  type: string;
+  user: string;
+  amount: string;
+  date: string;
+  status: string;
+}[] = [];
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } = {
     'مكتمل': 'default',
@@ -71,7 +37,7 @@ export function RecentTransactions() {
       <CardHeader>
         <CardTitle>المعاملات الأخيرة</CardTitle>
         <CardDescription>
-          قائمة بآخر ٥ معاملات مالية تمت على المنصة.
+          قائمة بآخر المعاملات المالية التي تمت على المنصة.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -86,19 +52,27 @@ export function RecentTransactions() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map((transaction) => (
-              <TableRow key={transaction.id}>
-                <TableCell>{transaction.type}</TableCell>
-                <TableCell>{transaction.user}</TableCell>
-                <TableCell>{transaction.amount}</TableCell>
-                <TableCell>{transaction.date}</TableCell>
-                <TableCell>
-                  <Badge variant={statusVariant[transaction.status] || 'default'}>
-                    {transaction.status}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
+            {transactions.length > 0 ? (
+              transactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell>{transaction.type}</TableCell>
+                  <TableCell>{transaction.user}</TableCell>
+                  <TableCell>{transaction.amount}</TableCell>
+                  <TableCell>{transaction.date}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant[transaction.status] || 'default'}>
+                      {transaction.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+                <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">
+                        لا توجد معاملات حديثة.
+                    </TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>

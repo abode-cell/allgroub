@@ -16,14 +16,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 
-const chartData = [
-  { month: 'يناير', profit: 18600 },
-  { month: 'فبراير', profit: 30500 },
-  { month: 'مارس', profit: 23700 },
-  { month: 'أبريل', profit: 7300 },
-  { month: 'مايو', profit: 20900 },
-  { month: 'يونيو', profit: 21400 },
-];
+const chartData: { month: string; profit: number }[] = [];
 
 const chartConfig = {
   profit: {
@@ -42,46 +35,52 @@ export function ProfitChart() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <LineChart
-            accessibilityLayer
-            data={chartData}
-            margin={{
-              left: 12,
-              right: 12,
-            }}
-            dir="rtl"
-          >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="month"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-            />
-             <YAxis
+        {chartData.length > 0 ? (
+          <ChartContainer config={chartConfig}>
+            <LineChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                left: 12,
+                right: 12,
+              }}
+              dir="rtl"
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+              />
+              <YAxis
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 tickFormatter={(value) => `${value / 1000} ألف`}
               />
-            <Tooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="dot" />}
-            />
-            <Line
-              dataKey="profit"
-              type="natural"
-              stroke="var(--color-profit)"
-              strokeWidth={2}
-              dot={true}
-            />
-          </LineChart>
-        </ChartContainer>
+              <Tooltip
+                cursor={false}
+                content={<ChartTooltipContent indicator="dot" />}
+              />
+              <Line
+                dataKey="profit"
+                type="natural"
+                stroke="var(--color-profit)"
+                strokeWidth={2}
+                dot={true}
+              />
+            </LineChart>
+          </ChartContainer>
+        ) : (
+          <div className="flex h-[250px] items-center justify-center text-muted-foreground">
+            لا توجد بيانات أرباح لعرضها حاليًا.
+          </div>
+        )}
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
-          تظهر زيادة بنسبة ١٥٪ هذا الشهر <TrendingUp className="h-4 w-4" />
+          يتم تحديث البيانات بشكل دوري.
         </div>
         <div className="leading-none text-muted-foreground">
           عرض تفصيلي للأرباح الشهرية

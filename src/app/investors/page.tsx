@@ -23,7 +23,7 @@ import { useRouter } from 'next/navigation';
 
 
 export default function InvestorsPage() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const router = useRouter();
   const { investors, addInvestor } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -69,7 +69,7 @@ export default function InvestorsPage() {
 
   const displayedInvestors =
     role === 'مستثمر'
-      ? investors.filter((i) => i.id === 'inv_003') // Simulate showing only the logged-in investor
+      ? investors.filter((i) => i.id === user?.id)
       : investors;
 
   return (

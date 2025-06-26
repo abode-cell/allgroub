@@ -25,8 +25,10 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
   const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
   const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
   
-  const netProfit = 125000;
-  const dueDebts = 75000;
+  const netProfit = 0; // REMOVED mock data, should be calculated from real data
+  const dueDebts = installmentLoans
+    .filter(b => b.status === 'متأخر')
+    .reduce((acc, b) => acc + b.amount, 0); // Calculated from data
 
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
 
@@ -43,15 +45,14 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
              <KpiCard
                 title="صافي الربح"
                 value={formatCurrency(netProfit)}
-                change="+١٥٪"
+                change=""
                 icon={<TrendingUp className="size-6 text-muted-foreground" />}
-                changeColor="text-green-500"
             />
         )}
         <KpiCard
           title="الديون المستحقة"
           value={formatCurrency(dueDebts)}
-          change="-٢.١٪"
+          change=""
           icon={<Users className="size-6 text-muted-foreground" />}
           changeColor="text-red-500"
         />

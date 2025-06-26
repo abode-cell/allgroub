@@ -15,8 +15,8 @@ export default function LoginPage() {
   const { user, loading, signIn } = useAuth();
   const router = useRouter();
 
-  const [email, setEmail] = useState('admin@system.com');
-  const [password, setPassword] = useState('password123'); // For simulation
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,8 +38,8 @@ export default function LoginPage() {
         } else {
             setError(result.message);
         }
-    } catch (err) {
-        setError("حدث خطأ غير متوقع.");
+    } catch (err: any) {
+        setError(err.message || "حدث خطأ غير متوقع.");
     } finally {
         setIsSubmitting(false);
     }

@@ -10,22 +10,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { useState, useEffect, useRef } from 'react';
 
-const staticNotifications = {
-  all: [
-    {
-      id: 's1',
-      title: 'تم صرف قرض جديد',
-      description: 'تم صرف قرض بقيمة ٥٠٬٠٠٠ ر.س لأحمد المحمدي.',
-    },
-    {
-      id: 's2',
-      title: 'دفعة مستثمر جديدة',
-      description: 'تم استلام دفعة بقيمة ١٠٠٬٠٠٠ ر.س من شركة الأفق.',
-    },
-  ],
-  investor: [
-    { id: 's3', title: 'استحقاق أرباح', description: 'تم إضافة أرباح جديدة إلى حسابك.' },
-  ],
+const staticNotifications: { all: any[]; investor: any[] } = {
+  all: [],
+  investor: [],
 };
 
 const formatCurrency = (value: number) =>
@@ -36,7 +23,7 @@ const formatCurrency = (value: number) =>
 
 
 export function Notifications() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const { borrowers, investors } = useData();
   const [hasUnseen, setHasUnseen] = useState(false);
 
@@ -70,8 +57,8 @@ export function Notifications() {
 
     // Notifications for Employees
     if (role === 'موظف') {
-      const myBorrowerRequests = borrowers.filter(b => b.submittedBy === 'emp_01');
-      const myInvestorRequests = investors.filter(i => i.submittedBy === 'emp_01');
+      const myBorrowerRequests = borrowers.filter(b => b.submittedBy === user?.id);
+      const myInvestorRequests = investors.filter(i => i.submittedBy === user?.id);
       
       myBorrowerRequests.forEach(b => {
           if (b.status === 'مرفوض') {
@@ -109,7 +96,7 @@ export function Notifications() {
     // Notifications for Investors
     if (role === 'مستثمر') {
       notifications.push(...staticNotifications.investor);
-      const investor = investors.find(i => i.id === 'inv_003');
+      const investor = investors.find(i => i.id === user?.id);
       if(investor) {
         const defaultedLoans = borrowers.filter(b => 
             investor.fundedLoanIds.includes(b.id) && b.status === 'متعثر'

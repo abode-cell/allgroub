@@ -19,13 +19,19 @@ export function InvestorDashboard() {
   const { user } = useAuth();
   const { investors, borrowers } = useData();
 
-  // Simulate fetching data for the logged-in investor
-  const investor = investors.find(i => i.id === 'inv_003');
+  // Fetch data for the logged-in investor
+  const investor = investors.find(i => i.id === user?.id);
 
   if (!investor) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p>لم يتم العثور على بيانات المستثمر.</p>
+      <div className="flex flex-col flex-1">
+        <main className="flex-1 space-y-8 p-4 md:p-8">
+            <Card>
+                <CardContent className='p-8 text-center text-muted-foreground'>
+                   يبدو أنه لا يوجد ملف مستثمر مرتبط بحسابك. يرجى التواصل مع مدير النظام.
+                </CardContent>
+            </Card>
+        </main>
       </div>
     );
   }
@@ -38,7 +44,7 @@ export function InvestorDashboard() {
     .reduce((acc, b) => acc + b.amount, 0);
 
   const idleFunds = investor.amount - activeInvestment;
-  const dueProfits = totalInvestment * 0.12; // Simulated
+  const dueProfits = 0; // Simulated - consider calculating this from real data
 
   return (
     <div className="flex flex-col flex-1">
@@ -75,7 +81,7 @@ export function InvestorDashboard() {
            <KpiCard
             title="الأرباح المستحقة"
             value={formatCurrency(dueProfits)}
-            change="+5٪"
+            change=""
             icon={<TrendingUp className="size-6 text-muted-foreground" />}
             changeColor="text-green-500"
           />

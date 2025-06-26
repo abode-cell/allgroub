@@ -11,26 +11,9 @@ import {
 } from '@/components/ui/card';
 import { Bell } from 'lucide-react';
 
-const staticNotifications = {
-  all: [
-    {
-      id: 's1',
-      title: 'تم صرف قرض جديد',
-      description: 'تم صرف قرض بقيمة ٥٠٬٠٠٠ ر.س لأحمد المحمدي.',
-    },
-    {
-      id: 's2',
-      title: 'دفعة مستثمر جديدة',
-      description: 'تم استلام دفعة بقيمة ١٠٠٬٠٠٠ ر.س من شركة الأفق.',
-    },
-  ],
-  investor: [
-    {
-      id: 's3',
-      title: 'استحقاق أرباح',
-      description: 'تم إضافة أرباح جديدة إلى حسابك.',
-    },
-  ],
+const staticNotifications: { all: any[]; investor: any[] } = {
+  all: [],
+  investor: [],
 };
 
 const formatCurrency = (value: number) =>
@@ -40,7 +23,7 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 export default function NotificationsPage() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const { borrowers, investors } = useData();
 
   const getNotificationsForRole = () => {
@@ -73,12 +56,12 @@ export default function NotificationsPage() {
 
     // Notifications for Employees
     if (role === 'موظف') {
-      // Assuming employee id is 'emp_01' for simulation
+      // Use logged-in employee's ID
       const myBorrowerRequests = borrowers.filter(
-        (b) => b.submittedBy === 'emp_01'
+        (b) => b.submittedBy === user?.id
       );
       const myInvestorRequests = investors.filter(
-        (i) => i.submittedBy === 'emp_01'
+        (i) => i.submittedBy === user?.id
       );
 
       myBorrowerRequests.forEach((b) => {
@@ -119,8 +102,8 @@ export default function NotificationsPage() {
     // Notifications for Investors
     if (role === 'مستثمر') {
       notifications.push(...staticNotifications.investor);
-      // Assuming logged in investor is 'inv_003'
-      const investor = investors.find((i) => i.id === 'inv_003');
+      // Use logged-in investor's ID
+      const investor = investors.find((i) => i.id === user?.id);
       if (investor) {
         // Find defaulted loans funded by this investor
         const defaultedLoans = borrowers.filter(

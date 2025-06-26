@@ -33,7 +33,7 @@ const getStatusText = (status: Borrower['status'] | Investor['status']) => {
 }
 
 export default function MyRequestsPage() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const router = useRouter();
   const { borrowers, investors } = useData();
 
@@ -49,9 +49,9 @@ export default function MyRequestsPage() {
     return null;
   }
   
-  // In a real app, you'd filter by the logged-in employee's ID
-  const myBorrowerRequests = borrowers.filter(b => b.submittedBy === 'emp_01');
-  const myInvestorRequests = investors.filter(i => i.submittedBy === 'emp_01');
+  // Use logged-in employee's ID
+  const myBorrowerRequests = borrowers.filter(b => b.submittedBy === user?.id);
+  const myInvestorRequests = investors.filter(i => i.submittedBy === user?.id);
 
   return (
     <div className="flex flex-col flex-1">
