@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -45,11 +45,20 @@ function isValidURL(url: string | undefined): url is string {
 }
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!isValidURL(supabaseUrl) || !supabaseAnonKey) {
-    return <MissingEnvVars />;
+  const varsAreInvalid = !isValidURL(supabaseUrl) || !supabaseAnonKey;
+
+  if (varsAreInvalid) {
+    // Only render the error component on the client after hydration to avoid mismatch
+    return isClient ? <MissingEnvVars /> : null;
   }
 
   const [supabase] = useState(() => createClient());
