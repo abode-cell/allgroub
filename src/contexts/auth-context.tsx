@@ -161,6 +161,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: {
           name: credentials.name,
           photoURL: 'https://placehold.co/40x40.png',
+          // Set default role and status for admin activation
+          role: 'موظف',
+          status: 'معلق',
         },
       },
     });
@@ -184,9 +187,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const requiresConfirmation = !!(data.user && !data.session);
 
-    let message = 'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول.';
+    let message = 'تم تسجيل حسابك بنجاح. يجب على مدير النظام مراجعته وتفعيله قبل أن تتمكن من تسجيل الدخول.';
     if (requiresConfirmation) {
-      message = 'خطوة أخيرة! لقد أرسلنا رابط تأكيد إلى بريدك الإلكتروني. الرجاء الضغط عليه لتفعيل حسابك.';
+      message = 'خطوة أخيرة! لقد أرسلنا رابط تأكيد إلى بريدك الإلكتروني. بعد تأكيده، سيقوم مدير النظام بمراجعة حسابك وتفعيله.';
     }
 
     return { success: true, message, requiresConfirmation };

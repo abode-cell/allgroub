@@ -51,9 +51,6 @@ export default function SignUpPage() {
         setName('');
         setEmail('');
         setPassword('');
-        if (!result.requiresConfirmation) {
-            setTimeout(() => router.push('/login'), 3000);
-        }
       } else {
         setError(result.message);
       }
