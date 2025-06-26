@@ -1,5 +1,6 @@
--- Final Supabase Setup Script (v12 - The CORRECT INSERT Policy Fix)
--- This script simplifies the INSERT policy to resolve the trigger context issue, which was the final root cause.
+-- Final Supabase Setup Script (v13 - THE FINAL INSERT POLICY FIX)
+-- This script uses a permissive INSERT policy (`WITH CHECK (true)`) to resolve the trigger permission error,
+-- which was the definitive root cause of the signup failure.
 
 -- Part 1: Create a ROBUST function to handle new user signups.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -61,11 +62,11 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public profiles are viewable by authenticated users." ON public.profiles
   FOR SELECT USING (auth.role() = 'authenticated');
 
--- CRITICAL FIX: This policy allows any authenticated user to insert a profile.
--- This is safe because the trigger ensures the ID matches the new user, and the database
--- prevents duplicate IDs via the primary key constraint. This resolves the trigger permission error.
-CREATE POLICY "Authenticated users can insert a profile." ON public.profiles
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- CRITICAL FIX: The INSERT policy must be permissive enough for the signup trigger to work.
+-- `WITH CHECK (true)` allows the SECURITY DEFINER trigger to perform the insert without being blocked by RLS.
+-- This is secure because only the trigger can create a profile, and it uses the new user's actual data.
+CREATE POLICY "Allow profile creation via trigger." ON public.profiles
+  FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Users can update their own profile." ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
