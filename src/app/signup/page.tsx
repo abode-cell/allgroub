@@ -40,10 +40,10 @@ export default function SignUpPage() {
     }
 
     try {
-      const result = await signUp({ name, email, role: 'موظف' }); // Default role
+      const result = await signUp({ name, email, password });
       if (result.success) {
         setSuccess(
-          'تم تسجيل حسابك بنجاح! حسابك الآن قيد المراجعة من قبل مدير النظام ليتم تفعيله.'
+          'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول. قد يتطلب حسابك تفعيل من مدير النظام.'
         );
         setName('');
         setEmail('');
@@ -52,8 +52,8 @@ export default function SignUpPage() {
       } else {
         setError(result.message);
       }
-    } catch (err) {
-      setError('حدث خطأ غير متوقع أثناء التسجيل.');
+    } catch (err: any) {
+      setError(err.message || 'حدث خطأ غير متوقع أثناء التسجيل.');
     } finally {
       setIsSubmitting(false);
     }

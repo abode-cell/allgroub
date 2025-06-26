@@ -32,7 +32,7 @@ export default function LoginPage() {
     setError('');
     setIsSubmitting(true);
     try {
-        const result = await signIn(email);
+        const result = await signIn(email, password);
         if (result.success) {
             router.replace('/');
         } else {
