@@ -4,7 +4,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  photoURL: string;
+  photoURL?: string;
   role: UserRole;
   status: 'نشط' | 'معلق';
   phone?: string;

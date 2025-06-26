@@ -50,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (error) {
           console.error('--- Supabase Profile Fetch Error ---');
-          // Log the full error object to see all properties, not just message
           console.error('Full Error Object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
           console.error('Message:', error.message || 'No message');
           console.error('Details:', error.details || 'No details');
@@ -78,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             toast({
                 variant: 'destructive',
                 title: 'خطأ في الحساب',
-                description: 'لم يتم العثور على ملفك الشخصي. قد يكون السبب هو فشل عملية الإنشاء التلقائي عند التسجيل. يرجى حذف هذا المستخدم من لوحة تحكم Supabase والمحاولة مرة أخرى.',
+                description: 'لم يتم العثور على ملفك الشخصي. قد يكون السبب هو فشل العملية التلقائي عند التسجيل. يرجى حذف هذا المستخدم من لوحة تحكم Supabase والمحاولة مرة أخرى.',
                 duration: 9000,
             });
             await supabase.auth.signOut();
@@ -99,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 id: supaUser.id,
                 email: supaUser.email!,
                 name: profile.name,
-                photoURL: profile.photoURL,
+                photoURL: profile.photoURL || "https://placehold.co/40x40.png",
                 role: profile.role,
                 status: profile.status,
                 phone: profile.phone,

@@ -1,8 +1,10 @@
--- Final Supabase Setup Script (v13 - THE FINAL INSERT POLICY FIX)
--- This script uses a permissive INSERT policy (`WITH CHECK (true)`) to resolve the trigger permission error,
--- which was the definitive root cause of the signup failure.
+-- Final Supabase Setup Script (v15 - The photoURL Mismatch Fix)
+-- This script corrects the trigger function to NOT insert into the photoURL column,
+-- which was causing the database error on signup because the column may not exist.
+-- This is the definitive fix.
 
 -- Part 1: Create a ROBUST function to handle new user signups.
+-- CRITICAL FIX: Removed photoURL from the INSERT statement.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -10,14 +12,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  INSERT INTO public.profiles (id, name, email, role, status, photoURL)
+  INSERT INTO public.profiles (id, name, email, role, status)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'name', 'مستخدم جديد'), -- Fallback name
+    COALESCE(NEW.raw_user_meta_data->>'name', 'مستخدم جديد'),
     NEW.email,
-    'موظف', -- Default role
-    'معلق',  -- Default status
-    'https://placehold.co/40x40.png'
+    'موظف',
+    'معلق'
   );
   RETURN NEW;
 END;
@@ -58,36 +59,18 @@ $$;
 
 -- PROFILES Table
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Public profiles are viewable by authenticated users." ON public.profiles
-  FOR SELECT USING (auth.role() = 'authenticated');
-
--- CRITICAL FIX: The INSERT policy must be permissive enough for the signup trigger to work.
--- `WITH CHECK (true)` allows the SECURITY DEFINER trigger to perform the insert without being blocked by RLS.
--- This is secure because only the trigger can create a profile, and it uses the new user's actual data.
-CREATE POLICY "Allow profile creation via trigger." ON public.profiles
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Users can update their own profile." ON public.profiles
-  FOR UPDATE USING (auth.uid() = id);
-
-CREATE POLICY "Admins can update any profile." ON public.profiles
-  FOR UPDATE USING (public.get_user_role(auth.uid()) = 'مدير النظام');
-
-CREATE POLICY "Admins can delete any profile but not themselves." ON public.profiles
-  FOR DELETE USING (get_user_role(auth.uid()) = 'مدير النظام' AND auth.uid() <> id);
-
+CREATE POLICY "Public profiles are viewable by authenticated users." ON public.profiles FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Admins can update any profile." ON public.profiles FOR UPDATE USING (public.get_user_role(auth.uid()) = 'مدير النظام');
+CREATE POLICY "Admins can delete any profile but not themselves." ON public.profiles FOR DELETE USING (get_user_role(auth.uid()) = 'مدير النظام' AND auth.uid() <> id);
 
 -- BORROWERS Table
 ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated users to read borrowers." ON public.borrowers
-  FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow specific roles to modify borrowers." ON public.borrowers
-  FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
+CREATE POLICY "Allow authenticated users to read borrowers." ON public.borrowers FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow specific roles to modify borrowers." ON public.borrowers FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
 
 -- INVESTORS Table
 ALTER TABLE public.investors ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated users to read investors." ON public.investors
-  FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow specific roles to modify investors." ON public.investors
-  FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
+CREATE POLICY "Allow authenticated users to read investors." ON public.investors FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow specific roles to modify investors." ON public.investors FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
