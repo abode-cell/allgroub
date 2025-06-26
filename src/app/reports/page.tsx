@@ -55,13 +55,32 @@ export default function ReportsPage() {
     try {
       const { default: jsPDF } = await import('jspdf');
       await import('jspdf-autotable');
-      const { amiriFont } = await import('@/lib/fonts');
+
+      // Fetch the font from a reliable source instead of embedding the large base64 string
+      const fontUrl = 'https://raw.githubusercontent.com/fonts/amiri/main/fonts/Amiri-Regular.ttf';
+      const fontResponse = await fetch(fontUrl);
+      const fontBlob = await fontResponse.blob();
+      
+      const reader = new FileReader();
+      const fontData = await new Promise((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(fontBlob);
+      });
+
+      // The reader result is a data URI. We need to extract the base64 part.
+      const base64Font = (fontData as string).split(',')[1];
+      
+      if (!base64Font) {
+        throw new Error("Could not read font data.");
+      }
 
       const doc = new jsPDF();
       
-      // Add the Amiri font to jsPDF. The font is base64 encoded.
-      doc.addFileToVFS("Amiri-Regular.ttf", amiriFont);
+      doc.addFileToVFS("Amiri-Regular.ttf", base64Font);
       doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+      
+      doc.setFont("Amiri"); // Set the font for the entire document
       
       // Set the title, aligned to the right for RTL
       doc.text("تقرير حالة القروض", 195, 16, { align: 'right' });
