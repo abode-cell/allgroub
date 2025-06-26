@@ -155,8 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         translatedMessage = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
       } else if (error.message.includes('invalid format')) {
         translatedMessage = 'صيغة البريد الإلكتروني غير صالحة.';
+      } else if (error.message.includes('Email signups are disabled')) {
+        translatedMessage = 'تم تعطيل التسجيل عبر البريد الإلكتروني من قبل المسؤول.';
       } else {
-        // For other, more technical errors, show the original message to help with debugging.
         translatedMessage = `حدث خطأ: ${error.message}`;
       }
       return { success: false, message: translatedMessage };
