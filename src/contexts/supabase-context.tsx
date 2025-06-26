@@ -24,7 +24,7 @@ function MissingEnvVars() {
         </p>
         <p className="mt-4 text-sm text-destructive/80">
           الرجاء التأكد من صحة{' '}
-          <code>NEXT_PUBLIC_SUPABASE_URL</code> و{' '}
+          <code>NEXT_PUBLIC_SUPABASE_URL</code> (يجب أن يكون رابط URL صالح) و{' '}
           <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> في ملف{' '}
           <code>.env</code> الخاص بك.
         </p>
@@ -33,19 +33,26 @@ function MissingEnvVars() {
   );
 }
 
-export function SupabaseProvider({ children }: { children: ReactNode }) {
-  const [supabase] = useState(() => {
+// Helper to check for a valid URL format
+function isValidURL(url: string | undefined): url is string {
+    if (!url) return false;
     try {
-      return createClient();
-    } catch (error) {
-      console.error('Error creating Supabase client:', error);
-      return null;
+        new URL(url);
+        return true;
+    } catch (e) {
+        return false;
     }
-  });
+}
 
-  if (!supabase) {
+export function SupabaseProvider({ children }: { children: ReactNode }) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!isValidURL(supabaseUrl) || !supabaseAnonKey) {
     return <MissingEnvVars />;
   }
+
+  const [supabase] = useState(() => createClient());
 
   return (
     <SupabaseContext.Provider value={{ supabase }}>
