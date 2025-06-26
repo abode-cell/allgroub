@@ -43,20 +43,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // A user is signed in. Fetch their profile.
-        // This is more robust than using .single() as it handles 0 or >1 profiles.
+        // Select specific columns to be more robust
         const { data: profiles, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, name, email, photoURL, role, status, phone')
           .eq('id', supaUser.id);
         
         if (error) {
-          console.error('Error fetching profile on auth change:', error);
+          // Enhanced error logging
+          console.error('--- Supabase Profile Fetch Error ---');
+          console.error('Message:', error.message || 'No message');
+          console.error('Details:', error.details || 'No details');
+          console.error('Code:', error.code || 'No code');
+          console.error('Full Error Object:', JSON.stringify(error, null, 2));
+          console.error('------------------------------------');
+
+          let description = 'لم نتمكن من جلب بيانات حسابك.';
+          // Provide a more helpful message if the standard one is missing
+          if (error.message) {
+            description += ` السبب: ${error.message}`;
+          } else {
+            description += ' حدث خطأ غير معروف في الاتصال بقاعدة البيانات. الرجاء التأكد من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+          }
+
           toast({
               variant: 'destructive',
               title: 'فشل تحميل الملف الشخصي',
-              description: `لم نتمكن من جلب بيانات حسابك. السبب: ${error.message}`,
+              description: description,
+              duration: 7000,
           });
+
           await supabase.auth.signOut();
           setUser(null);
         } else if (profiles && profiles.length === 1) {
