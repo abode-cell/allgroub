@@ -48,7 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (event, session) => {
         setSession(session);
         setSupabaseUser(session?.user ?? null);
-        setLoading(false);
+        if (event === 'SIGNED_IN') {
+          // No need to set loading to false here, fetchProfile will do it.
+        } else {
+          setLoading(false);
+        }
       }
     );
 
@@ -69,6 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           console.error('Error fetching profile:', error);
+          toast({
+              variant: 'destructive',
+              title: 'فشل تحميل الملف الشخصي',
+              description: `لم نتمكن من جلب بيانات حسابك. السبب: ${error.message}`,
+          });
+          // Sign out to prevent a login loop
+          await supabase.auth.signOut();
           setUser(null);
         } else if (data) {
           const fullUser: User = {
@@ -89,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setLoading(false);
     }
-  }, [supabaseUser, supabase]);
+  }, [supabaseUser, supabase, toast]);
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -101,6 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let message = 'حدث خطأ أثناء تسجيل الدخول.';
       if (authError.message.includes('Invalid login credentials')) {
         message = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+      } else {
+        message = authError.message;
       }
       return { success: false, message };
     }
@@ -118,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (profileError || !profile) {
         await supabase.auth.signOut();
-        console.error("Profile fetch error:", profileError);
+        console.error("Profile fetch error in signIn:", profileError);
         const message = 'فشل تحميل ملف المستخدم بعد تسجيل الدخول. قد تكون هذه مشكلة في أذونات قاعدة البيانات (RLS).';
         return { success: false, message };
     }

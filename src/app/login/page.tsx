@@ -9,11 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Building2, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 
 export default function LoginPage() {
   const { user, loading, signIn } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,7 +36,8 @@ export default function LoginPage() {
     try {
         const result = await signIn(email, password);
         if (result.success) {
-            router.replace('/');
+            // Let the AuthProvider handle the redirect after profile is fetched.
+            toast({ title: 'تسجيل الدخول ناجح', description: 'جاري توجيهك إلى لوحة التحكم...' });
         } else {
             setError(result.message);
         }
