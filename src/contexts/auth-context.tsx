@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (error) {
           console.error('--- Supabase Profile Fetch Error ---');
+          // Log the full error object to see all properties, not just message
           console.error('Full Error Object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
           console.error('Message:', error.message || 'No message');
           console.error('Details:', error.details || 'No details');
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             toast({
                 variant: 'destructive',
                 title: 'خطأ في الحساب',
-                description: 'لم يتم العثور على ملفك الشخصي. قد يكون السبب هو عدم تفعيل trigger إنشاء المستخدمين في Supabase. يرجى مراجعة الإعدادات أو التواصل مع الدعم.',
+                description: 'لم يتم العثور على ملفك الشخصي. قد يكون السبب هو فشل عملية الإنشاء التلقائي عند التسجيل. يرجى حذف هذا المستخدم من لوحة تحكم Supabase والمحاولة مرة أخرى.',
                 duration: 9000,
             });
             await supabase.auth.signOut();
@@ -168,7 +169,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      console.error('--- Supabase SignUp Error ---', JSON.stringify(error, null, 2));
+      console.error('--- Supabase SignUp Error ---');
+      console.error('Full Error Object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       let translatedMessage = 'حدث خطأ غير متوقع أثناء التسجيل. يرجى المحاولة مرة أخرى.';
        if (error.message.includes('User already registered')) {
         translatedMessage = 'هذا البريد الإلكتروني مسجل بالفعل.';

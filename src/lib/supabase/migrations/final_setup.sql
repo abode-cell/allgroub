@@ -1,9 +1,9 @@
--- Final Supabase Setup Script (v9 - The Correct One)
--- This script fixes the recursive SELECT policy, which was the root cause of the login failure.
--- It relies on a simple, non-recursive SELECT policy and a robust trigger for profile creation.
--- This is the definitive script to run.
+-- Final & Correct Supabase Setup Script (v9)
+-- This script handles new user creation via a trigger and sets up simple, reliable security policies.
+-- Running this single script will reset and correctly configure security for the application.
 
 -- Part 1: Create a ROBUST function to handle new user signups.
+-- This version adds a fallback for the name to prevent silent failures.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -14,7 +14,7 @@ BEGIN
   INSERT INTO public.profiles (id, name, email, role, status, photoURL)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'name', 'مستخدم جديد'), -- Fallback name to prevent errors
+    COALESCE(NEW.raw_user_meta_data->>'name', 'مستخدم جديد'), -- Fallback name
     NEW.email,
     'موظف', -- Default role
     'معلق',  -- Default status
@@ -55,28 +55,22 @@ END;
 $$;
 
 
--- Part 4: Create Final, Correct, NON-RECURSIVE RLS Policies
+-- Part 4: Create Final, Correct RLS Policies
 
 -- PROFILES Table
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
--- *** THE CRITICAL FIX IS HERE ***
--- This SELECT policy is simple. It does NOT call the helper function, thus avoiding the recursion error.
-CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles
-  FOR SELECT USING (auth.role() = 'authenticated');
--- The INSERT policy is removed. The trigger handles inserts safely.
-CREATE POLICY "Users can update their own profile." ON public.profiles
-  FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "Admins can update any profile" ON public.profiles
-  FOR UPDATE USING (public.get_user_role(auth.uid()) = 'مدير النظام');
-CREATE POLICY "Admins can delete any profile but themselves" ON public.profiles
-  FOR DELETE USING (public.get_user_role(auth.uid()) = 'مدير النظام' AND auth.uid() <> id);
+CREATE POLICY "Public profiles are viewable by authenticated users." ON public.profiles FOR SELECT USING (auth.role() = 'authenticated');
+-- NOTE: There is NO INSERT policy. The trigger handles inserts securely.
+CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Admins can update any profile." ON public.profiles FOR UPDATE USING (public.get_user_role(auth.uid()) = 'مدير النظام');
+CREATE POLICY "Admins can delete any profile but not themselves." ON public.profiles FOR DELETE USING (public.get_user_role(auth.uid()) = 'مدير النظام' AND auth.uid() <> id);
 
 -- BORROWERS Table
 ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated read access" ON public.borrowers FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow specific roles to modify" ON public.borrowers FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
+CREATE POLICY "Allow authenticated users to read borrowers." ON public.borrowers FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow specific roles to modify borrowers." ON public.borrowers FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
 
 -- INVESTORS Table
 ALTER TABLE public.investors ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated read access" ON public.investors FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow specific roles to modify" ON public.investors FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
+CREATE POLICY "Allow authenticated users to read investors." ON public.investors FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow specific roles to modify investors." ON public.investors FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
