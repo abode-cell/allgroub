@@ -56,8 +56,8 @@ export default function ReportsPage() {
         const { default: jsPDF } = await import('jspdf');
         await import('jspdf-autotable');
 
-        // Use a reliable font like Noto Naskh Arabic by fetching it
-        const fontUrl = 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/phaseIII_only/unhinted/ttf/NotoNaskhArabic/NotoNaskhArabic-Regular.ttf';
+        // Use a reliable font like Noto Naskh Arabic by fetching it from a CDN
+        const fontUrl = 'https://cdn.jsdelivr.net/gh/notofonts/noto-fonts@main/unhinted/ttf/NotoNaskhArabic/NotoNaskhArabic-Regular.ttf';
         const fontResponse = await fetch(fontUrl);
         if (!fontResponse.ok) throw new Error("Failed to fetch font");
 
