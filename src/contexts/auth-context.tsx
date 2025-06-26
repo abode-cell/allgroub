@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           await supabase.auth.signOut();
           setUser(null);
-        } else if (profiles && profiles.length === 0) {
+        } else if (!profiles || profiles.length === 0) {
             // NEW: Handle case where user exists in auth but not in profiles
             console.error('--- Supabase Profile Not Found ---');
             console.error('User exists in auth.users but not in public.profiles. User ID:', supaUser.id);
@@ -170,10 +170,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: {
         data: {
           name: credentials.name,
-          photoURL: 'https://placehold.co/40x40.png',
-          // Default role and status for admin activation. These are picked up by the trigger.
-          role: 'موظف',
-          status: 'معلق',
         },
       },
     });
