@@ -56,14 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Message:', error.message || 'No message');
           console.error('Details:', error.details || 'No details');
           console.error('Code:', error.code || 'No code');
-          console.error('------------------------------------');
 
           let description = 'لم نتمكن من جلب بيانات حسابك.';
           // Provide a more helpful message if the standard one is missing
           if (error.message && !error.message.includes('object')) { 
             description += ` السبب: ${error.message}`;
           } else {
-            description += ' حدث خطأ غير معروف في الاتصال بقاعدة البيانات. الرجاء التأكد من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+            description += ' حدث خطأ غير معروف في الاتصال بقاعدة البيانات. الرجاء التأكد من اتصالك بالإنترنت وتطبيق إعدادات الأمان.';
           }
 
           toast({
