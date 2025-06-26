@@ -44,11 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // A user is signed in. Fetch their profile.
-        const { data: profile, error } = await supabase
+        // This is more robust than using .single() as it handles 0 or >1 profiles.
+        const { data: profiles, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', supaUser.id)
-          .single();
+          .eq('id', supaUser.id);
         
         if (error) {
           console.error('Error fetching profile on auth change:', error);
@@ -59,7 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           await supabase.auth.signOut();
           setUser(null);
-        } else if (profile) {
+        } else if (profiles && profiles.length === 1) {
+          const profile = profiles[0];
           if (profile.status === 'معلق') {
               toast({
                   variant: 'destructive',
@@ -81,6 +82,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               };
               setUser(fullUser);
           }
+        } else {
+            // This handles cases where no profile is found or duplicates exist.
+            let description = 'لم يتم العثور على ملفك الشخصي. الرجاء التواصل مع مدير النظام.';
+            if (profiles && profiles.length > 1) {
+                description = 'تم العثور على ملفات شخصية مكررة. الرجاء التواصل مع مدير النظام.';
+            } else if (profiles && profiles.length === 0) {
+                description = 'لم يتم العثور على ملفك الشخصي المرتبط بهذا الحساب. يرجى التواصل مع مدير النظام لإنشائه.';
+            }
+            toast({
+                variant: 'destructive',
+                title: 'خطأ في الحساب',
+                description: description,
+                duration: 7000,
+            });
+            await supabase.auth.signOut();
+            setUser(null);
         }
         setLoading(false);
       }
@@ -93,11 +110,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    // onAuthStateChange will handle the result.
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-
+    
     if (error) {
       let message = 'حدث خطأ أثناء تسجيل الدخول.';
       if (error.message.includes('Invalid login credentials')) {
@@ -105,10 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         message = error.message;
       }
-      return { success: false, message };
+      return { success: false, message: message };
     }
     
-    // Success. The onAuthStateChange listener will handle the rest.
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
   };
 
@@ -116,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
   };
-
+  
   const signUp = async (credentials: SignUpCredentials): Promise<{ success: boolean; message: string; requiresConfirmation?: boolean; }> => {
     if (!credentials.password) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
@@ -186,20 +203,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof updates.phone !== 'undefined') profileUpdates.phone = updates.phone;
 
     if (Object.keys(profileUpdates).length > 0) {
-        const { data, error: profileError } = await supabase
+        const { data: updatedProfiles, error: profileError } = await supabase
             .from('profiles')
             .update(profileUpdates)
             .eq('id', supabaseUser.id)
-            .select()
-            .single();
+            .select();
 
         if (profileError) {
             console.error('Profile Update Error:', profileError);
             return { success: false, message: "فشل تحديث الملف الشخصي: " + profileError.message };
         }
-        if (data) {
+        
+        if (updatedProfiles && updatedProfiles.length === 1) {
+            const data = updatedProfiles[0];
             // Update local user state
             setUser(prevUser => prevUser ? { ...prevUser, ...data } : null);
+        } else {
+             // This case should not happen if the user is logged in, but we handle it defensively.
+            console.error('Profile not found after update or duplicate profiles exist.');
         }
     }
 
