@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Loader2 } from 'lucide-react';
+import { Building2, Loader2, MailCheck } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function SignUpPage() {
@@ -26,11 +26,13 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requiresConfirmation, setRequiresConfirmation] = useState(false);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setRequiresConfirmation(false);
     setIsSubmitting(true);
 
     if (password.length < 6) {
@@ -42,13 +44,16 @@ export default function SignUpPage() {
     try {
       const result = await signUp({ name, email, password });
       if (result.success) {
-        setSuccess(
-          result.message || 'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول. قد يتطلب حسابك تفعيل من مدير النظام.'
-        );
+        setSuccess(result.message);
+        if (result.requiresConfirmation) {
+          setRequiresConfirmation(true);
+        }
         setName('');
         setEmail('');
         setPassword('');
-        setTimeout(() => router.push('/login'), 5000);
+        if (!result.requiresConfirmation) {
+            setTimeout(() => router.push('/login'), 5000);
+        }
       } else {
         setError(result.message);
       }
@@ -80,11 +85,16 @@ export default function SignUpPage() {
               </Alert>
             )}
             {success && (
-              <Alert variant='default' className='bg-primary/10 border-primary/20'>
-                <AlertTitle className='text-primary'>تم التسجيل بنجاح</AlertTitle>
-                <AlertDescription className='text-primary/80'>
-                  {success}
-                </AlertDescription>
+              <Alert variant='default' className='bg-primary/10 border-primary/20 text-primary'>
+                {requiresConfirmation && <MailCheck className="h-4 w-4" />}
+                <div>
+                  <AlertTitle>
+                    {requiresConfirmation ? 'الرجاء تأكيد بريدك الإلكتروني' : 'تم التسجيل بنجاح'}
+                  </AlertTitle>
+                  <AlertDescription>
+                    {success}
+                  </AlertDescription>
+                </div>
               </Alert>
             )}
             <div className="space-y-2">

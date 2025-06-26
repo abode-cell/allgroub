@@ -17,7 +17,7 @@ type AuthContextType = {
   setRole: (role: UserRole) => void;
   signIn: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
-  signUp: (credentials: SignUpCredentials) => Promise<{ success: boolean; message: string }>;
+  signUp: (credentials: SignUpCredentials) => Promise<{ success: boolean; message: string; requiresConfirmation?: boolean }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole('مدير النظام'); // Reset to default
   };
 
-  const signUp = async (credentials: SignUpCredentials): Promise<{ success: boolean; message: string }> => {
+  const signUp = async (credentials: SignUpCredentials): Promise<{ success: boolean; message: string; requiresConfirmation?: boolean; }> => {
     if (!credentials.password) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
@@ -149,12 +149,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     let message = 'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول. قد يتطلب حسابك تفعيل من مدير النظام.';
+    let requiresConfirmation = false;
+    
     if (data.user && !data.session) {
       // This case happens if "Confirm email" is enabled in Supabase project settings
-      message = 'تم إنشاء الحساب بنجاح. الرجاء مراجعة بريدك الإلكتروني لتأكيد حسابك.';
+      message = 'خطوة أخيرة! لقد أرسلنا رابط تأكيد إلى بريدك الإلكتروني. الرجاء الضغط عليه لتفعيل حسابك.';
+      requiresConfirmation = true;
     }
 
-    return { success: true, message };
+    return { success: true, message, requiresConfirmation };
   };
 
   const value = { user, loading, role, setRole, signIn, signOutUser, signUp };
