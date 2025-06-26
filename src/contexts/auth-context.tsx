@@ -14,8 +14,7 @@ type SignUpCredentials = {
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  role: UserRole;
-  setRole: (role: UserRole) => void;
+  role: UserRole | null;
   signIn: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
   signUp: (credentials: SignUpCredentials) => Promise<{ success: boolean; message: string; requiresConfirmation?: boolean }>;
@@ -31,7 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<UserRole>('مدير النظام');
+  
+  const role = user?.role ?? null;
 
   useEffect(() => {
     async function getSession() {
@@ -81,7 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             phone: data.phone,
           };
           setUser(fullUser);
-          setRole(fullUser.role);
         }
         setLoading(false);
       };
@@ -135,7 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOutUser = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setRole('مدير النظام'); // Reset to default
   };
 
   const signUp = async (credentials: SignUpCredentials): Promise<{ success: boolean; message: string; requiresConfirmation?: boolean; }> => {
@@ -155,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       let translatedMessage = 'حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.';
-      if (error.message.includes('User already registered')) {
+       if (error.message.includes('User already registered')) {
         translatedMessage = 'هذا البريد الإلكتروني مسجل بالفعل.';
       } else if (error.message.includes('Password should be at least')) {
         translatedMessage = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
@@ -163,7 +161,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         translatedMessage = 'صيغة البريد الإلكتروني غير صالحة.';
       } else if (error.message.includes('Email signups are disabled')) {
         translatedMessage = 'تم تعطيل التسجيل عبر البريد الإلكتروني من قبل المسؤول.';
+      } else {
+        translatedMessage = error.message;
       }
+      toast({ variant: 'destructive', title: 'خطأ في التسجيل', description: translatedMessage });
       return { success: false, message: translatedMessage };
     }
     
@@ -220,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
 
-  const value = { user, loading, role, setRole, signIn, signOutUser, signUp, updateUserIdentity };
+  const value = { user, loading, role, signIn, signOutUser, signUp, updateUserIdentity };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

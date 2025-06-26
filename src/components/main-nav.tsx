@@ -101,7 +101,7 @@ export function MainNav() {
   const pathname = usePathname();
   const { role } = useAuth();
 
-  const menuItems = allMenuItems.filter((item) => item.roles.includes(role));
+  const menuItems = allMenuItems.filter((item) => role && item.roles.includes(role));
 
   return (
     <>

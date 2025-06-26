@@ -15,26 +15,25 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 
 export default function SettingsPage() {
-  const { user } = useAuth(); // Use user object for role check
+  const { role } = useAuth();
   const router = useRouter();
 
-  // Permissions based on actual user role from DB
-  const canViewPage = user?.role === 'مدير النظام' || user?.role === 'مدير المكتب';
+  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
 
   useEffect(() => {
-    // ClientLayout ensures user is loaded, but this is an extra layer of protection.
-    if (user && !canViewPage) {
+    // Redirect if role is loaded and user doesn't have permission
+    if (role && !canViewPage) {
       router.replace('/');
     }
-  }, [user, canViewPage, router]);
+  }, [role, canViewPage, router]);
 
-  // If the user object is not yet loaded, or they don't have permission, don't render the page content
+  // If the role is not yet loaded, or they don't have permission, don't render the page content
   if (!canViewPage) {
-    return null; 
+    return null;
   }
-  
-  // This specific permission relies on the actual user role, not the simulated one.
-  const canManageUsers = user.role === 'مدير النظام';
+
+  // This specific permission relies on the actual user role.
+  const canManageUsers = role === 'مدير النظام';
 
   return (
     <div className="flex flex-col flex-1">
