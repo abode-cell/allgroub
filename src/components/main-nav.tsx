@@ -39,7 +39,7 @@ const allMenuItems = [
     href: '/investors',
     label: 'المستثمرون',
     icon: Users,
-    roles: ['مدير النظام', 'مدير المكتب'],
+    roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },
   {
     href: '/borrowers',
