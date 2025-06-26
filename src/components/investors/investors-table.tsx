@@ -40,10 +40,11 @@ type InvestorsTableProps = {
   investors: Investor[];
 };
 
-const statusVariant: { [key: string]: 'default' | 'secondary' } = {
+const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } = {
   نشط: 'default',
   'غير نشط': 'secondary',
   'معلق': 'secondary',
+  'مرفوض': 'destructive',
 };
 
 const formatCurrency = (value: number) =>
