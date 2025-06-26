@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (credentials: SignUpCredentials): Promise<{ success: boolean; message: string }> => {
     if (!credentials.password) {
-        return { success: false, message: 'كلمة المرور مطلوبة.' };
+      return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     const { data, error } = await supabase.auth.signUp({
       email: credentials.email,
@@ -142,26 +142,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      return { success: false, message: error.message };
-    }
-    if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        name: credentials.name,
-        email: credentials.email,
-        photoURL: 'https://placehold.co/40x40.png',
-        role: 'موظف', // Default role for new signups
-        status: 'معلق', // New users are pending activation
-      });
-
-      if (profileError) {
-        // In a real app, you might want to delete the auth user here if profile creation fails
-        console.error("Failed to create user profile:", profileError);
-        return { success: false, message: "فشل إنشاء ملف تعريف المستخدم." };
+      if (error.message.includes('User already registered')) {
+        return { success: false, message: 'هذا البريد الإلكتروني مسجل بالفعل.' };
       }
+      return { success: false, message: 'حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.' };
+    }
+    
+    let message = 'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول. قد يتطلب حسابك تفعيل من مدير النظام.';
+    if (data.user && !data.session) {
+      // This case happens if "Confirm email" is enabled in Supabase project settings
+      message = 'تم إنشاء الحساب بنجاح. الرجاء مراجعة بريدك الإلكتروني لتأكيد حسابك.';
     }
 
-    return { success: true, message: 'تم التسجيل بنجاح. حسابك في انتظار التفعيل.' };
+    return { success: true, message };
   };
 
   const value = { user, loading, role, setRole, signIn, signOutUser, signUp };

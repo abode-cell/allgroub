@@ -43,7 +43,7 @@ export default function SignUpPage() {
       const result = await signUp({ name, email, password });
       if (result.success) {
         setSuccess(
-          'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول. قد يتطلب حسابك تفعيل من مدير النظام.'
+          result.message || 'تم تسجيل حسابك بنجاح! سيتم توجيهك لصفحة تسجيل الدخول. قد يتطلب حسابك تفعيل من مدير النظام.'
         );
         setName('');
         setEmail('');
