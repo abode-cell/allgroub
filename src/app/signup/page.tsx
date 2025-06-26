@@ -52,7 +52,7 @@ export default function SignUpPage() {
         setEmail('');
         setPassword('');
         if (!result.requiresConfirmation) {
-            setTimeout(() => router.push('/login'), 5000);
+            setTimeout(() => router.push('/login'), 3000);
         }
       } else {
         setError(result.message);
@@ -86,13 +86,18 @@ export default function SignUpPage() {
             )}
             {success && (
               <Alert variant='default' className='bg-primary/10 border-primary/20 text-primary'>
-                {requiresConfirmation && <MailCheck className="h-4 w-4" />}
-                <div>
+                {requiresConfirmation && <MailCheck className="h-4 w-4 text-primary" />}
+                <div className="flex-grow">
                   <AlertTitle>
-                    {requiresConfirmation ? 'الرجاء تأكيد بريدك الإلكتروني' : 'تم التسجيل بنجاح'}
+                    {requiresConfirmation ? 'خطوة أخيرة: تأكيد بريدك الإلكتروني' : 'تم التسجيل بنجاح'}
                   </AlertTitle>
-                  <AlertDescription>
+                  <AlertDescription className="text-primary/90">
                     {success}
+                     {requiresConfirmation && (
+                      <div className="mt-2 font-semibold">
+                         قد تصل الرسالة إلى مجلد الرسائل غير المرغوب فيها (Spam).
+                      </div>
+                    )}
                   </AlertDescription>
                 </div>
               </Alert>
