@@ -1,15 +1,14 @@
 'use client'
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { Borrower } from '@/lib/types';
 import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
-import { FileDown } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import { amiriFont } from '@/lib/fonts';
+import { FileDown, Loader2 } from 'lucide-react';
+import type jsPDF from 'jspdf';
 
 // Extend the jsPDF interface for the autoTable plugin
 declare module 'jspdf' {
@@ -37,6 +36,7 @@ const statusVariant: {
 
 export default function ReportsPage() {
   const { borrowers, investors } = useData();
+  const [isExporting, setIsExporting] = useState(false);
 
   const getInvestorNameForLoan = (loanId: string) => {
     const investor = investors.find(inv => inv.fundedLoanIds.includes(loanId));
@@ -50,35 +50,45 @@ export default function ReportsPage() {
     b.status === 'متأخر'
   );
 
-  const handleExportPdf = () => {
-    const doc = new jsPDF();
-    
-    // Add the Amiri font to jsPDF. The font is base64 encoded.
-    // The font string in src/lib/fonts.ts is a single line to prevent 'atob' errors.
-    doc.addFileToVFS("Amiri-Regular.ttf", amiriFont);
-    doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+  const handleExportPdf = async () => {
+    setIsExporting(true);
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      await import('jspdf-autotable');
+      const { amiriFont } = await import('@/lib/fonts');
 
-    // Set the title, aligned to the right for RTL
-    doc.text("تقرير حالة القروض", 195, 16, { align: 'right' });
-    
-    doc.autoTable({
-        html: '#loansTable',
-        startY: 20,
-        theme: 'grid',
-        headStyles: {
-            font: "Amiri",
-            halign: 'center', // Center headers for a clean look
-        },
-        styles: {
-            font: "Amiri",
-            halign: 'right', // Right-align body content for Arabic
-        },
-        didDrawPage: (data) => {
-            // This hook ensures the font is correctly set for each page.
-            doc.setFont("Amiri");
-        }
-    });
-    doc.save('loans-report.pdf');
+      const doc = new jsPDF();
+      
+      // Add the Amiri font to jsPDF. The font is base64 encoded.
+      doc.addFileToVFS("Amiri-Regular.ttf", amiriFont);
+      doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+      
+      // Set the title, aligned to the right for RTL
+      doc.text("تقرير حالة القروض", 195, 16, { align: 'right' });
+      
+      doc.autoTable({
+          html: '#loansTable',
+          startY: 20,
+          theme: 'grid',
+          headStyles: {
+              font: "Amiri",
+              halign: 'center', // Center headers for a clean look
+          },
+          styles: {
+              font: "Amiri",
+              halign: 'right', // Right-align body content for Arabic
+          },
+          didDrawPage: (data) => {
+              // This hook ensures the font is correctly set for each page.
+              doc.setFont("Amiri");
+          }
+      });
+      doc.save('loans-report.pdf');
+    } catch (error) {
+        console.error("Failed to export PDF", error);
+    } finally {
+        setIsExporting(false);
+    }
   }
 
   return (
@@ -91,9 +101,9 @@ export default function ReportsPage() {
                 نظرة شاملة على جميع القروض النشطة، المعلقة، والمتعثرة.
             </p>
             </header>
-            <Button onClick={handleExportPdf}>
-                <FileDown className="ml-2 h-4 w-4" />
-                تصدير PDF
+            <Button onClick={handleExportPdf} disabled={isExporting}>
+                {isExporting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <FileDown className="ml-2 h-4 w-4" />}
+                {isExporting ? 'جاري التصدير...' : 'تصدير PDF'}
             </Button>
         </div>
 
