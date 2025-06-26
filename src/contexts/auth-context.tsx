@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (error.message.includes('invalid format')) {
         translatedMessage = 'صيغة البريد الإلكتروني غير صالحة.';
       } else if (error.message.includes('Email signups are disabled')) {
-        translatedMessage = 'تم تعطيل التسجيل عبر البريد الإلكتروني من قبل المسؤول.';
+        translatedMessage = 'تم تعطيل التسجيل عبر البريد الإلكتروني من قبل المسؤول. يرجى تفعيله من لوحة تحكم Supabase.';
       } else {
         translatedMessage = error.message;
       }
