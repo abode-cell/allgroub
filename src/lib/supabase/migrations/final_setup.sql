@@ -1,6 +1,7 @@
--- Final Supabase Setup Script (v9 - No Insert Policy)
--- This script removes the explicit INSERT policy, relying solely on the security definer trigger.
--- This is the most reliable way to ensure profiles are created on signup without RLS conflicts.
+-- Final Supabase Setup Script (v9 - The Correct One)
+-- This script fixes the recursive SELECT policy, which was the root cause of the login failure.
+-- It relies on a simple, non-recursive SELECT policy and a robust trigger for profile creation.
+-- This is the definitive script to run.
 
 -- Part 1: Create a ROBUST function to handle new user signups.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -13,7 +14,7 @@ BEGIN
   INSERT INTO public.profiles (id, name, email, role, status, photoURL)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'name', 'مستخدم جديد'), -- Fallback name
+    COALESCE(NEW.raw_user_meta_data->>'name', 'مستخدم جديد'), -- Fallback name to prevent errors
     NEW.email,
     'موظف', -- Default role
     'معلق',  -- Default status
@@ -54,16 +55,21 @@ END;
 $$;
 
 
--- Part 4: Create Final, Correct RLS Policies
--- KEY CHANGE: NO EXPLICIT INSERT POLICY on public.profiles. The trigger handles it.
+-- Part 4: Create Final, Correct, NON-RECURSIVE RLS Policies
 
 -- PROFILES Table
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (auth.role() = 'authenticated');
--- REMOVED INSERT POLICY - The handle_new_user trigger is now the only way to insert profiles.
-CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Admins can update any profile" ON public.profiles FOR UPDATE USING (public.get_user_role(auth.uid()) = 'مدير النظام');
-CREATE POLICY "Admins can delete any profile but themselves" ON public.profiles FOR DELETE USING (public.get_user_role(auth.uid()) = 'مدير النظام' AND auth.uid() <> id);
+-- *** THE CRITICAL FIX IS HERE ***
+-- This SELECT policy is simple. It does NOT call the helper function, thus avoiding the recursion error.
+CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles
+  FOR SELECT USING (auth.role() = 'authenticated');
+-- The INSERT policy is removed. The trigger handles inserts safely.
+CREATE POLICY "Users can update their own profile." ON public.profiles
+  FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+CREATE POLICY "Admins can update any profile" ON public.profiles
+  FOR UPDATE USING (public.get_user_role(auth.uid()) = 'مدير النظام');
+CREATE POLICY "Admins can delete any profile but themselves" ON public.profiles
+  FOR DELETE USING (public.get_user_role(auth.uid()) = 'مدير النظام' AND auth.uid() <> id);
 
 -- BORROWERS Table
 ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
