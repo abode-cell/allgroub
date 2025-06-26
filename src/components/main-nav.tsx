@@ -15,6 +15,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   Bell,
+  UserCog,
 } from 'lucide-react';
 import {
   SidebarHeader,
@@ -83,8 +84,14 @@ const allMenuItems = [
     roles: ['مدير النظام', 'مدير المكتب'],
   },
   {
+    href: '/profile',
+    label: 'الملف الشخصي',
+    icon: UserCog,
+    roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
+  },
+  {
     href: '/settings',
-    label: 'الإعدادات',
+    label: 'الإعدادات الإدارية',
     icon: Settings,
     roles: ['مدير النظام', 'مدير المكتب'],
   },

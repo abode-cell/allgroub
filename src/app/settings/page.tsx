@@ -37,7 +37,7 @@ export default function SettingsPage() {
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">
-            الإعدادات
+            الإعدادات الإدارية
           </h1>
           <p className="text-muted-foreground mt-1">
             التحكم في إعدادات النظام الأساسية وإدارة المستخدمين.
@@ -73,7 +73,12 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button disabled>تعديل السياسات (قريبًا)</Button>
+               <Button asChild>
+                    <Link href="/settings/policies">
+                        تعديل السياسات
+                        <ChevronLeft className="mr-2 h-4 w-4" />
+                    </Link>
+                </Button>
             </CardContent>
           </Card>
         </div>

@@ -7,6 +7,7 @@ export type User = {
   photoURL: string;
   role: UserRole;
   status: 'نشط' | 'معلق';
+  phone?: string;
 };
 
 export type Borrower = {
