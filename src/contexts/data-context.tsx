@@ -72,7 +72,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [borrowers, setBorrowers] = useState<Borrower[]>([]);
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const { user: currentUser } = useAuth(); // for submittedBy field
+  const { user: currentUser, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const fetchAllData = useCallback(async () => {
@@ -111,8 +111,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [supabase, toast]);
 
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    // Only fetch data if auth has finished loading and a user is present.
+    if (!authLoading && currentUser) {
+      fetchAllData();
+    }
+    // If auth is done and there's no user (logged out), clear the data.
+    if (!authLoading && !currentUser) {
+      setBorrowers([]);
+      setInvestors([]);
+      setUsers([]);
+    }
+  }, [currentUser, authLoading, fetchAllData]);
 
   const updateBorrower = async (updatedBorrower: Borrower) => {
     const { data, error } = await supabase
