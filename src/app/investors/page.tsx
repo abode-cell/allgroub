@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { InvestorsTable } from '@/components/investors/investors-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,28 +19,15 @@ import { PlusCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import type { Investor } from '@/lib/types';
-import { useRouter } from 'next/navigation';
 
 
 export default function InvestorsPage() {
   const { user, role } = useAuth();
-  const router = useRouter();
   const { investors, addInvestor } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newInvestor, setNewInvestor] = useState({ name: '', amount: '' });
   
   const isEmployee = role === 'موظف';
-
-  useEffect(() => {
-    // Redirect employees away from this page
-    if (isEmployee) {
-      router.replace('/');
-    }
-  }, [role, isEmployee, router]);
-
-  if (isEmployee) {
-    return null; // Or a loading/access denied component
-  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -53,8 +40,8 @@ export default function InvestorsPage() {
       return;
     }
     
-    // For managers, the status is immediately 'active'
-    const status: Investor['status'] = 'نشط';
+    // For managers, status is active. For employees, it's pending review.
+    const status: Investor['status'] = isEmployee ? 'معلق' : 'نشط';
     
     addInvestor({
       name: newInvestor.name,
@@ -65,7 +52,7 @@ export default function InvestorsPage() {
     setNewInvestor({ name: '', amount: '' });
   };
   
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب';
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
 
   const displayedInvestors =
     role === 'مستثمر'
@@ -87,15 +74,17 @@ export default function InvestorsPage() {
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="ml-2 h-4 w-4" />
-                إضافة مستثمر
+                {isEmployee ? 'رفع طلب إضافة مستثمر' : 'إضافة مستثمر'}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <form onSubmit={handleAddInvestor}>
                 <DialogHeader>
-                  <DialogTitle>إضافة مستثمر جديد</DialogTitle>
+                  <DialogTitle>{isEmployee ? 'رفع طلب إضافة مستثمر جديد' : 'إضافة مستثمر جديد'}</DialogTitle>
                   <DialogDescription>
-                    أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.
+                    {isEmployee
+                      ? 'أدخل تفاصيل المستثمر الجديد وسيتم مراجعة الطلب.'
+                      : 'أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -133,7 +122,7 @@ export default function InvestorsPage() {
                       إلغاء
                     </Button>
                   </DialogClose>
-                  <Button type="submit">حفظ</Button>
+                  <Button type="submit">{isEmployee ? 'إرسال الطلب' : 'حفظ'}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
