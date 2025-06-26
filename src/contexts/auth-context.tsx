@@ -27,121 +27,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { supabase } = useSupabase();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
-  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   
   const role = user?.role ?? null;
 
   useEffect(() => {
-    async function getSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setSupabaseUser(session?.user ?? null);
-      if(!session) {
-        setLoading(false);
-      }
-    }
-    getSession();
-
+    setLoading(true);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setSupabaseUser(session?.user ?? null);
-        if (event === 'SIGNED_IN') {
-          // No need to set loading to false here, fetchProfile will do it.
-        } else {
+      async (event, session) => {
+        const supaUser = session?.user ?? null;
+        
+        if (!supaUser) {
+          setUser(null);
           setLoading(false);
+          return;
         }
+
+        // A user is signed in. Fetch their profile.
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', supaUser.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching profile on auth change:', error);
+          toast({
+              variant: 'destructive',
+              title: 'فشل تحميل الملف الشخصي',
+              description: `لم نتمكن من جلب بيانات حسابك. السبب: ${error.message}`,
+          });
+          await supabase.auth.signOut();
+          setUser(null);
+        } else if (profile) {
+          if (profile.status === 'معلق') {
+              toast({
+                  variant: 'destructive',
+                  title: 'الحساب معلق',
+                  description: 'حسابك في انتظار التفعيل من قبل مدير النظام. لا يمكنك تسجيل الدخول حاليًا.',
+                  duration: 5000,
+              });
+              await supabase.auth.signOut();
+              setUser(null);
+          } else {
+              const fullUser: User = {
+                id: supaUser.id,
+                email: supaUser.email!,
+                name: profile.name,
+                photoURL: profile.photoURL,
+                role: profile.role,
+                status: profile.status,
+                phone: profile.phone,
+              };
+              setUser(fullUser);
+          }
+        }
+        setLoading(false);
       }
     );
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, toast]);
 
-  useEffect(() => {
-    if (supabaseUser) {
-      const fetchProfile = async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', supabaseUser.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching profile:', error);
-          toast({
-              variant: 'destructive',
-              title: 'فشل تحميل الملف الشخصي',
-              description: `لم نتمكن من جلب بيانات حسابك. السبب: ${error.message}`,
-          });
-          // Sign out to prevent a login loop
-          await supabase.auth.signOut();
-          setUser(null);
-        } else if (data) {
-          const fullUser: User = {
-            id: supabaseUser.id,
-            email: supabaseUser.email!,
-            name: data.name,
-            photoURL: data.photoURL,
-            role: data.role,
-            status: data.status,
-            phone: data.phone,
-          };
-          setUser(fullUser);
-        }
-        setLoading(false);
-      };
-      fetchProfile();
-    } else {
-      setUser(null);
-      setLoading(false);
-    }
-  }, [supabaseUser, supabase, toast]);
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (authError) {
+    if (error) {
       let message = 'حدث خطأ أثناء تسجيل الدخول.';
-      if (authError.message.includes('Invalid login credentials')) {
+      if (error.message.includes('Invalid login credentials')) {
         message = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
       } else {
-        message = authError.message;
+        message = error.message;
       }
       return { success: false, message };
     }
-
-    if (!authData.user) {
-        const message = 'فشل تسجيل الدخول، لم يتم العثور على المستخدم.';
-        return { success: false, message };
-    }
-
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('status')
-        .eq('id', authData.user.id)
-        .single();
-
-    if (profileError || !profile) {
-        await supabase.auth.signOut();
-        console.error("Profile fetch error in signIn:", profileError);
-        const message = 'فشل تحميل ملف المستخدم بعد تسجيل الدخول. قد تكون هذه مشكلة في أذونات قاعدة البيانات (RLS).';
-        return { success: false, message };
-    }
     
-    if (profile.status === 'معلق') {
-      await supabase.auth.signOut();
-      const message = 'الحساب معلق. يرجى التواصل مع مدير النظام.';
-      return { success: false, message };
-    }
-
+    // Success. The onAuthStateChange listener will handle the rest.
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
   };
 
@@ -196,6 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const updateUserIdentity = async (updates: { name?: string; phone?: string; password?: string }): Promise<{ success: boolean; message: string }> => {
+    // Get the current user from supabase.auth, not from state, to ensure we have the latest session.
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
     if (!supabaseUser) return { success: false, message: "المستخدم غير مسجل الدخول." };
     
     // Update password if provided
