@@ -103,13 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authError.message.includes('Invalid login credentials')) {
         message = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
       }
-      toast({ variant: 'destructive', title: 'خطأ', description: message });
       return { success: false, message };
     }
 
     if (!authData.user) {
         const message = 'فشل تسجيل الدخول، لم يتم العثور على المستخدم.';
-        toast({ variant: 'destructive', title: 'خطأ', description: message });
         return { success: false, message };
     }
 
@@ -122,14 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (profileError || !profile) {
         await supabase.auth.signOut();
         const message = 'لم يتم العثور على ملف تعريف المستخدم.';
-        toast({ variant: 'destructive', title: 'خطأ', description: message });
         return { success: false, message };
     }
     
     if (profile.status === 'معلق') {
       await supabase.auth.signOut();
       const message = 'الحساب معلق. يرجى التواصل مع مدير النظام.';
-      toast({ variant: 'destructive', title: 'خطأ', description: message });
       return { success: false, message };
     }
 
