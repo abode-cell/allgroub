@@ -43,23 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Select specific columns to be more robust
         const { data: profiles, error } = await supabase
           .from('profiles')
           .select('id, name, email, photoURL, role, status, phone')
           .eq('id', supaUser.id);
         
         if (error) {
-          // Enhanced error logging
           console.error('--- Supabase Profile Fetch Error ---');
-          // Log the full error object to see all properties, not just message
           console.error('Full Error Object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
           console.error('Message:', error.message || 'No message');
           console.error('Details:', error.details || 'No details');
           console.error('Code:', error.code || 'No code');
 
           let description = 'لم نتمكن من جلب بيانات حسابك.';
-          // Provide a more helpful message if the standard one is missing or generic
           if (error.message && !error.message.includes('object')) { 
             description += ` السبب: ${error.message}`;
           } else {
@@ -76,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await supabase.auth.signOut();
           setUser(null);
         } else if (!profiles || profiles.length === 0) {
-            // NEW: Handle case where user exists in auth but not in profiles
             console.error('--- Supabase Profile Not Found ---');
             console.error('User exists in auth.users but not in public.profiles. User ID:', supaUser.id);
             toast({
@@ -111,7 +106,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUser(fullUser);
           }
         } else {
-            // This handles cases where duplicates exist.
             let description = 'لم يتم العثور على ملفك الشخصي. الرجاء التواصل مع مدير النظام.';
             if (profiles && profiles.length > 1) {
                 description = 'تم العثور على ملفات شخصية مكررة. الرجاء التواصل مع مدير النظام.';
@@ -136,7 +130,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
-    // onAuthStateChange will handle the result.
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -175,19 +168,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      let translatedMessage = 'حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.';
+      console.error('--- Supabase SignUp Error ---', JSON.stringify(error, null, 2));
+      let translatedMessage = 'حدث خطأ غير متوقع أثناء التسجيل. يرجى المحاولة مرة أخرى.';
        if (error.message.includes('User already registered')) {
         translatedMessage = 'هذا البريد الإلكتروني مسجل بالفعل.';
       } else if (error.message.includes('Password should be at least')) {
         translatedMessage = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
-      } else if (error.message.includes('invalid format')) {
-        translatedMessage = 'صيغة البريد الإلكتروني غير صالحة.';
+      } else if (error.message.includes('Database error saving new user')) {
+        translatedMessage = 'حدث خطأ في قاعدة البيانات عند إنشاء الملف الشخصي. غالبًا ما يكون هذا بسبب خطأ في سياسة الأمان (RLS) على جدول "profiles". يرجى التأكد من أن سياسة الإدخال (INSERT) لا تمنع العملية التلقائية.';
       } else if (error.message.includes('Email signups are disabled')) {
-        translatedMessage = 'تم تعطيل التسجيل عبر البريد الإلكتروني من قبل المسؤول. يرجى تفعيله من لوحة تحكم Supabase.';
+        translatedMessage = 'تم تعطيل التسجيل عبر البريد الإلكتروني من قبل المسؤول.';
       } else {
         translatedMessage = error.message;
       }
-      toast({ variant: 'destructive', title: 'خطأ في التسجيل', description: translatedMessage });
       return { success: false, message: translatedMessage };
     }
     
@@ -202,11 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const updateUserIdentity = async (updates: { name?: string; phone?: string; password?: string }): Promise<{ success: boolean; message: string }> => {
-    // Get the current user from supabase.auth, not from state, to ensure we have the latest session.
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
     if (!supabaseUser) return { success: false, message: "المستخدم غير مسجل الدخول." };
     
-    // Update password if provided
     if (updates.password) {
         if (updates.password.length < 6) {
             return { success: false, message: "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل." };
@@ -218,10 +209,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
     
-    // Update profile if name or phone provided
     const profileUpdates: { name?: string; phone?: string } = {};
     if (updates.name) profileUpdates.name = updates.name;
-    // Allow empty string for phone number to clear it
     if (typeof updates.phone !== 'undefined') profileUpdates.phone = updates.phone;
 
     if (Object.keys(profileUpdates).length > 0) {
@@ -238,10 +227,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (updatedProfiles && updatedProfiles.length === 1) {
             const data = updatedProfiles[0];
-            // Update local user state
             setUser(prevUser => prevUser ? { ...prevUser, ...data } : null);
         } else {
-             // This case should not happen if the user is logged in, but we handle it defensively.
             console.error('Profile not found after update or duplicate profiles exist.');
         }
     }
