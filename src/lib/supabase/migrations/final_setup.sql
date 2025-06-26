@@ -1,6 +1,5 @@
--- Final & Correct Supabase Setup Script (v9)
--- This script handles new user creation via a trigger and sets up simple, reliable security policies.
--- Running this single script will reset and correctly configure security for the application.
+-- Final Supabase Setup Script (v11 - The INSERT Policy Fix)
+-- This script corrects the RLS policy for profile creation, which was the final root cause of the signup error.
 
 -- Part 1: Create a ROBUST function to handle new user signups.
 -- This version adds a fallback for the name to prevent silent failures.
@@ -59,18 +58,36 @@ $$;
 
 -- PROFILES Table
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public profiles are viewable by authenticated users." ON public.profiles FOR SELECT USING (auth.role() = 'authenticated');
--- NOTE: There is NO INSERT policy. The trigger handles inserts securely.
-CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Admins can update any profile." ON public.profiles FOR UPDATE USING (public.get_user_role(auth.uid()) = 'مدير النظام');
-CREATE POLICY "Admins can delete any profile but not themselves." ON public.profiles FOR DELETE USING (public.get_user_role(auth.uid()) = 'مدير النظام' AND auth.uid() <> id);
+
+CREATE POLICY "Public profiles are viewable by authenticated users." ON public.profiles
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+-- CRITICAL FIX: Re-add the INSERT policy.
+-- The user's trigger needs permission to insert a profile for that same user.
+-- This policy allows a user to insert a row into profiles only if the row's ID matches their own auth ID.
+CREATE POLICY "Users can insert their own profile." ON public.profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can update their own profile." ON public.profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Admins can update any profile." ON public.profiles
+  FOR UPDATE USING (public.get_user_role(auth.uid()) = 'مدير النظام');
+
+CREATE POLICY "Admins can delete any profile but not themselves." ON public.profiles
+  FOR DELETE USING (get_user_role(auth.uid()) = 'مدير النظام' AND auth.uid() <> id);
+
 
 -- BORROWERS Table
 ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated users to read borrowers." ON public.borrowers FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow specific roles to modify borrowers." ON public.borrowers FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
+CREATE POLICY "Allow authenticated users to read borrowers." ON public.borrowers
+  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow specific roles to modify borrowers." ON public.borrowers
+  FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
 
 -- INVESTORS Table
 ALTER TABLE public.investors ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated users to read investors." ON public.investors FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow specific roles to modify investors." ON public.investors FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
+CREATE POLICY "Allow authenticated users to read investors." ON public.investors
+  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow specific roles to modify investors." ON public.investors
+  FOR ALL USING (public.get_user_role(auth.uid()) IN ('مدير النظام', 'مدير المكتب', 'موظف'));
