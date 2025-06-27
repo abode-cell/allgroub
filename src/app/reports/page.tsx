@@ -58,8 +58,8 @@ export default function ReportsPage() {
         const { default: jsPDF } = await import('jspdf');
         await import('jspdf-autotable');
 
-        // Use the Amiri font, known for excellent Arabic script support, from a reliable CDN.
-        const fontUrl = 'https://raw.githubusercontent.com/alif-type/amiri/main/fonts/ttf/amiri-regular.ttf';
+        // Use the Amiri font, known for excellent Arabic script support, from a more reliable CDN.
+        const fontUrl = 'https://cdn.jsdelivr.net/gh/alif-type/amiri@main/fonts/ttf/amiri-regular.ttf';
         const fontResponse = await fetch(fontUrl);
         if (!fontResponse.ok) throw new Error("Failed to fetch font");
 
