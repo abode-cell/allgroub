@@ -53,7 +53,7 @@ export function InvestorDashboard() {
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">
-            لوحة التحكم الخاصة بك، {investor.name}
+            صفحتك الرئيسية، {investor.name}
           </h1>
           <p className="text-muted-foreground mt-1">
             نظرة عامة على أداء استثماراتك.

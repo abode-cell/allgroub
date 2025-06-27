@@ -33,6 +33,8 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
     .reduce((acc, b) => acc + b.amount, 0); // Calculated from data
 
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
+  const showProfitChart = role === 'مدير النظام' || role === 'مدير المكتب';
+
 
   return (
     <div className="space-y-6">
@@ -75,12 +77,12 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
-        {showSensitiveData && (
+        {showProfitChart && (
           <div className="col-span-12 lg:col-span-4">
             <ProfitChart />
           </div>
         )}
-        <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-3" : "lg:col-span-7")}>
+        <div className={cn("col-span-12", showProfitChart ? "lg:col-span-3" : "lg:col-span-7")}>
           <LoansStatusChart borrowers={installmentLoans} />
         </div>
       </div>
@@ -160,7 +162,7 @@ export default function DashboardPage() {
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              لوحة التحكم المالية
+              الرئيسية
             </h1>
             <p className="text-muted-foreground mt-1">
               نظرة عامة على أداء منصتك المالية.

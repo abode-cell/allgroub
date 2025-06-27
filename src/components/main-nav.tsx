@@ -33,7 +33,7 @@ import { useAuth } from '@/contexts/auth-context';
 const allMenuItems = [
   {
     href: '/',
-    label: 'لوحة التحكم',
+    label: 'الرئيسية',
     icon: LayoutDashboard,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
   },
