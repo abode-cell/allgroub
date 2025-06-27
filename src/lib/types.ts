@@ -63,6 +63,15 @@ export type Investor = {
   rejectionReason?: string;
 };
 
+export type Notification = {
+  id: string;
+  recipientId: string;
+  title: string;
+  description: string;
+  date: string;
+  isRead: boolean;
+};
+
 export type SupportTicket = {
   id: string;
   subject: string;

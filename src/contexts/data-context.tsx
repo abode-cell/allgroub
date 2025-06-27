@@ -15,12 +15,14 @@ import type {
   UserRole,
   SupportTicket,
   TransactionType,
+  Notification,
 } from '@/lib/types';
 import {
   borrowersData,
   investorsData,
   usersData as initialUsersData,
   supportTicketsData as initialSupportTicketsData,
+  notificationsData as initialNotificationsData,
 } from '@/lib/data';
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -59,6 +61,7 @@ type DataContextType = {
   investors: Investor[];
   users: User[];
   supportTickets: SupportTicket[];
+  notifications: Notification[];
   addSupportTicket: (
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
   ) => Promise<void>;
@@ -90,9 +93,18 @@ type DataContextType = {
     limits: { investorLimit: number; employeeLimit: number }
   ) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
+  clearUserNotifications: (userId: string) => void;
+  markUserNotificationsAsRead: (userId: string) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'SAR',
+  }).format(value);
+
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [borrowers, setBorrowers] = useState<Borrower[]>(borrowersData);
@@ -101,8 +113,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(
     initialSupportTicketsData
   );
+  const [notifications, setNotifications] = useState<Notification[]>(
+    initialNotificationsData
+  );
+
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
+  
+  const addNotification = (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
+    const newNotification: Notification = {
+        ...notification,
+        id: `notif_${Date.now()}_${Math.random()}`,
+        date: new Date().toISOString(),
+        isRead: false,
+    };
+    setNotifications(prev => [newNotification, ...prev]);
+    initialNotificationsData.unshift(newNotification);
+  };
+
+  const clearUserNotifications = (userId: string) => {
+    setNotifications(prev => prev.filter(n => n.recipientId !== userId));
+    const updatedNotificationsData = initialNotificationsData.filter(n => n.recipientId !== userId);
+    initialNotificationsData.length = 0;
+    Array.prototype.push.apply(initialNotificationsData, updatedNotificationsData);
+    toast({ title: 'تم حذف جميع التنبيهات' });
+  }
+
+  const markUserNotificationsAsRead = (userId: string) => {
+      setNotifications(prev => prev.map(n => n.recipientId === userId ? { ...n, isRead: true } : n));
+      initialNotificationsData.forEach(n => {
+          if (n.recipientId === userId) {
+              n.isRead = true;
+          }
+      });
+  };
+
 
   const registerNewOfficeManager = async (
     credentials: SignUpCredentials
@@ -148,8 +193,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
 
     setUsers((prev) => [...prev, newManager, newEmployee]);
-
-    // Update the original data source (for mock persistence)
     initialUsersData.push(newManager, newEmployee);
 
     return {
@@ -178,6 +221,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
               );
               if (investorIndex > -1) {
                 newInvestors[investorIndex].defaultedFunds += funder.amount;
+                 addNotification({
+                    recipientId: funder.investorId,
+                    title: 'تنبيه: تعثر قرض مرتبط',
+                    description: `القرض الخاص بالمقترض "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.`
+                });
               }
             }
             return newInvestors;
@@ -240,13 +288,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const approveBorrower = async (borrowerId: string) => {
+    const borrower = borrowers.find(b => b.id === borrowerId);
+    if (!borrower) return;
+
     setBorrowers((prev) =>
       prev.map((b) => (b.id === borrowerId ? { ...b, status: 'منتظم' } : b))
     );
+
+    if (borrower.submittedBy) {
+        addNotification({
+            recipientId: borrower.submittedBy,
+            title: 'تمت الموافقة على طلبك',
+            description: `تمت الموافقة على طلب إضافة المقترض "${borrower.name}".`
+        });
+    }
+
     toast({ title: 'تمت الموافقة على المقترض (تجريبيًا)' });
   };
 
   const rejectBorrower = async (borrowerId: string, reason: string) => {
+    const borrower = borrowers.find(b => b.id === borrowerId);
+    if (!borrower) return;
+
     setBorrowers((prev) =>
       prev.map((b) =>
         b.id === borrowerId
@@ -254,6 +317,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : b
       )
     );
+    
+    if (borrower.submittedBy) {
+        addNotification({
+            recipientId: borrower.submittedBy,
+            title: 'تم رفض طلبك',
+            description: `تم رفض طلب إضافة المقترض "${borrower.name}". السبب: ${reason}`
+        });
+    }
+
     toast({ variant: 'destructive', title: 'تم رفض المقترض (تجريبيًا)' });
   };
 
@@ -328,8 +400,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     setInvestors(updatedInvestors);
     setBorrowers((prev) => [...prev, newEntry]);
+
+    if (newEntry.status === 'معلق' && currentUser?.managedBy) {
+        addNotification({
+            recipientId: currentUser.managedBy,
+            title: 'طلب مقترض جديد معلق',
+            description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المقترض "${newEntry.name}".`
+        });
+    }
+
     toast({
-      title: 'تمت إضافة المقترض وربطه بالمستثمرين بنجاح (تجريبيًا)',
+      title: 'تمت إضافة المقترض بنجاح (تجريبيًا)',
     });
   };
 
@@ -343,13 +424,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const approveInvestor = async (investorId: string) => {
+    const investor = investors.find(i => i.id === investorId);
+    if (!investor) return;
+
     setInvestors((prev) =>
       prev.map((i) => (i.id === investorId ? { ...i, status: 'نشط' } : i))
     );
+
+    if (investor.submittedBy) {
+        addNotification({
+            recipientId: investor.submittedBy,
+            title: 'تمت الموافقة على طلبك',
+            description: `تمت الموافقة على طلب إضافة المستثمر "${investor.name}".`
+        });
+    }
+
     toast({ title: 'تمت الموافقة على المستثمر (تجريبيًا)' });
   };
 
   const rejectInvestor = async (investorId: string, reason: string) => {
+    const investor = investors.find(i => i.id === investorId);
+    if (!investor) return;
+
     setInvestors((prev) =>
       prev.map((i) =>
         i.id === investorId
@@ -357,6 +453,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : i
       )
     );
+    
+    if (investor.submittedBy) {
+        addNotification({
+            recipientId: investor.submittedBy,
+            title: 'تم رفض طلبك',
+            description: `تم رفض طلب إضافة المستثمر "${investor.name}". السبب: ${reason}`
+        });
+    }
+
     toast({ variant: 'destructive', title: 'تم رفض المستثمر (تجريبيًا)' });
   };
 
@@ -469,6 +574,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
     setInvestors((prev) => [...prev, newEntry]);
     investorsData.push(newEntry);
+
+    if (newEntry.status === 'معلق' && currentUser?.managedBy) {
+        addNotification({
+            recipientId: currentUser.managedBy,
+            title: 'طلب مستثمر جديد معلق',
+            description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newEntry.name}".`
+        });
+    }
+
     toast({ title: 'تمت إضافة المستثمر بنجاح.' });
   };
 
@@ -492,6 +606,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return inv;
       })
     );
+
+    addNotification({
+        recipientId: investorId,
+        title: 'عملية سحب ناجحة',
+        description: `تم سحب مبلغ ${formatCurrency(withdrawal.amount)} من حسابك.`
+    });
+
     toast({ title: 'تمت عملية السحب بنجاح (تجريبيًا)' });
   };
 
@@ -586,6 +707,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     investors,
     users,
     supportTickets,
+    notifications,
     addSupportTicket,
     registerNewOfficeManager,
     addBorrower,
@@ -601,6 +723,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateUserRole,
     updateUserLimits,
     deleteUser,
+    clearUserNotifications,
+    markUserNotificationsAsRead,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

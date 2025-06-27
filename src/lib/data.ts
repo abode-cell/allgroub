@@ -1,4 +1,4 @@
-import type { Borrower, Investor, User, SupportTicket } from '@/lib/types';
+import type { Borrower, Investor, User, SupportTicket, Notification } from '@/lib/types';
 
 export const usersData: User[] = [
   { id: '1', name: 'مدير النظام', email: 'admin@example.com', role: 'مدير النظام', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000001', registrationDate: '2023-01-10' },
@@ -31,7 +31,7 @@ export const investorsData: Investor[] = [
     status: 'نشط',
     transactionHistory: [
         { id: 't-2-1', date: '2023-03-20', type: 'إيداع رأس المال', amount: 750000, description: 'استثمار تأسيسي' },
-        { id: 't-2-2', date: '2024-05-10', type: 'سحب أرباح', amount: 25000, description: 'توزيعات أرباح الربع الأول' },
+        { id: 't-2-2', date: '2024-05-10', type: 'سحب أرباح', amount: 25000, description: 'توزيعات أرباح الربع الأول', withdrawalMethod: 'بنكي' },
         { id: 't-2-3', date: '2024-06-01', type: 'إيداع أرباح', amount: 15000, description: 'أرباح محققة من قرض مكتمل' },
     ],
     fundedLoanIds: ['bor-2'], // bor-3 is defaulted, so it's not an "active" funded loan
@@ -116,4 +116,5 @@ export const borrowersData: Borrower[] = [
   },
 ];
 
+export const notificationsData: Notification[] = [];
 export const supportTicketsData: SupportTicket[] = [];
