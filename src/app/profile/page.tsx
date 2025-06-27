@@ -107,7 +107,7 @@ export default function ProfilePage() {
             <Card>
                 <CardHeader>
                     <CardTitle>المعلومات الشخصية</CardTitle>
-                    <CardDescription>تحديث اسمك ورقم هاتفك.</CardDescription>
+                    <CardDescription>تحديث اسمك ورقم هاتفك. تم تعطيل الحفظ في الوضع التجريبي.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form {...profileForm}>
@@ -138,9 +138,8 @@ export default function ProfilePage() {
                                     </FormItem>
                                 )}
                             />
-                            <Button type="submit" disabled={isProfileSubmitting}>
-                                {isProfileSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                                حفظ التغييرات
+                            <Button type="submit" disabled>
+                                حفظ التغييرات (معطل)
                             </Button>
                         </form>
                     </Form>
@@ -151,7 +150,7 @@ export default function ProfilePage() {
             <Card>
                 <CardHeader>
                     <CardTitle>تغيير كلمة المرور</CardTitle>
-                    <CardDescription>اختر كلمة مرور قوية وآمنة.</CardDescription>
+                    <CardDescription>اختر كلمة مرور قوية وآمنة. تم تعطيل الحفظ في الوضع التجريبي.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form {...passwordForm}>
@@ -182,9 +181,8 @@ export default function ProfilePage() {
                                     </FormItem>
                                 )}
                             />
-                             <Button type="submit" disabled={isPasswordSubmitting}>
-                                {isPasswordSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                                تحديث كلمة المرور
+                             <Button type="submit" disabled>
+                                تحديث كلمة المرور (معطل)
                             </Button>
                         </form>
                     </Form>
@@ -196,11 +194,11 @@ export default function ProfilePage() {
                 <CardHeader>
                     <CardTitle>تغيير البريد الإلكتروني</CardTitle>
                     <CardDescription>
-                       البريد الإلكتروني الحالي الخاص بك هو <span className="font-semibold text-primary">{user.email}</span>. لتغييره، سيتم إرسال رابط تأكيد إلى كل من عنوانك القديم والجديد.
+                       البريد الإلكتروني الحالي الخاص بك هو <span className="font-semibold text-primary">{user.email}</span>.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <Button disabled>تغيير البريد الإلكتروني (قريبًا)</Button>
+                     <Button disabled>تغيير البريد الإلكتروني (معطل)</Button>
                 </CardContent>
              </Card>
         </div>

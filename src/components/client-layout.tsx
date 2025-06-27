@@ -11,9 +11,7 @@ import {
   SidebarProvider,
 } from '@/components/ui/sidebar';
 import { MainNav } from '@/components/main-nav';
-import LoginPage from '@/app/login/page';
 import { AppHeader } from './app-header';
-import { usePathname } from 'next/navigation';
 import { Skeleton } from './ui/skeleton';
 
 function AppSkeleton() {
@@ -76,18 +74,23 @@ function AppSkeleton() {
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const pathname = usePathname();
 
   if (loading) {
     return <AppSkeleton />;
   }
 
+  // Since Supabase is disconnected, we assume the user is always logged in via the mock provider.
+  // If the mock user is removed for any reason, this would be a fallback,
+  // but in the current setup, `user` will always be populated.
   if (!user) {
-    const isPublicPage = pathname === '/login' || pathname === '/signup';
-    if (isPublicPage) {
-      return <>{children}</>;
-    }
-    return <LoginPage />;
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-background">
+            <div className="text-center">
+                <h1 className="text-2xl font-bold">تم تسجيل الخروج (وضع تجريبي)</h1>
+                <p className="text-muted-foreground">أعد تحميل الصفحة لتسجيل الدخول مرة أخرى.</p>
+            </div>
+      </div>
+    );
   }
 
   return (
