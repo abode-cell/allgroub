@@ -74,24 +74,24 @@ export default function CalculatorPage() {
   
    const calculateBySalary = () => {
         const monthlySalary = parseFloat(salary.toString());
-        const termInMonths = 1; // Fixed to one month
-
+        
         if (monthlySalary <= 0) {
             return { maxGraceLoanAmount: 0, totalRepayment: 0 };
         }
 
-        // Grace period profit is 30% of principal (20% institution + 10% investor)
-        const graceProfitMargin = 1.3; 
+        // Rule: The maximum total amount the borrower can repay is 30% of their monthly salary.
+        const maxRepayment = monthlySalary * 0.30;
 
-        // Rule: Total repayment (Principal * 1.3) should not exceed 30% of total salary over the term.
-        const totalSalaryOverTerm = monthlySalary * termInMonths;
-        const maxTotalRepayment = totalSalaryOverTerm * 0.30;
+        // For a grace loan, the total repayment is the principal (loan amount) + 30% profit.
+        // TotalRepayment = Principal * 1.30
+        // We know TotalRepayment must equal maxRepayment.
+        // To find the Principal, we do: Principal = maxRepayment / 1.30
+        const graceProfitFactor = 1.3; 
+        const maxLoanAmount = maxRepayment / graceProfitFactor;
         
-        const maxGraceLoanAmount = maxTotalRepayment / graceProfitMargin;
-
         return {
-            maxGraceLoanAmount: isFinite(maxGraceLoanAmount) ? maxGraceLoanAmount : 0,
-            totalRepayment: isFinite(maxTotalRepayment) ? maxTotalRepayment : 0,
+            maxGraceLoanAmount: isFinite(maxLoanAmount) ? maxLoanAmount : 0,
+            totalRepayment: isFinite(maxRepayment) ? maxRepayment : 0,
         };
     };
 
@@ -276,7 +276,7 @@ export default function CalculatorPage() {
                     أدخل راتبك لتقدير أقصى مبلغ تمويل مهلة لمدة شهر واحد.
                     <br />
                     <small className="text-xs mt-2 block">
-                      يعتمد التقدير على أن إجمالي السداد لا يتجاوز 30% من راتبك الشهري.
+                      يعتمد التقدير على أن إجمالي السداد (أصل القرض + الربح) لا يتجاوز 30% من راتبك الشهري.
                     </small>
                   </CardDescription>
                 </CardHeader>
@@ -305,7 +305,7 @@ export default function CalculatorPage() {
                       {formatCurrency(bySalaryResults.maxGraceLoanAmount)}
                     </p>
                     <p className="text-sm text-muted-foreground mt-2">
-                      إجمالي المبلغ المسدد تقريبيًا: {formatCurrency(bySalaryResults.totalRepayment)}
+                      إجمالي المبلغ المسدد: {formatCurrency(bySalaryResults.totalRepayment)}
                     </p>
                   </div>
                 </CardContent>
