@@ -65,9 +65,13 @@ type DataContextType = {
   salaryRepaymentPercentage: number;
   baseInterestRate: number;
   investorSharePercentage: number;
+  graceInstitutionProfitPercentage: number;
+  graceInvestorProfitPercentage: number;
   updateBaseInterestRate: (rate: number) => Promise<void>;
   updateInvestorSharePercentage: (percentage: number) => Promise<void>;
   updateSalaryRepaymentPercentage: (percentage: number) => Promise<void>;
+  updateGraceInstitutionProfitPercentage: (percentage: number) => Promise<void>;
+  updateGraceInvestorProfitPercentage: (percentage: number) => Promise<void>;
   addSupportTicket: (
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
   ) => Promise<void>;
@@ -125,6 +129,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [salaryRepaymentPercentage, setSalaryRepaymentPercentage] = useState<number>(30);
   const [baseInterestRate, setBaseInterestRate] = useState<number>(5.5);
   const [investorSharePercentage, setInvestorSharePercentage] = useState<number>(70);
+  const [graceInstitutionProfitPercentage, setGraceInstitutionProfitPercentage] = useState<number>(20);
+  const [graceInvestorProfitPercentage, setGraceInvestorProfitPercentage] = useState<number>(10);
 
 
   const { user: currentUser } = useAuth();
@@ -179,6 +185,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({
       title: 'تم تحديث النسبة',
       description: `تم تحديث حصة المستثمر من الأرباح إلى ${percentage}%.`,
+    });
+  };
+
+  const updateGraceInstitutionProfitPercentage = async (percentage: number) => {
+    setGraceInstitutionProfitPercentage(percentage);
+    toast({
+      title: 'تم تحديث النسبة',
+      description: `تم تحديث نسبة ربح المؤسسة لتمويل المهلة إلى ${percentage}%.`,
+    });
+  };
+
+  const updateGraceInvestorProfitPercentage = async (percentage: number) => {
+    setGraceInvestorProfitPercentage(percentage);
+    toast({
+      title: 'تم تحديث النسبة',
+      description: `تم تحديث نسبة ربح المستثمر لتمويل المهلة إلى ${percentage}%.`,
     });
   };
 
@@ -278,7 +300,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ? originalBorrower.amount *
                 (originalBorrower.rate / 100) *
                 originalBorrower.term
-              : originalBorrower.amount * 0.3;
+              : originalBorrower.amount * ((graceInstitutionProfitPercentage + graceInvestorProfitPercentage) / 100);
 
           setInvestors((prevInvestors) => {
             let newInvestors = [...prevInvestors];
@@ -745,9 +767,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     salaryRepaymentPercentage,
     baseInterestRate,
     investorSharePercentage,
+    graceInstitutionProfitPercentage,
+    graceInvestorProfitPercentage,
     updateBaseInterestRate,
     updateInvestorSharePercentage,
     updateSalaryRepaymentPercentage,
+    updateGraceInstitutionProfitPercentage,
+    updateGraceInvestorProfitPercentage,
     addSupportTicket,
     registerNewOfficeManager,
     addBorrower,

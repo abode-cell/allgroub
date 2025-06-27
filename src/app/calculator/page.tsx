@@ -20,6 +20,10 @@ export default function CalculatorPage() {
     updateBaseInterestRate,
     investorSharePercentage,
     updateInvestorSharePercentage,
+    graceInstitutionProfitPercentage,
+    updateGraceInstitutionProfitPercentage,
+    graceInvestorProfitPercentage,
+    updateGraceInvestorProfitPercentage,
   } = useData();
   
   // States for Installments Tab
@@ -36,6 +40,9 @@ export default function CalculatorPage() {
   const [localBaseInterestRate, setLocalBaseInterestRate] = useState(baseInterestRate);
   const [localInvestorSharePercentage, setLocalInvestorSharePercentage] = useState(investorSharePercentage);
   const [localSalaryRepaymentPercentage, setLocalSalaryRepaymentPercentage] = useState(salaryRepaymentPercentage);
+  const [localGraceInstitutionProfitPercentage, setLocalGraceInstitutionProfitPercentage] = useState(graceInstitutionProfitPercentage);
+  const [localGraceInvestorProfitPercentage, setLocalGraceInvestorProfitPercentage] = useState(graceInvestorProfitPercentage);
+
 
   useEffect(() => {
     setLocalBaseInterestRate(baseInterestRate);
@@ -48,6 +55,14 @@ export default function CalculatorPage() {
   useEffect(() => {
     setLocalSalaryRepaymentPercentage(salaryRepaymentPercentage);
   }, [salaryRepaymentPercentage]);
+  
+  useEffect(() => {
+    setLocalGraceInstitutionProfitPercentage(graceInstitutionProfitPercentage);
+  }, [graceInstitutionProfitPercentage]);
+
+  useEffect(() => {
+    setLocalGraceInvestorProfitPercentage(graceInvestorProfitPercentage);
+  }, [graceInvestorProfitPercentage]);
 
 
   const calculateInstallments = () => {
@@ -92,8 +107,8 @@ export default function CalculatorPage() {
       return { institutionProfit: 0, investorProfit: 0, totalProfit: 0 };
     }
 
-    const institutionProfit = principal * 0.20;
-    const investorProfit = principal * 0.10;
+    const institutionProfit = principal * (graceInstitutionProfitPercentage / 100);
+    const investorProfit = principal * (graceInvestorProfitPercentage / 100);
     const totalProfit = institutionProfit + investorProfit;
 
     return { institutionProfit, investorProfit, totalProfit };
@@ -107,7 +122,7 @@ export default function CalculatorPage() {
         }
 
         const maxRepayment = monthlySalary * (salaryRepaymentPercentage / 100); 
-        const graceProfitFactor = 1.3; 
+        const graceProfitFactor = 1 + ((graceInstitutionProfitPercentage + graceInvestorProfitPercentage) / 100);
         const maxLoanAmount = maxRepayment / graceProfitFactor;
         const profit = maxRepayment - maxLoanAmount;
 
@@ -281,9 +296,12 @@ export default function CalculatorPage() {
                 <Card className="lg:col-span-1">
                   <CardHeader>
                     <CardTitle>تمويل المهلة</CardTitle>
-                    {showProfitDetails && <CardDescription>
-                      يتم احتساب ربح ثابت للمؤسسة بنسبة 20% وربح ثابت للمستثمر بنسبة 10% من أصل مبلغ القرض.
-                     </CardDescription>}
+                    <CardDescription>
+                      {showProfitDetails 
+                        ? 'يتم احتساب ربح ثابت للمؤسسة والمستثمر كنسبة من أصل القرض. يمكنك تعديل النسب أدناه.'
+                        : 'يتم احتساب الأرباح كنسبة ثابتة من أصل القرض.'
+                      }
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="space-y-2">
@@ -296,6 +314,52 @@ export default function CalculatorPage() {
                         placeholder="أدخل مبلغ القرض"
                       />
                     </div>
+                    {showProfitDetails && (
+                        <>
+                            <div className="space-y-2 pt-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="graceInstitutionProfit">
+                                        ربح المؤسسة: {localGraceInstitutionProfitPercentage}%
+                                    </Label>
+                                    <Slider
+                                        id="graceInstitutionProfit"
+                                        min={0} max={50} step={1}
+                                        value={[localGraceInstitutionProfitPercentage]}
+                                        onValueChange={(value) => setLocalGraceInstitutionProfitPercentage(value[0])}
+                                    />
+                                </div>
+                                <Button
+                                    size="sm" variant="outline" className="w-full"
+                                    onClick={() => updateGraceInstitutionProfitPercentage(localGraceInstitutionProfitPercentage)}
+                                    disabled={localGraceInstitutionProfitPercentage === graceInstitutionProfitPercentage}
+                                >
+                                    <Save className="ml-2 h-4 w-4" />
+                                    تأكيد نسبة المؤسسة
+                                </Button>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="graceInvestorProfit">
+                                        ربح المستثمر: {localGraceInvestorProfitPercentage}%
+                                    </Label>
+                                    <Slider
+                                        id="graceInvestorProfit"
+                                        min={0} max={50} step={1}
+                                        value={[localGraceInvestorProfitPercentage]}
+                                        onValueChange={(value) => setLocalGraceInvestorProfitPercentage(value[0])}
+                                    />
+                                </div>
+                                <Button
+                                    size="sm" variant="outline" className="w-full"
+                                    onClick={() => updateGraceInvestorProfitPercentage(localGraceInvestorProfitPercentage)}
+                                    disabled={localGraceInvestorProfitPercentage === graceInvestorProfitPercentage}
+                                >
+                                    <Save className="ml-2 h-4 w-4" />
+                                    تأكيد نسبة المستثمر
+                                </Button>
+                            </div>
+                        </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -311,11 +375,11 @@ export default function CalculatorPage() {
                       {showProfitDetails ? (
                         <div className="grid md:grid-cols-2 gap-6">
                           <div className="p-4 bg-accent/10 rounded-lg">
-                              <p className="text-sm text-accent-foreground/80">ربح المؤسسة (20%)</p>
+                              <p className="text-sm text-accent-foreground/80">ربح المؤسسة ({graceInstitutionProfitPercentage}%)</p>
                               <p className="text-2xl font-bold text-accent-foreground">{formatCurrency(gracePeriodResults.institutionProfit)}</p>
                           </div>
                            <div className="p-4 bg-primary/10 rounded-lg">
-                              <p className="text-sm text-primary/80">ربح المستثمر (10%)</p>
+                              <p className="text-sm text-primary/80">ربح المستثمر ({graceInvestorProfitPercentage}%)</p>
                               <p className="text-2xl font-bold text-primary">{formatCurrency(gracePeriodResults.investorProfit)}</p>
                           </div>
                         </div>
@@ -402,7 +466,7 @@ export default function CalculatorPage() {
                         <span className="font-semibold">{formatCurrency(bySalaryResults.maxGraceLoanAmount)}</span>
                       </div>
                        <div className="flex flex-col">
-                        <span className="text-muted-foreground">الربح (30%)</span>
+                        <span className="text-muted-foreground">الربح ({graceInstitutionProfitPercentage + graceInvestorProfitPercentage}%)</span>
                         <span className="font-semibold">{formatCurrency(bySalaryResults.profit)}</span>
                       </div>
                       <div className="flex flex-col">
