@@ -19,7 +19,7 @@ declare module 'jspdf' {
 }
 
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('ar-SA', {
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'SAR',
   }).format(value);
@@ -120,7 +120,7 @@ export default function ReportsPage() {
             headStyles: {
                 font: fontName,
                 halign: 'center',
-                fillColor: '#107458', // Match the app's primary theme color
+                fillColor: '#42A5F5',
                 textColor: '#FFFFFF',
             },
         });

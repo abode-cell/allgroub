@@ -24,7 +24,7 @@ import type { Borrower, Investor } from '@/lib/types';
 
 
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('ar-SA', {
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'SAR',
   }).format(value);
