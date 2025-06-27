@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/contexts/auth-context';
@@ -62,6 +63,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import * as AccordionPrimitive from '@radix-ui/react-accordion';
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } =
   {
@@ -198,34 +200,36 @@ export default function UsersPage() {
 
                     return (
                       <AccordionItem value={manager.id} key={manager.id}>
-                        <AccordionTrigger className="hover:bg-muted/50 px-4 rounded-md">
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-right">
-                              <div className="font-bold text-base">
-                                {manager.name}
-                              </div>
-                              <div className="text-xs text-muted-foreground sm:text-sm">
-                                {manager.email}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <Badge variant={statusVariant[manager.status]}>
-                                {manager.status === 'نشط' ? (
-                                  <CheckCircle className="w-3 h-3 ml-1" />
-                                ) : (
-                                  <Hourglass className="w-3 h-3 ml-1" />
-                                )}
-                                {manager.status}
-                              </Badge>
-                              <div className="hidden sm:block">
-                                <UserActions
-                                  user={manager}
-                                  onDeleteClick={handleDeleteClick}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </AccordionTrigger>
+                        <AccordionPrimitive.Header className="flex border-b">
+                           <div className="flex flex-1 items-center justify-between hover:bg-muted/50 px-4 rounded-md">
+                                <AccordionTrigger className="flex-1 text-right p-0 hover:no-underline justify-start">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 py-4">
+                                        <div className="font-bold text-base">
+                                            {manager.name}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground sm:text-sm">
+                                            {manager.email}
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <div className="flex items-center gap-4">
+                                    <Badge variant={statusVariant[manager.status]}>
+                                        {manager.status === 'نشط' ? (
+                                        <CheckCircle className="w-3 h-3 ml-1" />
+                                        ) : (
+                                        <Hourglass className="w-3 h-3 ml-1" />
+                                        )}
+                                        {manager.status}
+                                    </Badge>
+                                    <div className="hidden sm:block">
+                                        <UserActions
+                                        user={manager}
+                                        onDeleteClick={handleDeleteClick}
+                                        />
+                                    </div>
+                                </div>
+                           </div>
+                        </AccordionPrimitive.Header>
                         <AccordionContent className="bg-muted/30 p-4 border-l-4 border-primary">
                           <div className="flex justify-between items-center mb-4">
                             <div className="space-y-1">
