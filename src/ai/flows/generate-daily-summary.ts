@@ -20,7 +20,7 @@ const GenerateDailySummaryInputSchema = z.object({
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
 const GenerateDailySummaryOutputSchema = z.object({
-  summary: z.string().describe('A concise, engaging, and informative daily summary written in Arabic. It should be 2-3 sentences long.'),
+  summary: z.string().describe('ملخص يومي واضح ومختصر جداً باللغة العربية، بحد أقصى جملتين.'),
 });
 export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
 
@@ -34,17 +34,15 @@ const prompt = ai.definePrompt({
   name: 'generateDailySummaryPrompt',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
-  prompt: `أنت محلل مالي خبير. بناءً على بيانات اليوم، اكتب ملخصًا يوميًا موجزًا وجذابًا للمدير باللغة العربية.
-يجب أن يكون الملخص من جملتين إلى ثلاث جمل. سلط الضوء على الأنشطة والأرقام الرئيسية.
+  prompt: `أنت مساعد ذكاء اصطناعي متخصص في التحليل المالي. مهمتك هي إنشاء ملخص يومي واضح ومختصر جدًا باللغة العربية لمدير المنصة.
+يجب أن لا يتجاوز الملخص جملة إلى جملتين. ركز فقط على الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
 
 بيانات اليوم:
-- مقترضون جدد: {{{newBorrowersCount}}}
-- مستثمرون جدد: {{{newInvestorsCount}}}
-- إجمالي القروض الجديدة الممنوحة: {{{totalLoansGranted}}} ريال سعودي
-- إجمالي الاستثمارات الجديدة: {{{totalNewInvestments}}} ريال سعودي
-- الطلبات المعلقة التي تحتاج إلى مراجعة: {{{pendingRequestsCount}}}
-
-ابدأ الملخص بـ "ملخص اليوم:" أو عبارة ترحيبية مشابهة. كن إيجابيًا ومحفزًا ولكن واقعيًا. إذا لم تكن هناك أنشطة، فاذكر أن اليوم كان هادئًا.`,
+- المقترضون الجدد: {{{newBorrowersCount}}}
+- المستثمرون الجدد: {{{newInvestorsCount}}}
+- إجمالي القروض الجديدة: {{{totalLoansGranted}}} ريال
+- إجمالي الاستثمارات الجديدة: {{{totalNewInvestments}}} ريال
+- الطلبات المعلقة: {{{pendingRequestsCount}}}`,
 });
 
 const generateDailySummaryFlow = ai.defineFlow(
