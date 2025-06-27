@@ -124,6 +124,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       role: 'مدير المكتب',
       status: 'معلق',
       photoURL: 'https://placehold.co/40x40.png',
+      registrationDate: new Date().toISOString().split('T')[0],
     };
 
     const newEmployee: User = {
@@ -136,6 +137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       status: 'نشط', // Employee is active by default under the manager
       photoURL: 'https://placehold.co/40x40.png',
       managedBy: managerId,
+      registrationDate: new Date().toISOString().split('T')[0],
     };
 
     setUsers((prev) => [...prev, newManager, newEmployee]);

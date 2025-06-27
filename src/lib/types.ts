@@ -10,6 +10,7 @@ export type User = {
   phone?: string;
   password?: string;
   managedBy?: string;
+  registrationDate?: string;
 };
 
 export type Borrower = {
