@@ -19,30 +19,42 @@ export default function CalculatorPage() {
   const [graceLoanAmount, setGraceLoanAmount] = useState(100000);
 
   const calculateInstallments = () => {
-    if (!loanAmount || !interestRate || !loanTerm) {
-      return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0 };
-    }
-
-    const principal = parseFloat(loanAmount.toString());
-    const rate = parseFloat(interestRate.toString()) / 100 / 12;
-    const term = parseFloat(loanTerm.toString()) * 12;
-
-    if (principal <= 0 || rate < 0 || term <= 0) {
+    // We check for loanAmount and loanTerm. Interest rate can be 0.
+    if (!loanAmount || !loanTerm) {
       return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0, institutionProfit: 0, investorProfit: 0 };
     }
 
-    const monthlyPayment = (principal * rate * Math.pow(1 + rate, term)) / (Math.pow(1 + rate, term) - 1);
-    const totalPayment = monthlyPayment * term;
+    const principal = parseFloat(loanAmount.toString());
+    const annualRate = parseFloat(interestRate.toString() || '0') / 100;
+    const termInMonths = parseFloat(loanTerm.toString()) * 12;
+
+    if (principal <= 0 || termInMonths <= 0) {
+      return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0, institutionProfit: 0, investorProfit: 0 };
+    }
+
+    let monthlyPayment: number;
+    // Handle the edge case of a 0% interest loan
+    if (annualRate === 0) {
+      monthlyPayment = principal / termInMonths;
+    } else {
+      const monthlyRate = annualRate / 12;
+      const numerator = principal * monthlyRate * Math.pow(1 + monthlyRate, termInMonths);
+      const denominator = Math.pow(1 + monthlyRate, termInMonths) - 1;
+      monthlyPayment = numerator / denominator;
+    }
+
+    const totalPayment = monthlyPayment * termInMonths;
     const totalInterest = totalPayment - principal;
     const institutionProfit = totalInterest * ((100 - investorShare) / 100);
     const investorProfit = totalInterest * (investorShare / 100);
 
+    // Final safety check for NaN/Infinity, although the logic above should prevent it.
     return {
-      monthlyPayment: isNaN(monthlyPayment) ? 0 : monthlyPayment,
-      totalInterest: isNaN(totalInterest) ? 0 : totalInterest,
-      totalPayment: isNaN(totalPayment) ? 0 : totalPayment,
-      institutionProfit: isNaN(institutionProfit) ? 0 : institutionProfit,
-      investorProfit: isNaN(investorProfit) ? 0 : investorProfit,
+      monthlyPayment: isFinite(monthlyPayment) ? monthlyPayment : 0,
+      totalInterest: isFinite(totalInterest) ? totalInterest : 0,
+      totalPayment: isFinite(totalPayment) ? totalPayment : 0,
+      institutionProfit: isFinite(institutionProfit) ? institutionProfit : 0,
+      investorProfit: isFinite(investorProfit) ? investorProfit : 0,
     };
   };
 
