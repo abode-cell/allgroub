@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   Bell,
   UserCog,
+  LifeBuoy,
 } from 'lucide-react';
 import {
   SidebarHeader,
@@ -82,6 +83,12 @@ const allMenuItems = [
     label: 'تحليل بالذكاء الاصطناعي',
     icon: BrainCircuit,
     roles: ['مدير النظام', 'مدير المكتب'],
+  },
+  {
+    href: '/support',
+    label: 'الدعم الفني',
+    icon: LifeBuoy,
+    roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
   },
   {
     href: '/profile',
