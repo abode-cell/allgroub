@@ -217,9 +217,9 @@ export default function CalculatorPage() {
                 <Card className="lg:col-span-1">
                   <CardHeader>
                     <CardTitle>تمويل المهلة</CardTitle>
-                    <CardDescription>
+                    {showProfitDetails && <CardDescription>
                       يتم احتساب ربح ثابت للمؤسسة بنسبة 20% وربح ثابت للمستثمر بنسبة 10% من أصل مبلغ القرض.
-                     </CardDescription>
+                     </CardDescription>}
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="space-y-2">
