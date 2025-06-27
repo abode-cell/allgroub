@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -10,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, ShieldAlert, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, ShieldAlert, CheckCircle, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -41,6 +42,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import type { Borrower, Payment } from '@/lib/types';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 type BorrowersTableProps = {
   borrowers: Borrower[];
@@ -66,7 +73,7 @@ export function BorrowersTable({
   borrowers,
 }: BorrowersTableProps) {
   const { role } = useAuth();
-  const { updateBorrower, approveBorrower } = useData();
+  const { investors, updateBorrower, approveBorrower } = useData();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
@@ -94,43 +101,36 @@ export function BorrowersTable({
   };
   
   const handleApproveClick = (borrower: Borrower) => {
+    // In a real app, you might need a dialog to select investors first.
+    // For this mock, we approve it, but it remains unfunded until edited by a manager.
     approveBorrower(borrower.id);
   };
 
   const generatePaymentSchedule = (borrower: Borrower): Payment[] => {
+    if (borrower.loanType !== 'اقساط' || !borrower.term || !borrower.rate) {
+      return [];
+    }
+
     const principal = borrower.amount;
-    const monthlyRate = borrower.rate / 100 / 12;
+    const totalInterest = principal * (borrower.rate / 100) * borrower.term;
+    const totalPayment = principal + totalInterest;
     const numberOfPayments = borrower.term * 12;
 
-    if (principal <= 0 || monthlyRate < 0 || numberOfPayments <= 0 || borrower.loanType === 'مهلة') {
-      return [];
-    }
-
-    const monthlyPayment =
-      (principal *
-        monthlyRate *
-        Math.pow(1 + monthlyRate, numberOfPayments)) /
-      (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
-
-    if (isNaN(monthlyPayment) || !isFinite(monthlyPayment)) {
-      return [];
-    }
-
-    let balance = principal;
+    if (numberOfPayments <= 0) return [];
+    
+    const monthlyPayment = totalPayment / numberOfPayments;
+    let balance = totalPayment;
     const schedule: Payment[] = [];
 
     for (let i = 1; i <= numberOfPayments; i++) {
-      const interest = balance * monthlyRate;
-      const principalPaid = monthlyPayment - interest;
-      balance -= principalPaid;
-
-      schedule.push({
-        month: i,
-        payment: monthlyPayment,
-        principal: principalPaid,
-        interest: interest,
-        balance: balance > 0 ? balance : 0,
-      });
+        balance -= monthlyPayment;
+        schedule.push({
+            month: i,
+            payment: monthlyPayment,
+            principal: 0, // Simplified for this view
+            interest: 0, // Simplified for this view
+            balance: balance > 0 ? balance : 0,
+        });
     }
 
     return schedule;
@@ -156,7 +156,7 @@ export function BorrowersTable({
                 <TableHead>اسم المقترض</TableHead>
                 <TableHead>مبلغ القرض</TableHead>
                 <TableHead>نوع التمويل</TableHead>
-                <TableHead>نسبة الفائدة</TableHead>
+                <TableHead>الممولون</TableHead>
                 <TableHead>حالة السداد</TableHead>
                 <TableHead>تاريخ الاستحقاق</TableHead>
                 {canPerformActions && (
@@ -172,7 +172,30 @@ export function BorrowersTable({
                   <TableCell className="font-medium">{borrower.name}</TableCell>
                   <TableCell>{formatCurrency(borrower.amount)}</TableCell>
                   <TableCell>{borrower.loanType}</TableCell>
-                  <TableCell>{borrower.loanType === 'اقساط' ? `${borrower.rate}%` : '-'}</TableCell>
+                  <TableCell>
+                    {borrower.fundedBy && borrower.fundedBy.length > 0 ? (
+                       <TooltipProvider>
+                         <Tooltip>
+                           <TooltipTrigger asChild>
+                             <div className="flex items-center gap-1 cursor-pointer">
+                               <Users className="h-4 w-4 text-muted-foreground" />
+                               <span>{borrower.fundedBy.length}</span>
+                             </div>
+                           </TooltipTrigger>
+                           <TooltipContent>
+                             <ul className="list-disc pr-4">
+                               {borrower.fundedBy.map(funder => {
+                                 const investor = investors.find(i => i.id === funder.investorId);
+                                 return <li key={funder.investorId}>{investor?.name || 'غير معروف'}</li>
+                               })}
+                             </ul>
+                           </TooltipContent>
+                         </Tooltip>
+                       </TooltipProvider>
+                     ) : (
+                       <span className="text-xs text-muted-foreground">غير ممول</span>
+                     )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[borrower.status] || 'outline'}>
                       {borrower.status === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
@@ -255,6 +278,7 @@ export function BorrowersTable({
                   id="amount"
                   type="number"
                   value={selectedBorrower.amount}
+                   readOnly={selectedBorrower.status !== 'معلق'}
                   onChange={(e) =>
                     setSelectedBorrower({
                       ...selectedBorrower,
@@ -389,11 +413,11 @@ export function BorrowersTable({
         open={isScheduleDialogOpen}
         onOpenChange={setIsScheduleDialogOpen}
       >
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>جدول السداد لـ {selectedBorrower?.name}</DialogTitle>
             <DialogDescription>
-              تفاصيل الأقساط الشهرية للقرض.
+              تفاصيل الأقساط الشهرية للقرض (تقديرية).
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="h-96">
@@ -402,8 +426,6 @@ export function BorrowersTable({
                 <TableRow>
                   <TableHead>الشهر</TableHead>
                   <TableHead>القسط الشهري</TableHead>
-                  <TableHead>أصل المبلغ المدفوع</TableHead>
-                  <TableHead>الفائدة المدفوعة</TableHead>
                   <TableHead>الرصيد المتبقي</TableHead>
                 </TableRow>
               </TableHeader>
@@ -413,8 +435,6 @@ export function BorrowersTable({
                     <TableRow key={payment.month}>
                       <TableCell>{payment.month}</TableCell>
                       <TableCell>{formatCurrency(payment.payment)}</TableCell>
-                      <TableCell>{formatCurrency(payment.principal)}</TableCell>
-                      <TableCell>{formatCurrency(payment.interest)}</TableCell>
                       <TableCell>{formatCurrency(payment.balance)}</TableCell>
                     </TableRow>
                   ))

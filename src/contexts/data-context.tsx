@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -35,8 +36,9 @@ type DataContextType = {
   addBorrower: (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy'
-    >
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy'
+    >,
+    investorIds: string[]
   ) => Promise<void>;
   updateBorrower: (borrower: Borrower) => Promise<void>;
   approveBorrower: (borrowerId: string) => Promise<void>;
@@ -75,6 +77,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   
   const updateBorrower = async (updatedBorrower: Borrower) => {
+    const originalBorrower = borrowers.find(b => b.id === updatedBorrower.id);
+    if (!originalBorrower) return;
+
+    const statusChanged = originalBorrower.status !== updatedBorrower.status;
+
+    if (statusChanged) {
+      if (updatedBorrower.status === 'متعثر' && originalBorrower.status !== 'متعثر') {
+        if (originalBorrower.fundedBy && originalBorrower.fundedBy.length > 0) {
+          setInvestors(prevInvestors => {
+            let newInvestors = [...prevInvestors];
+            for (const funder of originalBorrower.fundedBy!) {
+              const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
+              if (investorIndex > -1) {
+                newInvestors[investorIndex].defaultedFunds += funder.amount;
+              }
+            }
+            return newInvestors;
+          });
+          toast({ title: "تم تسجيل القرض كمتعثر وتحديث أموال المستثمرين." });
+        }
+      }
+
+      if (updatedBorrower.status === 'مسدد بالكامل' && originalBorrower.status !== 'مسدد بالكامل') {
+        if (originalBorrower.fundedBy && originalBorrower.fundedBy.length > 0) {
+          const totalProfit = originalBorrower.loanType === 'اقساط'
+            ? originalBorrower.amount * (originalBorrower.rate / 100) * originalBorrower.term
+            : originalBorrower.amount * 0.30; 
+
+          setInvestors(prevInvestors => {
+            let newInvestors = [...prevInvestors];
+            for (const funder of originalBorrower.fundedBy!) {
+              const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
+              if (investorIndex > -1) {
+                const profitShare = (funder.amount / originalBorrower.amount) * totalProfit;
+                newInvestors[investorIndex].amount += funder.amount + profitShare; // Return principal + profit
+                newInvestors[investorIndex].fundedLoanIds = newInvestors[investorIndex].fundedLoanIds.filter(id => id !== originalBorrower.id);
+              }
+            }
+            return newInvestors;
+          });
+          toast({ title: "تم سداد القرض بالكامل وإعادة الأموال والأرباح للمستثمرين." });
+        }
+      }
+    }
+    
     setBorrowers((prev) =>
         prev.map((b) => (b.id === updatedBorrower.id ? updatedBorrower : b))
       );
@@ -96,16 +143,55 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addBorrower = async (
-    borrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy'>
+    borrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy'>,
+    investorIds: string[]
   ) => {
+    if (borrower.status !== 'معلق' && investorIds.length === 0) {
+      toast({ variant: 'destructive', title: 'خطأ في التمويل', description: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' });
+      return;
+    }
+
+    const loanAmount = borrower.amount;
+    const amountPerInvestor = loanAmount / investorIds.length;
+    
+    let funders: Investor[] = [];
+    for (const id of investorIds) {
+        const investor = investors.find(i => i.id === id);
+        if (!investor) {
+            toast({ variant: 'destructive', title: 'خطأ', description: `لم يتم العثور على المستثمر.` });
+            return;
+        }
+        if (investor.amount < amountPerInvestor) {
+            toast({ variant: 'destructive', title: 'خطأ في السيولة', description: `المستثمر "${investor.name}" لا يملك سيولة كافية لتمويل حصته.` });
+            return;
+        }
+        funders.push(investor);
+    }
+    
+    const newId = `bor_${Date.now()}`;
+    
+    const updatedInvestors = investors.map(inv => {
+        if (investorIds.includes(inv.id)) {
+            return {
+                ...inv,
+                amount: inv.amount - amountPerInvestor,
+                fundedLoanIds: [...inv.fundedLoanIds, newId],
+            };
+        }
+        return inv;
+    });
+    
     const newEntry: Borrower = {
       ...borrower,
-      id: `bor_${Date.now()}`,
+      id: newId,
       date: new Date().toISOString().split('T')[0],
       submittedBy: currentUser?.id,
+      fundedBy: investorIds.length > 0 ? investorIds.map(id => ({ investorId: id, amount: amountPerInvestor })) : [],
     };
+
+    setInvestors(updatedInvestors);
     setBorrowers((prev) => [...prev, newEntry]);
-    toast({title: "تمت إضافة المقترض (تجريبيًا)"})
+    toast({title: "تمت إضافة المقترض وربطه بالمستثمرين بنجاح (تجريبيًا)"})
   };
 
   const updateInvestor = async (updatedInvestor: UpdatableInvestor) => {

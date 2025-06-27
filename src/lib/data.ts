@@ -8,26 +8,28 @@ export const usersData: User[] = [
   { id: '5', name: 'علي مستخدم معلق', email: 'pending@example.com', role: 'موظف', status: 'معلق', photoURL: 'https://placehold.co/40x40.png' },
 ];
 
+// Note: Investor `amount` represents available (liquid) capital.
+// The initial capital is depleted as they fund loans.
 export const investorsData: Investor[] = [
   {
     id: 'inv-1',
     name: 'صندوق الاستثمار الأول',
-    amount: 500000,
+    amount: 350000, // Initial 500k, funded 150k for bor-1
     date: '2023-01-15',
     status: 'نشط',
     withdrawalHistory: [],
-    fundedLoanIds: ['bor-1', 'bor-3'],
+    fundedLoanIds: ['bor-1'],
     defaultedFunds: 0,
   },
   {
     id: 'inv-2',
     name: 'مجموعة الاستثمار الذهبي',
-    amount: 750000,
+    amount: 450000, // Initial 750k, withdrew 25k, funded 200k for bor-2, funded 75k for bor-3 (now defaulted)
     date: '2023-03-20',
     status: 'نشط',
     withdrawalHistory: [{ id: 'w-1', amount: 25000, reason: 'سحب أرباح', date: '2024-05-10' }],
-    fundedLoanIds: ['bor-2'],
-    defaultedFunds: 5000,
+    fundedLoanIds: ['bor-2'], // bor-3 is defaulted, so it's not an "active" funded loan
+    defaultedFunds: 75000, // from bor-3
   },
    {
     id: 'inv-3',
@@ -53,6 +55,7 @@ export const borrowersData: Borrower[] = [
     loanType: 'اقساط',
     status: 'منتظم',
     dueDate: '2028-02-01',
+    fundedBy: [{ investorId: 'inv-1', amount: 150000 }],
   },
   {
     id: 'bor-2',
@@ -64,6 +67,7 @@ export const borrowersData: Borrower[] = [
     loanType: 'اقساط',
     status: 'متأخر',
     dueDate: '2030-04-10',
+    fundedBy: [{ investorId: 'inv-2', amount: 200000 }],
   },
   {
     id: 'bor-3',
@@ -75,6 +79,7 @@ export const borrowersData: Borrower[] = [
     loanType: 'مهلة',
     status: 'متعثر',
     dueDate: '2024-05-15',
+    fundedBy: [{ investorId: 'inv-2', amount: 75000 }],
   },
   {
     id: 'bor-4',

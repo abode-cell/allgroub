@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -26,13 +27,32 @@ import {
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useData } from '@/contexts/data-context';
-import type { Borrower } from '@/lib/types';
+import type { Borrower, Investor } from '@/lib/types';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
+
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'SAR',
+  }).format(value);
 
 
 export default function BorrowersPage() {
   const { role } = useAuth();
-  const { borrowers, addBorrower } = useData();
+  const { borrowers, investors, addBorrower } = useData();
+  const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
   const [newBorrower, setNewBorrower] = useState<{
     name: string;
     amount: string;
@@ -76,6 +96,15 @@ export default function BorrowersPage() {
     
     const finalStatus: Borrower['status'] = isEmployee ? 'معلق' : newBorrower.status;
 
+    if (finalStatus !== 'معلق' && selectedInvestors.length === 0) {
+        toast({
+            variant: 'destructive',
+            title: 'خطأ',
+            description: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.'
+        });
+        return;
+    }
+
     addBorrower({
       name: newBorrower.name,
       amount: Number(newBorrower.amount),
@@ -84,9 +113,11 @@ export default function BorrowersPage() {
       loanType: newBorrower.loanType,
       status: finalStatus,
       dueDate: newBorrower.dueDate,
-    });
+    }, selectedInvestors);
+
     setIsAddDialogOpen(false);
     setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '' });
+    setSelectedInvestors([]);
   };
 
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
@@ -211,31 +242,75 @@ export default function BorrowersPage() {
                     />
                   </div>
                   {!isEmployee && (
-                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="status" className="text-right">
-                        الحالة
-                      </Label>
-                       <Select
-                          value={newBorrower.status}
-                          onValueChange={(value: Borrower['status']) => handleStatusChange(value)}
-                        >
-                          <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="اختر الحالة" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="منتظم">منتظم</SelectItem>
-                            <SelectItem value="متأخر">متأخر</SelectItem>
-                             <SelectItem value="متعثر">متعثر</SelectItem>
-                             <SelectItem value="معلق">معلق</SelectItem>
-                            <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
-                          </SelectContent>
-                        </Select>
-                    </div>
+                     <>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="status" className="text-right">
+                            الحالة
+                          </Label>
+                           <Select
+                              value={newBorrower.status}
+                              onValueChange={(value: Borrower['status']) => handleStatusChange(value)}
+                            >
+                              <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="اختر الحالة" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="منتظم">منتظم</SelectItem>
+                                <SelectItem value="متأخر">متأخر</SelectItem>
+                                 <SelectItem value="متعثر">متعثر</SelectItem>
+                                 <SelectItem value="معلق">معلق</SelectItem>
+                                <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
+                              </SelectContent>
+                            </Select>
+                        </div>
+                        {newBorrower.status !== 'معلق' && (
+                             <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right pt-2">
+                                الممولون
+                                </Label>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="col-span-3">
+                                        {selectedInvestors.length > 0
+                                        ? `${selectedInvestors.length} مستثمرون محددون`
+                                        : "اختر المستثمرين"}
+                                    </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="w-64" align='end'>
+                                    <DropdownMenuLabel>المستثمرون المتاحون</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    {investors.filter(i => i.status === 'نشط' && i.amount > 0).map((investor) => (
+                                        <DropdownMenuCheckboxItem
+                                        key={investor.id}
+                                        checked={selectedInvestors.includes(investor.id)}
+                                        onSelect={(e) => e.preventDefault()}
+                                        onCheckedChange={(checked) => {
+                                            return checked
+                                            ? setSelectedInvestors((prev) => [...prev, investor.id])
+                                            : setSelectedInvestors((prev) =>
+                                                prev.filter((id) => id !== investor.id)
+                                                );
+                                        }}
+                                        >
+                                            <div className='flex justify-between w-full'>
+                                                <span>{investor.name}</span>
+                                                <span className='text-muted-foreground text-xs'>{formatCurrency(investor.amount)}</span>
+                                            </div>
+                                        </DropdownMenuCheckboxItem>
+                                    ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        )}
+                     </>
                   )}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button type="button" variant="secondary">
+                    <Button type="button" variant="secondary" onClick={() => {
+                        setIsAddDialogOpen(false);
+                        setSelectedInvestors([]);
+                    }}>
                       إلغاء
                     </Button>
                   </DialogClose>

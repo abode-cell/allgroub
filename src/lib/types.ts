@@ -22,6 +22,7 @@ export type Borrower = {
   dueDate: string;
   submittedBy?: string;
   rejectionReason?: string;
+  fundedBy?: { investorId: string; amount: number }[];
 };
 
 export type Payment = {
