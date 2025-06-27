@@ -21,7 +21,6 @@ export default function CalculatorPage() {
   
   // States for By Salary Tab
   const [salary, setSalary] = useState(5000);
-  const [graceTermForSalary, setGraceTermForSalary] = useState(1);
 
 
   const calculateInstallments = () => {
@@ -75,9 +74,9 @@ export default function CalculatorPage() {
   
    const calculateBySalary = () => {
         const monthlySalary = parseFloat(salary.toString());
-        const termInYears = parseFloat(graceTermForSalary.toString());
+        const termInMonths = 1; // Fixed to one month
 
-        if (monthlySalary <= 0 || termInYears <= 0) {
+        if (monthlySalary <= 0) {
             return { maxGraceLoanAmount: 0, totalRepayment: 0 };
         }
 
@@ -85,7 +84,7 @@ export default function CalculatorPage() {
         const graceProfitMargin = 1.3; 
 
         // Rule: Total repayment (Principal * 1.3) should not exceed 30% of total salary over the term.
-        const totalSalaryOverTerm = monthlySalary * 12 * termInYears;
+        const totalSalaryOverTerm = monthlySalary * termInMonths;
         const maxTotalRepayment = totalSalaryOverTerm * 0.30;
         
         const maxGraceLoanAmount = maxTotalRepayment / graceProfitMargin;
@@ -274,10 +273,10 @@ export default function CalculatorPage() {
                 <CardHeader>
                   <CardTitle>حساب تمويل المهلة حسب الراتب</CardTitle>
                   <CardDescription>
-                    أدخل راتبك ومدة التمويل لتقدير أقصى مبلغ تمويل مهلة.
+                    أدخل راتبك لتقدير أقصى مبلغ تمويل مهلة لمدة شهر واحد.
                     <br />
                     <small className="text-xs mt-2 block">
-                      يعتمد التقدير على أن إجمالي السداد لا يتجاوز 30% من إجمالي راتبك خلال المدة.
+                      يعتمد التقدير على أن إجمالي السداد لا يتجاوز 30% من راتبك الشهري.
                     </small>
                   </CardDescription>
                 </CardHeader>
@@ -292,20 +291,6 @@ export default function CalculatorPage() {
                       placeholder="أدخل راتبك الشهري"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="graceTermForSalary">
-                      مدة تمويل المهلة (سنوات)
-                    </Label>
-                    <Input
-                      id="graceTermForSalary"
-                      type="number"
-                      value={graceTermForSalary}
-                      onChange={(e) =>
-                        setGraceTermForSalary(Number(e.target.value))
-                      }
-                      placeholder="أدخل مدة التمويل"
-                    />
-                  </div>
                 </CardContent>
               </Card>
 
@@ -315,7 +300,7 @@ export default function CalculatorPage() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-6 text-center">
                   <div className="p-6 bg-accent/10 rounded-lg">
-                    <p className="text-sm text-accent-foreground/80">تمويل المهلة المقترح</p>
+                    <p className="text-sm text-accent-foreground/80">تمويل المهلة المقترح (لمدة شهر)</p>
                     <p className="text-4xl font-bold text-accent-foreground">
                       {formatCurrency(bySalaryResults.maxGraceLoanAmount)}
                     </p>
