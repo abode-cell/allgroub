@@ -1,23 +1,11 @@
 'use client'
 
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { Borrower } from '@/lib/types';
 import { useData } from '@/contexts/data-context';
-import { Button } from '@/components/ui/button';
-import { FileDown, Loader2 } from 'lucide-react';
-import type jsPDF from 'jspdf';
-import { useToast } from '@/hooks/use-toast';
-import { amiriFontBase64 } from '@/lib/amiri-font-base64';
 
-// Extend the jsPDF interface for the autoTable plugin
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -38,8 +26,6 @@ const statusVariant: {
 
 export default function ReportsPage() {
   const { borrowers, investors } = useData();
-  const [isExporting, setIsExporting] = useState(false);
-  const { toast } = useToast();
 
   const getInvestorNameForLoan = (loanId: string) => {
     const investor = investors.find(inv => inv.fundedLoanIds.includes(loanId));
@@ -53,82 +39,6 @@ export default function ReportsPage() {
     b.status === 'متأخر'
   );
 
-  const handleExportPdf = async () => {
-    setIsExporting(true);
-    try {
-        const { default: jsPDF } = await import('jspdf');
-        await import('jspdf-autotable');
-
-        // The font is now embedded as a Base64 string to avoid network errors.
-        const base64Font = amiriFontBase64;
-        if (!base64Font) {
-            throw new Error("Embedded font data could not be read.");
-        }
-
-        const doc = new jsPDF();
-        const fontName = "Amiri";
-        
-        doc.addFileToVFS(`${fontName}-Regular.ttf`, base64Font);
-        doc.addFont(`${fontName}-Regular.ttf`, fontName, "normal");
-        doc.setFont(fontName);
-
-        doc.text("تقرير حالة القروض", doc.internal.pageSize.getWidth() - 15, 15, { align: 'right' });
-
-        const formatCurrencyForPdf = (value: number) =>
-            new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'SAR',
-            }).format(value);
-
-        const head = [[
-            'المستثمر الممول',
-            'الحالة',
-            'تاريخ الاستحقاق',
-            'تاريخ القرض',
-            'مبلغ القرض',
-            'اسم المقترض',
-        ]];
-        
-        const body = loansForReport.map(loan => [
-            getInvestorNameForLoan(loan.id),
-            loan.status,
-            loan.dueDate,
-            loan.date,
-            formatCurrencyForPdf(loan.amount), // Use PDF-safe formatter
-            loan.name,
-        ].reverse()); // Reverse array for correct RTL display in autoTable
-
-        doc.autoTable({
-            head: [head[0].reverse()], // Reverse headers as well
-            body: body,
-            startY: 20,
-            theme: 'grid',
-            styles: {
-                font: fontName,
-                halign: 'right', 
-            },
-            headStyles: {
-                font: fontName,
-                halign: 'center',
-                fillColor: '#42A5F5',
-                textColor: '#FFFFFF',
-            },
-        });
-
-        doc.save('loans-report.pdf');
-    } catch (error) {
-        console.error("Failed to export PDF", error);
-        toast({
-            variant: 'destructive',
-            title: 'خطأ في التصدير',
-            description: 'لم نتمكن من تصدير الملف. حدث خطأ داخلي.'
-        })
-    } finally {
-        setIsExporting(false);
-    }
-  }
-
-
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -139,10 +49,6 @@ export default function ReportsPage() {
                 نظرة شاملة على جميع القروض النشطة، المعلقة، والمتعثرة.
             </p>
             </header>
-            <Button onClick={handleExportPdf} disabled={isExporting}>
-                {isExporting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <FileDown className="ml-2 h-4 w-4" />}
-                {isExporting ? 'جاري التصدير...' : 'تصدير PDF'}
-            </Button>
         </div>
 
         <Card>

@@ -10,6 +10,7 @@ import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
 import { useData } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Borrower } from '@/lib/types';
+import { DailySummary } from '@/components/dashboard/daily-summary';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -164,6 +165,8 @@ export default function DashboardPage() {
             </div>
           )}
         </header>
+
+        {showSensitiveData && <DailySummary />}
 
         <Tabs defaultValue="installments" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
