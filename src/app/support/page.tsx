@@ -61,6 +61,11 @@ export default function SupportPage() {
     setIsSubmitting(false);
   };
 
+  const descriptionText =
+    role === 'مدير المكتب'
+      ? 'لطلب زيادة عدد الموظفين أو المستثمرين، أو لأي استفسار آخر، املأ النموذج أدناه وسيتم إرساله مباشرة إلى مدير النظام.'
+      : 'لأي استفسار أو طلب، املأ النموذج أدناه وسيتم إرساله مباشرة إلى مدير النظام.';
+
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -85,10 +90,7 @@ export default function SupportPage() {
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
             <CardTitle>إرسال طلب دعم</CardTitle>
-            <CardDescription>
-              لأي استفسار أو طلب، املأ النموذج أدناه وسيتم إرساله مباشرة إلى
-              مدير النظام.
-            </CardDescription>
+            <CardDescription>{descriptionText}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -96,7 +98,7 @@ export default function SupportPage() {
                 <Label htmlFor="subject">الموضوع</Label>
                 <Input
                   id="subject"
-                  placeholder="مثال: طلب إضافة موظف جديد"
+                  placeholder="مثال: طلب زيادة عدد المستثمرين"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   required

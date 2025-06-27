@@ -35,6 +35,17 @@ type UpdatableInvestor = Omit<
   | 'submittedBy'
 >;
 
+type NewInvestorPayload = Omit<
+  Investor,
+  | 'id'
+  | 'date'
+  | 'withdrawalHistory'
+  | 'defaultedFunds'
+  | 'fundedLoanIds'
+  | 'rejectionReason'
+  | 'submittedBy'
+> & { email?: string; password?: string };
+
 type SignUpCredentials = {
   name: User['name'];
   email: User['email'];
@@ -63,18 +74,7 @@ type DataContextType = {
   updateBorrower: (borrower: Borrower) => Promise<void>;
   approveBorrower: (borrowerId: string) => Promise<void>;
   rejectBorrower: (borrowerId: string, reason: string) => Promise<void>;
-  addInvestor: (
-    investor: Omit<
-      Investor,
-      | 'id'
-      | 'date'
-      | 'withdrawalHistory'
-      | 'defaultedFunds'
-      | 'fundedLoanIds'
-      | 'rejectionReason'
-      | 'submittedBy'
-    >
-  ) => Promise<void>;
+  addInvestor: (investor: NewInvestorPayload) => Promise<void>;
   updateInvestor: (investor: UpdatableInvestor) => Promise<void>;
   approveInvestor: (investorId: string) => Promise<void>;
   rejectInvestor: (investorId: string, reason: string) => Promise<void>;
@@ -343,29 +343,100 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({ variant: 'destructive', title: 'تم رفض المستثمر (تجريبيًا)' });
   };
 
-  const addInvestor = async (
-    investor: Omit<
-      Investor,
-      | 'id'
-      | 'date'
-      | 'withdrawalHistory'
-      | 'defaultedFunds'
-      | 'fundedLoanIds'
-      | 'rejectionReason'
-      | 'submittedBy'
-    >
-  ) => {
+ const addInvestor = async (investorPayload: NewInvestorPayload) => {
+    if (!currentUser) {
+      toast({
+        variant: 'destructive',
+        title: 'خطأ',
+        description: 'يجب تسجيل الدخول أولاً.',
+      });
+      return;
+    }
+
+    // Office Manager logic: Create investor and user
+    if (currentUser.role === 'مدير المكتب') {
+      const investorsAddedByManager = investors.filter(
+        (i) => i.submittedBy === currentUser.id
+      ).length;
+      if (investorsAddedByManager >= 10) {
+        toast({
+          variant: 'destructive',
+          title: 'تم الوصول للحد الأقصى',
+          description:
+            'لقد وصلت إلى الحد الأقصى (10 مستثمرين). للتوسيع، يرجى التواصل مع الدعم الفني.',
+        });
+        return;
+      }
+
+      if (!investorPayload.email || !investorPayload.password) {
+        toast({
+          variant: 'destructive',
+          title: 'خطأ',
+          description:
+            'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر الجديد.',
+        });
+        return;
+      }
+
+      const emailExists = users.some((u) => u.email === investorPayload.email);
+      if (emailExists) {
+        toast({
+          variant: 'destructive',
+          title: 'خطأ',
+          description: 'البريد الإلكتروني مستخدم بالفعل.',
+        });
+        return;
+      }
+
+      const newId = `user_inv_${Date.now()}`;
+
+      const newInvestorUser: User = {
+        id: newId,
+        name: investorPayload.name,
+        email: investorPayload.email,
+        phone: '',
+        password: investorPayload.password,
+        role: 'مستثمر',
+        status: 'نشط',
+        photoURL: 'https://placehold.co/40x40.png',
+        registrationDate: new Date().toISOString().split('T')[0],
+        managedBy: currentUser.id,
+      };
+
+      const newInvestorEntry: Investor = {
+        id: newId,
+        name: investorPayload.name,
+        amount: investorPayload.amount,
+        status: 'نشط',
+        date: new Date().toISOString().split('T')[0],
+        withdrawalHistory: [],
+        defaultedFunds: 0,
+        fundedLoanIds: [],
+        submittedBy: currentUser.id,
+      };
+
+      setUsers((prev) => [...prev, newInvestorUser]);
+      initialUsersData.push(newInvestorUser);
+      setInvestors((prev) => [...prev, newInvestorEntry]);
+      investorsData.push(newInvestorEntry);
+
+      toast({ title: 'تمت إضافة المستثمر والمستخدم المرتبط به بنجاح.' });
+      return;
+    }
+
+    // Existing logic for Employee/Admin
     const newEntry: Investor = {
-      ...investor,
+      ...investorPayload,
       id: `inv_${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
       withdrawalHistory: [],
       defaultedFunds: 0,
       fundedLoanIds: [],
-      submittedBy: currentUser?.id,
+      submittedBy: currentUser.id,
     };
     setInvestors((prev) => [...prev, newEntry]);
-    toast({ title: 'تمت إضافة المستثمر (تجريبيًا)' });
+    investorsData.push(newEntry);
+    toast({ title: 'تمت إضافة المستثمر بنجاح.' });
   };
 
   const withdrawFromInvestor = async (
