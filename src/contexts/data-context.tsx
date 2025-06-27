@@ -393,10 +393,53 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUserStatus = async (userId: string, status: User['status']) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, status } : u))
-    );
-    toast({ title: 'تم تحديث حالة المستخدم (تجريبيًا)' });
+    const userToUpdate = users.find((u) => u.id === userId);
+    if (!userToUpdate) return;
+
+    let newUsers = [...users];
+    let newInvestors = [...investors];
+    let cascadeMessage = '';
+
+    // Update the primary user's status first
+    const userIndex = newUsers.findIndex((u) => u.id === userId);
+    if (userIndex !== -1) {
+      newUsers[userIndex] = { ...newUsers[userIndex], status };
+    }
+
+    // If the user is an Office Manager, apply cascading status changes
+    if (userToUpdate.role === 'مدير المكتب') {
+      const isSuspending = status === 'معلق';
+      const isReactivating =
+        status === 'نشط' && userToUpdate.status === 'معلق';
+
+      if (isSuspending) {
+        // Suspend associated employees
+        newUsers = newUsers.map((u) =>
+          u.managedBy === userId ? { ...u, status: 'معلق' } : u
+        );
+        // Set associated investors to inactive
+        newInvestors = newInvestors.map((inv) =>
+          inv.submittedBy === userId ? { ...inv, status: 'غير نشط' } : inv
+        );
+        cascadeMessage = 'وتم تعليق الحسابات المرتبطة به.';
+      } else if (isReactivating) {
+        // Reactivate associated employees
+        newUsers = newUsers.map((u) =>
+          u.managedBy === userId ? { ...u, status: 'نشط' } : u
+        );
+        // Reactivate associated investors (only if they were inactive)
+        newInvestors = newInvestors.map((inv) =>
+          inv.submittedBy === userId && inv.status === 'غير نشط'
+            ? { ...inv, status: 'نشط' }
+            : inv
+        );
+        cascadeMessage = 'وتم إعادة تفعيل الحسابات المرتبطة به.';
+      }
+    }
+
+    setUsers(newUsers);
+    setInvestors(newInvestors);
+    toast({ title: `تم تحديث حالة المستخدم ${cascadeMessage}`.trim() });
   };
 
   const updateUserRole = async (userId: string, role: UserRole) => {
@@ -415,7 +458,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const newTicket: SupportTicket = {
       ...ticket,
       id: `ticket_${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString(),
       isRead: false,
     };
     setSupportTickets((prev) => [newTicket, ...prev]);

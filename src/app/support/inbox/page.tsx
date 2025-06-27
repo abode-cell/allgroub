@@ -84,7 +84,9 @@ export default function SupportInboxPage() {
                         </p>
                         <p>
                           <strong>التاريخ:</strong>{' '}
-                          {format(new Date(ticket.date), 'PPpp')}
+                          {format(new Date(ticket.date), 'PPpp', {
+                            locale: require('date-fns/locale/ar-SA'),
+                          })}
                         </p>
                       </div>
                       <p className="whitespace-pre-wrap text-foreground">
