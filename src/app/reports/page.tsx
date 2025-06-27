@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import type { Borrower } from '@/lib/types';
 import { useData } from '@/contexts/data-context';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const formatCurrency = (value: number) =>
@@ -23,6 +24,47 @@ const statusVariant: {
   'مسدد بالكامل': 'secondary',
 };
 
+const ReportTable = ({ loans, getInvestorNameForLoan }: { loans: Borrower[], getInvestorNameForLoan: (loanId: string) => string }) => (
+     <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>اسم المقترض</TableHead>
+            <TableHead>مبلغ القرض</TableHead>
+            <TableHead>تاريخ القرض</TableHead>
+            <TableHead>تاريخ الاستحقاق</TableHead>
+            <TableHead>الحالة</TableHead>
+            <TableHead>المستثمر الممول</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {loans.length > 0 ? (
+            loans.map((loan) => (
+              <TableRow key={loan.id}>
+                <TableCell className="font-medium">{loan.name}</TableCell>
+                <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                <TableCell>{loan.date}</TableCell>
+                <TableCell>{loan.dueDate}</TableCell>
+                <TableCell>
+                  <Badge variant={statusVariant[loan.status] || 'outline'}>
+                    {loan.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {getInvestorNameForLoan(loan.id)}
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center h-24">
+                لا توجد قروض من هذا النوع لعرضها في التقرير.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+);
+
 
 export default function ReportsPage() {
   const { borrowers, investors } = useData();
@@ -38,6 +80,9 @@ export default function ReportsPage() {
     b.status === 'منتظم' ||
     b.status === 'متأخر'
   );
+
+  const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
+  const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
 
   return (
     <div className="flex flex-col flex-1">
@@ -55,48 +100,26 @@ export default function ReportsPage() {
           <CardHeader>
             <CardTitle>قائمة القروض</CardTitle>
             <CardDescription>
-              قائمة بجميع القروض النشطة، المعلقة، والمتعثرة في النظام.
+              قائمة بجميع القروض النشطة، المعلقة، والمتعثرة في النظام حسب نوع التمويل.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table id="loansTable">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>اسم المقترض</TableHead>
-                  <TableHead>مبلغ القرض</TableHead>
-                  <TableHead>تاريخ القرض</TableHead>
-                  <TableHead>تاريخ الاستحقاق</TableHead>
-                  <TableHead>الحالة</TableHead>
-                  <TableHead>المستثمر الممول</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loansForReport.length > 0 ? (
-                  loansForReport.map((loan) => (
-                    <TableRow key={loan.id}>
-                      <TableCell className="font-medium">{loan.name}</TableCell>
-                      <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                      <TableCell>{loan.date}</TableCell>
-                      <TableCell>{loan.dueDate}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant[loan.status] || 'outline'}>
-                          {loan.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {getInvestorNameForLoan(loan.id)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center">
-                      لا توجد قروض لعرضها في التقرير.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <Tabs defaultValue="installments" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="installments">
+                  قروض الأقساط ({installmentLoans.length})
+                </TabsTrigger>
+                <TabsTrigger value="grace-period">
+                  قروض المهلة ({gracePeriodLoans.length})
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="installments" className="mt-4">
+                  <ReportTable loans={installmentLoans} getInvestorNameForLoan={getInvestorNameForLoan} />
+              </TabsContent>
+              <TabsContent value="grace-period" className="mt-4">
+                  <ReportTable loans={gracePeriodLoans} getInvestorNameForLoan={getInvestorNameForLoan} />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </main>

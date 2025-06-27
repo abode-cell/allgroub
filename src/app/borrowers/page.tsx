@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -36,8 +35,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const formatCurrency = (value: number) =>
@@ -122,6 +121,9 @@ export default function BorrowersPage() {
 
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
 
+  const installmentBorrowers = borrowers.filter((b) => b.loanType === 'اقساط');
+  const gracePeriodBorrowers = borrowers.filter((b) => b.loanType === 'مهلة');
+
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -129,7 +131,7 @@ export default function BorrowersPage() {
           <header>
             <h1 className="text-3xl font-bold tracking-tight">إدارة المقترضين</h1>
             <p className="text-muted-foreground mt-1">
-              عرض وإدارة قائمة المقترضين في المنصة.
+              عرض وإدارة قائمة المقترضين في المنصة حسب نوع التمويل.
             </p>
           </header>
           {showAddButton && (
@@ -321,7 +323,22 @@ export default function BorrowersPage() {
           </Dialog>
           )}
         </div>
-        <BorrowersTable borrowers={borrowers} />
+        <Tabs defaultValue="installments" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="installments">
+                  مقترضو الأقساط ({installmentBorrowers.length})
+                </TabsTrigger>
+                <TabsTrigger value="grace-period">
+                  مقترضو المهلة ({gracePeriodBorrowers.length})
+                </TabsTrigger>
+            </TabsList>
+            <TabsContent value="installments" className="mt-4">
+                <BorrowersTable borrowers={installmentBorrowers} />
+            </TabsContent>
+            <TabsContent value="grace-period" className="mt-4">
+                <BorrowersTable borrowers={gracePeriodBorrowers} />
+            </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
