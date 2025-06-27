@@ -1,6 +1,7 @@
 'use client';
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { User, UserRole } from '@/lib/types';
+import { usersData } from '@/lib/data';
 
 // This is a mock implementation and does not connect to any backend service.
 
@@ -14,7 +15,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   role: UserRole | null;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  signIn: (userId: string) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
   signUp: (credentials: SignUpCredentials) => Promise<{ success: boolean; message: string; requiresConfirmation?: boolean }>;
   updateUserIdentity: (updates: { name?: string; phone?: string; password?: string }) => Promise<{ success: boolean; message: string }>;
@@ -22,36 +23,50 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user for demonstration purposes.
-// The user is logged in as 'مدير النظام' to have full access.
-const mockUser: User = {
-    id: '1',
-    name: 'مدير النظام (تجريبي)',
-    email: 'admin@example.com',
-    role: 'مدير النظام',
-    status: 'نشط',
-    phone: '0501234567',
-    photoURL: "https://placehold.co/40x40.png",
-};
-
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(mockUser);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  // No loading state needed for mock implementation
-  const loading = false; 
+  useEffect(() => {
+    try {
+      const loggedInUserId = localStorage.getItem('loggedInUserId');
+      if (loggedInUserId) {
+        const loggedInUser = usersData.find(u => u.id === loggedInUserId);
+        if (loggedInUser) {
+          setUser(loggedInUser);
+        }
+      }
+    } catch (error) {
+        console.error("Could not access localStorage:", error);
+    } finally {
+        setLoading(false);
+    }
+  }, []);
+
   const role = user?.role ?? null;
 
-  const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
-    console.log("Mock sign in for:", email);
-    // In a real app, this would be a no-op. Here we set the user for demo.
-    setUser(mockUser);
-    return { success: true, message: 'تم تسجيل الدخول بنجاح (تجريبيًا).' };
+  const signIn = async (userId: string): Promise<{ success: boolean; message: string }> => {
+    const userToSignIn = usersData.find(u => u.id === userId);
+    if (userToSignIn) {
+      setUser(userToSignIn);
+      try {
+        localStorage.setItem('loggedInUserId', userToSignIn.id);
+      } catch (error) {
+        console.error("Could not access localStorage:", error);
+      }
+      return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
+    }
+    return { success: false, message: 'المستخدم غير موجود.' };
   };
 
   const signOutUser = () => {
-    console.log("Mock sign out");
     setUser(null);
+    try {
+      localStorage.removeItem('loggedInUserId');
+    } catch (error) {
+      console.error("Could not access localStorage:", error);
+    }
   };
   
   const signUp = async (credentials: SignUpCredentials): Promise<{ success: boolean; message: string; requiresConfirmation?: boolean; }> => {

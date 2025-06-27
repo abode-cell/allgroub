@@ -13,6 +13,8 @@ import {
 import { MainNav } from '@/components/main-nav';
 import { AppHeader } from './app-header';
 import { Skeleton } from './ui/skeleton';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 function AppSkeleton() {
   return (
@@ -72,36 +74,53 @@ function AppSkeleton() {
   );
 }
 
-export function ClientLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+function ProtectedLayout({ children }: { children: React.ReactNode }) {
+    const { user, loading } = useAuth();
+    const router = useRouter();
 
-  if (loading) {
-    return <AppSkeleton />;
-  }
+    useEffect(() => {
+        if (!loading && !user) {
+            router.replace('/login');
+        }
+    }, [user, loading, router]);
 
-  // Since Supabase is disconnected, we assume the user is always logged in via the mock provider.
-  // If the mock user is removed for any reason, this would be a fallback,
-  // but in the current setup, `user` will always be populated.
-  if (!user) {
+    if (loading || !user) {
+        return <AppSkeleton />;
+    }
+
     return (
-        <div className="flex min-h-screen items-center justify-center bg-background">
-            <div className="text-center">
-                <h1 className="text-2xl font-bold">تم تسجيل الخروج (وضع تجريبي)</h1>
-                <p className="text-muted-foreground">أعد تحميل الصفحة لتسجيل الدخول مرة أخرى.</p>
-            </div>
-      </div>
+        <SidebarProvider>
+            <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l">
+                <MainNav />
+            </Sidebar>
+            <SidebarInset>
+                <AppHeader />
+                {children}
+            </SidebarInset>
+        </SidebarProvider>
     );
+}
+
+export function ClientLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading } = useAuth();
+  
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
+
+  useEffect(() => {
+    if (!loading && user && isAuthPage) {
+        router.replace('/');
+    }
+  },[user, loading, isAuthPage, router])
+
+  if (isAuthPage) {
+    // While loading, if the user turns out to be logged in, show a skeleton during redirect.
+    if(loading || (!loading && user)) return <AppSkeleton /> 
+    // Otherwise, show the login page for logged-out users.
+    return <>{children}</>;
   }
 
-  return (
-    <SidebarProvider>
-      <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l">
-        <MainNav />
-      </Sidebar>
-      <SidebarInset>
-        <AppHeader />
-        {children}
-      </SidebarInset>
-    </SidebarProvider>
-  );
+  // For all other pages, use the protected layout.
+  return <ProtectedLayout>{children}</ProtectedLayout>;
 }
