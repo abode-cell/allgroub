@@ -21,8 +21,7 @@ export default function CalculatorPage() {
   
   // States for By Salary Tab
   const [salary, setSalary] = useState(5000);
-  const [interestRateForSalary, setInterestRateForSalary] = useState(5.5);
-  const [loanTermForSalary, setLoanTermForSalary] = useState(5);
+  const [graceTermForSalary, setGraceTermForSalary] = useState(1);
 
 
   const calculateInstallments = () => {
@@ -76,36 +75,24 @@ export default function CalculatorPage() {
   
    const calculateBySalary = () => {
         const monthlySalary = parseFloat(salary.toString());
-        if (monthlySalary <= 0) {
-            return { maxInstallmentLoan: 0, maxGracePeriodLoan: 0, maxMonthlyPayment: 0 };
+        const termInYears = parseFloat(graceTermForSalary.toString());
+
+        if (monthlySalary <= 0 || termInYears <= 0) {
+            return { maxGraceLoanAmount: 0, totalRepayment: 0 };
         }
 
-        // Rule for Grace Period: Max loan is 6x monthly salary
-        const maxGracePeriodLoan = monthlySalary * 6;
+        // Grace period profit is 30% of principal (20% institution + 10% investor)
+        const graceProfitMargin = 1.3; 
 
-        // Rule for Installments: Max monthly payment is 33% of salary
-        const maxMonthlyPayment = monthlySalary * 0.33;
-        const annualRate = parseFloat(interestRateForSalary.toString() || '0') / 100;
-        const termInYears = parseFloat(loanTermForSalary.toString());
-
-        if (termInYears <= 0 || annualRate < 0) {
-            return { maxInstallmentLoan: 0, maxGracePeriodLoan, maxMonthlyPayment };
-        }
+        // Rule: Total repayment (Principal * 1.3) should not exceed 30% of total salary over the term.
+        const totalSalaryOverTerm = monthlySalary * 12 * termInYears;
+        const maxTotalRepayment = totalSalaryOverTerm * 0.30;
         
-        const termInMonths = termInYears * 12;
-        
-        let maxInstallmentLoan = 0;
-        // Using the same simple interest logic as the other tab
-        if (annualRate > 0) {
-           maxInstallmentLoan = (maxMonthlyPayment * termInMonths) / (1 + annualRate * termInYears);
-        } else { // Handle 0% interest case
-           maxInstallmentLoan = maxMonthlyPayment * termInMonths;
-        }
+        const maxGraceLoanAmount = maxTotalRepayment / graceProfitMargin;
 
         return {
-            maxInstallmentLoan: isFinite(maxInstallmentLoan) ? maxInstallmentLoan : 0,
-            maxGracePeriodLoan: isFinite(maxGracePeriodLoan) ? maxGracePeriodLoan : 0,
-            maxMonthlyPayment: isFinite(maxMonthlyPayment) ? maxMonthlyPayment : 0,
+            maxGraceLoanAmount: isFinite(maxGraceLoanAmount) ? maxGraceLoanAmount : 0,
+            totalRepayment: isFinite(maxTotalRepayment) ? maxTotalRepayment : 0,
         };
     };
 
@@ -285,13 +272,12 @@ export default function CalculatorPage() {
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mt-4">
               <Card className="lg:col-span-1">
                 <CardHeader>
-                  <CardTitle>حساب التمويل حسب الراتب</CardTitle>
+                  <CardTitle>حساب تمويل المهلة حسب الراتب</CardTitle>
                   <CardDescription>
-                    أدخل راتبك لتقدير أقصى مبلغ تمويل.
+                    أدخل راتبك ومدة التمويل لتقدير أقصى مبلغ تمويل مهلة.
                     <br />
                     <small className="text-xs mt-2 block">
-                      يعتمد التقدير على أن القسط لا يتجاوز 33% من الراتب، وتمويل
-                      المهلة لا يتجاوز 6 أضعاف الراتب.
+                      يعتمد التقدير على أن إجمالي السداد لا يتجاوز 30% من إجمالي راتبك خلال المدة.
                     </small>
                   </CardDescription>
                 </CardHeader>
@@ -307,32 +293,17 @@ export default function CalculatorPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="interestRateForSalary">
-                      نسبة الربح السنوية (%) للأقساط
+                    <Label htmlFor="graceTermForSalary">
+                      مدة تمويل المهلة (سنوات)
                     </Label>
                     <Input
-                      id="interestRateForSalary"
+                      id="graceTermForSalary"
                       type="number"
-                      step="0.1"
-                      value={interestRateForSalary}
+                      value={graceTermForSalary}
                       onChange={(e) =>
-                        setInterestRateForSalary(Number(e.target.value))
+                        setGraceTermForSalary(Number(e.target.value))
                       }
-                      placeholder="أدخل نسبة الربح"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="loanTermForSalary">
-                      مدة القرض (سنوات) للأقساط
-                    </Label>
-                    <Input
-                      id="loanTermForSalary"
-                      type="number"
-                      value={loanTermForSalary}
-                      onChange={(e) =>
-                        setLoanTermForSalary(Number(e.target.value))
-                      }
-                      placeholder="أدخل مدة القرض"
+                      placeholder="أدخل مدة التمويل"
                     />
                   </div>
                 </CardContent>
@@ -342,23 +313,14 @@ export default function CalculatorPage() {
                 <CardHeader>
                   <CardTitle>أقصى مبلغ تمويل مقترح</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
-                  <div className="p-4 bg-primary/10 rounded-lg">
-                    <p className="text-sm text-primary/80">تمويل الأقساط</p>
-                    <p className="text-3xl font-bold text-primary">
-                      {formatCurrency(bySalaryResults.maxInstallmentLoan)}
+                <CardContent className="grid grid-cols-1 gap-6 text-center">
+                  <div className="p-6 bg-accent/10 rounded-lg">
+                    <p className="text-sm text-accent-foreground/80">تمويل المهلة المقترح</p>
+                    <p className="text-4xl font-bold text-accent-foreground">
+                      {formatCurrency(bySalaryResults.maxGraceLoanAmount)}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      قسط شهري تقريبي: {formatCurrency(bySalaryResults.maxMonthlyPayment)}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-accent/10 rounded-lg">
-                    <p className="text-sm text-accent-foreground/80">تمويل المهلة</p>
-                    <p className="text-3xl font-bold text-accent-foreground">
-                      {formatCurrency(bySalaryResults.maxGracePeriodLoan)}
-                    </p>
-                     <p className="text-xs text-muted-foreground mt-1">
-                      بناءً على 6 أضعاف الراتب
+                    <p className="text-sm text-muted-foreground mt-2">
+                      إجمالي المبلغ المسدد تقريبيًا: {formatCurrency(bySalaryResults.totalRepayment)}
                     </p>
                   </div>
                 </CardContent>
