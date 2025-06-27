@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -82,6 +81,7 @@ export function BorrowersTable({
     null
   );
   const [paymentSchedule, setPaymentSchedule] = useState<Payment[]>([]);
+  const isGracePeriodTable = borrowers[0]?.loanType === 'مهلة';
 
   const handleEditClick = (borrower: Borrower) => {
     setSelectedBorrower({ ...borrower });
@@ -162,6 +162,7 @@ export function BorrowersTable({
               <TableRow>
                 <TableHead>اسم المقترض</TableHead>
                 <TableHead>مبلغ القرض</TableHead>
+                {isGracePeriodTable && <TableHead>الخصم</TableHead>}
                 <TableHead>نوع التمويل</TableHead>
                 <TableHead>المستثمر</TableHead>
                 <TableHead>حالة السداد</TableHead>
@@ -183,6 +184,11 @@ export function BorrowersTable({
                 <TableRow key={borrower.id}>
                   <TableCell className="font-medium">{borrower.name}</TableCell>
                   <TableCell>{formatCurrency(borrower.amount)}</TableCell>
+                  {isGracePeriodTable && (
+                    <TableCell className="text-green-600 font-medium">
+                        {borrower.discount && borrower.discount > 0 ? formatCurrency(borrower.discount) : '-'}
+                    </TableCell>
+                  )}
                   <TableCell>{borrower.loanType}</TableCell>
                   <TableCell>
                     {fundedByOneInvestor && singleInvestor ? (
