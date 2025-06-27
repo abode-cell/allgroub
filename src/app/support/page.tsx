@@ -17,7 +17,7 @@ import { Send } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function SupportPage() {
-  const { user, role } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -37,10 +37,7 @@ export default function SupportPage() {
     // For this mock app, we just log it and show a toast.
     console.log('Support Request:', { subject, message, from: user?.email });
 
-    let toastDescription = 'تم إرسال رسالتك إلى فريق الدعم. سيتم التواصل معك قريباً (تجريبياً).';
-    if(role === 'مدير المكتب') {
-        toastDescription = 'تم إرسال طلبك إلى مدير النظام، وسيتم مراجعته في أقرب وقت (تجريبياً).'
-    }
+    const toastDescription = 'تم إرسال رسالتك إلى مدير النظام، وسيتم مراجعتها في أقرب وقت (تجريبياً).';
 
     toast({
       title: 'تم الإرسال بنجاح',
@@ -65,10 +62,7 @@ export default function SupportPage() {
           <CardHeader>
             <CardTitle>إرسال طلب دعم</CardTitle>
             <CardDescription>
-             {role === 'مدير المكتب' 
-                ? 'لطلب إضافة موظفين جدد أو أي استفسار آخر، املأ النموذج أدناه.'
-                : 'املأ النموذج أدناه وسيقوم فريق الدعم بالرد عليك في أقرب وقت ممكن.'
-             }
+              لأي استفسار أو طلب، املأ النموذج أدناه وسيتم إرساله مباشرة إلى مدير النظام.
             </CardDescription>
           </CardHeader>
           <CardContent>
