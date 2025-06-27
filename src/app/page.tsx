@@ -95,11 +95,12 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
 
 const GracePeriodDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
     const { role } = useAuth();
+    const { graceTotalProfitPercentage } = useData();
     const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
     const gracePeriodLoansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
     const gracePeriodDefaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
     const gracePeriodDefaultRate = gracePeriodLoansGranted > 0 ? (gracePeriodDefaultedFunds / gracePeriodLoansGranted) * 100 : 0;
-    const gracePeriodProfit = gracePeriodLoansGranted * 0.30;
+    const gracePeriodProfit = gracePeriodLoansGranted * (graceTotalProfitPercentage / 100);
     
     const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
 
@@ -116,7 +117,7 @@ const GracePeriodDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
                     <KpiCard
                         title="إجمالي الأرباح المتوقعة"
                         value={formatCurrency(gracePeriodProfit)}
-                        change="30% من الأصل"
+                        change={`${graceTotalProfitPercentage.toFixed(1)}% من الأصل`}
                         icon={<TrendingUp className="size-6 text-muted-foreground" />}
                         changeColor='text-green-500'
                     />

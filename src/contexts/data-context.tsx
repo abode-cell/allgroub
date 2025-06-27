@@ -65,13 +65,13 @@ type DataContextType = {
   salaryRepaymentPercentage: number;
   baseInterestRate: number;
   investorSharePercentage: number;
-  graceInstitutionProfitPercentage: number;
-  graceInvestorProfitPercentage: number;
+  graceTotalProfitPercentage: number;
+  graceInvestorSharePercentage: number;
   updateBaseInterestRate: (rate: number) => Promise<void>;
   updateInvestorSharePercentage: (percentage: number) => Promise<void>;
   updateSalaryRepaymentPercentage: (percentage: number) => Promise<void>;
-  updateGraceInstitutionProfitPercentage: (percentage: number) => Promise<void>;
-  updateGraceInvestorProfitPercentage: (percentage: number) => Promise<void>;
+  updateGraceTotalProfitPercentage: (percentage: number) => Promise<void>;
+  updateGraceInvestorSharePercentage: (percentage: number) => Promise<void>;
   addSupportTicket: (
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
   ) => Promise<void>;
@@ -129,8 +129,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [salaryRepaymentPercentage, setSalaryRepaymentPercentage] = useState<number>(30);
   const [baseInterestRate, setBaseInterestRate] = useState<number>(5.5);
   const [investorSharePercentage, setInvestorSharePercentage] = useState<number>(70);
-  const [graceInstitutionProfitPercentage, setGraceInstitutionProfitPercentage] = useState<number>(20);
-  const [graceInvestorProfitPercentage, setGraceInvestorProfitPercentage] = useState<number>(10);
+  const [graceTotalProfitPercentage, setGraceTotalProfitPercentage] = useState<number>(30);
+  const [graceInvestorSharePercentage, setGraceInvestorSharePercentage] = useState<number>(33.3);
 
 
   const { user: currentUser } = useAuth();
@@ -188,19 +188,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateGraceInstitutionProfitPercentage = async (percentage: number) => {
-    setGraceInstitutionProfitPercentage(percentage);
+  const updateGraceTotalProfitPercentage = async (percentage: number) => {
+    setGraceTotalProfitPercentage(percentage);
     toast({
       title: 'تم تحديث النسبة',
-      description: `تم تحديث نسبة ربح المؤسسة لتمويل المهلة إلى ${percentage}%.`,
+      description: `تم تحديث نسبة الربح الإجمالية لتمويل المهلة إلى ${percentage}%.`,
     });
   };
 
-  const updateGraceInvestorProfitPercentage = async (percentage: number) => {
-    setGraceInvestorProfitPercentage(percentage);
+  const updateGraceInvestorSharePercentage = async (percentage: number) => {
+    setGraceInvestorSharePercentage(percentage);
     toast({
       title: 'تم تحديث النسبة',
-      description: `تم تحديث نسبة ربح المستثمر لتمويل المهلة إلى ${percentage}%.`,
+      description: `تم تحديث حصة المستثمر من أرباح المهلة إلى ${percentage}%.`,
     });
   };
 
@@ -295,12 +295,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         originalBorrower.status !== 'مسدد بالكامل'
       ) {
         if (originalBorrower.fundedBy && originalBorrower.fundedBy.length > 0) {
-          const totalProfit =
-            originalBorrower.loanType === 'اقساط'
-              ? originalBorrower.amount *
-                (originalBorrower.rate / 100) *
-                originalBorrower.term
-              : originalBorrower.amount * ((graceInstitutionProfitPercentage + graceInvestorProfitPercentage) / 100);
+          
+          const installmentTotalInterest = originalBorrower.amount * (originalBorrower.rate / 100) * originalBorrower.term;
+          const graceTotalProfit = originalBorrower.amount * (graceTotalProfitPercentage / 100);
+          const totalProfit = originalBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
 
           setInvestors((prevInvestors) => {
             let newInvestors = [...prevInvestors];
@@ -309,20 +307,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 (i) => i.id === funder.investorId
               );
               if (investorIndex > -1) {
-                const profitShare =
-                  (funder.amount / originalBorrower.amount) * totalProfit;
+                 const loanShare = funder.amount / originalBorrower.amount;
+                let investorProfitShare = 0;
+                if(originalBorrower.loanType === 'اقساط') {
+                    investorProfitShare = totalProfit * (investorSharePercentage / 100) * loanShare;
+                } else { // 'مهلة'
+                    investorProfitShare = totalProfit * (graceInvestorSharePercentage / 100) * loanShare;
+                }
+                
                 const principalReturn = funder.amount;
                 
                  const profitTransaction: Transaction = {
                     id: `t-profit-${Date.now()}-${newInvestors[investorIndex].id}`,
                     date: new Date().toISOString().split('T')[0],
                     type: 'إيداع أرباح',
-                    amount: profitShare,
+                    amount: investorProfitShare,
                     description: `أرباح من قرض "${originalBorrower.name}"`,
                 };
                 
                 newInvestors[investorIndex].transactionHistory.push(profitTransaction);
-                newInvestors[investorIndex].amount += principalReturn + profitShare; // Return principal + profit
+                newInvestors[investorIndex].amount += principalReturn + investorProfitShare; // Return principal + profit
                 newInvestors[investorIndex].fundedLoanIds = newInvestors[
                   investorIndex
                 ].fundedLoanIds.filter((id) => id !== originalBorrower.id);
@@ -767,13 +771,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     salaryRepaymentPercentage,
     baseInterestRate,
     investorSharePercentage,
-    graceInstitutionProfitPercentage,
-    graceInvestorProfitPercentage,
+    graceTotalProfitPercentage,
+    graceInvestorSharePercentage,
     updateBaseInterestRate,
     updateInvestorSharePercentage,
     updateSalaryRepaymentPercentage,
-    updateGraceInstitutionProfitPercentage,
-    updateGraceInvestorProfitPercentage,
+    updateGraceTotalProfitPercentage,
+    updateGraceInvestorSharePercentage,
     addSupportTicket,
     registerNewOfficeManager,
     addBorrower,
