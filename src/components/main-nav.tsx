@@ -68,12 +68,6 @@ const allMenuItems = [
     roles: ['مدير النظام', 'مدير المكتب'],
   },
   {
-    href: '/users',
-    label: 'إدارة المستخدمين',
-    icon: Users,
-    roles: ['مدير النظام', 'مدير المكتب'],
-  },
-  {
     href: '/notifications',
     label: 'التنبيهات',
     icon: Bell,
