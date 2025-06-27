@@ -80,12 +80,6 @@ const allMenuItems = [
     roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },
   {
-    href: '/summarize',
-    label: 'تحليل بالذكاء الاصطناعي',
-    icon: BrainCircuit,
-    roles: ['مدير النظام', 'مدير المكتب'],
-  },
-  {
     href: '/support',
     label: 'الدعم الفني',
     icon: LifeBuoy,
