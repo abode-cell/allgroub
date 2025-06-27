@@ -33,8 +33,15 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { Textarea } from '../ui/textarea';
-import type { Investor } from '@/lib/types';
-
+import type { Investor, Transaction, TransactionType } from '@/lib/types';
+import { ScrollArea } from '../ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 
 type InvestorsTableProps = {
   investors: Investor[];
@@ -45,6 +52,13 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } 
   'غير نشط': 'secondary',
   'معلق': 'secondary',
   'مرفوض': 'destructive',
+};
+
+const transactionTypeVariant: { [key in TransactionType]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
+    'إيداع رأس المال': 'default',
+    'إيداع أرباح': 'default',
+    'سحب أرباح': 'secondary',
+    'سحب من رأس المال': 'destructive',
 };
 
 const formatCurrency = (value: number) =>
@@ -64,7 +78,7 @@ export function InvestorsTable({
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
 
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(null);
-  const [withdrawal, setWithdrawal] = useState({ amount: '', reason: '' });
+  const [withdrawal, setWithdrawal] = useState({ amount: '', description: '', type: 'سحب أرباح' as TransactionType });
 
   const handleEditClick = (investor: Investor) => {
     setSelectedInvestor({ ...investor });
@@ -73,7 +87,7 @@ export function InvestorsTable({
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    const { defaultedFunds, ...updatableInvestor } = selectedInvestor;
+    const { defaultedFunds, transactionHistory, ...updatableInvestor } = selectedInvestor;
     updateInvestor(updatableInvestor);
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);
@@ -100,15 +114,16 @@ export function InvestorsTable({
 
   const handleConfirmWithdrawal = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedInvestor || !withdrawal.amount || !withdrawal.reason) return;
+    if (!selectedInvestor || !withdrawal.amount || !withdrawal.description) return;
     
     withdrawFromInvestor(selectedInvestor.id, {
       amount: Number(withdrawal.amount),
-      reason: withdrawal.reason
+      description: withdrawal.description,
+      type: withdrawal.type
     });
 
     setIsWithdrawDialogOpen(false);
-    setWithdrawal({ amount: '', reason: '' });
+    setWithdrawal({ amount: '', description: '', type: 'سحب أرباح' });
     setSelectedInvestor(null);
   }
 
@@ -256,11 +271,11 @@ export function InvestorsTable({
         </DialogContent>
       </Dialog>
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>تفاصيل المستثمر: {selectedInvestor?.name}</DialogTitle>
             <DialogDescription>
-              نظرة سريعة على الأداء المالي للمستثمر.
+              نظرة شاملة على الأداء المالي وسجل العمليات للمستثمر.
             </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (() => {
@@ -270,52 +285,73 @@ export function InvestorsTable({
               .reduce((acc, b) => acc + b.amount, 0);
 
             const idleFunds = selectedInvestor.amount - activeInvestment;
+            const totalCapital = selectedInvestor.transactionHistory
+              .filter(tx => tx.type === 'إيداع رأس المال')
+              .reduce((acc, tx) => acc + tx.amount, 0);
 
             return (
-              <div className="grid gap-4 pt-4 text-sm">
-                <h4 className="font-semibold">الملخص المالي</h4>
-                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
-                    <div>
-                        <span className='text-muted-foreground'>إجمالي الاستثمار:</span>
-                        <span className='font-bold text-base float-left'>{formatCurrency(selectedInvestor.amount + defaultedFunds)}</span>
-                    </div>
-                    <div>
-                        <span className='text-muted-foreground'>الأموال النشطة:</span>
-                        <span className='font-bold text-base float-left text-green-600'>{formatCurrency(activeInvestment)}</span>
-                    </div>
-                    <div>
-                        <span className='text-muted-foreground'>الأموال الخاملة:</span>
-                        <span className='font-bold text-base float-left'>{formatCurrency(idleFunds)}</span>
-                    </div>
-                     <div>
-                        <span className='text-muted-foreground'>الأموال المتعثرة:</span>
-                        <span className='font-bold text-base float-left text-destructive'>{formatCurrency(defaultedFunds)}</span>
+              <div className="grid gap-6 pt-4 text-sm">
+                <div>
+                    <h4 className="font-semibold text-base mb-2">الملخص المالي</h4>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                        <div>
+                            <span className='text-muted-foreground'>إجمالي رأس المال:</span>
+                            <span className='font-bold text-base float-left'>{formatCurrency(totalCapital)}</span>
+                        </div>
+                        <div>
+                            <span className='text-muted-foreground'>الأموال النشطة:</span>
+                            <span className='font-bold text-base float-left text-green-600'>{formatCurrency(activeInvestment)}</span>
+                        </div>
+                        <div>
+                            <span className='text-muted-foreground'>الأموال الخاملة:</span>
+                            <span className='font-bold text-base float-left'>{formatCurrency(idleFunds)}</span>
+                        </div>
+                        <div>
+                            <span className='text-muted-foreground'>الأموال المتعثرة:</span>
+                            <span className='font-bold text-base float-left text-destructive'>{formatCurrency(defaultedFunds)}</span>
+                        </div>
                     </div>
                 </div>
 
-                {selectedInvestor.withdrawalHistory.length > 0 && (
-                    <div>
-                        <h4 className="font-semibold mb-2 mt-2">آخر 3 عمليات سحب</h4>
-                        <div className="border rounded-md">
+                <div>
+                    <h4 className="font-semibold text-base mb-2 mt-2">سجل العمليات</h4>
+                    <ScrollArea className="h-72 border rounded-md">
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>التاريخ</TableHead>
+                                    <TableHead>النوع</TableHead>
+                                    <TableHead>الوصف</TableHead>
                                     <TableHead className="text-left">المبلغ</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {selectedInvestor.withdrawalHistory.slice(0, 3).map(w => (
-                                    <TableRow key={w.id}>
-                                        <TableCell>{w.date}</TableCell>
-                                        <TableCell className="text-left">{formatCurrency(w.amount)}</TableCell>
+                                {selectedInvestor.transactionHistory && selectedInvestor.transactionHistory.length > 0 ? (
+                                    selectedInvestor.transactionHistory
+                                        .slice()
+                                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                        .map(tx => (
+                                            <TableRow key={tx.id}>
+                                                <TableCell className="text-xs">{tx.date}</TableCell>
+                                                <TableCell><Badge variant={transactionTypeVariant[tx.type] || 'outline'}>{tx.type}</Badge></TableCell>
+                                                <TableCell className="text-xs">{tx.description}</TableCell>
+                                                <TableCell className={`text-left font-medium ${tx.type.includes('إيداع') ? 'text-green-600' : 'text-destructive'}`}>
+                                                    {tx.type.includes('إيداع') ? '+' : '-'}
+                                                    {formatCurrency(tx.amount)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center h-24">
+                                            لا يوجد سجل عمليات لهذا المستثمر.
+                                        </TableCell>
                                     </TableRow>
-                                ))}
+                                )}
                             </TableBody>
                         </Table>
-                        </div>
-                    </div>
-                )}
+                    </ScrollArea>
+                </div>
               </div>
             )
           })()}
@@ -335,7 +371,7 @@ export function InvestorsTable({
             <DialogHeader>
               <DialogTitle>سحب أموال لـ {selectedInvestor?.name}</DialogTitle>
               <DialogDescription>
-                أدخل المبلغ والسبب لعملية السحب.
+                أدخل المبلغ والسبب ونوع العملية لإتمام السحب.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -350,12 +386,27 @@ export function InvestorsTable({
                   required
                 />
               </div>
+               <div className="space-y-2">
+                <Label htmlFor="type">نوع السحب</Label>
+                <Select
+                    value={withdrawal.type}
+                    onValueChange={(value: TransactionType) => setWithdrawal(prev => ({...prev, type: value}))}
+                >
+                    <SelectTrigger id="type">
+                        <SelectValue placeholder="اختر نوع السحب" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="سحب أرباح">سحب أرباح</SelectItem>
+                        <SelectItem value="سحب من رأس المال">سحب من رأس المال</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="reason">السبب</Label>
+                <Label htmlFor="description">الوصف (السبب)</Label>
                 <Textarea
-                  id="reason"
+                  id="description"
                   placeholder="أدخل سبب السحب"
-                  value={withdrawal.reason}
+                  value={withdrawal.description}
                   onChange={handleWithdrawalChange}
                   required
                 />

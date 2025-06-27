@@ -10,10 +10,11 @@ import {
 import type {
   Borrower,
   Investor,
-  Withdrawal,
+  Transaction,
   User,
   UserRole,
   SupportTicket,
+  TransactionType,
 } from '@/lib/types';
 import {
   borrowersData,
@@ -30,7 +31,7 @@ type UpdatableInvestor = Omit<
   Investor,
   | 'defaultedFunds'
   | 'fundedLoanIds'
-  | 'withdrawalHistory'
+  | 'transactionHistory'
   | 'rejectionReason'
   | 'submittedBy'
 >;
@@ -39,7 +40,7 @@ type NewInvestorPayload = Omit<
   Investor,
   | 'id'
   | 'date'
-  | 'withdrawalHistory'
+  | 'transactionHistory'
   | 'defaultedFunds'
   | 'fundedLoanIds'
   | 'rejectionReason'
@@ -80,7 +81,7 @@ type DataContextType = {
   rejectInvestor: (investorId: string, reason: string) => Promise<void>;
   withdrawFromInvestor: (
     investorId: string,
-    withdrawal: Omit<Withdrawal, 'id' | 'date'>
+    withdrawal: Omit<Transaction, 'id' | 'date'>
   ) => Promise<void>;
   updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
@@ -206,8 +207,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
               if (investorIndex > -1) {
                 const profitShare =
                   (funder.amount / originalBorrower.amount) * totalProfit;
-                newInvestors[investorIndex].amount +=
-                  funder.amount + profitShare; // Return principal + profit
+                const principalReturn = funder.amount;
+                
+                 const profitTransaction: Transaction = {
+                    id: `t-profit-${Date.now()}-${newInvestors[investorIndex].id}`,
+                    date: new Date().toISOString().split('T')[0],
+                    type: 'إيداع أرباح',
+                    amount: profitShare,
+                    description: `أرباح من قرض "${originalBorrower.name}"`,
+                };
+                
+                newInvestors[investorIndex].transactionHistory.push(profitTransaction);
+                newInvestors[investorIndex].amount += principalReturn + profitShare; // Return principal + profit
                 newInvestors[investorIndex].fundedLoanIds = newInvestors[
                   investorIndex
                 ].fundedLoanIds.filter((id) => id !== originalBorrower.id);
@@ -415,7 +426,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         amount: investorPayload.amount,
         status: 'نشط',
         date: new Date().toISOString().split('T')[0],
-        withdrawalHistory: [],
+        transactionHistory: [
+            {
+                id: `t_${Date.now()}`,
+                date: new Date().toISOString().split('T')[0],
+                type: 'إيداع رأس المال',
+                amount: investorPayload.amount,
+                description: 'إيداع تأسيسي للحساب',
+            }
+        ],
         defaultedFunds: 0,
         fundedLoanIds: [],
         submittedBy: currentUser.id,
@@ -435,7 +454,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ...investorPayload,
       id: `inv_${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
-      withdrawalHistory: [],
+       transactionHistory: [
+            {
+                id: `t_${Date.now()}`,
+                date: new Date().toISOString().split('T')[0],
+                type: 'إيداع رأس المال',
+                amount: investorPayload.amount,
+                description: 'إيداع تأسيسي للحساب',
+            }
+        ],
       defaultedFunds: 0,
       fundedLoanIds: [],
       submittedBy: currentUser.id,
@@ -447,26 +474,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const withdrawFromInvestor = async (
     investorId: string,
-    withdrawal: Omit<Withdrawal, 'id' | 'date'>
+    withdrawal: Omit<Transaction, 'id' | 'date'>
   ) => {
     setInvestors((prev) =>
       prev.map((inv) => {
         if (inv.id === investorId) {
-          const newWithdrawal: Withdrawal = {
+          const newTransaction: Transaction = {
             ...withdrawal,
-            id: `wd_${Date.now()}`,
+            id: `t_${Date.now()}`,
             date: new Date().toISOString().split('T')[0],
           };
           return {
             ...inv,
-            amount: inv.amount - newWithdrawal.amount,
-            withdrawalHistory: [...inv.withdrawalHistory, newWithdrawal],
+            amount: inv.amount - newTransaction.amount,
+            transactionHistory: [...inv.transactionHistory, newTransaction],
           };
         }
         return inv;
       })
     );
-    toast({ title: 'تم سحب الأموال (تجريبيًا)' });
+    toast({ title: 'تمت عملية السحب بنجاح (تجريبيًا)' });
   };
 
   const updateUserStatus = async (userId: string, status: User['status']) => {

@@ -110,12 +110,14 @@ export function Notifications() {
             });
         });
 
-        investor.withdrawalHistory.forEach(w => {
-             notifications.push({
-                id: `wd-${w.id}`,
-                title: 'عملية سحب ناجحة',
-                description: `تم سحب مبلغ ${formatCurrency(w.amount)} من حسابك.`
-            });
+        investor.transactionHistory.forEach(w => {
+            if (w.type.includes('سحب')) {
+                 notifications.push({
+                    id: `wd-${w.id}`,
+                    title: 'عملية سحب ناجحة',
+                    description: `تم سحب مبلغ ${formatCurrency(w.amount)} من حسابك.`
+                });
+            }
         });
       }
     }

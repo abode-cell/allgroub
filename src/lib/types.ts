@@ -38,11 +38,14 @@ export type Payment = {
   balance: number;
 };
 
-export type Withdrawal = {
+export type TransactionType = 'إيداع رأس المال' | 'سحب من رأس المال' | 'إيداع أرباح' | 'سحب أرباح';
+
+export type Transaction = {
   id: string;
-  amount: number;
-  reason: string;
   date: string;
+  type: TransactionType;
+  amount: number;
+  description: string;
 };
 
 export type Investor = {
@@ -51,7 +54,7 @@ export type Investor = {
   amount: number;
   date: string;
   status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض';
-  withdrawalHistory: Withdrawal[];
+  transactionHistory: Transaction[];
   fundedLoanIds: string[];
   defaultedFunds: number;
   submittedBy?: string;

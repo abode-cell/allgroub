@@ -17,7 +17,9 @@ export const investorsData: Investor[] = [
     amount: 350000, // Initial 500k, funded 150k for bor-1
     date: '2023-01-15',
     status: 'نشط',
-    withdrawalHistory: [],
+    transactionHistory: [
+      { id: 't-1-1', date: '2023-01-15', type: 'إيداع رأس المال', amount: 500000, description: 'الإيداع الأولي للمحفظة' }
+    ],
     fundedLoanIds: ['bor-1'],
     defaultedFunds: 0,
   },
@@ -27,7 +29,11 @@ export const investorsData: Investor[] = [
     amount: 450000, // Initial 750k, withdrew 25k, funded 200k for bor-2, funded 75k for bor-3 (now defaulted)
     date: '2023-03-20',
     status: 'نشط',
-    withdrawalHistory: [{ id: 'w-1', amount: 25000, reason: 'سحب أرباح', date: '2024-05-10' }],
+    transactionHistory: [
+        { id: 't-2-1', date: '2023-03-20', type: 'إيداع رأس المال', amount: 750000, description: 'استثمار تأسيسي' },
+        { id: 't-2-2', date: '2024-05-10', type: 'سحب أرباح', amount: 25000, description: 'توزيعات أرباح الربع الأول' },
+        { id: 't-2-3', date: '2024-06-01', type: 'إيداع أرباح', amount: 15000, description: 'أرباح محققة من قرض مكتمل' },
+    ],
     fundedLoanIds: ['bor-2'], // bor-3 is defaulted, so it's not an "active" funded loan
     defaultedFunds: 75000, // from bor-3
   },
@@ -37,7 +43,9 @@ export const investorsData: Investor[] = [
     amount: 200000,
     date: '2024-02-10',
     status: 'معلق',
-    withdrawalHistory: [],
+    transactionHistory: [
+       { id: 't-3-1', date: '2024-02-10', type: 'إيداع رأس المال', amount: 200000, description: 'إيداع معلق' }
+    ],
     fundedLoanIds: [],
     defaultedFunds: 0,
     submittedBy: '3'
@@ -48,7 +56,9 @@ export const investorsData: Investor[] = [
     amount: 1000000,
     date: '2024-03-15',
     status: 'نشط',
-    withdrawalHistory: [],
+    transactionHistory: [
+       { id: 't-4-1', date: '2024-03-15', type: 'إيداع رأس المال', amount: 1000000, description: 'إيداع أولي' }
+    ],
     fundedLoanIds: [],
     defaultedFunds: 0,
     submittedBy: '2'

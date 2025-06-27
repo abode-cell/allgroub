@@ -36,14 +36,16 @@ export function InvestorDashboard() {
     );
   }
 
-  const totalInvestment = investor.amount + (investor.defaultedFunds || 0); // Total is what they put in initially
+  const totalInvestment = investor.transactionHistory
+    .filter(tx => tx.type === 'إيداع رأس المال')
+    .reduce((acc, tx) => acc + tx.amount, 0);
   const defaultedFunds = investor.defaultedFunds || 0;
   
   const activeInvestment = borrowers
     .filter(b => investor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
     .reduce((acc, b) => acc + b.amount, 0);
 
-  const idleFunds = investor.amount - activeInvestment;
+  const idleFunds = investor.amount; // `amount` is now purely liquid funds
   const dueProfits = 0; // Simulated - consider calculating this from real data
 
   return (
@@ -102,7 +104,7 @@ export function InvestorDashboard() {
                         <CardDescription>قائمة بآخر المبالغ المسحوبة من حسابك.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {investor.withdrawalHistory.length > 0 ? (
+                        {investor.transactionHistory.length > 0 ? (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -112,11 +114,13 @@ export function InvestorDashboard() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {investor.withdrawalHistory.slice(0, 5).map(w => (
+                                    {investor.transactionHistory
+                                        .filter(tx => tx.type.includes('سحب'))
+                                        .slice(0, 5).map(w => (
                                         <TableRow key={w.id}>
                                             <TableCell>{w.date}</TableCell>
                                             <TableCell>{formatCurrency(w.amount)}</TableCell>
-                                            <TableCell>{w.reason}</TableCell>
+                                            <TableCell>{w.description}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
