@@ -14,7 +14,7 @@ import type {
   User,
   UserRole,
 } from '@/lib/types';
-import { borrowersData, investorsData, usersData } from '@/lib/data';
+import { borrowersData, investorsData, usersData as initialUsersData } from '@/lib/data';
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 
@@ -29,10 +29,18 @@ type UpdatableInvestor = Omit<
   | 'submittedBy'
 >;
 
+type SignUpCredentials = {
+  name: User['name'];
+  email: User['email'];
+  phone: User['phone'];
+  password?: string;
+};
+
 type DataContextType = {
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
+  registerNewOfficeManager: (credentials: SignUpCredentials) => Promise<{ success: boolean; message: string }>;
   addBorrower: (
     borrower: Omit<
       Borrower,
@@ -72,9 +80,49 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: ReactNode }) {
   const [borrowers, setBorrowers] = useState<Borrower[]>(borrowersData);
   const [investors, setInvestors] = useState<Investor[]>(investorsData);
-  const [users, setUsers] = useState<User[]>(usersData);
+  const [users, setUsers] = useState<User[]>(initialUsersData);
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
+
+  const registerNewOfficeManager = async (credentials: SignUpCredentials): Promise<{ success: boolean; message: string; }> => {
+    const existingUser = users.find(u => u.email === credentials.email || u.phone === credentials.phone);
+    if(existingUser) {
+      return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+    }
+
+    const managerId = `user_${Date.now()}`;
+    const employeeId = `user_${Date.now() + 1}`;
+
+    const newManager: User = {
+      id: managerId,
+      name: credentials.name,
+      email: credentials.email,
+      phone: credentials.phone,
+      password: credentials.password,
+      role: 'مدير المكتب',
+      status: 'معلق',
+      photoURL: 'https://placehold.co/40x40.png'
+    };
+    
+    const newEmployee: User = {
+      id: employeeId,
+      name: `موظف لدى ${credentials.name}`,
+      email: `employee-${Date.now()}@example.com`,
+      phone: '',
+      password: 'password123', // Default password
+      role: 'موظف',
+      status: 'نشط', // Employee is active by default under the manager
+      photoURL: 'https://placehold.co/40x40.png',
+      managedBy: managerId,
+    };
+
+    setUsers(prev => [...prev, newManager, newEmployee]);
+
+    // Update the original data source (for mock persistence)
+    initialUsersData.push(newManager, newEmployee);
+
+    return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
+  };
   
   const updateBorrower = async (updatedBorrower: Borrower) => {
     const originalBorrower = borrowers.find(b => b.id === updatedBorrower.id);
@@ -281,6 +329,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     borrowers,
     investors,
     users,
+    registerNewOfficeManager,
     addBorrower,
     updateBorrower,
     addInvestor,

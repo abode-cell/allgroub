@@ -3,19 +3,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, LogIn } from 'lucide-react';
 import { useEffect } from 'react';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, signIn } = useAuth();
-  const { users } = useData();
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,13 +28,13 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUserId) {
-      setError('الرجاء اختيار مستخدم لتسجيل الدخول.');
+    if (!identifier || !password) {
+      setError('الرجاء إدخال البريد الإلكتروني/رقم الجوال وكلمة المرور.');
       return;
     }
     setError('');
     setIsLoading(true);
-    const result = await signIn(selectedUserId);
+    const result = await signIn({ identifier, password });
     if (result.success) {
       router.replace('/');
     } else {
@@ -65,28 +65,30 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
           <CardDescription>
-            اختر حسابًا من القائمة أدناه للدخول إلى المنصة (وضع تجريبي).
+            أدخل بريدك الإلكتروني أو رقم جوالك للمتابعة.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="user-select">اختر المستخدم</Label>
-              <Select onValueChange={setSelectedUserId} value={selectedUserId ?? ''}>
-                <SelectTrigger id="user-select" className="w-full">
-                  <SelectValue placeholder="اختر حسابًا..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{user.name}</span>
-                        <span className="text-xs text-muted-foreground">({user.role})</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="identifier">البريد الإلكتروني أو رقم الجوال</Label>
+              <Input
+                id="identifier"
+                placeholder="email@example.com أو 05xxxxxxxx"
+                required
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+              />
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="password">كلمة المرور</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
             {error && <p className="text-sm text-center text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={isLoading}>
@@ -99,6 +101,14 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
+        <CardFooter className="flex-col items-center text-sm">
+            <p className="text-muted-foreground">
+                ليس لديك حساب؟{' '}
+                <Link href="/signup" className="underline text-primary hover:text-primary/80">
+                    إنشاء حساب جديد
+                </Link>
+            </p>
+        </CardFooter>
       </Card>
     </div>
   );

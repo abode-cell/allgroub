@@ -1,11 +1,11 @@
 import type { Borrower, Investor, User } from '@/lib/types';
 
 export const usersData: User[] = [
-  { id: '1', name: 'مدير النظام', email: 'admin@example.com', role: 'مدير النظام', status: 'نشط', photoURL: 'https://placehold.co/40x40.png' },
-  { id: '2', name: 'مدير المكتب', email: 'manager@example.com', role: 'مدير المكتب', status: 'نشط', photoURL: 'https://placehold.co/40x40.png' },
-  { id: '3', name: 'أحمد الموظف', email: 'employee@example.com', role: 'موظف', status: 'نشط', photoURL: 'https://placehold.co/40x40.png' },
-  { id: '4', name: 'خالد المستثمر', email: 'investor@example.com', role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png' },
-  { id: '5', name: 'علي مستخدم معلق', email: 'pending@example.com', role: 'موظف', status: 'معلق', photoURL: 'https://placehold.co/40x40.png' },
+  { id: '1', name: 'مدير النظام', email: 'admin@example.com', role: 'مدير النظام', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000001' },
+  { id: '2', name: 'مدير المكتب', email: 'manager@example.com', role: 'مدير المكتب', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000002' },
+  { id: '3', name: 'أحمد الموظف', email: 'employee@example.com', role: 'موظف', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000003', managedBy: '2' },
+  { id: '4', name: 'خالد المستثمر', email: 'investor@example.com', role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000004' },
+  { id: '5', name: 'علي مستخدم معلق', email: 'pending@example.com', role: 'موظف', status: 'معلق', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000005' },
 ];
 
 // Note: Investor `amount` represents available (liquid) capital.

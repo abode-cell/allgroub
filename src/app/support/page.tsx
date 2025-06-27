@@ -14,8 +14,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Send } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function SupportPage() {
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -33,12 +35,16 @@ export default function SupportPage() {
 
     // In a real app, this would trigger an API call.
     // For this mock app, we just log it and show a toast.
-    console.log('Support Request:', { subject, message });
+    console.log('Support Request:', { subject, message, from: user?.email });
+
+    let toastDescription = 'تم إرسال رسالتك إلى فريق الدعم. سيتم التواصل معك قريباً (تجريبياً).';
+    if(role === 'مدير المكتب') {
+        toastDescription = 'تم إرسال طلبك إلى مدير النظام، وسيتم مراجعته في أقرب وقت (تجريبياً).'
+    }
 
     toast({
       title: 'تم الإرسال بنجاح',
-      description:
-        'تم إرسال رسالتك إلى فريق الدعم. سيتم التواصل معك قريباً (تجريبياً).',
+      description: toastDescription,
     });
 
     setSubject('');
@@ -51,7 +57,7 @@ export default function SupportPage() {
         <header>
           <h1 className="text-3xl font-bold tracking-tight">الدعم الفني</h1>
           <p className="text-muted-foreground mt-1">
-            هل تواجه مشكلة؟ تواصل معنا وسنكون سعداء بمساعدتك.
+            هل تواجه مشكلة أو لديك طلب؟ تواصل معنا وسنكون سعداء بمساعدتك.
           </p>
         </header>
 
@@ -59,7 +65,10 @@ export default function SupportPage() {
           <CardHeader>
             <CardTitle>إرسال طلب دعم</CardTitle>
             <CardDescription>
-              املأ النموذج أدناه وسيقوم فريق الدعم بالرد عليك في أقرب وقت ممكن.
+             {role === 'مدير المكتب' 
+                ? 'لطلب إضافة موظفين جدد أو أي استفسار آخر، املأ النموذج أدناه.'
+                : 'املأ النموذج أدناه وسيقوم فريق الدعم بالرد عليك في أقرب وقت ممكن.'
+             }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -68,7 +77,7 @@ export default function SupportPage() {
                 <Label htmlFor="subject">الموضوع</Label>
                 <Input
                   id="subject"
-                  placeholder="مثال: مشكلة في تسجيل الدخول"
+                  placeholder="مثال: طلب إضافة موظف جديد"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   required
@@ -78,7 +87,7 @@ export default function SupportPage() {
                 <Label htmlFor="message">الرسالة</Label>
                 <Textarea
                   id="message"
-                  placeholder="يرجى وصف المشكلة بالتفصيل هنا..."
+                  placeholder="يرجى وصف طلبك بالتفصيل هنا..."
                   className="min-h-[150px]"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}

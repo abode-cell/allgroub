@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Hourglass, MoreHorizontal, Trash2, UserX } from 'lucide-react';
+import { CheckCircle, Hourglass, MoreHorizontal, Trash2, UserX, Users } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -117,17 +117,21 @@ export default function UsersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>الاسم</TableHead>
-                    <TableHead>البريد الإلكتروني</TableHead>
                     <TableHead>الدور</TableHead>
                     <TableHead>الحالة</TableHead>
+                    <TableHead>مدار بواسطة</TableHead>
                     <TableHead>الإجراء</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
+                  {users.map((user) => {
+                    const manager = user.managedBy ? users.find(u => u.id === user.managedBy) : null;
+                    return (
                     <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                         <div className="font-medium">{user.name}</div>
+                         <div className="text-xs text-muted-foreground">{user.email}</div>
+                      </TableCell>
                       <TableCell>
                         <Select
                           value={user.role}
@@ -156,6 +160,16 @@ export default function UsersPage() {
                           )}
                           {user.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                         {manager ? (
+                            <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm">{manager.name}</span>
+                            </div>
+                        ) : (
+                            '-'
+                        )}
                       </TableCell>
                       <TableCell>
                          {user.id !== currentUser.id && (
@@ -203,7 +217,7 @@ export default function UsersPage() {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )})}
                 </TableBody>
               </Table>
             </CardContent>

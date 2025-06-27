@@ -8,6 +8,8 @@ export type User = {
   role: UserRole;
   status: 'نشط' | 'معلق';
   phone?: string;
+  password?: string;
+  managedBy?: string;
 };
 
 export type Borrower = {
