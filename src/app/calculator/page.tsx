@@ -76,22 +76,18 @@ export default function CalculatorPage() {
         const monthlySalary = parseFloat(salary.toString());
         
         if (monthlySalary <= 0) {
-            return { maxGraceLoanAmount: 0, totalRepayment: 0 };
+            return { maxGraceLoanAmount: 0, totalRepayment: 0, profit: 0 };
         }
 
-        // Rule: The maximum total amount the borrower can repay is 30% of their monthly salary.
         const maxRepayment = monthlySalary * 0.30;
-
-        // For a grace loan, the total repayment is the principal (loan amount) + 30% profit.
-        // TotalRepayment = Principal * 1.30
-        // We know TotalRepayment must equal maxRepayment.
-        // To find the Principal, we do: Principal = maxRepayment / 1.30
         const graceProfitFactor = 1.3; 
         const maxLoanAmount = maxRepayment / graceProfitFactor;
-        
+        const profit = maxRepayment - maxLoanAmount;
+
         return {
             maxGraceLoanAmount: isFinite(maxLoanAmount) ? maxLoanAmount : 0,
             totalRepayment: isFinite(maxRepayment) ? maxRepayment : 0,
+            profit: isFinite(profit) ? profit : 0,
         };
     };
 
@@ -298,15 +294,30 @@ export default function CalculatorPage() {
                 <CardHeader>
                   <CardTitle>أقصى مبلغ تمويل مقترح</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-6 text-center">
-                  <div className="p-6 bg-accent/10 rounded-lg">
-                    <p className="text-sm text-accent-foreground/80">تمويل المهلة المقترح (لمدة شهر)</p>
-                    <p className="text-4xl font-bold text-accent-foreground">
-                      {formatCurrency(bySalaryResults.maxGraceLoanAmount)}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      إجمالي المبلغ المسدد: {formatCurrency(bySalaryResults.totalRepayment)}
-                    </p>
+                <CardContent className="grid grid-cols-1 gap-4 text-center">
+                  <div className="p-6 bg-accent/10 rounded-lg space-y-4">
+                    <div>
+                      <p className="text-sm text-accent-foreground/80">
+                        أقصى مبلغ تمويل يمكنك الحصول عليه
+                      </p>
+                      <p className="text-4xl font-bold text-accent-foreground">
+                        {formatCurrency(bySalaryResults.maxGraceLoanAmount)}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-sm border-t border-accent/20 pt-4">
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">أصل القرض</span>
+                        <span className="font-semibold">{formatCurrency(bySalaryResults.maxGraceLoanAmount)}</span>
+                      </div>
+                       <div className="flex flex-col">
+                        <span className="text-muted-foreground">الربح (30%)</span>
+                        <span className="font-semibold">{formatCurrency(bySalaryResults.profit)}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">إجمالي السداد</span>
+                        <span className="font-semibold">{formatCurrency(bySalaryResults.totalRepayment)}</span>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
