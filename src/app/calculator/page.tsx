@@ -21,6 +21,7 @@ export default function CalculatorPage() {
   
   // States for By Salary Tab
   const [salary, setSalary] = useState(5000);
+  const [salaryRepaymentPercentage, setSalaryRepaymentPercentage] = useState(30);
 
 
   const calculateInstallments = () => {
@@ -79,7 +80,7 @@ export default function CalculatorPage() {
             return { maxGraceLoanAmount: 0, totalRepayment: 0, profit: 0 };
         }
 
-        const maxRepayment = monthlySalary * 0.30;
+        const maxRepayment = monthlySalary * (salaryRepaymentPercentage / 100); 
         const graceProfitFactor = 1.3; 
         const maxLoanAmount = maxRepayment / graceProfitFactor;
         const profit = maxRepayment - maxLoanAmount;
@@ -272,7 +273,7 @@ export default function CalculatorPage() {
                     أدخل راتبك لتقدير أقصى مبلغ تمويل مهلة لمدة شهر واحد.
                     <br />
                     <small className="text-xs mt-2 block">
-                      يعتمد التقدير على أن إجمالي السداد (أصل القرض + الربح) لا يتجاوز 30% من راتبك الشهري.
+                      يعتمد التقدير على أن إجمالي السداد (أصل القرض + الربح) لا يتجاوز {salaryRepaymentPercentage}% من راتبك الشهري.
                     </small>
                   </CardDescription>
                 </CardHeader>
@@ -287,6 +288,21 @@ export default function CalculatorPage() {
                       placeholder="أدخل راتبك الشهري"
                     />
                   </div>
+                   {showProfitDetails && (
+                    <div className="space-y-4 pt-4">
+                      <Label htmlFor="salaryRepaymentPercentage">
+                        نسبة السداد من الراتب: {salaryRepaymentPercentage}%
+                      </Label>
+                      <Slider
+                        id="salaryRepaymentPercentage"
+                        min={10}
+                        max={50}
+                        step={1}
+                        value={[salaryRepaymentPercentage]}
+                        onValueChange={(value) => setSalaryRepaymentPercentage(value[0])}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
