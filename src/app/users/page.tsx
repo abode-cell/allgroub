@@ -30,6 +30,8 @@ import {
   Briefcase,
   Building2,
   PiggyBank,
+  Scale,
+  Save,
 } from 'lucide-react';
 import {
   Select,
@@ -63,6 +65,8 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } =
   {
@@ -125,11 +129,15 @@ const UserActions = ({
 
 export default function UsersPage() {
   const { user: currentUser, role } = useAuth();
-  const { users, investors, updateUserRole, deleteUser } = useData();
+  const { users, investors, updateUserRole, deleteUser, updateUserLimits } =
+    useData();
   const router = useRouter();
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [editableLimits, setEditableLimits] = useState<
+    Record<string, { investorLimit: string; employeeLimit: string }>
+  >({});
 
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
 
@@ -138,10 +146,6 @@ export default function UsersPage() {
       router.replace('/');
     }
   }, [role, canViewPage, router]);
-
-  if (!canViewPage) {
-    return null; // or a loading spinner
-  }
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
     updateUserRole(userId, newRole);
@@ -160,6 +164,46 @@ export default function UsersPage() {
     }
   };
 
+  const handleAccordionChange = (value: string) => {
+    if (value) {
+      // only run on open
+      const manager = officeManagers.find((m) => m.id === value);
+      if (manager && !editableLimits[manager.id]) {
+        setEditableLimits((prev) => ({
+          ...prev,
+          [manager.id]: {
+            investorLimit: String(manager.investorLimit ?? 10),
+            employeeLimit: String(manager.employeeLimit ?? 5),
+          },
+        }));
+      }
+    }
+  };
+
+  const handleLimitsChange = (
+    managerId: string,
+    field: 'investorLimit' | 'employeeLimit',
+    value: string
+  ) => {
+    setEditableLimits((prev) => ({
+      ...prev,
+      [managerId]: {
+        ...(prev[managerId] || { investorLimit: '0', employeeLimit: '0' }),
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveLimits = (managerId: string) => {
+    const limits = editableLimits[managerId];
+    if (limits) {
+      updateUserLimits(managerId, {
+        investorLimit: Number(limits.investorLimit) || 0,
+        employeeLimit: Number(limits.employeeLimit) || 0,
+      });
+    }
+  };
+
   // Data for System Admin
   const officeManagers = users.filter((u) => u.role === 'مدير المكتب');
   const otherUsers = users.filter(
@@ -169,10 +213,13 @@ export default function UsersPage() {
   // Data for Office Manager
   const myEmployees = users.filter((u) => u.managedBy === currentUser?.id);
 
+  if (!canViewPage) {
+    return null; // or a loading spinner
+  }
 
   const renderSystemAdminView = () => (
     <>
-       <Card>
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Briefcase className="h-6 w-6 text-primary" />
@@ -184,7 +231,12 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent>
           {officeManagers.length > 0 ? (
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion
+              type="single"
+              collapsible
+              className="w-full"
+              onValueChange={handleAccordionChange}
+            >
               {officeManagers.map((manager) => {
                 const employees = users.filter(
                   (u) => u.managedBy === manager.id
@@ -196,34 +248,34 @@ export default function UsersPage() {
                 return (
                   <AccordionItem value={manager.id} key={manager.id}>
                     <AccordionPrimitive.Header className="flex">
-                       <div className="flex flex-1 items-center justify-between hover:bg-muted/50 px-4 rounded-t-md">
-                            <AccordionTrigger className="flex-1 text-right p-0 hover:no-underline justify-start">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 py-4">
-                                    <div className="font-bold text-base">
-                                        {manager.name}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground sm:text-sm">
-                                        {manager.email}
-                                    </div>
-                                </div>
-                            </AccordionTrigger>
-                            <div className="flex items-center gap-4">
-                                <Badge variant={statusVariant[manager.status]}>
-                                    {manager.status === 'نشط' ? (
-                                    <CheckCircle className="w-3 h-3 ml-1" />
-                                    ) : (
-                                    <Hourglass className="w-3 h-3 ml-1" />
-                                    )}
-                                    {manager.status}
-                                </Badge>
-                                <div className="hidden sm:block">
-                                    <UserActions
-                                    user={manager}
-                                    onDeleteClick={handleDeleteClick}
-                                    />
-                                </div>
+                      <div className="flex flex-1 items-center justify-between hover:bg-muted/50 px-4 rounded-t-md">
+                        <AccordionTrigger className="flex-1 text-right p-0 hover:no-underline justify-start">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 py-4">
+                            <div className="font-bold text-base">
+                              {manager.name}
                             </div>
-                       </div>
+                            <div className="text-xs text-muted-foreground sm:text-sm">
+                              {manager.email}
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <div className="flex items-center gap-4">
+                          <Badge variant={statusVariant[manager.status]}>
+                            {manager.status === 'نشط' ? (
+                              <CheckCircle className="w-3 h-3 ml-1" />
+                            ) : (
+                              <Hourglass className="w-3 h-3 ml-1" />
+                            )}
+                            {manager.status}
+                          </Badge>
+                          <div className="hidden sm:block">
+                            <UserActions
+                              user={manager}
+                              onDeleteClick={handleDeleteClick}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </AccordionPrimitive.Header>
                     <AccordionContent className="bg-muted/30 p-4 border-l-4 border-primary">
                       <div className="flex justify-between items-center mb-4">
@@ -262,9 +314,7 @@ export default function UsersPage() {
                                       <TableCell>{emp.name}</TableCell>
                                       <TableCell>
                                         <Badge
-                                          variant={
-                                            statusVariant[emp.status]
-                                          }
+                                          variant={statusVariant[emp.status]}
                                         >
                                           {emp.status}
                                         </Badge>
@@ -311,6 +361,58 @@ export default function UsersPage() {
                               لا يوجد مستثمرون مرتبطون.
                             </p>
                           )}
+                        </div>
+                      </div>
+                      <div className="mt-6 pt-4 border-t">
+                        <h5 className="font-semibold mb-4 flex items-center gap-2 text-sm">
+                          <Scale className="h-4 w-4 text-muted-foreground" />
+                          إدارة الحدود
+                        </h5>
+                        <div className="grid gap-4 md:grid-cols-3 items-end">
+                          <div className="space-y-2">
+                            <Label htmlFor={`investor-limit-${manager.id}`}>
+                              حد المستثمرين
+                            </Label>
+                            <Input
+                              id={`investor-limit-${manager.id}`}
+                              type="number"
+                              value={
+                                editableLimits[manager.id]?.investorLimit ?? ''
+                              }
+                              onChange={(e) =>
+                                handleLimitsChange(
+                                  manager.id,
+                                  'investorLimit',
+                                  e.target.value
+                                )
+                              }
+                              placeholder={String(manager.investorLimit ?? 10)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`employee-limit-${manager.id}`}>
+                              حد الموظفين
+                            </Label>
+                            <Input
+                              id={`employee-limit-${manager.id}`}
+                              type="number"
+                              value={
+                                editableLimits[manager.id]?.employeeLimit ?? ''
+                              }
+                              onChange={(e) =>
+                                handleLimitsChange(
+                                  manager.id,
+                                  'employeeLimit',
+                                  e.target.value
+                                )
+                              }
+                              placeholder={String(manager.employeeLimit ?? 5)}
+                            />
+                          </div>
+                          <Button onClick={() => handleSaveLimits(manager.id)}>
+                            <Save className="ml-2 h-4 w-4" />
+                            حفظ الحدود
+                          </Button>
                         </div>
                       </div>
                     </AccordionContent>
@@ -401,7 +503,7 @@ export default function UsersPage() {
   );
 
   const renderOfficeManagerView = () => (
-     <Card>
+    <Card>
       <CardHeader>
         <CardTitle>إدارة الموظفين</CardTitle>
         <CardDescription>
@@ -418,40 +520,40 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-             {myEmployees.length > 0 ? (
-                myEmployees.map((employee) => (
-                  <TableRow key={employee.id}>
-                    <TableCell>
-                      <div className="font-medium">{employee.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {employee.email}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant[employee.status]}>
-                        {employee.status === 'نشط' ? (
-                          <CheckCircle className="w-3 h-3 ml-1" />
-                        ) : (
-                          <Hourglass className="w-3 h-3 ml-1" />
-                        )}
-                        {employee.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <UserActions
-                        user={employee}
-                        onDeleteClick={handleDeleteClick}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))
-             ) : (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center h-24">
-                    لا يوجد موظفون مرتبطون بحسابك.
+            {myEmployees.length > 0 ? (
+              myEmployees.map((employee) => (
+                <TableRow key={employee.id}>
+                  <TableCell>
+                    <div className="font-medium">{employee.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {employee.email}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant[employee.status]}>
+                      {employee.status === 'نشط' ? (
+                        <CheckCircle className="w-3 h-3 ml-1" />
+                      ) : (
+                        <Hourglass className="w-3 h-3 ml-1" />
+                      )}
+                      {employee.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <UserActions
+                      user={employee}
+                      onDeleteClick={handleDeleteClick}
+                    />
                   </TableCell>
                 </TableRow>
-             )}
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center h-24">
+                  لا يوجد موظفون مرتبطون بحسابك.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>
@@ -467,15 +569,15 @@ export default function UsersPage() {
               إدارة المستخدمين
             </h1>
             <p className="text-muted-foreground mt-1">
-              {role === 'مدير النظام' 
+              {role === 'مدير النظام'
                 ? 'عرض وإدارة مدراء المكاتب والمستخدمين الآخرين في النظام.'
-                : 'عرض وإدارة الموظفين المرتبطين بحسابك.'
-              }
+                : 'عرض وإدارة الموظفين المرتبطين بحسابك.'}
             </p>
           </header>
 
-          {role === 'مدير النظام' ? renderSystemAdminView() : renderOfficeManagerView()}
-          
+          {role === 'مدير النظام'
+            ? renderSystemAdminView()
+            : renderOfficeManagerView()}
         </main>
       </div>
 

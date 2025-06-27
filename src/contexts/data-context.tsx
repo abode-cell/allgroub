@@ -84,6 +84,10 @@ type DataContextType = {
   ) => Promise<void>;
   updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
+  updateUserLimits: (
+    userId: string,
+    limits: { investorLimit: number; employeeLimit: number }
+  ) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
 };
 
@@ -125,6 +129,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       status: 'معلق',
       photoURL: 'https://placehold.co/40x40.png',
       registrationDate: new Date().toISOString().split('T')[0],
+      investorLimit: 3,
+      employeeLimit: 1,
     };
 
     const newEmployee: User = {
@@ -358,12 +364,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const investorsAddedByManager = investors.filter(
         (i) => i.submittedBy === currentUser.id
       ).length;
-      if (investorsAddedByManager >= 10) {
+      if (investorsAddedByManager >= (currentUser.investorLimit ?? 0)) {
         toast({
           variant: 'destructive',
           title: 'تم الوصول للحد الأقصى',
           description:
-            'لقد وصلت إلى الحد الأقصى (10 مستثمرين). للتوسيع، يرجى التواصل مع الدعم الفني.',
+            'لقد وصلت إلى الحد الأقصى لعدد المستثمرين. للتوسيع، يرجى التواصل مع الدعم الفني.',
         });
         return;
       }
@@ -518,6 +524,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({ title: 'تم تحديث دور المستخدم (تجريبيًا)' });
   };
 
+  const updateUserLimits = async (
+    userId: string,
+    limits: { investorLimit: number; employeeLimit: number }
+  ) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, ...limits } : u))
+    );
+    toast({ title: 'تم تحديث حدود المستخدم بنجاح.' });
+  };
+
   const deleteUser = async (userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     toast({ variant: 'destructive', title: 'تم حذف المستخدم (تجريبيًا)' });
@@ -557,6 +573,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     rejectInvestor,
     updateUserStatus,
     updateUserRole,
+    updateUserLimits,
     deleteUser,
   };
 

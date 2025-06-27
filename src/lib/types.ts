@@ -11,6 +11,8 @@ export type User = {
   password?: string;
   managedBy?: string;
   registrationDate?: string;
+  investorLimit?: number;
+  employeeLimit?: number;
 };
 
 export type Borrower = {

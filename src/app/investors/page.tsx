@@ -45,7 +45,11 @@ export default function InvestorsPage() {
   const investorsAddedByManager = isOfficeManager
     ? investors.filter((i) => i.submittedBy === user?.id).length
     : 0;
-  const canAddMoreInvestors = investorsAddedByManager < 10;
+
+  const canAddMoreInvestors =
+    isOfficeManager && user
+      ? investorsAddedByManager < (user.investorLimit ?? 0)
+      : !isOfficeManager;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -117,10 +121,11 @@ export default function InvestorsPage() {
               إدارة المستثمرين
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isOfficeManager
-                ? `يمكنك إضافة ${
-                    10 - investorsAddedByManager
-                  } مستثمرين آخرين.`
+              {isOfficeManager && user
+                ? `يمكنك إضافة ${Math.max(
+                    0,
+                    (user.investorLimit ?? 0) - investorsAddedByManager
+                  )} مستثمرين آخرين.`
                 : 'عرض وإدارة قائمة المستثمرين في المنصة.'}
             </p>
           </header>
