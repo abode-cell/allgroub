@@ -140,7 +140,7 @@ export default function RequestsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>اسم القرض/العميل</TableHead>
+                      <TableHead>اسم المقترض</TableHead>
                       <TableHead>المبلغ المطلوب</TableHead>
                       <TableHead>نوع التمويل</TableHead>
                       <TableHead>الحالة</TableHead>

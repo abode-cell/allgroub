@@ -158,11 +158,11 @@ export default function BorrowersPage() {
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">
-                      الاسم
+                      اسم المقترض
                     </Label>
                     <Input
                       id="name"
-                      placeholder="اسم العميل/القرض"
+                      placeholder="اسم المقترض"
                       className="col-span-3"
                       value={newBorrower.name}
                       onChange={handleInputChange}

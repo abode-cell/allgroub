@@ -160,7 +160,7 @@ export function BorrowersTable({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>اسم القرض/العميل</TableHead>
+                <TableHead>اسم المقترض</TableHead>
                 <TableHead>مبلغ القرض</TableHead>
                 {isGracePeriodTable && <TableHead>الخصم</TableHead>}
                 <TableHead>نوع التمويل</TableHead>
@@ -509,14 +509,14 @@ export function BorrowersTable({
           <DialogHeader>
             <DialogTitle>تفاصيل القرض</DialogTitle>
             <DialogDescription>
-              عرض تفصيلي لمعلومات قرض العميل {selectedBorrower?.name}.
+              عرض تفصيلي لمعلومات قرض المقترض {selectedBorrower?.name}.
             </DialogDescription>
           </DialogHeader>
           {selectedBorrower && (
             <div className="grid gap-4 py-4 text-sm">
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
                   <div>
-                      <span className='text-muted-foreground'>اسم العميل:</span>
+                      <span className='text-muted-foreground'>اسم المقترض:</span>
                       <span className='font-bold float-left'>{selectedBorrower.name}</span>
                   </div>
                   <div>

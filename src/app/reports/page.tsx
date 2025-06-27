@@ -28,7 +28,7 @@ const ReportTable = ({ loans, getInvestorNameForLoan }: { loans: Borrower[], get
      <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>اسم القرض/العميل</TableHead>
+            <TableHead>اسم المقترض</TableHead>
             <TableHead>مبلغ القرض</TableHead>
             <TableHead>تاريخ القرض</TableHead>
             <TableHead>تاريخ الاستحقاق</TableHead>
