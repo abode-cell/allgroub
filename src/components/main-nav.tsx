@@ -92,16 +92,16 @@ const allMenuItems = [
     roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
   },
   {
+    href: '/users',
+    label: 'إدارة المستخدمين',
+    icon: Users,
+    roles: ['مدير النظام', 'مدير المكتب'],
+  },
+  {
     href: '/profile',
     label: 'الملف الشخصي',
     icon: UserCog,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
-  },
-  {
-    href: '/settings',
-    label: 'الإعدادات الإدارية',
-    icon: Settings,
-    roles: ['مدير النظام', 'مدير المكتب'],
   },
 ];
 
