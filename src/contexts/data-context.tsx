@@ -81,7 +81,7 @@ type DataContextType = {
   rejectInvestor: (investorId: string, reason: string) => Promise<void>;
   withdrawFromInvestor: (
     investorId: string,
-    withdrawal: Omit<Transaction, 'id' | 'date'>
+    withdrawal: Omit<Transaction, 'id'>
   ) => Promise<void>;
   updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
@@ -474,7 +474,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const withdrawFromInvestor = async (
     investorId: string,
-    withdrawal: Omit<Transaction, 'id' | 'date'>
+    withdrawal: Omit<Transaction, 'id'>
   ) => {
     setInvestors((prev) =>
       prev.map((inv) => {
@@ -482,7 +482,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const newTransaction: Transaction = {
             ...withdrawal,
             id: `t_${Date.now()}`,
-            date: new Date().toISOString().split('T')[0],
           };
           return {
             ...inv,

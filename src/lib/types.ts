@@ -39,6 +39,7 @@ export type Payment = {
 };
 
 export type TransactionType = 'إيداع رأس المال' | 'سحب من رأس المال' | 'إيداع أرباح' | 'سحب أرباح';
+export type WithdrawalMethod = 'نقدي' | 'بنكي';
 
 export type Transaction = {
   id: string;
@@ -46,6 +47,7 @@ export type Transaction = {
   type: TransactionType;
   amount: number;
   description: string;
+  withdrawalMethod?: WithdrawalMethod;
 };
 
 export type Investor = {

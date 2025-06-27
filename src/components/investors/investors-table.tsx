@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, CheckCircle } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -33,7 +33,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { Textarea } from '../ui/textarea';
-import type { Investor, Transaction, TransactionType } from '@/lib/types';
+import type { Investor, Transaction, TransactionType, WithdrawalMethod } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import {
   Select,
@@ -42,6 +42,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Calendar } from '../ui/calendar';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+
 
 type InvestorsTableProps = {
   investors: Investor[];
@@ -78,7 +84,19 @@ export function InvestorsTable({
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
 
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(null);
-  const [withdrawal, setWithdrawal] = useState({ amount: '', description: '', type: 'سحب أرباح' as TransactionType });
+  const [withdrawal, setWithdrawal] = useState<{
+    amount: string;
+    description: string;
+    type: TransactionType;
+    date: Date | undefined;
+    withdrawalMethod: WithdrawalMethod;
+  }>({
+    amount: '',
+    description: '',
+    type: 'سحب أرباح',
+    date: new Date(),
+    withdrawalMethod: 'بنكي',
+  });
 
   const handleEditClick = (investor: Investor) => {
     setSelectedInvestor({ ...investor });
@@ -114,16 +132,18 @@ export function InvestorsTable({
 
   const handleConfirmWithdrawal = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedInvestor || !withdrawal.amount || !withdrawal.description) return;
+    if (!selectedInvestor || !withdrawal.amount || !withdrawal.description || !withdrawal.date) return;
     
     withdrawFromInvestor(selectedInvestor.id, {
       amount: Number(withdrawal.amount),
       description: withdrawal.description,
-      type: withdrawal.type
+      type: withdrawal.type,
+      date: format(withdrawal.date, 'yyyy-MM-dd'),
+      withdrawalMethod: withdrawal.withdrawalMethod,
     });
 
     setIsWithdrawDialogOpen(false);
-    setWithdrawal({ amount: '', description: '', type: 'سحب أرباح' });
+    setWithdrawal({ amount: '', description: '', type: 'سحب أرباح', date: new Date(), withdrawalMethod: 'بنكي' });
     setSelectedInvestor(null);
   }
 
@@ -322,6 +342,7 @@ export function InvestorsTable({
                                     <TableHead>التاريخ</TableHead>
                                     <TableHead>النوع</TableHead>
                                     <TableHead>الوصف</TableHead>
+                                    <TableHead>الطريقة</TableHead>
                                     <TableHead className="text-left">المبلغ</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -335,6 +356,7 @@ export function InvestorsTable({
                                                 <TableCell className="text-xs">{tx.date}</TableCell>
                                                 <TableCell><Badge variant={transactionTypeVariant[tx.type] || 'outline'}>{tx.type}</Badge></TableCell>
                                                 <TableCell className="text-xs">{tx.description}</TableCell>
+                                                <TableCell className="text-xs">{tx.withdrawalMethod || '-'}</TableCell>
                                                 <TableCell className={`text-left font-medium ${tx.type.includes('إيداع') ? 'text-green-600' : 'text-destructive'}`}>
                                                     {tx.type.includes('إيداع') ? '+' : '-'}
                                                     {formatCurrency(tx.amount)}
@@ -343,7 +365,7 @@ export function InvestorsTable({
                                         ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center h-24">
+                                        <TableCell colSpan={5} className="text-center h-24">
                                             لا يوجد سجل عمليات لهذا المستثمر.
                                         </TableCell>
                                     </TableRow>
@@ -375,6 +397,49 @@ export function InvestorsTable({
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="date">تاريخ السحب</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={'outline'}
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !withdrawal.date && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="ml-2 h-4 w-4" />
+                      {withdrawal.date ? format(withdrawal.date, 'PPP') : <span>اختر تاريخ</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={withdrawal.date}
+                      onSelect={(date) => setWithdrawal(prev => ({ ...prev, date }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="withdrawalMethod">طريقة السحب</Label>
+                <RadioGroup
+                    id="withdrawalMethod"
+                    value={withdrawal.withdrawalMethod}
+                    onValueChange={(value: WithdrawalMethod) => setWithdrawal(prev => ({...prev, withdrawalMethod: value}))}
+                    className="flex gap-4"
+                >
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                        <RadioGroupItem value="بنكي" id="bank" />
+                        <Label htmlFor="bank">بنكي</Label>
+                    </div>
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                        <RadioGroupItem value="نقدي" id="cash" />
+                        <Label htmlFor="cash">نقدي</Label>
+                    </div>
+                </RadioGroup>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="amount">المبلغ</Label>
                 <Input
