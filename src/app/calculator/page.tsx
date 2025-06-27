@@ -19,32 +19,28 @@ export default function CalculatorPage() {
   const [graceLoanAmount, setGraceLoanAmount] = useState(100000);
 
   const calculateInstallments = () => {
-    // We check for loanAmount and loanTerm. Interest rate can be 0.
     if (!loanAmount || !loanTerm) {
       return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0, institutionProfit: 0, investorProfit: 0 };
     }
 
     const principal = parseFloat(loanAmount.toString());
     const annualRate = parseFloat(interestRate.toString() || '0') / 100;
-    const termInMonths = parseFloat(loanTerm.toString()) * 12;
+    const termInYears = parseFloat(loanTerm.toString());
 
-    if (principal <= 0 || termInMonths <= 0) {
+    if (principal <= 0 || termInYears <= 0) {
       return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0, institutionProfit: 0, investorProfit: 0 };
     }
+    
+    const termInMonths = termInYears * 12;
 
-    let monthlyPayment: number;
-    // Handle the edge case of a 0% interest loan
-    if (annualRate === 0) {
-      monthlyPayment = principal / termInMonths;
-    } else {
-      const monthlyRate = annualRate / 12;
-      const numerator = principal * monthlyRate * Math.pow(1 + monthlyRate, termInMonths);
-      const denominator = Math.pow(1 + monthlyRate, termInMonths) - 1;
-      monthlyPayment = numerator / denominator;
-    }
+    // Switched from compound interest to a simple/flat rate calculation.
+    // This is more common in Murabaha-style (cost-plus) financing.
+    const totalInterest = principal * annualRate * termInYears;
+    const totalPayment = principal + totalInterest;
+    
+    // Monthly payment is the same each month.
+    const monthlyPayment = termInMonths > 0 ? totalPayment / termInMonths : totalPayment;
 
-    const totalPayment = monthlyPayment * termInMonths;
-    const totalInterest = totalPayment - principal;
     const institutionProfit = totalInterest * ((100 - investorShare) / 100);
     const investorProfit = totalInterest * (investorShare / 100);
 
