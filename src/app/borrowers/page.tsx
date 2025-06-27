@@ -60,6 +60,7 @@ export default function BorrowersPage() {
     loanType: 'اقساط' | 'مهلة';
     status: Borrower['status'];
     dueDate: string;
+    discount: string;
   }>({
     name: '',
     amount: '',
@@ -68,6 +69,7 @@ export default function BorrowersPage() {
     loanType: 'اقساط',
     status: 'منتظم',
     dueDate: '',
+    discount: '',
   });
   
   const isEmployee = role === 'موظف';
@@ -82,7 +84,7 @@ export default function BorrowersPage() {
   };
   
   const handleLoanTypeChange = (value: 'اقساط' | 'مهلة') => {
-    setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '' }));
+    setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '', discount: '' }));
   };
 
 
@@ -112,10 +114,11 @@ export default function BorrowersPage() {
       loanType: newBorrower.loanType,
       status: finalStatus,
       dueDate: newBorrower.dueDate,
+      discount: Number(newBorrower.discount) || 0,
     }, selectedInvestors);
 
     setIsAddDialogOpen(false);
-    setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '' });
+    setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
     setSelectedInvestors([]);
   };
 
@@ -229,6 +232,21 @@ export default function BorrowersPage() {
                         />
                       </div>
                     </>
+                  )}
+                  {newBorrower.loanType === 'مهلة' && (
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="discount" className="text-right">
+                          الخصم
+                        </Label>
+                        <Input
+                          id="discount"
+                          type="number"
+                          placeholder="مبلغ الخصم (إن وجد)"
+                          className="col-span-3"
+                          value={newBorrower.discount}
+                          onChange={handleInputChange}
+                        />
+                      </div>
                   )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="dueDate" className="text-right">

@@ -369,6 +369,25 @@ export function BorrowersTable({
                   </div>
                  </>
                )}
+               {selectedBorrower.loanType === 'مهلة' && (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="discount" className="text-right">
+                      الخصم
+                    </Label>
+                    <Input
+                      id="discount"
+                      type="number"
+                      value={selectedBorrower.discount || ''}
+                      onChange={(e) =>
+                        setSelectedBorrower({
+                          ...selectedBorrower,
+                          discount: Number(e.target.value),
+                        })
+                      }
+                      className="col-span-3"
+                    />
+                  </div>
+               )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="dueDate" className="text-right">
                   تاريخ الاستحقاق
@@ -523,6 +542,15 @@ export function BorrowersTable({
                     <div>
                         <span className='text-muted-foreground'>المدة (سنوات):</span>
                         <span className='font-bold float-left'>{selectedBorrower.term}</span>
+                    </div>
+                </div>
+              )}
+
+              {selectedBorrower.loanType === 'مهلة' && (
+                <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                     <div>
+                        <span className='text-muted-foreground'>مبلغ الخصم:</span>
+                        <span className='font-bold float-left text-green-600'>{formatCurrency(selectedBorrower.discount || 0)}</span>
                     </div>
                 </div>
               )}
