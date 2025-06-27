@@ -54,3 +54,14 @@ export type Investor = {
   submittedBy?: string;
   rejectionReason?: string;
 };
+
+export type SupportTicket = {
+  id: string;
+  subject: string;
+  message: string;
+  fromUserId: string;
+  fromUserName: string;
+  fromUserEmail: string;
+  date: string;
+  isRead: boolean;
+};

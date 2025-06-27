@@ -1,4 +1,4 @@
-import type { Borrower, Investor, User } from '@/lib/types';
+import type { Borrower, Investor, User, SupportTicket } from '@/lib/types';
 
 export const usersData: User[] = [
   { id: '1', name: 'مدير النظام', email: 'admin@example.com', role: 'مدير النظام', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000001' },
@@ -94,3 +94,5 @@ export const borrowersData: Borrower[] = [
     submittedBy: '3',
   },
 ];
+
+export const supportTicketsData: SupportTicket[] = [];
