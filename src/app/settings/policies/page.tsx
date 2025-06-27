@@ -9,19 +9,23 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PoliciesPage() {
   const { role } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
 
   useEffect(() => {
-    if (!canViewPage) {
+    // Redirect if role is loaded and user doesn't have permission
+    if (role && !canViewPage) {
       router.replace('/');
     }
   }, [role, canViewPage, router]);
 
+  // If the role is not yet loaded, or they don't have permission, don't render the page content
   if (!canViewPage) {
     return null;
   }
@@ -29,6 +33,16 @@ export default function PoliciesPage() {
   // Placeholder state for policies
   const [daysUntilDefault, setDaysUntilDefault] = useState(90);
   const [lateFeePercentage, setLateFeePercentage] = useState(5);
+
+  const handleSaveChanges = () => {
+    // In a real app, you would save these values.
+    // Here, we just show a toast.
+    toast({
+      title: 'تم الحفظ',
+      description: 'تم حفظ إعدادات السياسة (تجريبيًا).',
+    });
+  };
+
 
   return (
     <div className="flex flex-col flex-1">
@@ -79,9 +93,9 @@ export default function PoliciesPage() {
                 النسبة التي تضاف كرسوم عند تأخر سداد القسط.
               </p>
             </div>
-             <Button disabled className="w-full">
+             <Button className="w-full" onClick={handleSaveChanges}>
                 <Save className="ml-2 h-4 w-4" />
-                حفظ التغييرات (قريبًا)
+                حفظ التغييرات
             </Button>
           </CardContent>
         </Card>

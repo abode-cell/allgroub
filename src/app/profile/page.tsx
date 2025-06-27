@@ -107,7 +107,7 @@ export default function ProfilePage() {
             <Card>
                 <CardHeader>
                     <CardTitle>المعلومات الشخصية</CardTitle>
-                    <CardDescription>تحديث اسمك ورقم هاتفك. تم تعطيل الحفظ في الوضع التجريبي.</CardDescription>
+                    <CardDescription>تحديث اسمك ورقم هاتفك. يتم حفظ التغييرات بشكل تجريبي.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form {...profileForm}>
@@ -138,8 +138,8 @@ export default function ProfilePage() {
                                     </FormItem>
                                 )}
                             />
-                            <Button type="submit" disabled>
-                                حفظ التغييرات (معطل)
+                            <Button type="submit" disabled={isProfileSubmitting}>
+                                {isProfileSubmitting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : 'حفظ التغييرات'}
                             </Button>
                         </form>
                     </Form>
@@ -150,7 +150,7 @@ export default function ProfilePage() {
             <Card>
                 <CardHeader>
                     <CardTitle>تغيير كلمة المرور</CardTitle>
-                    <CardDescription>اختر كلمة مرور قوية وآمنة. تم تعطيل الحفظ في الوضع التجريبي.</CardDescription>
+                    <CardDescription>اختر كلمة مرور قوية وآمنة. يتم حفظ التغييرات بشكل تجريبي.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form {...passwordForm}>
@@ -181,8 +181,8 @@ export default function ProfilePage() {
                                     </FormItem>
                                 )}
                             />
-                             <Button type="submit" disabled>
-                                تحديث كلمة المرور (معطل)
+                             <Button type="submit" disabled={isPasswordSubmitting}>
+                                {isPasswordSubmitting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : 'تحديث كلمة المرور'}
                             </Button>
                         </form>
                     </Form>
@@ -198,7 +198,9 @@ export default function ProfilePage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <Button disabled>تغيير البريد الإلكتروني (معطل)</Button>
+                     <Button onClick={() => toast({ title: 'ميزة غير مدعومة', description: 'تغيير البريد الإلكتروني غير متاح في الوضع التجريبي.' })}>
+                        تغيير البريد الإلكتروني
+                    </Button>
                 </CardContent>
              </Card>
         </div>
