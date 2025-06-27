@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users } from 'lucide-react';
+import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { ProfitChart } from '@/components/dashboard/profit-chart';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
@@ -101,12 +101,13 @@ const GracePeriodDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
     const gracePeriodDefaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
     const gracePeriodDefaultRate = gracePeriodLoansGranted > 0 ? (gracePeriodDefaultedFunds / gracePeriodLoansGranted) * 100 : 0;
     const gracePeriodProfit = gracePeriodLoansGranted * (graceTotalProfitPercentage / 100);
+    const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
     
     const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
 
     return (
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <KpiCard
                     title="التمويل الممنوح (مهلة)"
                     value={formatCurrency(gracePeriodLoansGranted)}
@@ -122,6 +123,13 @@ const GracePeriodDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
                         changeColor='text-green-500'
                     />
                  )}
+                 <KpiCard
+                    title="إجمالي الخصومات"
+                    value={formatCurrency(totalDiscounts)}
+                    change="على قروض المهلة"
+                    icon={<BadgePercent className="size-6 text-muted-foreground" />}
+                    changeColor="text-blue-500"
+                 />
                  <KpiCard
                     title="الأموال المتعثرة (مهلة)"
                     value={formatCurrency(gracePeriodDefaultedFunds)}
