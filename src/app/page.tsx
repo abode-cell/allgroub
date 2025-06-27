@@ -11,6 +11,7 @@ import { useData } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Borrower } from '@/lib/types';
 import { DailySummary } from '@/components/dashboard/daily-summary';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -73,11 +74,13 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-12 lg:col-span-4">
-          <ProfitChart />
-        </div>
-        <div className="col-span-12 lg:col-span-3">
+      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
+        {showSensitiveData && (
+          <div className="col-span-12 lg:col-span-4">
+            <ProfitChart />
+          </div>
+        )}
+        <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-3" : "lg:col-span-7")}>
           <LoansStatusChart borrowers={installmentLoans} />
         </div>
       </div>
