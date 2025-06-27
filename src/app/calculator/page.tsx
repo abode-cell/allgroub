@@ -141,6 +141,8 @@ export default function CalculatorPage() {
     new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'SAR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(value);
     
   const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب';
@@ -189,8 +191,8 @@ export default function CalculatorPage() {
                             </Label>
                             <Slider
                             id="baseInterestRate"
-                            min={1}
-                            max={25}
+                            min={0}
+                            max={100}
                             step={0.5}
                             value={[localBaseInterestRate]}
                             onValueChange={(value) => setLocalBaseInterestRate(value[0])}
@@ -262,31 +264,34 @@ export default function CalculatorPage() {
                 <CardHeader>
                   <CardTitle>نتائج الأقساط</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
-                    <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground">القسط الشهري</p>
-                        <p className="text-2xl font-bold">{formatCurrency(installmentResults.monthlyPayment)}</p>
+                <CardContent className="space-y-4">
+                    <div className="flex items-baseline justify-between rounded-lg bg-muted p-4">
+                        <p className="text-lg text-muted-foreground">القسط الشهري</p>
+                        <p className="text-3xl font-bold">{formatCurrency(installmentResults.monthlyPayment)}</p>
                     </div>
-                     <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground">إجمالي المبلغ المسدد</p>
-                        <p className="text-2xl font-bold">{formatCurrency(installmentResults.totalPayment)}</p>
-                    </div>
-                     <div className="p-4 bg-muted rounded-lg col-span-1 md:col-span-2">
-                        <p className="text-sm text-muted-foreground">إجمالي الأرباح</p>
-                        <p className="text-2xl font-bold">{formatCurrency(installmentResults.totalInterest)}</p>
-                    </div>
-                    {showProfitDetails && (
-                      <>
-                        <div className="p-4 bg-accent/10 rounded-lg">
-                            <p className="text-sm text-accent-foreground/80">ربح المؤسسة</p>
-                            <p className="text-2xl font-bold text-accent-foreground">{formatCurrency(installmentResults.institutionProfit)}</p>
+                    <div className="space-y-2 rounded-lg border p-4">
+                        <div className="flex justify-between">
+                            <p className="text-muted-foreground">إجمالي المبلغ المسدد</p>
+                            <p className="font-semibold">{formatCurrency(installmentResults.totalPayment)}</p>
                         </div>
-                         <div className="p-4 bg-primary/10 rounded-lg">
-                            <p className="text-sm text-primary/80">ربح المستثمرين</p>
-                            <p className="text-2xl font-bold text-primary">{formatCurrency(installmentResults.investorProfit)}</p>
+                        <div className="flex justify-between">
+                            <p className="text-muted-foreground">إجمالي الأرباح</p>
+                            <p className="font-semibold">{formatCurrency(installmentResults.totalInterest)}</p>
                         </div>
-                      </>
-                    )}
+                        {showProfitDetails && (
+                            <>
+                                <div className="my-2 border-t border-dashed"></div>
+                                <div className="flex justify-between text-accent-foreground">
+                                    <p>ربح المؤسسة</p>
+                                    <p className="font-semibold">{formatCurrency(installmentResults.institutionProfit)}</p>
+                                </div>
+                                <div className="flex justify-between text-primary">
+                                    <p>ربح المستثمرين</p>
+                                    <p className="font-semibold">{formatCurrency(installmentResults.investorProfit)}</p>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </CardContent>
               </Card>
             </div>
@@ -323,7 +328,7 @@ export default function CalculatorPage() {
                                   </Label>
                                   <Slider
                                       id="graceTotalProfit"
-                                      min={30} max={50} step={1}
+                                      min={0} max={50} step={1}
                                       value={[localGraceTotalProfitPercentage]}
                                       onValueChange={(value) => setLocalGraceTotalProfitPercentage(value[0])}
                                   />
@@ -367,28 +372,28 @@ export default function CalculatorPage() {
                   <CardHeader>
                     <CardTitle>نتائج أرباح المهلة</CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 gap-6 text-center">
-                       <div className="p-4 bg-muted rounded-lg col-span-1">
-                          <p className="text-sm text-muted-foreground">إجمالي الأرباح ({graceTotalProfitPercentage}%)</p>
-                          <p className="text-2xl font-bold">{formatCurrency(gracePeriodResults.totalProfit)}</p>
-                      </div>
-                      {showProfitDetails ? (
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <div className="p-4 bg-accent/10 rounded-lg">
-                              <p className="text-sm text-accent-foreground/80">ربح المؤسسة</p>
-                              <p className="text-2xl font-bold text-accent-foreground">{formatCurrency(gracePeriodResults.institutionProfit)}</p>
-                          </div>
-                           <div className="p-4 bg-primary/10 rounded-lg">
-                              <p className="text-sm text-primary/80">ربح المستثمر ({graceInvestorSharePercentage.toFixed(1)}%)</p>
-                              <p className="text-2xl font-bold text-primary">{formatCurrency(gracePeriodResults.investorProfit)}</p>
-                          </div>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-baseline justify-between rounded-lg bg-muted p-4">
+                        <p className="text-lg text-muted-foreground">إجمالي الأرباح ({graceTotalProfitPercentage}%)</p>
+                        <p className="text-3xl font-bold">{formatCurrency(gracePeriodResults.totalProfit)}</p>
+                    </div>
+                    {showProfitDetails ? (
+                        <div className="space-y-2 rounded-lg border p-4">
+                            <div className="flex justify-between text-accent-foreground">
+                                <p>ربح المؤسسة</p>
+                                <p className="font-semibold">{formatCurrency(gracePeriodResults.institutionProfit)}</p>
+                            </div>
+                            <div className="flex justify-between text-primary">
+                                <p>ربح المستثمر ({graceInvestorSharePercentage.toFixed(1)}%)</p>
+                                <p className="font-semibold">{formatCurrency(gracePeriodResults.investorProfit)}</p>
+                            </div>
                         </div>
-                      ) : (
-                         <div className="p-4 bg-muted rounded-lg">
-                            <p className="text-sm text-muted-foreground">تفاصيل الأرباح متاحة للمدراء فقط.</p>
+                    ) : (
+                        <div className="p-4 text-center text-muted-foreground bg-muted/50 rounded-lg">
+                            <p>تفاصيل الأرباح متاحة للمدراء فقط.</p>
                         </div>
-                      )}
-                  </CardContent>
+                    )}
+                </CardContent>
                 </Card>
               </div>
           </TabsContent>
@@ -450,31 +455,30 @@ export default function CalculatorPage() {
                 <CardHeader>
                   <CardTitle>أقصى مبلغ تمويل مقترح</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-4 text-center">
-                  <div className="p-6 bg-accent/10 rounded-lg space-y-4">
-                    <div>
-                      <p className="text-sm text-accent-foreground/80">
-                        أقصى مبلغ تمويل يمكنك الحصول عليه
-                      </p>
-                      <p className="text-4xl font-bold text-accent-foreground">
-                        {formatCurrency(bySalaryResults.maxGraceLoanAmount)}
-                      </p>
+                 <CardContent className="grid grid-cols-1 gap-4">
+                    <div className="space-y-4 rounded-lg border bg-background p-6 text-center">
+                        <p className="text-muted-foreground">
+                            أقصى مبلغ تمويل يمكنك الحصول عليه
+                        </p>
+                        <p className="text-4xl font-bold text-primary">
+                            {formatCurrency(bySalaryResults.maxGraceLoanAmount)}
+                        </p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-sm border-t border-accent/20 pt-4">
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground">أصل القرض</span>
-                        <span className="font-semibold">{formatCurrency(bySalaryResults.maxGraceLoanAmount)}</span>
-                      </div>
-                       <div className="flex flex-col">
-                        <span className="text-muted-foreground">الربح ({graceTotalProfitPercentage}%)</span>
-                        <span className="font-semibold">{formatCurrency(bySalaryResults.profit)}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground">إجمالي السداد</span>
-                        <span className="font-semibold">{formatCurrency(bySalaryResults.totalRepayment)}</span>
-                      </div>
+                    <div className="space-y-2 rounded-lg border p-4">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">أصل القرض</span>
+                            <span className="font-semibold">{formatCurrency(bySalaryResults.maxGraceLoanAmount)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">الربح ({graceTotalProfitPercentage}%)</span>
+                            <span className="font-semibold">{formatCurrency(bySalaryResults.profit)}</span>
+                        </div>
+                        <div className="my-2 border-t border-dashed"></div>
+                        <div className="flex justify-between text-lg">
+                            <span className="text-muted-foreground">إجمالي السداد</span>
+                            <span className="font-bold">{formatCurrency(bySalaryResults.totalRepayment)}</span>
+                        </div>
                     </div>
-                  </div>
                 </CardContent>
               </Card>
             </div>
