@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,8 @@ import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useData } from '@/contexts/data-context';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 export default function CalculatorPage() {
   const { role } = useAuth();
@@ -29,6 +31,23 @@ export default function CalculatorPage() {
   
   // States for By Salary Tab
   const [salary, setSalary] = useState(5000);
+
+  // Local states for manager edits
+  const [localBaseInterestRate, setLocalBaseInterestRate] = useState(baseInterestRate);
+  const [localInvestorSharePercentage, setLocalInvestorSharePercentage] = useState(investorSharePercentage);
+  const [localSalaryRepaymentPercentage, setLocalSalaryRepaymentPercentage] = useState(salaryRepaymentPercentage);
+
+  useEffect(() => {
+    setLocalBaseInterestRate(baseInterestRate);
+  }, [baseInterestRate]);
+  
+  useEffect(() => {
+    setLocalInvestorSharePercentage(investorSharePercentage);
+  }, [investorSharePercentage]);
+
+  useEffect(() => {
+    setLocalSalaryRepaymentPercentage(salaryRepaymentPercentage);
+  }, [salaryRepaymentPercentage]);
 
 
   const calculateInstallments = () => {
@@ -148,18 +167,30 @@ export default function CalculatorPage() {
                     />
                   </div>
                    {showProfitDetails ? (
-                    <div className="space-y-4">
-                      <Label htmlFor="baseInterestRate">
-                        نسبة الربح السنوية: {baseInterestRate}%
-                      </Label>
-                      <Slider
-                        id="baseInterestRate"
-                        min={1}
-                        max={25}
-                        step={0.5}
-                        value={[baseInterestRate]}
-                        onValueChange={(value) => updateBaseInterestRate(value[0])}
-                      />
+                    <div className="space-y-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="baseInterestRate">
+                            نسبة الربح السنوية: {localBaseInterestRate}%
+                            </Label>
+                            <Slider
+                            id="baseInterestRate"
+                            min={1}
+                            max={25}
+                            step={0.5}
+                            value={[localBaseInterestRate]}
+                            onValueChange={(value) => setLocalBaseInterestRate(value[0])}
+                            />
+                        </div>
+                        <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full"
+                            onClick={() => updateBaseInterestRate(localBaseInterestRate)}
+                            disabled={localBaseInterestRate === baseInterestRate}
+                        >
+                            <Save className="ml-2 h-4 w-4" />
+                            تأكيد النسبة
+                        </Button>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -183,18 +214,30 @@ export default function CalculatorPage() {
                     />
                   </div>
                   {showProfitDetails && (
-                    <div className="space-y-4 pt-4">
-                      <Label htmlFor="investorShare">
-                        حصة المستثمر من الأرباح: {investorSharePercentage}%
-                      </Label>
-                      <Slider
-                        id="investorShare"
-                        min={0}
-                        max={100}
-                        step={5}
-                        value={[investorSharePercentage]}
-                        onValueChange={(value) => updateInvestorSharePercentage(value[0])}
-                      />
+                    <div className="space-y-2 pt-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="investorShare">
+                            حصة المستثمر من الأرباح: {localInvestorSharePercentage}%
+                            </Label>
+                            <Slider
+                            id="investorShare"
+                            min={0}
+                            max={100}
+                            step={5}
+                            value={[localInvestorSharePercentage]}
+                            onValueChange={(value) => setLocalInvestorSharePercentage(value[0])}
+                            />
+                        </div>
+                        <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full"
+                            onClick={() => updateInvestorSharePercentage(localInvestorSharePercentage)}
+                            disabled={localInvestorSharePercentage === investorSharePercentage}
+                        >
+                            <Save className="ml-2 h-4 w-4" />
+                            تأكيد الحصة
+                        </Button>
                     </div>
                   )}
                 </CardContent>
@@ -310,18 +353,30 @@ export default function CalculatorPage() {
                     />
                   </div>
                    {showProfitDetails && (
-                    <div className="space-y-4 pt-4">
-                      <Label htmlFor="salaryRepaymentPercentage">
-                        نسبة السداد من الراتب: {salaryRepaymentPercentage}%
-                      </Label>
-                      <Slider
-                        id="salaryRepaymentPercentage"
-                        min={10}
-                        max={50}
-                        step={1}
-                        value={[salaryRepaymentPercentage]}
-                        onValueChange={(value) => updateSalaryRepaymentPercentage(value[0])}
-                      />
+                    <div className="space-y-2 pt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="salaryRepaymentPercentage">
+                          نسبة السداد من الراتب: {localSalaryRepaymentPercentage}%
+                        </Label>
+                        <Slider
+                          id="salaryRepaymentPercentage"
+                          min={10}
+                          max={50}
+                          step={1}
+                          value={[localSalaryRepaymentPercentage]}
+                          onValueChange={(value) => setLocalSalaryRepaymentPercentage(value[0])}
+                        />
+                      </div>
+                       <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => updateSalaryRepaymentPercentage(localSalaryRepaymentPercentage)}
+                        disabled={localSalaryRepaymentPercentage === salaryRepaymentPercentage}
+                      >
+                        <Save className="ml-2 h-4 w-4" />
+                        تأكيد النسبة
+                      </Button>
                     </div>
                   )}
                 </CardContent>
