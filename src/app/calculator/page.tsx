@@ -11,13 +11,18 @@ import { useData } from '@/contexts/data-context';
 
 export default function CalculatorPage() {
   const { role } = useAuth();
-  const { salaryRepaymentPercentage, updateSalaryRepaymentPercentage } = useData();
+  const { 
+    salaryRepaymentPercentage, 
+    updateSalaryRepaymentPercentage,
+    baseInterestRate,
+    updateBaseInterestRate,
+    investorSharePercentage,
+    updateInvestorSharePercentage,
+  } = useData();
   
   // States for Installments Tab
   const [loanAmount, setLoanAmount] = useState(100000);
-  const [interestRate, setInterestRate] = useState(5.5);
   const [loanTerm, setLoanTerm] = useState(5);
-  const [investorShare, setInvestorShare] = useState(70);
 
   // State for Grace Period Tab
   const [graceLoanAmount, setGraceLoanAmount] = useState(100000);
@@ -32,7 +37,7 @@ export default function CalculatorPage() {
     }
 
     const principal = parseFloat(loanAmount.toString());
-    const annualRate = parseFloat(interestRate.toString() || '0') / 100;
+    const annualRate = parseFloat(baseInterestRate.toString() || '0') / 100;
     const termInYears = parseFloat(loanTerm.toString());
 
     if (principal <= 0 || termInYears <= 0 || annualRate < 0) {
@@ -50,8 +55,8 @@ export default function CalculatorPage() {
     
     const monthlyPayment = termInMonths > 0 ? totalPayment / termInMonths : totalPayment;
 
-    const institutionProfit = totalInterest * ((100 - investorShare) / 100);
-    const investorProfit = totalInterest * (investorShare / 100);
+    const institutionProfit = totalInterest * ((100 - investorSharePercentage) / 100);
+    const investorProfit = totalInterest * (investorSharePercentage / 100);
 
     return {
       monthlyPayment: isFinite(monthlyPayment) ? monthlyPayment : 0,
@@ -142,17 +147,31 @@ export default function CalculatorPage() {
                       placeholder="أدخل مبلغ القرض"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="interestRate">نسبة الربح السنوية (%)</Label>
-                    <Input
-                      id="interestRate"
-                      type="number"
-                      step="0.1"
-                      value={interestRate}
-                      onChange={(e) => setInterestRate(Number(e.target.value))}
-                      placeholder="أدخل نسبة الربح"
-                    />
-                  </div>
+                   {showProfitDetails ? (
+                    <div className="space-y-4">
+                      <Label htmlFor="baseInterestRate">
+                        نسبة الربح السنوية: {baseInterestRate}%
+                      </Label>
+                      <Slider
+                        id="baseInterestRate"
+                        min={1}
+                        max={25}
+                        step={0.5}
+                        value={[baseInterestRate]}
+                        onValueChange={(value) => updateBaseInterestRate(value[0])}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>نسبة الربح السنوية الافتراضية (%)</Label>
+                      <Input
+                        type="number"
+                        value={baseInterestRate}
+                        readOnly
+                        className="bg-muted/50"
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="loanTerm">مدة القرض (سنوات)</Label>
                     <Input
@@ -166,15 +185,15 @@ export default function CalculatorPage() {
                   {showProfitDetails && (
                     <div className="space-y-4 pt-4">
                       <Label htmlFor="investorShare">
-                        حصة المستثمر من الأرباح: {investorShare}%
+                        حصة المستثمر من الأرباح: {investorSharePercentage}%
                       </Label>
                       <Slider
                         id="investorShare"
                         min={0}
                         max={100}
                         step={5}
-                        value={[investorShare]}
-                        onValueChange={(value) => setInvestorShare(value[0])}
+                        value={[investorSharePercentage]}
+                        onValueChange={(value) => updateInvestorSharePercentage(value[0])}
                       />
                     </div>
                   )}

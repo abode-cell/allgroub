@@ -63,6 +63,10 @@ type DataContextType = {
   supportTickets: SupportTicket[];
   notifications: Notification[];
   salaryRepaymentPercentage: number;
+  baseInterestRate: number;
+  investorSharePercentage: number;
+  updateBaseInterestRate: (rate: number) => Promise<void>;
+  updateInvestorSharePercentage: (percentage: number) => Promise<void>;
   updateSalaryRepaymentPercentage: (percentage: number) => Promise<void>;
   addSupportTicket: (
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
@@ -119,6 +123,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     initialNotificationsData
   );
   const [salaryRepaymentPercentage, setSalaryRepaymentPercentage] = useState<number>(30);
+  const [baseInterestRate, setBaseInterestRate] = useState<number>(5.5);
+  const [investorSharePercentage, setInvestorSharePercentage] = useState<number>(70);
 
 
   const { user: currentUser } = useAuth();
@@ -157,6 +163,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({
       title: 'تم تحديث النسبة',
       description: `تم تحديث نسبة السداد من الراتب إلى ${percentage}%.`,
+    });
+  };
+
+  const updateBaseInterestRate = async (rate: number) => {
+    setBaseInterestRate(rate);
+    toast({
+      title: 'تم تحديث النسبة',
+      description: `تم تحديث نسبة الربح الأساسية إلى ${rate}%.`,
+    });
+  };
+
+  const updateInvestorSharePercentage = async (percentage: number) => {
+    setInvestorSharePercentage(percentage);
+    toast({
+      title: 'تم تحديث النسبة',
+      description: `تم تحديث حصة المستثمر من الأرباح إلى ${percentage}%.`,
     });
   };
 
@@ -721,6 +743,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     supportTickets,
     notifications,
     salaryRepaymentPercentage,
+    baseInterestRate,
+    investorSharePercentage,
+    updateBaseInterestRate,
+    updateInvestorSharePercentage,
     updateSalaryRepaymentPercentage,
     addSupportTicket,
     registerNewOfficeManager,
