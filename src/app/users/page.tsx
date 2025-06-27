@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAuth } from '@/contexts/auth-context';
@@ -125,21 +124,23 @@ const UserActions = ({
 };
 
 export default function UsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, role } = useAuth();
   const { users, investors, updateUserRole, deleteUser } = useData();
   const router = useRouter();
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
+
   useEffect(() => {
-    if (currentUser?.role !== 'مدير النظام') {
+    if (role && !canViewPage) {
       router.replace('/');
     }
-  }, [currentUser, router]);
+  }, [role, canViewPage, router]);
 
-  if (currentUser?.role !== 'مدير النظام') {
-    return null;
+  if (!canViewPage) {
+    return null; // or a loading spinner
   }
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
@@ -159,9 +160,302 @@ export default function UsersPage() {
     }
   };
 
+  // Data for System Admin
   const officeManagers = users.filter((u) => u.role === 'مدير المكتب');
   const otherUsers = users.filter(
     (u) => u.role !== 'مدير المكتب' && u.role !== 'موظف'
+  );
+
+  // Data for Office Manager
+  const myEmployees = users.filter((u) => u.managedBy === currentUser?.id);
+
+
+  const renderSystemAdminView = () => (
+    <>
+       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Briefcase className="h-6 w-6 text-primary" />
+            مدراء المكاتب
+          </CardTitle>
+          <CardDescription>
+            اضغط على اسم المدير لعرض الموظفين والمستثمرين المرتبطين به.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {officeManagers.length > 0 ? (
+            <Accordion type="single" collapsible className="w-full">
+              {officeManagers.map((manager) => {
+                const employees = users.filter(
+                  (u) => u.managedBy === manager.id
+                );
+                const managerInvestors = investors.filter(
+                  (i) => i.submittedBy === manager.id
+                );
+
+                return (
+                  <AccordionItem value={manager.id} key={manager.id}>
+                    <AccordionPrimitive.Header className="flex">
+                       <div className="flex flex-1 items-center justify-between hover:bg-muted/50 px-4 rounded-t-md">
+                            <AccordionTrigger className="flex-1 text-right p-0 hover:no-underline justify-start">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 py-4">
+                                    <div className="font-bold text-base">
+                                        {manager.name}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground sm:text-sm">
+                                        {manager.email}
+                                    </div>
+                                </div>
+                            </AccordionTrigger>
+                            <div className="flex items-center gap-4">
+                                <Badge variant={statusVariant[manager.status]}>
+                                    {manager.status === 'نشط' ? (
+                                    <CheckCircle className="w-3 h-3 ml-1" />
+                                    ) : (
+                                    <Hourglass className="w-3 h-3 ml-1" />
+                                    )}
+                                    {manager.status}
+                                </Badge>
+                                <div className="hidden sm:block">
+                                    <UserActions
+                                    user={manager}
+                                    onDeleteClick={handleDeleteClick}
+                                    />
+                                </div>
+                            </div>
+                       </div>
+                    </AccordionPrimitive.Header>
+                    <AccordionContent className="bg-muted/30 p-4 border-l-4 border-primary">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="space-y-1">
+                          <h4 className="font-semibold">تفاصيل المدير</h4>
+                          <p className="text-xs text-muted-foreground">
+                            تاريخ التسجيل:{' '}
+                            {manager.registrationDate || 'غير محدد'}
+                          </p>
+                        </div>
+                        <div className="sm:hidden">
+                          <UserActions
+                            user={manager}
+                            onDeleteClick={handleDeleteClick}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-6 md:grid-cols-2">
+                        <div>
+                          <h5 className="font-semibold mb-2 flex items-center gap-2 text-sm">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />{' '}
+                            الموظفون ({employees.length})
+                          </h5>
+                          {employees.length > 0 ? (
+                            <div className="rounded-md border bg-background">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>الاسم</TableHead>
+                                    <TableHead>الحالة</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {employees.map((emp) => (
+                                    <TableRow key={emp.id}>
+                                      <TableCell>{emp.name}</TableCell>
+                                      <TableCell>
+                                        <Badge
+                                          variant={
+                                            statusVariant[emp.status]
+                                          }
+                                        >
+                                          {emp.status}
+                                        </Badge>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">
+                              لا يوجد موظفون مرتبطون.
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <h5 className="font-semibold mb-2 flex items-center gap-2 text-sm">
+                            <PiggyBank className="h-4 w-4 text-muted-foreground" />{' '}
+                            المستثمرون ({managerInvestors.length})
+                          </h5>
+                          {managerInvestors.length > 0 ? (
+                            <div className="rounded-md border bg-background">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>الاسم</TableHead>
+                                    <TableHead>المبلغ</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {managerInvestors.map((inv) => (
+                                    <TableRow key={inv.id}>
+                                      <TableCell>{inv.name}</TableCell>
+                                      <TableCell>
+                                        {formatCurrency(inv.amount)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">
+                              لا يوجد مستثمرون مرتبطون.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          ) : (
+            <p className="text-center text-muted-foreground py-4">
+              لا يوجد مدراء مكاتب حاليًا.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>مستخدمون آخرون</CardTitle>
+          <CardDescription>
+            قائمة بالمستخدمين الآخرين مثل مدير النظام والمستثمرين.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>الاسم</TableHead>
+                <TableHead>الدور</TableHead>
+                <TableHead>الحالة</TableHead>
+                <TableHead>الإجراء</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {otherUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <div className="font-medium">{user.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {user.email}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={user.role}
+                      onValueChange={(newRole: UserRole) =>
+                        handleRoleChange(user.id, newRole)
+                      }
+                      disabled={user.id === currentUser?.id}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="اختر دورًا" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="مدير النظام">
+                          مدير النظام
+                        </SelectItem>
+                        <SelectItem value="مدير المكتب">
+                          مدير المكتب
+                        </SelectItem>
+                        <SelectItem value="موظف">موظف</SelectItem>
+                        <SelectItem value="مستثمر">مستثمر</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant[user.status]}>
+                      {user.status === 'نشط' ? (
+                        <CheckCircle className="w-3 h-3 ml-1" />
+                      ) : (
+                        <Hourglass className="w-3 h-3 ml-1" />
+                      )}
+                      {user.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <UserActions
+                      user={user}
+                      onDeleteClick={handleDeleteClick}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </>
+  );
+
+  const renderOfficeManagerView = () => (
+     <Card>
+      <CardHeader>
+        <CardTitle>إدارة الموظفين</CardTitle>
+        <CardDescription>
+          عرض وإدارة الموظفين المرتبطين بحسابك.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>الاسم</TableHead>
+              <TableHead>الحالة</TableHead>
+              <TableHead>الإجراء</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+             {myEmployees.length > 0 ? (
+                myEmployees.map((employee) => (
+                  <TableRow key={employee.id}>
+                    <TableCell>
+                      <div className="font-medium">{employee.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {employee.email}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant[employee.status]}>
+                        {employee.status === 'نشط' ? (
+                          <CheckCircle className="w-3 h-3 ml-1" />
+                        ) : (
+                          <Hourglass className="w-3 h-3 ml-1" />
+                        )}
+                        {employee.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <UserActions
+                        user={employee}
+                        onDeleteClick={handleDeleteClick}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))
+             ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center h-24">
+                    لا يوجد موظفون مرتبطون بحسابك.
+                  </TableCell>
+                </TableRow>
+             )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 
   return (
@@ -173,235 +467,15 @@ export default function UsersPage() {
               إدارة المستخدمين
             </h1>
             <p className="text-muted-foreground mt-1">
-              عرض وإدارة مدراء المكاتب والمستخدمين الآخرين في النظام.
+              {role === 'مدير النظام' 
+                ? 'عرض وإدارة مدراء المكاتب والمستخدمين الآخرين في النظام.'
+                : 'عرض وإدارة الموظفين المرتبطين بحسابك.'
+              }
             </p>
           </header>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Briefcase className="h-6 w-6 text-primary" />
-                مدراء المكاتب
-              </CardTitle>
-              <CardDescription>
-                اضغط على اسم المدير لعرض الموظفين والمستثمرين المرتبطين به.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {officeManagers.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full">
-                  {officeManagers.map((manager) => {
-                    const employees = users.filter(
-                      (u) => u.managedBy === manager.id
-                    );
-                    const managerInvestors = investors.filter(
-                      (i) => i.submittedBy === manager.id
-                    );
-
-                    return (
-                      <AccordionItem value={manager.id} key={manager.id}>
-                        <AccordionPrimitive.Header className="flex border-b">
-                           <div className="flex flex-1 items-center justify-between hover:bg-muted/50 px-4 rounded-md">
-                                <AccordionTrigger className="flex-1 text-right p-0 hover:no-underline justify-start">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 py-4">
-                                        <div className="font-bold text-base">
-                                            {manager.name}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground sm:text-sm">
-                                            {manager.email}
-                                        </div>
-                                    </div>
-                                </AccordionTrigger>
-                                <div className="flex items-center gap-4">
-                                    <Badge variant={statusVariant[manager.status]}>
-                                        {manager.status === 'نشط' ? (
-                                        <CheckCircle className="w-3 h-3 ml-1" />
-                                        ) : (
-                                        <Hourglass className="w-3 h-3 ml-1" />
-                                        )}
-                                        {manager.status}
-                                    </Badge>
-                                    <div className="hidden sm:block">
-                                        <UserActions
-                                        user={manager}
-                                        onDeleteClick={handleDeleteClick}
-                                        />
-                                    </div>
-                                </div>
-                           </div>
-                        </AccordionPrimitive.Header>
-                        <AccordionContent className="bg-muted/30 p-4 border-l-4 border-primary">
-                          <div className="flex justify-between items-center mb-4">
-                            <div className="space-y-1">
-                              <h4 className="font-semibold">تفاصيل المدير</h4>
-                              <p className="text-xs text-muted-foreground">
-                                تاريخ التسجيل:{' '}
-                                {manager.registrationDate || 'غير محدد'}
-                              </p>
-                            </div>
-                            <div className="sm:hidden">
-                              <UserActions
-                                user={manager}
-                                onDeleteClick={handleDeleteClick}
-                              />
-                            </div>
-                          </div>
-                          <div className="grid gap-6 md:grid-cols-2">
-                            <div>
-                              <h5 className="font-semibold mb-2 flex items-center gap-2 text-sm">
-                                <Building2 className="h-4 w-4 text-muted-foreground" />{' '}
-                                الموظفون ({employees.length})
-                              </h5>
-                              {employees.length > 0 ? (
-                                <div className="rounded-md border bg-background">
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>الاسم</TableHead>
-                                        <TableHead>الحالة</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {employees.map((emp) => (
-                                        <TableRow key={emp.id}>
-                                          <TableCell>{emp.name}</TableCell>
-                                          <TableCell>
-                                            <Badge
-                                              variant={
-                                                statusVariant[emp.status]
-                                              }
-                                            >
-                                              {emp.status}
-                                            </Badge>
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                </div>
-                              ) : (
-                                <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">
-                                  لا يوجد موظفون مرتبطون.
-                                </p>
-                              )}
-                            </div>
-                            <div>
-                              <h5 className="font-semibold mb-2 flex items-center gap-2 text-sm">
-                                <PiggyBank className="h-4 w-4 text-muted-foreground" />{' '}
-                                المستثمرون ({managerInvestors.length})
-                              </h5>
-                              {managerInvestors.length > 0 ? (
-                                <div className="rounded-md border bg-background">
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>الاسم</TableHead>
-                                        <TableHead>المبلغ</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {managerInvestors.map((inv) => (
-                                        <TableRow key={inv.id}>
-                                          <TableCell>{inv.name}</TableCell>
-                                          <TableCell>
-                                            {formatCurrency(inv.amount)}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                </div>
-                              ) : (
-                                <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">
-                                  لا يوجد مستثمرون مرتبطون.
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-                </Accordion>
-              ) : (
-                <p className="text-center text-muted-foreground py-4">
-                  لا يوجد مدراء مكاتب حاليًا.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>مستخدمون آخرون</CardTitle>
-              <CardDescription>
-                قائمة بالمستخدمين الآخرين مثل مدير النظام والمستثمرين.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>الاسم</TableHead>
-                    <TableHead>الدور</TableHead>
-                    <TableHead>الحالة</TableHead>
-                    <TableHead>الإجراء</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {otherUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {user.email}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={user.role}
-                          onValueChange={(newRole: UserRole) =>
-                            handleRoleChange(user.id, newRole)
-                          }
-                          disabled={user.id === currentUser.id}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="اختر دورًا" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="مدير النظام">
-                              مدير النظام
-                            </SelectItem>
-                            <SelectItem value="مدير المكتب">
-                              مدير المكتب
-                            </SelectItem>
-                            <SelectItem value="موظف">موظف</SelectItem>
-                            <SelectItem value="مستثمر">مستثمر</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant[user.status]}>
-                          {user.status === 'نشط' ? (
-                            <CheckCircle className="w-3 h-3 ml-1" />
-                          ) : (
-                            <Hourglass className="w-3 h-3 ml-1" />
-                          )}
-                          {user.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <UserActions
-                          user={user}
-                          onDeleteClick={handleDeleteClick}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          {role === 'مدير النظام' ? renderSystemAdminView() : renderOfficeManagerView()}
+          
         </main>
       </div>
 

@@ -33,7 +33,7 @@ export default function SettingsPage() {
   }
 
   // This specific permission relies on the actual user role.
-  const canManageUsers = role === 'مدير النظام';
+  const canManageUsers = role === 'مدير النظام' || role === 'مدير المكتب';
 
   return (
     <div className="flex flex-col flex-1">
@@ -48,12 +48,12 @@ export default function SettingsPage() {
         </header>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card className={!canManageUsers ? 'bg-muted/50' : ''}>
+          <Card>
             <CardHeader>
               <UserCog className="h-8 w-8 text-primary mb-2" />
               <CardTitle>إدارة المستخدمين والأدوار</CardTitle>
               <CardDescription>
-                إضافة وتفعيل المستخدمين. هذه الميزة متاحة لمدير النظام فقط.
+                إدارة وتفعيل المستخدمين المرتبطين بحسابك.
               </CardDescription>
             </CardHeader>
             <CardContent>

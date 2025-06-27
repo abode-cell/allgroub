@@ -17,6 +17,7 @@ import {
   Bell,
   UserCog,
   LifeBuoy,
+  PiggyBank,
 } from 'lucide-react';
 import {
   SidebarHeader,
@@ -39,7 +40,7 @@ const allMenuItems = [
   {
     href: '/investors',
     label: 'المستثمرون',
-    icon: Users,
+    icon: PiggyBank,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },
   {
@@ -64,6 +65,12 @@ const allMenuItems = [
     href: '/requests',
     label: 'الطلبات',
     icon: ClipboardList,
+    roles: ['مدير النظام', 'مدير المكتب'],
+  },
+  {
+    href: '/users',
+    label: 'إدارة المستخدمين',
+    icon: Users,
     roles: ['مدير النظام', 'مدير المكتب'],
   },
   {
