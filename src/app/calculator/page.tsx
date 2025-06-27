@@ -10,13 +10,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function CalculatorPage() {
   const { role } = useAuth();
+  // States for Installments Tab
   const [loanAmount, setLoanAmount] = useState(100000);
   const [interestRate, setInterestRate] = useState(5.5);
   const [loanTerm, setLoanTerm] = useState(5);
   const [investorShare, setInvestorShare] = useState(70);
 
-  // For Grace Period
+  // State for Grace Period Tab
   const [graceLoanAmount, setGraceLoanAmount] = useState(100000);
+  
+  // States for By Salary Tab
+  const [salary, setSalary] = useState(5000);
+  const [interestRateForSalary, setInterestRateForSalary] = useState(5.5);
+  const [loanTermForSalary, setLoanTermForSalary] = useState(5);
+
 
   const calculateInstallments = () => {
     if (!loanAmount || !loanTerm) {
@@ -27,24 +34,24 @@ export default function CalculatorPage() {
     const annualRate = parseFloat(interestRate.toString() || '0') / 100;
     const termInYears = parseFloat(loanTerm.toString());
 
-    if (principal <= 0 || termInYears <= 0) {
+    if (principal <= 0 || termInYears <= 0 || annualRate < 0) {
       return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0, institutionProfit: 0, investorProfit: 0 };
     }
     
     const termInMonths = termInYears * 12;
+    let totalPayment = principal;
+    let totalInterest = 0;
 
-    // Switched from compound interest to a simple/flat rate calculation.
-    // This is more common in Murabaha-style (cost-plus) financing.
-    const totalInterest = principal * annualRate * termInYears;
-    const totalPayment = principal + totalInterest;
+    if (annualRate > 0) {
+      totalInterest = principal * annualRate * termInYears;
+      totalPayment = principal + totalInterest;
+    }
     
-    // Monthly payment is the same each month.
     const monthlyPayment = termInMonths > 0 ? totalPayment / termInMonths : totalPayment;
 
     const institutionProfit = totalInterest * ((100 - investorShare) / 100);
     const investorProfit = totalInterest * (investorShare / 100);
 
-    // Final safety check for NaN/Infinity, although the logic above should prevent it.
     return {
       monthlyPayment: isFinite(monthlyPayment) ? monthlyPayment : 0,
       totalInterest: isFinite(totalInterest) ? totalInterest : 0,
@@ -66,9 +73,45 @@ export default function CalculatorPage() {
 
     return { institutionProfit, investorProfit, totalProfit };
   }
+  
+   const calculateBySalary = () => {
+        const monthlySalary = parseFloat(salary.toString());
+        if (monthlySalary <= 0) {
+            return { maxInstallmentLoan: 0, maxGracePeriodLoan: 0, maxMonthlyPayment: 0 };
+        }
+
+        // Rule for Grace Period: Max loan is 6x monthly salary
+        const maxGracePeriodLoan = monthlySalary * 6;
+
+        // Rule for Installments: Max monthly payment is 33% of salary
+        const maxMonthlyPayment = monthlySalary * 0.33;
+        const annualRate = parseFloat(interestRateForSalary.toString() || '0') / 100;
+        const termInYears = parseFloat(loanTermForSalary.toString());
+
+        if (termInYears <= 0 || annualRate < 0) {
+            return { maxInstallmentLoan: 0, maxGracePeriodLoan, maxMonthlyPayment };
+        }
+        
+        const termInMonths = termInYears * 12;
+        
+        let maxInstallmentLoan = 0;
+        // Using the same simple interest logic as the other tab
+        if (annualRate > 0) {
+           maxInstallmentLoan = (maxMonthlyPayment * termInMonths) / (1 + annualRate * termInYears);
+        } else { // Handle 0% interest case
+           maxInstallmentLoan = maxMonthlyPayment * termInMonths;
+        }
+
+        return {
+            maxInstallmentLoan: isFinite(maxInstallmentLoan) ? maxInstallmentLoan : 0,
+            maxGracePeriodLoan: isFinite(maxGracePeriodLoan) ? maxGracePeriodLoan : 0,
+            maxMonthlyPayment: isFinite(maxMonthlyPayment) ? maxMonthlyPayment : 0,
+        };
+    };
 
   const installmentResults = calculateInstallments();
   const gracePeriodResults = calculateGracePeriod();
+  const bySalaryResults = calculateBySalary();
   
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('ar-SA', {
@@ -89,9 +132,10 @@ export default function CalculatorPage() {
         </header>
 
         <Tabs defaultValue="installments" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="installments">الأقساط</TabsTrigger>
             <TabsTrigger value="grace-period">المهلة</TabsTrigger>
+            <TabsTrigger value="by-salary">حسب الراتب</TabsTrigger>
           </TabsList>
           <TabsContent value="installments">
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mt-4">
@@ -99,7 +143,7 @@ export default function CalculatorPage() {
                 <CardHeader>
                   <CardTitle>تمويل الأقساط</CardTitle>
                    <CardDescription>
-                    يتم حساب إجمالي الفائدة وتوزيعها كأرباح بين المؤسسة والمستثمر.
+                    يتم حساب إجمالي الربح كنسبة من أصل المبلغ وتوزيعه على الأقساط.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -114,14 +158,14 @@ export default function CalculatorPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="interestRate">نسبة الفائدة السنوية (%)</Label>
+                    <Label htmlFor="interestRate">نسبة الربح السنوية (%)</Label>
                     <Input
                       id="interestRate"
                       type="number"
                       step="0.1"
                       value={interestRate}
                       onChange={(e) => setInterestRate(Number(e.target.value))}
-                      placeholder="أدخل نسبة الفائدة"
+                      placeholder="أدخل نسبة الربح"
                     />
                   </div>
                   <div className="space-y-2">
@@ -166,7 +210,7 @@ export default function CalculatorPage() {
                         <p className="text-2xl font-bold">{formatCurrency(installmentResults.totalPayment)}</p>
                     </div>
                      <div className="p-4 bg-muted rounded-lg col-span-1 md:col-span-2">
-                        <p className="text-sm text-muted-foreground">إجمالي الفوائد (الأرباح)</p>
+                        <p className="text-sm text-muted-foreground">إجمالي الأرباح</p>
                         <p className="text-2xl font-bold">{formatCurrency(installmentResults.totalInterest)}</p>
                     </div>
                     {showProfitDetails && (
@@ -236,6 +280,90 @@ export default function CalculatorPage() {
                   </CardContent>
                 </Card>
               </div>
+          </TabsContent>
+           <TabsContent value="by-salary">
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mt-4">
+              <Card className="lg:col-span-1">
+                <CardHeader>
+                  <CardTitle>حساب التمويل حسب الراتب</CardTitle>
+                  <CardDescription>
+                    أدخل راتبك لتقدير أقصى مبلغ تمويل.
+                    <br />
+                    <small className="text-xs mt-2 block">
+                      يعتمد التقدير على أن القسط لا يتجاوز 33% من الراتب، وتمويل
+                      المهلة لا يتجاوز 6 أضعاف الراتب.
+                    </small>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="salary">الراتب الشهري (ر.س)</Label>
+                    <Input
+                      id="salary"
+                      type="number"
+                      value={salary}
+                      onChange={(e) => setSalary(Number(e.target.value))}
+                      placeholder="أدخل راتبك الشهري"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="interestRateForSalary">
+                      نسبة الربح السنوية (%) للأقساط
+                    </Label>
+                    <Input
+                      id="interestRateForSalary"
+                      type="number"
+                      step="0.1"
+                      value={interestRateForSalary}
+                      onChange={(e) =>
+                        setInterestRateForSalary(Number(e.target.value))
+                      }
+                      placeholder="أدخل نسبة الربح"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="loanTermForSalary">
+                      مدة القرض (سنوات) للأقساط
+                    </Label>
+                    <Input
+                      id="loanTermForSalary"
+                      type="number"
+                      value={loanTermForSalary}
+                      onChange={(e) =>
+                        setLoanTermForSalary(Number(e.target.value))
+                      }
+                      placeholder="أدخل مدة القرض"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>أقصى مبلغ تمويل مقترح</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
+                  <div className="p-4 bg-primary/10 rounded-lg">
+                    <p className="text-sm text-primary/80">تمويل الأقساط</p>
+                    <p className="text-3xl font-bold text-primary">
+                      {formatCurrency(bySalaryResults.maxInstallmentLoan)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      قسط شهري تقريبي: {formatCurrency(bySalaryResults.maxMonthlyPayment)}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-accent/10 rounded-lg">
+                    <p className="text-sm text-accent-foreground/80">تمويل المهلة</p>
+                    <p className="text-3xl font-bold text-accent-foreground">
+                      {formatCurrency(bySalaryResults.maxGracePeriodLoan)}
+                    </p>
+                     <p className="text-xs text-muted-foreground mt-1">
+                      بناءً على 6 أضعاف الراتب
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
