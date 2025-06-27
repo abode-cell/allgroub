@@ -9,6 +9,7 @@ import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { FileDown, Loader2 } from 'lucide-react';
 import type jsPDF from 'jspdf';
+import { useToast } from '@/hooks/use-toast';
 
 // Extend the jsPDF interface for the autoTable plugin
 declare module 'jspdf' {
@@ -37,6 +38,7 @@ const statusVariant: {
 export default function ReportsPage() {
   const { borrowers, investors } = useData();
   const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
 
   const getInvestorNameForLoan = (loanId: string) => {
     const investor = investors.find(inv => inv.fundedLoanIds.includes(loanId));
@@ -50,14 +52,14 @@ export default function ReportsPage() {
     b.status === 'متأخر'
   );
 
- const handleExportPdf = async () => {
+  const handleExportPdf = async () => {
     setIsExporting(true);
     try {
         const { default: jsPDF } = await import('jspdf');
         await import('jspdf-autotable');
 
-        // Use a reliable font like Noto Naskh Arabic by fetching it from a CDN
-        const fontUrl = 'https://cdn.jsdelivr.net/gh/notofonts/noto-fonts@main/unhinted/ttf/NotoNaskhArabic/NotoNaskhArabic-Regular.ttf';
+        // Use the Amiri font, known for excellent Arabic script support, from a reliable CDN.
+        const fontUrl = 'https://raw.githubusercontent.com/alif-type/amiri/main/fonts/ttf/amiri-regular.ttf';
         const fontResponse = await fetch(fontUrl);
         if (!fontResponse.ok) throw new Error("Failed to fetch font");
 
@@ -74,17 +76,20 @@ export default function ReportsPage() {
         if (!base64Font) throw new Error("Could not read font data.");
 
         const doc = new jsPDF();
-        const fontName = "NotoNaskhArabic";
+        const fontName = "Amiri";
         
-        // Register the font with jsPDF's virtual file system
         doc.addFileToVFS(`${fontName}-Regular.ttf`, base64Font);
         doc.addFont(`${fontName}-Regular.ttf`, fontName, "normal");
         doc.setFont(fontName);
 
-        // Add title
         doc.text("تقرير حالة القروض", doc.internal.pageSize.getWidth() - 15, 15, { align: 'right' });
 
-        // Define table columns and body, this is more robust than parsing HTML
+        const formatCurrencyForPdf = (value: number) =>
+            new Intl.NumberFormat('en-US', { // Use 'en-US' for standard numerals
+                style: 'currency',
+                currency: 'SAR',
+            }).format(value);
+
         const head = [[
             'المستثمر الممول',
             'الحالة',
@@ -99,22 +104,23 @@ export default function ReportsPage() {
             loan.status,
             loan.dueDate,
             loan.date,
-            formatCurrency(loan.amount),
+            formatCurrencyForPdf(loan.amount), // Use PDF-safe formatter
             loan.name,
-        ]);
+        ].reverse()); // Reverse array for correct RTL display in autoTable
 
         doc.autoTable({
-            head: head,
+            head: [head[0].reverse()], // Reverse headers as well
             body: body,
             startY: 20,
             theme: 'grid',
             styles: {
                 font: fontName,
-                halign: 'right', // Align text to the right for Arabic
+                halign: 'right', 
             },
             headStyles: {
-                halign: 'center', // Center align headers
-                fillColor: '#42A5F5', // Use a color from the app's theme
+                font: fontName,
+                halign: 'center',
+                fillColor: '#107458', // Match the app's primary theme color
                 textColor: '#FFFFFF',
             },
         });
@@ -122,7 +128,11 @@ export default function ReportsPage() {
         doc.save('loans-report.pdf');
     } catch (error) {
         console.error("Failed to export PDF", error);
-        // Here you could add a user-facing error message, e.g., using a toast
+        toast({
+            variant: 'destructive',
+            title: 'خطأ في التصدير',
+            description: 'لم نتمكن من تصدير الملف. يرجى التأكد من اتصالك بالإنترنت.'
+        })
     } finally {
         setIsExporting(false);
     }
