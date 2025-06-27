@@ -266,7 +266,7 @@ export default function BorrowersPage() {
                         {newBorrower.status !== 'معلق' && (
                              <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right pt-2">
-                                الممولون
+                                المستثمرون
                                 </Label>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>

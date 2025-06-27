@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, ShieldAlert, CheckCircle, Users } from 'lucide-react';
+import { MoreHorizontal, ShieldAlert, CheckCircle, Users, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -76,6 +77,7 @@ export function BorrowersTable({
   const { investors, updateBorrower, approveBorrower } = useData();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
     null
   );
@@ -84,6 +86,11 @@ export function BorrowersTable({
   const handleEditClick = (borrower: Borrower) => {
     setSelectedBorrower({ ...borrower });
     setIsEditDialogOpen(true);
+  };
+  
+  const handleViewDetailsClick = (borrower: Borrower) => {
+    setSelectedBorrower(borrower);
+    setIsDetailsDialogOpen(true);
   };
 
   const handleSaveChanges = () => {
@@ -156,7 +163,7 @@ export function BorrowersTable({
                 <TableHead>اسم المقترض</TableHead>
                 <TableHead>مبلغ القرض</TableHead>
                 <TableHead>نوع التمويل</TableHead>
-                <TableHead>الممولون</TableHead>
+                <TableHead>المستثمر</TableHead>
                 <TableHead>حالة السداد</TableHead>
                 <TableHead>تاريخ الاستحقاق</TableHead>
                 {canPerformActions && (
@@ -167,24 +174,32 @@ export function BorrowersTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {borrowers.map((borrower) => (
+              {borrowers.map((borrower) => {
+                const fundedByOneInvestor = borrower.fundedBy && borrower.fundedBy.length === 1;
+                const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
+                const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
+
+                return (
                 <TableRow key={borrower.id}>
                   <TableCell className="font-medium">{borrower.name}</TableCell>
                   <TableCell>{formatCurrency(borrower.amount)}</TableCell>
                   <TableCell>{borrower.loanType}</TableCell>
                   <TableCell>
-                    {borrower.fundedBy && borrower.fundedBy.length > 0 ? (
+                    {fundedByOneInvestor && singleInvestor ? (
+                       <span>{singleInvestor.name}</span>
+                    ) : fundedByMultipleInvestors ? (
                        <TooltipProvider>
                          <Tooltip>
                            <TooltipTrigger asChild>
                              <div className="flex items-center gap-1 cursor-pointer">
                                <Users className="h-4 w-4 text-muted-foreground" />
-                               <span>{borrower.fundedBy.length}</span>
+                               <span>{borrower.fundedBy!.length}</span>
                              </div>
                            </TooltipTrigger>
                            <TooltipContent>
+                              <p className='font-bold mb-2'>المستثمرون:</p>
                              <ul className="list-disc pr-4">
-                               {borrower.fundedBy.map(funder => {
+                               {borrower.fundedBy!.map(funder => {
                                  const investor = investors.find(i => i.id === funder.investorId);
                                  return <li key={funder.investorId}>{investor?.name || 'غير معروف'}</li>
                                })}
@@ -213,6 +228,10 @@ export function BorrowersTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                         <DropdownMenuItem onSelect={() => handleViewDetailsClick(borrower)}>
+                            <Info className="ml-2 h-4 w-4" />
+                            عرض التفاصيل
+                        </DropdownMenuItem>
                         {canApprove && borrower.status === 'معلق' && (
                            <DropdownMenuItem
                             onSelect={() => handleApproveClick(borrower)}
@@ -238,7 +257,7 @@ export function BorrowersTable({
                   </TableCell>
                   )}
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </CardContent>
@@ -456,6 +475,96 @@ export function BorrowersTable({
             >
               إغلاق
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>تفاصيل القرض</DialogTitle>
+            <DialogDescription>
+              عرض تفصيلي لمعلومات قرض المقترض {selectedBorrower?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBorrower && (
+            <div className="grid gap-4 py-4 text-sm">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                  <div>
+                      <span className='text-muted-foreground'>اسم المقترض:</span>
+                      <span className='font-bold float-left'>{selectedBorrower.name}</span>
+                  </div>
+                  <div>
+                      <span className='text-muted-foreground'>مبلغ القرض:</span>
+                      <span className='font-bold float-left'>{formatCurrency(selectedBorrower.amount)}</span>
+                  </div>
+                  <div>
+                      <span className='text-muted-foreground'>نوع التمويل:</span>
+                      <span className='font-bold float-left'>{selectedBorrower.loanType}</span>
+                  </div>
+                  <div>
+                      <span className='text-muted-foreground'>تاريخ الاستحقاق:</span>
+                      <span className='font-bold float-left'>{selectedBorrower.dueDate}</span>
+                  </div>
+                  <div>
+                      <span className='text-muted-foreground'>الحالة:</span>
+                      <span className='font-bold float-left'>
+                          <Badge variant={statusVariant[selectedBorrower.status] || 'outline'}>{selectedBorrower.status}</Badge>
+                      </span>
+                  </div>
+              </div>
+              
+              {selectedBorrower.loanType === 'اقساط' && (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                    <div>
+                        <span className='text-muted-foreground'>نسبة الفائدة:</span>
+                        <span className='font-bold float-left'>{selectedBorrower.rate}%</span>
+                    </div>
+                    <div>
+                        <span className='text-muted-foreground'>المدة (سنوات):</span>
+                        <span className='font-bold float-left'>{selectedBorrower.term}</span>
+                    </div>
+                </div>
+              )}
+
+              <div>
+                  <h4 className="font-semibold mb-2">المستثمرون</h4>
+                  <div className="rounded-md border">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>الاسم</TableHead>
+                                  <TableHead className="text-left">المبلغ الممول</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {selectedBorrower.fundedBy && selectedBorrower.fundedBy.length > 0 ? (
+                                  selectedBorrower.fundedBy.map(funder => {
+                                      const investor = investors.find(i => i.id === funder.investorId);
+                                      return (
+                                          <TableRow key={funder.investorId}>
+                                              <TableCell>{investor?.name || 'غير معروف'}</TableCell>
+                                              <TableCell className="text-left">{formatCurrency(funder.amount)}</TableCell>
+                                          </TableRow>
+                                      )
+                                  })
+                              ) : (
+                                  <TableRow>
+                                      <TableCell colSpan={2} className="text-center">لم يتم تمويل هذا القرض بعد.</TableCell>
+                                  </TableRow>
+                              )}
+                          </TableBody>
+                      </Table>
+                  </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">
+                إغلاق
+              </Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
