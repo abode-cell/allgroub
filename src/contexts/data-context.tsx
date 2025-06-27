@@ -62,6 +62,8 @@ type DataContextType = {
   users: User[];
   supportTickets: SupportTicket[];
   notifications: Notification[];
+  salaryRepaymentPercentage: number;
+  updateSalaryRepaymentPercentage: (percentage: number) => Promise<void>;
   addSupportTicket: (
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
   ) => Promise<void>;
@@ -116,6 +118,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>(
     initialNotificationsData
   );
+  const [salaryRepaymentPercentage, setSalaryRepaymentPercentage] = useState<number>(30);
+
 
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
@@ -146,6 +150,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
               n.isRead = true;
           }
       });
+  };
+
+  const updateSalaryRepaymentPercentage = async (percentage: number) => {
+    setSalaryRepaymentPercentage(percentage);
+    toast({
+      title: 'تم تحديث النسبة',
+      description: `تم تحديث نسبة السداد من الراتب إلى ${percentage}%.`,
+    });
   };
 
 
@@ -708,6 +720,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     users,
     supportTickets,
     notifications,
+    salaryRepaymentPercentage,
+    updateSalaryRepaymentPercentage,
     addSupportTicket,
     registerNewOfficeManager,
     addBorrower,

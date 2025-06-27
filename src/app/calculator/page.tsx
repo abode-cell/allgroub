@@ -7,9 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useData } from '@/contexts/data-context';
 
 export default function CalculatorPage() {
   const { role } = useAuth();
+  const { salaryRepaymentPercentage, updateSalaryRepaymentPercentage } = useData();
+  
   // States for Installments Tab
   const [loanAmount, setLoanAmount] = useState(100000);
   const [interestRate, setInterestRate] = useState(5.5);
@@ -21,7 +24,6 @@ export default function CalculatorPage() {
   
   // States for By Salary Tab
   const [salary, setSalary] = useState(5000);
-  const [salaryRepaymentPercentage, setSalaryRepaymentPercentage] = useState(30);
 
 
   const calculateInstallments = () => {
@@ -299,7 +301,7 @@ export default function CalculatorPage() {
                         max={50}
                         step={1}
                         value={[salaryRepaymentPercentage]}
-                        onValueChange={(value) => setSalaryRepaymentPercentage(value[0])}
+                        onValueChange={(value) => updateSalaryRepaymentPercentage(value[0])}
                       />
                     </div>
                   )}
