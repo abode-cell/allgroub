@@ -343,7 +343,7 @@ export function InvestorsTable({
                                     <TableHead>النوع</TableHead>
                                     <TableHead>الوصف</TableHead>
                                     <TableHead>الطريقة</TableHead>
-                                    <TableHead className="text-left">المبلغ</TableHead>
+                                    <TableHead>المبلغ</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -357,7 +357,7 @@ export function InvestorsTable({
                                                 <TableCell><Badge variant={transactionTypeVariant[tx.type] || 'outline'}>{tx.type}</Badge></TableCell>
                                                 <TableCell className="text-xs">{tx.description}</TableCell>
                                                 <TableCell className="text-xs">{tx.withdrawalMethod || '-'}</TableCell>
-                                                <TableCell className={`text-left font-medium ${tx.type.includes('إيداع') ? 'text-green-600' : 'text-destructive'}`}>
+                                                <TableCell className={`font-medium ${tx.type.includes('إيداع') ? 'text-green-600' : 'text-destructive'}`}>
                                                     {tx.type.includes('إيداع') ? '+' : '-'}
                                                     {formatCurrency(tx.amount)}
                                                 </TableCell>

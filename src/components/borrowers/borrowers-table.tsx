@@ -191,14 +191,14 @@ export function BorrowersTable({
                        <TooltipProvider>
                          <Tooltip>
                            <TooltipTrigger asChild>
-                             <div className="flex items-center gap-1 cursor-pointer">
+                             <div className="flex items-center justify-end gap-1 cursor-pointer">
                                <Users className="h-4 w-4 text-muted-foreground" />
                                <span>{borrower.fundedBy!.length}</span>
                              </div>
                            </TooltipTrigger>
-                           <TooltipContent>
+                           <TooltipContent className="text-right">
                               <p className='font-bold mb-2'>المستثمرون:</p>
-                             <ul className="list-disc pr-4">
+                             <ul className="list-disc mr-4">
                                {borrower.fundedBy!.map(funder => {
                                  const investor = investors.find(i => i.id === funder.investorId);
                                  return <li key={funder.investorId}>{investor?.name || 'غير معروف'}</li>
@@ -534,7 +534,7 @@ export function BorrowersTable({
                           <TableHeader>
                               <TableRow>
                                   <TableHead>الاسم</TableHead>
-                                  <TableHead className="text-left">المبلغ الممول</TableHead>
+                                  <TableHead>المبلغ الممول</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -544,7 +544,7 @@ export function BorrowersTable({
                                       return (
                                           <TableRow key={funder.investorId}>
                                               <TableCell>{investor?.name || 'غير معروف'}</TableCell>
-                                              <TableCell className="text-left">{formatCurrency(funder.amount)}</TableCell>
+                                              <TableCell>{formatCurrency(funder.amount)}</TableCell>
                                           </TableRow>
                                       )
                                   })
