@@ -160,7 +160,7 @@ export function BorrowersTable({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>اسم المقترض</TableHead>
+                <TableHead>اسم القرض/العميل</TableHead>
                 <TableHead>مبلغ القرض</TableHead>
                 {isGracePeriodTable && <TableHead>الخصم</TableHead>}
                 <TableHead>نوع التمويل</TableHead>
@@ -272,9 +272,9 @@ export function BorrowersTable({
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>تعديل المقترض</DialogTitle>
+            <DialogTitle>تعديل القرض</DialogTitle>
             <DialogDescription>
-              قم بتحديث تفاصيل المقترض هنا. انقر على حفظ عند الانتهاء.
+              قم بتحديث تفاصيل القرض هنا. انقر على حفظ عند الانتهاء.
             </DialogDescription>
           </DialogHeader>
           {selectedBorrower && (
@@ -509,14 +509,14 @@ export function BorrowersTable({
           <DialogHeader>
             <DialogTitle>تفاصيل القرض</DialogTitle>
             <DialogDescription>
-              عرض تفصيلي لمعلومات قرض المقترض {selectedBorrower?.name}.
+              عرض تفصيلي لمعلومات قرض العميل {selectedBorrower?.name}.
             </DialogDescription>
           </DialogHeader>
           {selectedBorrower && (
             <div className="grid gap-4 py-4 text-sm">
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
                   <div>
-                      <span className='text-muted-foreground'>اسم المقترض:</span>
+                      <span className='text-muted-foreground'>اسم العميل:</span>
                       <span className='font-bold float-left'>{selectedBorrower.name}</span>
                   </div>
                   <div>

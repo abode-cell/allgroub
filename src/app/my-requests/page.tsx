@@ -66,16 +66,16 @@ export default function MyRequestsPage() {
         <div className="space-y-8">
           <Card>
             <CardHeader>
-              <CardTitle>طلبات المقترضين</CardTitle>
+              <CardTitle>طلبات القروض</CardTitle>
               <CardDescription>
-                قائمة بطلبات إضافة المقترضين التي قمت بتقديمها.
+                قائمة بطلبات إضافة القروض التي قمت بتقديمها.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>اسم المقترض</TableHead>
+                    <TableHead>اسم القرض/العميل</TableHead>
                     <TableHead>المبلغ المطلوب</TableHead>
                     <TableHead>الحالة</TableHead>
                     <TableHead>سبب الرفض</TableHead>
@@ -98,7 +98,7 @@ export default function MyRequestsPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center">
-                        لم تقم بتقديم أي طلبات لإضافة مقترضين.
+                        لم تقم بتقديم أي طلبات لإضافة قروض.
                       </TableCell>
                     </TableRow>
                   )}

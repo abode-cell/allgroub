@@ -280,7 +280,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                  addNotification({
                     recipientId: funder.investorId,
                     title: 'تنبيه: تعثر قرض مرتبط',
-                    description: `القرض الخاص بالمقترض "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.`
+                    description: `القرض الخاص بالعميل "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.`
                 });
               }
             }
@@ -344,7 +344,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setBorrowers((prev) =>
       prev.map((b) => (b.id === updatedBorrower.id ? updatedBorrower : b))
     );
-    toast({ title: 'تم تحديث المقترض (تجريبيًا)' });
+    toast({ title: 'تم تحديث القرض (تجريبيًا)' });
   };
 
   const approveBorrower = async (borrowerId: string) => {
@@ -359,11 +359,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addNotification({
             recipientId: borrower.submittedBy,
             title: 'تمت الموافقة على طلبك',
-            description: `تمت الموافقة على طلب إضافة المقترض "${borrower.name}".`
+            description: `تمت الموافقة على طلب إضافة القرض "${borrower.name}".`
         });
     }
 
-    toast({ title: 'تمت الموافقة على المقترض (تجريبيًا)' });
+    toast({ title: 'تمت الموافقة على القرض (تجريبيًا)' });
   };
 
   const rejectBorrower = async (borrowerId: string, reason: string) => {
@@ -382,11 +382,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addNotification({
             recipientId: borrower.submittedBy,
             title: 'تم رفض طلبك',
-            description: `تم رفض طلب إضافة المقترض "${borrower.name}". السبب: ${reason}`
+            description: `تم رفض طلب إضافة القرض "${borrower.name}". السبب: ${reason}`
         });
     }
 
-    toast({ variant: 'destructive', title: 'تم رفض المقترض (تجريبيًا)' });
+    toast({ variant: 'destructive', title: 'تم رفض القرض (تجريبيًا)' });
   };
 
   const addBorrower = async (
@@ -464,13 +464,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (newEntry.status === 'معلق' && currentUser?.managedBy) {
         addNotification({
             recipientId: currentUser.managedBy,
-            title: 'طلب مقترض جديد معلق',
-            description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المقترض "${newEntry.name}".`
+            title: 'طلب قرض جديد معلق',
+            description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة القرض "${newEntry.name}".`
         });
     }
 
     toast({
-      title: 'تمت إضافة المقترض بنجاح (تجريبيًا)',
+      title: 'تمت إضافة القرض بنجاح (تجريبيًا)',
     });
   };
 

@@ -132,9 +132,9 @@ export default function BorrowersPage() {
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <div className="flex items-center justify-between">
           <header>
-            <h1 className="text-3xl font-bold tracking-tight">إدارة المقترضين</h1>
+            <h1 className="text-3xl font-bold tracking-tight">إدارة القروض</h1>
             <p className="text-muted-foreground mt-1">
-              عرض وإدارة قائمة المقترضين في المنصة حسب نوع التمويل.
+              عرض وإدارة قائمة القروض في المنصة حسب نوع التمويل.
             </p>
           </header>
           {showAddButton && (
@@ -142,17 +142,17 @@ export default function BorrowersPage() {
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="ml-2 h-4 w-4" />
-                {isEmployee ? 'رفع طلب إضافة مقترض' : 'إضافة مقترض'}
+                {isEmployee ? 'رفع طلب إضافة قرض' : 'إضافة قرض'}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <form onSubmit={handleAddBorrower}>
                 <DialogHeader>
-                  <DialogTitle>{isEmployee ? 'رفع طلب إضافة مقترض جديد' : 'إضافة مقترض جديد'}</DialogTitle>
+                  <DialogTitle>{isEmployee ? 'رفع طلب إضافة قرض جديد' : 'إضافة قرض جديد'}</DialogTitle>
                   <DialogDescription>
                     {isEmployee
-                      ? 'أدخل تفاصيل المقترض الجديد وسيتم مراجعة الطلب.'
-                      : 'أدخل تفاصيل المقترض الجديد هنا. انقر على حفظ عند الانتهاء.'}
+                      ? 'أدخل تفاصيل القرض الجديد وسيتم مراجعة الطلب.'
+                      : 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -162,7 +162,7 @@ export default function BorrowersPage() {
                     </Label>
                     <Input
                       id="name"
-                      placeholder="اسم المقترض"
+                      placeholder="اسم العميل/القرض"
                       className="col-span-3"
                       value={newBorrower.name}
                       onChange={handleInputChange}
@@ -344,10 +344,10 @@ export default function BorrowersPage() {
         <Tabs defaultValue="installments" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="installments">
-                  مقترضو الأقساط ({installmentBorrowers.length})
+                  قروض الأقساط ({installmentBorrowers.length})
                 </TabsTrigger>
                 <TabsTrigger value="grace-period">
-                  مقترضو المهلة ({gracePeriodBorrowers.length})
+                  قروض المهلة ({gracePeriodBorrowers.length})
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-4">

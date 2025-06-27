@@ -45,7 +45,7 @@ const allMenuItems = [
   },
   {
     href: '/borrowers',
-    label: 'المقترضون',
+    label: 'القروض',
     icon: Landmark,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },

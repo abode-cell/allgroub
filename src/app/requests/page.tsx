@@ -124,23 +124,23 @@ export default function RequestsPage() {
           <header>
             <h1 className="text-3xl font-bold tracking-tight">سجل الطلبات</h1>
             <p className="text-muted-foreground mt-1">
-              عرض ومراجعة سجل طلبات إضافة المقترضين والمستثمرين.
+              عرض ومراجعة سجل طلبات إضافة القروض والمستثمرين.
             </p>
           </header>
 
           <div className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle>طلبات المقترضين</CardTitle>
+                <CardTitle>طلبات القروض</CardTitle>
                 <CardDescription>
-                  قائمة بجميع طلبات إضافة المقترضين وحالتها.
+                  قائمة بجميع طلبات إضافة القروض وحالتها.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>اسم المقترض</TableHead>
+                      <TableHead>اسم القرض/العميل</TableHead>
                       <TableHead>المبلغ المطلوب</TableHead>
                       <TableHead>نوع التمويل</TableHead>
                       <TableHead>الحالة</TableHead>
@@ -180,7 +180,7 @@ export default function RequestsPage() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center">
-                          لا توجد طلبات مقترضين.
+                          لا توجد طلبات قروض.
                         </TableCell>
                       </TableRow>
                     )}
