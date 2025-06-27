@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { FileDown, Loader2 } from 'lucide-react';
 import type jsPDF from 'jspdf';
 import { useToast } from '@/hooks/use-toast';
+import { amiriFontBase64 } from '@/lib/amiri-font-base64';
 
 // Extend the jsPDF interface for the autoTable plugin
 declare module 'jspdf' {
@@ -58,22 +59,11 @@ export default function ReportsPage() {
         const { default: jsPDF } = await import('jspdf');
         await import('jspdf-autotable');
 
-        // Use the Amiri font, known for excellent Arabic script support, from a more reliable CDN.
-        const fontUrl = 'https://cdn.jsdelivr.net/gh/alif-type/amiri@main/fonts/ttf/amiri-regular.ttf';
-        const fontResponse = await fetch(fontUrl);
-        if (!fontResponse.ok) throw new Error("Failed to fetch font");
-
-        const fontBlob = await fontResponse.blob();
-        
-        const reader = new FileReader();
-        const fontData = await new Promise<string>((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(fontBlob);
-        });
-
-        const base64Font = fontData.split(',')[1];
-        if (!base64Font) throw new Error("Could not read font data.");
+        // The font is now embedded as a Base64 string to avoid network errors.
+        const base64Font = amiriFontBase64;
+        if (!base64Font) {
+            throw new Error("Embedded font data could not be read.");
+        }
 
         const doc = new jsPDF();
         const fontName = "Amiri";
@@ -85,7 +75,7 @@ export default function ReportsPage() {
         doc.text("تقرير حالة القروض", doc.internal.pageSize.getWidth() - 15, 15, { align: 'right' });
 
         const formatCurrencyForPdf = (value: number) =>
-            new Intl.NumberFormat('en-US', { // Use 'en-US' for standard numerals
+            new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: 'SAR',
             }).format(value);
@@ -131,7 +121,7 @@ export default function ReportsPage() {
         toast({
             variant: 'destructive',
             title: 'خطأ في التصدير',
-            description: 'لم نتمكن من تصدير الملف. يرجى التأكد من اتصالك بالإنترنت.'
+            description: 'لم نتمكن من تصدير الملف. حدث خطأ داخلي.'
         })
     } finally {
         setIsExporting(false);
