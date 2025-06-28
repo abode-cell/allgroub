@@ -43,7 +43,7 @@ export default function InvestorsPage() {
   const isOfficeManager = role === 'مدير المكتب';
 
   const manager = isEmployee ? users.find((u) => u.id === user?.managedBy) : null;
-  const canEmployeeAdd = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
+  const isDirectAdditionEnabled = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
 
   const investorsAddedByManager = isOfficeManager
     ? investors.filter((i) => i.submittedBy === user?.id).length
@@ -84,7 +84,7 @@ export default function InvestorsPage() {
       }
     }
 
-    const status: Investor['status'] = isEmployee ? 'معلق' : 'نشط';
+    const status: Investor['status'] = (isEmployee && !isDirectAdditionEnabled) ? 'معلق' : 'نشط';
 
     addInvestor({
       name: newInvestor.name,
@@ -97,10 +97,7 @@ export default function InvestorsPage() {
     setNewInvestor({ name: '', amount: '', email: '', password: '' });
   };
 
-  const showAddButton =
-    role === 'مدير النظام' ||
-    role === 'مدير المكتب' ||
-    (isEmployee && canEmployeeAdd);
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || isEmployee;
   const isAddButtonDisabled = isOfficeManager && !canAddMoreInvestors;
 
   const displayedInvestors =
@@ -110,10 +107,37 @@ export default function InvestorsPage() {
       ? investors.filter((i) => i.submittedBy === user?.id)
       : investors;
 
+  const getDialogTitle = () => {
+    if (isEmployee) {
+      return isDirectAdditionEnabled ? 'إضافة مستثمر جديد' : 'رفع طلب إضافة مستثمر جديد';
+    }
+    return isOfficeManager ? 'إضافة مستثمر جديد وإنشاء حساب' : 'إضافة مستثمر جديد';
+  };
+
+  const getDialogDescription = () => {
+    if (isOfficeManager) {
+      return 'أدخل بيانات المستثمر لإنشاء حساب له. سيتمكن من تسجيل الدخول مباشرة.';
+    }
+    if (isEmployee) {
+      return isDirectAdditionEnabled
+        ? 'أدخل تفاصيل المستثمر الجديد لإضافته مباشرة إلى النظام.'
+        : 'أدخل تفاصيل المستثمر الجديد وسيتم مراجعة الطلب من قبل مديرك.';
+    }
+    return 'أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.';
+  };
+
+  const getSubmitButtonText = () => {
+    if (isEmployee) {
+      return isDirectAdditionEnabled ? 'حفظ' : 'إرسال الطلب';
+    }
+    return 'حفظ';
+  };
+
+
   const AddButton = (
     <Button disabled={isAddButtonDisabled}>
       <PlusCircle className="ml-2 h-4 w-4" />
-      {isEmployee ? 'رفع طلب إضافة مستثمر' : 'إضافة مستثمر'}
+      {isEmployee ? (isDirectAdditionEnabled ? 'إضافة مستثمر' : 'رفع طلب إضافة مستثمر') : 'إضافة مستثمر'}
     </Button>
   );
 
@@ -158,18 +182,8 @@ export default function InvestorsPage() {
               <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleAddInvestor}>
                   <DialogHeader>
-                    <DialogTitle>
-                      {isEmployee
-                        ? 'رفع طلب إضافة مستثمر جديد'
-                        : 'إضافة مستثمر جديد'}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {isOfficeManager
-                        ? 'أدخل بيانات المستثمر لإنشاء حساب له. سيتمكن من تسجيل الدخول مباشرة.'
-                        : isEmployee
-                        ? 'أدخل تفاصيل المستثمر الجديد وسيتم مراجعة الطلب.'
-                        : 'أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.'}
-                    </DialogDescription>
+                    <DialogTitle>{getDialogTitle()}</DialogTitle>
+                    <DialogDescription>{getDialogDescription()}</DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -238,9 +252,7 @@ export default function InvestorsPage() {
                         إلغاء
                       </Button>
                     </DialogClose>
-                    <Button type="submit">
-                      {isEmployee ? 'إرسال الطلب' : 'حفظ'}
-                    </Button>
+                    <Button type="submit">{getSubmitButtonText()}</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>

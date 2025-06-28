@@ -74,8 +74,8 @@ export default function BorrowersPage() {
   
   const isEmployee = role === 'موظف';
   const manager = isEmployee ? users.find((u) => u.id === currentUser?.managedBy) : null;
-  const canEmployeeAdd = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || (isEmployee && canEmployeeAdd);
+  const isDirectAdditionEnabled = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || isEmployee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -98,7 +98,7 @@ export default function BorrowersPage() {
       return;
     }
     
-    const finalStatus: Borrower['status'] = isEmployee ? 'معلق' : newBorrower.status;
+    const finalStatus: Borrower['status'] = (isEmployee && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status;
 
     if (finalStatus !== 'معلق' && selectedInvestors.length === 0) {
         toast({
@@ -110,13 +110,11 @@ export default function BorrowersPage() {
     }
 
     addBorrower({
-      name: newBorrower.name,
+      ...newBorrower,
       amount: Number(newBorrower.amount),
       rate: Number(newBorrower.rate) || 0,
       term: Number(newBorrower.term) || 0,
-      loanType: newBorrower.loanType,
       status: finalStatus,
-      dueDate: newBorrower.dueDate,
       discount: Number(newBorrower.discount) || 0,
     }, selectedInvestors);
 
@@ -127,6 +125,29 @@ export default function BorrowersPage() {
 
   const installmentBorrowers = borrowers.filter((b) => b.loanType === 'اقساط');
   const gracePeriodBorrowers = borrowers.filter((b) => b.loanType === 'مهلة');
+
+  const getDialogTitle = () => {
+    if (isEmployee) {
+      return isDirectAdditionEnabled ? 'إضافة قرض جديد' : 'رفع طلب إضافة قرض جديد';
+    }
+    return 'إضافة قرض جديد';
+  };
+
+  const getDialogDescription = () => {
+    if (isEmployee) {
+      return isDirectAdditionEnabled
+        ? 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.'
+        : 'أدخل تفاصيل القرض الجديد وسيتم مراجعة الطلب من قبل مديرك.';
+    }
+    return 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.';
+  };
+
+  const getSubmitButtonText = () => {
+    if (isEmployee) {
+      return isDirectAdditionEnabled ? 'حفظ' : 'إرسال الطلب';
+    }
+    return 'حفظ';
+  };
 
   return (
     <div className="flex flex-col flex-1">
@@ -143,17 +164,15 @@ export default function BorrowersPage() {
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="ml-2 h-4 w-4" />
-                {isEmployee ? 'رفع طلب إضافة قرض' : 'إضافة قرض'}
+                {isEmployee ? (isDirectAdditionEnabled ? 'إضافة قرض' : 'رفع طلب إضافة قرض') : 'إضافة قرض'}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <form onSubmit={handleAddBorrower}>
                 <DialogHeader>
-                  <DialogTitle>{isEmployee ? 'رفع طلب إضافة قرض جديد' : 'إضافة قرض جديد'}</DialogTitle>
+                  <DialogTitle>{getDialogTitle()}</DialogTitle>
                   <DialogDescription>
-                    {isEmployee
-                      ? 'أدخل تفاصيل القرض الجديد وسيتم مراجعة الطلب.'
-                      : 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.'}
+                    {getDialogDescription()}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -262,7 +281,7 @@ export default function BorrowersPage() {
                       required
                     />
                   </div>
-                  {!isEmployee && (
+                  {(role !== 'موظف' || isDirectAdditionEnabled) && (
                      <>
                         <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="status" className="text-right">
@@ -335,7 +354,7 @@ export default function BorrowersPage() {
                       إلغاء
                     </Button>
                   </DialogClose>
-                  <Button type="submit">{isEmployee ? 'إرسال الطلب' : 'حفظ'}</Button>
+                  <Button type="submit">{getSubmitButtonText()}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
