@@ -103,12 +103,13 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
     const { graceTotalProfitPercentage, graceInvestorSharePercentage } = useData();
 
     const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
-    const activeGraceLoans = gracePeriodLoans.filter(b => b.status === 'منتظم' || b.status === 'متأخر');
+    const profitableLoans = gracePeriodLoans.filter(
+      b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+    );
 
     const gracePeriodLoansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
     const gracePeriodDefaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
     const gracePeriodDefaultRate = gracePeriodLoansGranted > 0 ? (gracePeriodDefaultedFunds / gracePeriodLoansGranted) * 100 : 0;
-    const gracePeriodProfit = activeGraceLoans.reduce((acc, b) => acc + b.amount, 0) * (graceTotalProfitPercentage / 100);
     const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
     const dueDebts = gracePeriodLoans.filter(b => b.status === 'متأخر').reduce((acc, b) => acc + b.amount, 0);
     
@@ -117,29 +118,27 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
     let totalInstitutionProfit = 0;
     const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
 
-    activeGraceLoans.forEach(loan => {
-        if (loan.status === 'منتظم' || loan.status === 'متأخر') {
-            const loanTotalProfit = loan.amount * (graceTotalProfitPercentage / 100);
-            const loanInvestorShareAmount = loanTotalProfit * (graceInvestorSharePercentage / 100);
-            const loanInstitutionShareAmount = loanTotalProfit - loanInvestorShareAmount;
+    profitableLoans.forEach(loan => {
+        const loanTotalProfit = loan.amount * (graceTotalProfitPercentage / 100);
+        const loanInvestorShareAmount = loanTotalProfit * (graceInvestorSharePercentage / 100);
+        const loanInstitutionShareAmount = loanTotalProfit - loanInvestorShareAmount;
 
-            totalInstitutionProfit += loanInstitutionShareAmount;
+        totalInstitutionProfit += loanInstitutionShareAmount;
 
-            if (loan.fundedBy && loan.fundedBy.length > 0) {
-                loan.fundedBy.forEach(funder => {
-                    const funderShareRatio = funder.amount / loan.amount;
-                    const funderProfit = loanInvestorShareAmount * funderShareRatio;
+        if (loan.fundedBy && loan.fundedBy.length > 0) {
+            loan.fundedBy.forEach(funder => {
+                const funderShareRatio = funder.amount / loan.amount;
+                const funderProfit = loanInvestorShareAmount * funderShareRatio;
 
-                    if (!investorProfits[funder.investorId]) {
-                        const investorDetails = investors.find(i => i.id === funder.investorId);
-                        investorProfits[funder.investorId] = {
-                            name: investorDetails ? investorDetails.name : 'مستثمر غير معروف',
-                            profit: 0
-                        };
-                    }
-                    investorProfits[funder.investorId].profit += funderProfit;
-                });
-            }
+                if (!investorProfits[funder.investorId]) {
+                    const investorDetails = investors.find(i => i.id === funder.investorId);
+                    investorProfits[funder.investorId] = {
+                        name: investorDetails ? investorDetails.name : 'مستثمر غير معروف',
+                        profit: 0
+                    };
+                }
+                investorProfits[funder.investorId].profit += funderProfit;
+            });
         }
     });
 
@@ -194,7 +193,7 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
                     <Card>
                         <CardHeader>
                             <CardTitle>تفاصيل صافي الأرباح (المهلة)</CardTitle>
-                            <CardDescription>توزيع الأرباح المتوقعة من القروض النشطة.</CardDescription>
+                            <CardDescription>توزيع الأرباح المتوقعة من القروض النشطة والمسددة.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Table>
