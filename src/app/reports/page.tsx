@@ -252,6 +252,44 @@ export default function ReportsPage() {
       filename: 'report-grace-period',
     });
   };
+  
+  const handleExportInvestors = () => {
+    if (!currentUser) return;
+    const columns = ['اسم المستثمر', 'إجمالي الاستثمار', 'الأموال النشطة', 'الأموال الخاملة', 'الأموال المتعثرة', 'الحالة'];
+    
+    const rows = activeInvestors.map(investor => {
+        const totalInvestment = investor.transactionHistory
+            .filter(tx => tx.type === 'إيداع رأس المال')
+            .reduce((acc, tx) => acc + tx.amount, 0);
+
+        const activeInvestment = displayedBorrowers
+            .filter(b => b.fundedBy?.some(f => f.investorId === investor.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
+            .reduce((total, loan) => {
+                const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+                return total + (funding?.amount || 0);
+            }, 0);
+
+        const idleFunds = investor.amount;
+        const defaultedFunds = investor.defaultedFunds || 0;
+
+        return [
+            investor.name,
+            formatCurrency(totalInvestment),
+            formatCurrency(activeInvestment),
+            formatCurrency(idleFunds),
+            formatCurrency(defaultedFunds),
+            investor.status
+        ];
+    });
+
+    exportToPdf({
+        title: 'تقرير المستثمرين',
+        user: currentUser,
+        columns: columns,
+        rows: rows,
+        filename: 'report-investors',
+    });
+  };
 
 
   if (!currentUser || !hasAccess) {
@@ -291,7 +329,7 @@ export default function ReportsPage() {
                   <div className="flex justify-end mb-4">
                     <Button onClick={handleExportInstallments} disabled={installmentLoans.length === 0}>
                         <FileDown className="ml-2 h-4 w-4" />
-                        تصدير إلى PDF
+                        تصدير
                     </Button>
                   </div>
                   <ReportTable loans={installmentLoans} getInvestorInfoForLoan={getInvestorInfoForLoan} />
@@ -300,7 +338,7 @@ export default function ReportsPage() {
                    <div className="flex justify-end mb-4">
                     <Button onClick={handleExportGracePeriod} disabled={gracePeriodLoans.length === 0}>
                         <FileDown className="ml-2 h-4 w-4" />
-                        تصدير إلى PDF
+                        تصدير
                     </Button>
                   </div>
                   <ReportTable loans={gracePeriodLoans} getInvestorInfoForLoan={getInvestorInfoForLoan} />
@@ -311,10 +349,18 @@ export default function ReportsPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>تقارير المستثمرين</CardTitle>
-                <CardDescription>
-                تقارير فردية لكل مستثمر توضح أداء استثماراتهم.
-                </CardDescription>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle>تقارير المستثمرين</CardTitle>
+                        <CardDescription>
+                            تقارير فردية لكل مستثمر توضح أداء استثماراتهم.
+                        </CardDescription>
+                    </div>
+                     <Button onClick={handleExportInvestors} disabled={activeInvestors.length === 0}>
+                        <FileDown className="ml-2 h-4 w-4" />
+                        تصدير
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 <Accordion type="single" collapsible className="w-full">
