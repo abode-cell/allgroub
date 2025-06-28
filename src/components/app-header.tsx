@@ -41,13 +41,13 @@ const Logo = () => (
 function NavLinks({ menuItems }: { menuItems: MenuItem[] }) {
   const pathname = usePathname();
   return (
-    <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+    <nav className="hidden md:flex items-center gap-2 lg:gap-4">
       {menuItems.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           className={cn(
-            'px-3 py-1.5 text-sm font-medium transition-colors rounded-md',
+            'px-3 py-1.5 text-base font-medium transition-colors rounded-md',
             pathname.startsWith(item.href) && item.href !== '/' || pathname === item.href
               ? 'bg-primary/10 text-primary'
               : 'text-muted-foreground hover:text-foreground'
@@ -108,7 +108,7 @@ export function AppHeader() {
   const menuItems = allMenuItems.filter((item) => role && item.roles.includes(role));
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-card/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 w-full border-b bg-card/95 backdrop-blur-md">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-6">
           <div className="hidden md:block">
@@ -141,7 +141,7 @@ export function AppHeader() {
                             key={item.href}
                             href={item.href}
                             onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-base text-muted-foreground transition-all hover:text-primary"
                           >
                             <item.icon className="h-5 w-5" />
                             {item.label}
