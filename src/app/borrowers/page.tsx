@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { BorrowersTable } from '@/components/borrowers/borrowers-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -124,9 +124,18 @@ export default function BorrowersPage() {
     setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
     setSelectedInvestors([]);
   };
+  
+  const displayedBorrowers = useMemo(() => {
+    if (role === 'مدير المكتب') {
+      const myEmployeeIds = users.filter(u => u.managedBy === currentUser?.id).map(u => u.id);
+      const myIds = [currentUser?.id, ...myEmployeeIds].filter(Boolean);
+      return borrowers.filter(b => b.submittedBy && myIds.includes(b.submittedBy));
+    }
+    return borrowers;
+  }, [borrowers, users, currentUser, role]);
 
-  const installmentBorrowers = borrowers.filter((b) => b.loanType === 'اقساط');
-  const gracePeriodBorrowers = borrowers.filter((b) => b.loanType === 'مهلة');
+  const installmentBorrowers = displayedBorrowers.filter((b) => b.loanType === 'اقساط');
+  const gracePeriodBorrowers = displayedBorrowers.filter((b) => b.loanType === 'مهلة');
 
   const getDialogTitle = () => {
     if (isEmployee) {
@@ -311,7 +320,7 @@ export default function BorrowersPage() {
                                 <SelectItem value="متأخر">متأخر</SelectItem>
                                  <SelectItem value="متعثر">متعثر</SelectItem>
                                  <SelectItem value="معلق">معلق</SelectItem>
-                                <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
+                                <SelectItem value="مسدد بالكامل" className="text-green-600">مسدد بالكامل</SelectItem>
                               </SelectContent>
                             </Select>
                         </div>

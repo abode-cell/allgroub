@@ -12,6 +12,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { useAuth } from '@/contexts/auth-context';
+import React, { useMemo } from 'react';
 
 
 const formatCurrency = (value: number) =>
@@ -123,7 +125,24 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { borrowers, investors } = useData();
+  const { borrowers, investors, users } = useData();
+  const { user, role } = useAuth();
+
+  const displayedInvestors = useMemo(() => {
+    if (role === 'مدير المكتب') {
+      return investors.filter(i => i.submittedBy === user?.id);
+    }
+    return investors;
+  }, [investors, user, role]);
+
+  const displayedBorrowers = useMemo(() => {
+    if (role === 'مدير المكتب') {
+      const myEmployeeIds = users.filter(u => u.managedBy === user?.id).map(u => u.id);
+      const myIds = [user?.id, ...myEmployeeIds].filter(Boolean);
+      return borrowers.filter(b => b.submittedBy && myIds.includes(b.submittedBy));
+    }
+    return borrowers;
+  }, [borrowers, users, user, role]);
 
   const getInvestorInfoForLoan = (loan: Borrower): React.ReactNode => {
     if (!loan.fundedBy || loan.fundedBy.length === 0) {
@@ -136,14 +155,14 @@ export default function ReportsPage() {
     return `${loan.fundedBy.length} مستثمرون`;
   };
 
-  const loansForReport = borrowers.filter(b => 
+  const loansForReport = displayedBorrowers.filter(b => 
     b.status === 'متعثر' || 
     b.status === 'معلق' ||
     b.status === 'منتظم' ||
     b.status === 'متأخر'
   );
   
-  const activeInvestors = investors.filter(i => i.status === 'نشط' || i.status === 'غير نشط');
+  const activeInvestors = displayedInvestors.filter(i => i.status === 'نشط' || i.status === 'غير نشط');
 
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');

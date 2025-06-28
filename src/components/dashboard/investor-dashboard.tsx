@@ -43,7 +43,10 @@ export function InvestorDashboard() {
   
   const activeInvestment = borrowers
     .filter(b => investor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
-    .reduce((acc, b) => acc + b.amount, 0);
+    .reduce((total, loan) => {
+      const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+      return total + (funding?.amount || 0);
+    }, 0);
 
   const idleFunds = investor.amount; // `amount` is now purely liquid funds
   const dueProfits = 0; // Simulated - consider calculating this from real data

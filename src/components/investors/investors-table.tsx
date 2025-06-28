@@ -299,12 +299,15 @@ export function InvestorsTable({
             </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (() => {
-             const defaultedFunds = selectedInvestor.defaultedFunds || 0;
             const activeInvestment = borrowers
               .filter(b => selectedInvestor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
-              .reduce((acc, b) => acc + b.amount, 0);
-
-            const idleFunds = selectedInvestor.amount - activeInvestment;
+              .reduce((total, loan) => {
+                  const funding = loan.fundedBy?.find(f => f.investorId === selectedInvestor.id);
+                  return total + (funding?.amount || 0);
+              }, 0);
+            
+            const idleFunds = selectedInvestor.amount;
+            const defaultedFunds = selectedInvestor.defaultedFunds || 0;
             const totalCapital = selectedInvestor.transactionHistory
               .filter(tx => tx.type === 'إيداع رأس المال')
               .reduce((acc, tx) => acc + tx.amount, 0);

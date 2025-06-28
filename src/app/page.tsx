@@ -14,6 +14,7 @@ import { DailySummary } from '@/components/dashboard/daily-summary';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useMemo } from 'react';
 
 
 const formatCurrency = (value: number) =>
@@ -233,14 +234,31 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
 };
 
 export default function DashboardPage() {
-  const { role } = useAuth();
-  const { borrowers, investors } = useData();
+  const { user, role } = useAuth();
+  const { borrowers, investors, users } = useData();
 
   if (role === 'مستثمر') {
     return <InvestorDashboard />;
   }
+  
+  const displayedInvestors = useMemo(() => {
+    if (role === 'مدير المكتب') {
+      return investors.filter(i => i.submittedBy === user?.id);
+    }
+    return investors;
+  }, [investors, user, role]);
 
-  const totalCapital = investors.reduce((acc, inv) => acc + inv.amount + (inv.defaultedFunds || 0), 0);
+  const displayedBorrowers = useMemo(() => {
+    if (role === 'مدير المكتب') {
+      const myEmployeeIds = users.filter(u => u.managedBy === user?.id).map(u => u.id);
+      const myIds = [user?.id, ...myEmployeeIds].filter(Boolean);
+      return borrowers.filter(b => b.submittedBy && myIds.includes(b.submittedBy));
+    }
+    return borrowers;
+  }, [borrowers, users, user, role]);
+
+
+  const totalCapital = displayedInvestors.reduce((acc, inv) => acc + inv.amount + (inv.defaultedFunds || 0), 0);
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
   
   return (
@@ -275,10 +293,10 @@ export default function DashboardPage() {
                 <TabsTrigger value="grace-period">قروض المهلة</TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-6">
-                <InstallmentsDashboard borrowers={borrowers} />
+                <InstallmentsDashboard borrowers={displayedBorrowers} />
             </TabsContent>
             <TabsContent value="grace-period" className="mt-6">
-                <GracePeriodDashboard borrowers={borrowers} investors={investors} />
+                <GracePeriodDashboard borrowers={displayedBorrowers} investors={displayedInvestors} />
             </TabsContent>
         </Tabs>
 
