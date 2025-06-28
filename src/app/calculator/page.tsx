@@ -9,7 +9,6 @@ import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -26,7 +25,6 @@ const PageSkeleton = () => (
 
 
 export default function CalculatorPage() {
-  const { loading } = useAuth();
   const router = useRouter();
   const { 
     currentUser,
@@ -47,10 +45,10 @@ export default function CalculatorPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);
 
   useEffect(() => {
-    if (!loading && currentUser && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router, loading]);
+  }, [currentUser, hasAccess, router]);
 
   
   // States for Installments Tab
@@ -177,7 +175,7 @@ export default function CalculatorPage() {
     
   const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
-  if (loading || !currentUser || !hasAccess) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 

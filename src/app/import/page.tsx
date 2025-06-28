@@ -12,7 +12,6 @@ import { FileUp, Loader2, CheckCircle, AlertCircle, ListChecks } from 'lucide-re
 import * as XLSX from 'xlsx';
 import type { Borrower } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -39,7 +38,6 @@ type ExcelRow = {
 };
 
 export default function ImportPage() {
-  const { loading } = useAuth();
   const { addBorrower, currentUser } = useData();
   const { toast } = useToast();
   const router = useRouter();
@@ -48,10 +46,10 @@ export default function ImportPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.importData);
 
   useEffect(() => {
-    if (!loading && currentUser && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router, loading]);
+  }, [currentUser, hasAccess, router]);
 
 
   const [file, setFile] = useState<File | null>(null);
@@ -175,7 +173,7 @@ export default function ImportPage() {
     reader.readAsBinaryString(file);
   };
   
-  if (loading || !currentUser || !hasAccess) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 

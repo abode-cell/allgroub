@@ -70,7 +70,6 @@ import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -160,7 +159,6 @@ const UserActions = ({
 };
 
 export default function UsersPage() {
-  const { loading } = useAuth();
   const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission } =
     useData();
   const router = useRouter();
@@ -175,10 +173,10 @@ export default function UsersPage() {
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings);
 
   useEffect(() => {
-    if (!loading && currentUser && !canViewPage) {
+    if (currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [currentUser, canViewPage, router, loading]);
+  }, [currentUser, canViewPage, router]);
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
     updateUserRole(userId, newRole);
@@ -248,7 +246,7 @@ export default function UsersPage() {
   const myAssistants = users.filter((u) => u.managedBy === currentUser?.id && u.role === 'مساعد مدير المكتب');
 
 
-  if (loading || !currentUser || !canViewPage) {
+  if (!currentUser || !canViewPage) {
     return <PageSkeleton />;
   }
 

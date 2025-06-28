@@ -19,7 +19,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Inbox } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -35,19 +34,18 @@ const PageSkeleton = () => (
 );
 
 export default function SupportInboxPage() {
-  const { loading } = useAuth();
   const { currentUser, supportTickets } = useData();
   const router = useRouter();
 
   const role = currentUser?.role;
 
   useEffect(() => {
-    if (!loading && currentUser && role !== 'مدير النظام') {
+    if (currentUser && role !== 'مدير النظام') {
       router.replace('/');
     }
-  }, [currentUser, role, router, loading]);
+  }, [currentUser, role, router]);
 
-  if (loading || !currentUser || role !== 'مدير النظام') {
+  if (!currentUser || role !== 'مدير النظام') {
     return <PageSkeleton />;
   }
 

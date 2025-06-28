@@ -20,7 +20,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import type { Borrower, Investor } from '@/lib/types';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -57,7 +56,6 @@ const statusVariant: {
 
 
 export default function RequestsPage() {
-  const { loading } = useAuth();
   const router = useRouter();
   const { 
     borrowers, 
@@ -74,10 +72,10 @@ export default function RequestsPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
 
   useEffect(() => {
-    if (!loading && currentUser && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router, loading]);
+  }, [currentUser, hasAccess, router]);
 
 
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -150,7 +148,7 @@ export default function RequestsPage() {
     return { borrowerRequests: [], investorRequests: [] };
   }, [borrowers, investors, users, currentUser, role]);
 
-  if (loading || !currentUser || !hasAccess) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 

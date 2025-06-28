@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -24,7 +23,6 @@ const PageSkeleton = () => (
 );
 
 export default function SupportSettingsPage() {
-  const { loading } = useAuth();
   const { currentUser, supportEmail, supportPhone, updateSupportInfo } = useData();
   const router = useRouter();
   
@@ -35,10 +33,10 @@ export default function SupportSettingsPage() {
   const canViewPage = role === 'مدير النظام';
 
   useEffect(() => {
-    if (!loading && currentUser && !canViewPage) {
+    if (currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [currentUser, canViewPage, router, loading]);
+  }, [currentUser, canViewPage, router]);
   
   useEffect(() => {
     setLocalEmail(supportEmail);
@@ -46,7 +44,7 @@ export default function SupportSettingsPage() {
   }, [supportEmail, supportPhone]);
 
 
-  if (loading || !currentUser || !canViewPage) {
+  if (!currentUser || !canViewPage) {
     return <PageSkeleton />;
   }
 

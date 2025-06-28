@@ -5,6 +5,7 @@ import { AppHeader } from './app-header';
 import { Skeleton } from './ui/skeleton';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useData } from '@/contexts/data-context';
 
 function AppSkeleton() {
   return (
@@ -43,16 +44,19 @@ function AppSkeleton() {
 }
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
-    const { userId, loading } = useAuth();
+    const { userId, loading: authLoading } = useAuth();
+    const { currentUser } = useData();
     const router = useRouter();
 
     useEffect(() => {
-        if (!loading && !userId) {
+        // Redirect to login if auth is done and there's no user.
+        if (!authLoading && !userId) {
             router.replace('/login');
         }
-    }, [userId, loading, router]);
+    }, [userId, authLoading, router]);
 
-    if (loading || !userId) {
+    // We are loading if auth is loading OR if auth is done but we haven't found the currentUser object yet from useData
+    if (authLoading || !currentUser) {
         return <AppSkeleton />;
     }
 

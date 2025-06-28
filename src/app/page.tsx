@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useMemo } from 'react';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -250,7 +249,6 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
 };
 
 export default function DashboardPage() {
-  const { loading } = useAuth();
   const { borrowers, investors, users, currentUser } = useData();
   
   const role = currentUser?.role;
@@ -277,7 +275,7 @@ export default function DashboardPage() {
     return borrowers;
   }, [borrowers, users, currentUser, role]);
 
-  if (loading || !currentUser) {
+  if (!currentUser) {
       return <PageSkeleton />;
   }
 

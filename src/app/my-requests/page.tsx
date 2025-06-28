@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import type { Borrower, Investor } from '@/lib/types';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -46,7 +45,6 @@ const getStatusText = (status: Borrower['status'] | Investor['status']) => {
 }
 
 export default function MyRequestsPage() {
-  const { loading } = useAuth();
   const { borrowers, investors, currentUser } = useData();
   const router = useRouter();
 
@@ -54,12 +52,12 @@ export default function MyRequestsPage() {
   const isEmployee = role === 'موظف';
 
   useEffect(() => {
-    if (!loading && currentUser && !isEmployee) {
+    if (currentUser && !isEmployee) {
       router.replace('/');
     }
-  }, [currentUser, isEmployee, router, loading]);
+  }, [currentUser, isEmployee, router]);
 
-  if (loading || !currentUser || !isEmployee) {
+  if (!currentUser || !isEmployee) {
     return <PageSkeleton />;
   }
   

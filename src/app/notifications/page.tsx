@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import {
   Card,
@@ -26,15 +25,14 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function NotificationsPage() {
-  const { user, loading } = useAuth();
-  const { notifications, clearUserNotifications } = useData();
+  const { currentUser, notifications, clearUserNotifications } = useData();
 
-  if (loading || !user) {
+  if (!currentUser) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   const relevantNotifications = notifications
-    .filter((n) => n.recipientId === user.id)
+    .filter((n) => n.recipientId === currentUser.id)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
@@ -68,7 +66,7 @@ export default function NotificationsPage() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>إلغاء</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => clearUserNotifications(user.id)}
+                    onClick={() => clearUserNotifications(currentUser.id)}
                   >
                     تأكيد الحذف
                   </AlertDialogAction>

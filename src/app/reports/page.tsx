@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/accordion';
 import React, { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -139,7 +138,6 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { loading } = useAuth();
   const { borrowers, investors, users, currentUser } = useData();
   const router = useRouter();
 
@@ -147,10 +145,10 @@ export default function ReportsPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
   useEffect(() => {
-    if (!loading && currentUser && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router, loading]);
+  }, [currentUser, hasAccess, router]);
 
 
   const displayedInvestors = useMemo(() => {
@@ -198,7 +196,7 @@ export default function ReportsPage() {
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
 
-  if (loading || !currentUser || !hasAccess) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 

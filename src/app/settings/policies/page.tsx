@@ -10,7 +10,6 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -27,7 +26,6 @@ const PageSkeleton = () => (
 
 
 export default function PoliciesPage() {
-  const { loading } = useAuth();
   const { currentUser } = useData();
   const router = useRouter();
   const { toast } = useToast();
@@ -36,11 +34,10 @@ export default function PoliciesPage() {
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
 
   useEffect(() => {
-    // Redirect if role is loaded and user doesn't have permission
-    if (!loading && currentUser && !canViewPage) {
+    if (currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [currentUser, canViewPage, router, loading]);
+  }, [currentUser, canViewPage, router]);
 
   // Placeholder state for policies
   const [daysUntilDefault, setDaysUntilDefault] = useState(90);
@@ -55,8 +52,7 @@ export default function PoliciesPage() {
     });
   };
 
-  // If the role is not yet loaded, or they don't have permission, don't render the page content
-  if (loading || !currentUser || !canViewPage) {
+  if (!currentUser || !canViewPage) {
     return <PageSkeleton />;
   }
 

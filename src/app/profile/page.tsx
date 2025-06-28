@@ -18,7 +18,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useAuth } from '@/contexts/auth-context';
 
 
 const profileSchema = z.object({
@@ -36,7 +35,6 @@ const passwordSchema = z.object({
 
 
 export default function ProfilePage() {
-  const { loading } = useAuth();
   const { currentUser, updateUserIdentity } = useData();
   const { toast } = useToast();
   const [isProfileSubmitting, setIsProfileSubmitting] = useState(false);
@@ -90,7 +88,7 @@ export default function ProfilePage() {
     setIsPasswordSubmitting(false);
   };
 
-  if (loading || !currentUser) {
+  if (!currentUser) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 

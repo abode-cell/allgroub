@@ -47,7 +47,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -72,7 +71,6 @@ const formatCurrency = (value: number) =>
 
 
 export default function BorrowersPage() {
-  const { loading } = useAuth();
   const { borrowers, investors, addBorrower, users, baseInterestRate, currentUser } = useData();
   const { toast } = useToast();
   const router = useRouter();
@@ -81,10 +79,10 @@ export default function BorrowersPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers);
   
   useEffect(() => {
-    if (!loading && currentUser && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router, loading]);
+  }, [currentUser, hasAccess, router]);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
@@ -204,7 +202,7 @@ export default function BorrowersPage() {
     return borrowers;
   }, [borrowers, users, currentUser, role]);
   
-  if (loading || !currentUser || !hasAccess) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 

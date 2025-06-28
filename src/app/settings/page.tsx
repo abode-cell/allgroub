@@ -13,7 +13,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useData } from '@/contexts/data-context';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -30,7 +29,6 @@ const PageSkeleton = () => (
 
 
 export default function SettingsPage() {
-  const { loading } = useAuth();
   const { currentUser } = useData();
   const router = useRouter();
 
@@ -38,14 +36,12 @@ export default function SettingsPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings);
 
   useEffect(() => {
-    // Redirect if role is loaded and user doesn't have permission
-    if (!loading && currentUser && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router, loading]);
+  }, [currentUser, hasAccess, router]);
 
-  // If the role is not yet loaded, or they don't have permission, don't render the page content
-  if (loading || !currentUser || !hasAccess) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 

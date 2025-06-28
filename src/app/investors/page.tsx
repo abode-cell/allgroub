@@ -26,7 +26,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -43,7 +42,6 @@ const PageSkeleton = () => (
 );
 
 export default function InvestorsPage() {
-  const { loading } = useAuth();
   const { investors, addInvestor, users, currentUser } = useData();
   const { toast } = useToast();
   const router = useRouter();
@@ -52,10 +50,10 @@ export default function InvestorsPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
 
   useEffect(() => {
-    if (!loading && currentUser && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router, loading]);
+  }, [currentUser, hasAccess, router]);
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -136,7 +134,7 @@ export default function InvestorsPage() {
       ? investors.filter((i) => i.submittedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) || i.submittedBy === currentUser?.id)
       : investors;
       
-  if (loading || !currentUser || !hasAccess) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 

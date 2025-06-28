@@ -6,25 +6,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
-import { useState } from 'react';
 
 export function Notifications() {
-  const { user } = useAuth();
-  const { notifications, markUserNotificationsAsRead } = useData();
+  const { currentUser, notifications, markUserNotificationsAsRead } = useData();
 
-  if (!user) return null;
+  if (!currentUser) return null;
 
   const relevantNotifications = notifications
-    .filter((n) => n.recipientId === user.id)
+    .filter((n) => n.recipientId === currentUser.id)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const hasUnseen = relevantNotifications.some((n) => !n.isRead);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen && hasUnseen) {
-      markUserNotificationsAsRead(user.id);
+      markUserNotificationsAsRead(currentUser.id);
     }
   };
 
