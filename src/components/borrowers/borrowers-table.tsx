@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -221,6 +220,7 @@ export function BorrowersTable({
   const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
   const canApprove = role === 'مدير النظام' || role === 'مدير المكتب';
   const isEmployee = role === 'موظف';
+  const canEdit = role === 'مدير النظام' || role === 'مدير المكتب';
 
   return (
     <>
