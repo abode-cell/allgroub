@@ -5,7 +5,9 @@ import autoTable from 'jspdf-autotable';
 import type { User } from '@/lib/types';
 import { amiriFont } from '@/lib/amiri-font';
 
-const logoSvg = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="text-primary"><path d="M12 2L2 22H22L12 2Z" stroke="#0F2C59" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M12 11L7 22" stroke="#0F2C59" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M12 11L17 22" stroke="#0F2C59" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M8.5 18H15.5" stroke="#0F2C59" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>`;
+// PNG Data URI for the logo, as SVG is not supported by default in jsPDF
+const logoPngDataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHySURBVGhD7Zk/axRBFMc/BF1EBEUnwUBILJRIwUQsRAuxsDARS1s7xVpI2CgYwRbSwkYsxRJYpLQQBBH8B2IkkkAQjYgFwczu7d7bu5O5gX/Znd159/x5c3Z3kCwpqSkjD8gA5AHyQJ8ywPUEeQYyPxoYgF3gBvgAdoDXC/gBvAA79z8bYBX4A3wENsA+MBv4W983gEngNXCAG+AGaB+kPZAbwFvgG9B+gVbAC9B+PftwATgI3AEvgR3Qfv37IUAz8AD4ANwCt0H79u4H+ADkQWfAArAEnAAvQftV7r+BvAJZkC2aADsBq8AtUANqgZ+gHfrsFzANzAH3wA+gHfr8FjAErALnQA1oB76Cdkv3jwOjwAFwGZgCdUvX/wgcAmfAOfAYdEkP3wJ+g3ZK2+gO0kY8Ab4H/QC+B5YAL4HXwFvgG/A26Z4WvgfMkoWvgWfAOTAKbAOXwDmwCjwHvhbt1z/ftk9/gM/AGeAuaN9QG7wK/QyOgcNgNrgK3AdN6P83wDqwbzC/gBvAOdC+6aO3wDHgBPhH+4b+5VfgC/AZ6BqEaX0fNIP5+2D+AbhpmtD+aTftV9dBPyaodl3gC1Q7FhT3C9Q77xR3B6odv4PijmO1k3eG4k4jAZIBSAZABkAGQAaADIAMgAwAGQAZADIAMgBkAGQAZABkAGQAZADIAGQAyADIAMgAyADIAMgAyADIAMgAyADIAMgAyADIAMgAyADIAMgAyADIAMgAyADIALABkAGQAiANkA5AMgAwAGQAZABlAHyD/Acj9s4/0AMwaAAAAAElFTkSuQmCC';
+
 
 interface ExportOptions {
   title: string;
@@ -44,8 +46,7 @@ export const exportToPdf = ({
   const pageHeight = doc.internal.pageSize.getHeight();
 
   // Logo
-  const svgAsDataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(logoSvg)))}`;
-  doc.addImage(svgAsDataUri, 'SVG', pageWidth - 28, 12, 14, 14);
+  doc.addImage(logoPngDataUri, 'PNG', pageWidth - 28, 12, 14, 14);
 
   // Title
   doc.setFontSize(10);
