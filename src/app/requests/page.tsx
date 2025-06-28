@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -116,9 +116,31 @@ export default function RequestsPage() {
   if (!hasAccess) {
     return null;
   }
+  
+  const requestsToDisplay = useMemo(() => {
+    const allBorrowerRequests = borrowers.filter(b => b.submittedBy);
+    const allInvestorRequests = investors.filter(i => i.submittedBy);
 
-  const borrowerRequests = borrowers.filter(b => b.submittedBy);
-  const investorRequests = investors.filter(i => i.submittedBy);
+    if (role === 'مدير النظام') {
+      return { 
+        borrowerRequests: allBorrowerRequests,
+        investorRequests: allInvestorRequests
+      };
+    }
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.manageRequests)) {
+      const managerId = role === 'مدير المكتب' ? user?.id : user?.managedBy;
+      const employeeIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
+      
+      return {
+        borrowerRequests: allBorrowerRequests.filter(b => b.submittedBy && employeeIds.includes(b.submittedBy)),
+        investorRequests: allInvestorRequests.filter(i => i.submittedBy && employeeIds.includes(i.submittedBy))
+      };
+    }
+    return { borrowerRequests: [], investorRequests: [] };
+  }, [borrowers, investors, users, user, role]);
+
+  const { borrowerRequests, investorRequests } = requestsToDisplay;
+
 
   return (
     <>

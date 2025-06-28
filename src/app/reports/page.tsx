@@ -143,34 +143,20 @@ export default function ReportsPage() {
 
   const displayedInvestors = useMemo(() => {
     if (role === 'مدير المكتب') {
-      const mySubordinateIds = users.filter(u => u.managedBy === user?.id).map(u => u.id);
-      const relevantUserIds = [user?.id, ...mySubordinateIds];
-      return investors.filter(i => i.submittedBy && relevantUserIds.includes(i.submittedBy));
+        return investors.filter(i => i.submittedBy === user?.id);
     }
     if (role === 'مساعد مدير المكتب' && user?.managedBy) {
-        const manager = users.find(u => u.id === user.managedBy);
-        if (manager) {
-            const managerSubordinateIds = users.filter(u => u.managedBy === manager.id).map(u => u.id);
-            const relevantUserIds = [manager.id, ...managerSubordinateIds];
-            return investors.filter(i => i.submittedBy && relevantUserIds.includes(i.submittedBy));
-        }
+        return investors.filter(i => i.submittedBy === user.managedBy || i.submittedBy === user.id);
     }
     return investors;
   }, [investors, users, user, role]);
 
   const displayedBorrowers = useMemo(() => {
-    if (role === 'مدير المكتب') {
-      const mySubordinateIds = users.filter(u => u.managedBy === user?.id).map(u => u.id);
-      const myIds = [user?.id, ...mySubordinateIds].filter(Boolean);
-      return borrowers.filter(b => b.submittedBy && myIds.includes(b.submittedBy));
-    }
-     if (role === 'مساعد مدير المكتب' && user?.managedBy) {
-        const manager = users.find(u => u.id === user.managedBy);
-        if (manager) {
-            const managerSubordinateIds = users.filter(u => u.managedBy === manager.id).map(u => u.id);
-            const relevantUserIds = [manager.id, ...managerSubordinateIds];
-            return borrowers.filter(b => b.submittedBy && relevantUserIds.includes(b.submittedBy));
-        }
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.managedBy)) {
+        const managerId = role === 'مدير المكتب' ? user?.id : user?.managedBy;
+        const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
+        const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
+        return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
     }
     return borrowers;
   }, [borrowers, users, user, role]);

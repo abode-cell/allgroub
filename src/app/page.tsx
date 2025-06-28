@@ -25,7 +25,10 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
-  const { role } = useAuth();
+  const { role, user: authUser } = useAuth();
+  const { users } = useData();
+  const user = users.find(u => u.id === authUser?.id);
+
   const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
   const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
   const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
@@ -37,8 +40,8 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
     .filter(b => b.status === 'متأخر')
     .reduce((acc, b) => acc + b.amount, 0); // Calculated from data
 
-  const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
-  const showProfitChart = role === 'مدير النظام' || role === 'مدير المكتب';
+  const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.viewReports);
+  const showProfitChart = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.viewReports);
 
 
   return (
@@ -101,8 +104,9 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
 
 
 const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[], investors: Investor[] }) => {
-    const { role } = useAuth();
-    const { graceTotalProfitPercentage, graceInvestorSharePercentage } = useData();
+    const { role, user: authUser } = useAuth();
+    const { users, graceTotalProfitPercentage, graceInvestorSharePercentage } = useData();
+    const user = users.find(u => u.id === authUser?.id);
 
     const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
     const profitableLoans = gracePeriodLoans.filter(
@@ -115,7 +119,7 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
     const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
     const dueDebts = gracePeriodLoans.filter(b => b.status === 'متأخر').reduce((acc, b) => acc + b.amount, 0);
     
-    const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
+    const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.viewReports);
 
     let totalInstitutionProfit = 0;
     const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
@@ -235,8 +239,10 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
 };
 
 export default function DashboardPage() {
-  const { user, role } = useAuth();
+  const { user: authUser, role } = useAuth();
   const { borrowers, investors, users } = useData();
+
+  const user = users.find(u => u.id === authUser?.id);
 
   if (role === 'مستثمر') {
     return <InvestorDashboard />;
@@ -244,23 +250,27 @@ export default function DashboardPage() {
   
   const displayedInvestors = useMemo(() => {
     if (role === 'مدير المكتب') {
-      return investors.filter(i => i.submittedBy === user?.id);
+        return investors.filter(i => i.submittedBy === user?.id);
+    }
+    if (role === 'مساعد مدير المكتب' && user?.managedBy) {
+        return investors.filter(i => i.submittedBy === user.managedBy || i.submittedBy === user.id);
     }
     return investors;
   }, [investors, user, role]);
 
   const displayedBorrowers = useMemo(() => {
-    if (role === 'مدير المكتب') {
-      const myEmployeeIds = users.filter(u => u.managedBy === user?.id).map(u => u.id);
-      const myIds = [user?.id, ...myEmployeeIds].filter(Boolean);
-      return borrowers.filter(b => b.submittedBy && myIds.includes(b.submittedBy));
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.managedBy)) {
+        const managerId = role === 'مدير المكتب' ? user?.id : user?.managedBy;
+        const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
+        const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
+        return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
     }
     return borrowers;
   }, [borrowers, users, user, role]);
 
 
   const totalCapital = displayedInvestors.reduce((acc, inv) => acc + inv.amount + (inv.defaultedFunds || 0), 0);
-  const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب';
+  const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.viewReports);
   
   return (
     <div className="flex flex-col flex-1">

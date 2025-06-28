@@ -182,10 +182,11 @@ export default function BorrowersPage() {
   };
   
   const displayedBorrowers = useMemo(() => {
-    if (role === 'مدير المكتب') {
-      const mySubordinateIds = users.filter(u => u.managedBy === currentUser?.id).map(u => u.id);
-      const myIds = [currentUser?.id, ...mySubordinateIds].filter(Boolean);
-      return borrowers.filter(b => b.submittedBy && myIds.includes(b.submittedBy));
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.managedBy)) {
+      const managerId = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
+      const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
+      const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
+      return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
     }
     return borrowers;
   }, [borrowers, users, currentUser, role]);
