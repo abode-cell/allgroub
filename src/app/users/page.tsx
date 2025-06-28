@@ -121,37 +121,34 @@ const UserActions = ({ user, onDeleteClick }: { user: User, onDeleteClick: (user
   }
 
   return (
-    <div className="flex items-center gap-2 justify-start">
-      {user.status === 'معلق' ? (
-        <Button size="sm" onClick={() => updateUserStatus(user.id, 'نشط')}>
-          <CheckCircle className="ml-2 h-4 w-4" />
-          تفعيل
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <MoreHorizontal className="h-4 w-4" />
+          <span className="sr-only">فتح قائمة الإجراءات</span>
         </Button>
-      ) : (
-        <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'معلق')}>
-          <UserX className="ml-2 h-4 w-4" />
-          تعليق
-        </Button>
-      )}
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-            <MoreHorizontal className="h-4 w-4" />
-            <span className="sr-only">إجراءات إضافية</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-            onClick={() => onDeleteClick(user)}
-          >
-            <Trash2 className="ml-2 h-4 w-4" />
-            <span>حذف الحساب</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {user.status === 'معلق' ? (
+          <DropdownMenuItem onClick={() => updateUserStatus(user.id, 'نشط')}>
+            <CheckCircle className="ml-2 h-4 w-4" />
+            <span>تفعيل الحساب</span>
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+        ) : (
+          <DropdownMenuItem onClick={() => updateUserStatus(user.id, 'معلق')}>
+            <UserX className="ml-2 h-4 w-4" />
+            <span>تعليق الحساب</span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+          onClick={() => onDeleteClick(user)}
+        >
+          <Trash2 className="ml-2 h-4 w-4" />
+          <span>حذف الحساب</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
@@ -160,7 +157,6 @@ export default function UsersPage() {
   const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission } =
     useData();
   const router = useRouter();
-  const { updateUserStatus } = useData();
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -533,7 +529,7 @@ export default function UsersPage() {
     const managerForSettings = users.find(u => u.id === managerIdForSettings);
 
     return (
-    <div className='space-y-8'>
+    <>
       {canManageAssistants && (
         <Card>
           <CardHeader>
@@ -604,7 +600,7 @@ export default function UsersPage() {
       )}
 
       {canManageEmployees && (
-        <Card>
+        <Card className="mt-8">
           <CardHeader>
             <CardTitle className='flex items-center gap-2'>
                 <UserCog className="h-6 w-6 text-primary" />
@@ -615,7 +611,7 @@ export default function UsersPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <Card>
+             <Card className="bg-muted/50">
                 <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                         <Settings className="h-5 w-5 text-primary" />
@@ -705,7 +701,7 @@ export default function UsersPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </>
   );
   }
 
