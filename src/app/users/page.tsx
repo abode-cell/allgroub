@@ -35,6 +35,8 @@ import {
   Settings,
   ShieldCheck,
   Users2,
+  Check,
+  X,
 } from 'lucide-react';
 import {
   Select,
@@ -121,34 +123,36 @@ const UserActions = ({ user, onDeleteClick }: { user: User, onDeleteClick: (user
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreHorizontal className="h-4 w-4" />
-          <span className="sr-only">فتح قائمة الإجراءات</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+    <div className="flex items-center gap-2">
         {user.status === 'معلق' ? (
-          <DropdownMenuItem onClick={() => updateUserStatus(user.id, 'نشط')}>
-            <CheckCircle className="ml-2 h-4 w-4" />
-            <span>تفعيل الحساب</span>
-          </DropdownMenuItem>
+          <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'نشط')}>
+            <Check className="ml-1 h-4 w-4" />
+            تفعيل
+          </Button>
         ) : (
-          <DropdownMenuItem onClick={() => updateUserStatus(user.id, 'معلق')}>
-            <UserX className="ml-2 h-4 w-4" />
-            <span>تعليق الحساب</span>
-          </DropdownMenuItem>
+          <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'معلق')}>
+             <X className="ml-1 h-4 w-4" />
+            تعليق
+          </Button>
         )}
-        <DropdownMenuItem
-          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-          onClick={() => onDeleteClick(user)}
-        >
-          <Trash2 className="ml-2 h-4 w-4" />
-          <span>حذف الحساب</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">فتح قائمة الإجراءات</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    onClick={() => onDeleteClick(user)}
+                >
+                    <Trash2 className="ml-2 h-4 w-4" />
+                    <span>حذف الحساب</span>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    </div>
   );
 };
 
@@ -340,19 +344,23 @@ export default function UsersPage() {
                                     </div>
                                     <Separator />
                                     <div className="space-y-3">
-                                        <div className="flex items-center justify-between gap-4 rounded-lg border p-3 shadow-sm bg-background">
+                                        <div className="flex items-start justify-between gap-4 rounded-lg border p-3 shadow-sm bg-background">
                                             <div className="flex-1 space-y-0.5 min-w-0">
                                                 <Label htmlFor={`allow-submissions-${manager.id}`} className="font-semibold text-sm">السماح بالإضافة للموظفين</Label>
                                                 <p className="text-xs text-muted-foreground">تمكين موظفيه من رفع طلبات جديدة.</p>
                                             </div>
-                                            <Switch id={`allow-submissions-${manager.id}`} checked={manager.allowEmployeeSubmissions ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })} />
+                                            <div className="flex-shrink-0">
+                                                <Switch id={`allow-submissions-${manager.id}`} checked={manager.allowEmployeeSubmissions ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })} />
+                                            </div>
                                         </div>
-                                        <div className="flex items-center justify-between gap-4 rounded-lg border p-3 shadow-sm bg-background">
+                                        <div className="flex items-start justify-between gap-4 rounded-lg border p-3 shadow-sm bg-background">
                                             <div className="flex-1 space-y-0.5 min-w-0">
                                                 <Label htmlFor={`hide-funds-${manager.id}`} className="font-semibold text-sm">إخفاء أرصدة المستثمرين</Label>
                                                 <p className="text-xs text-muted-foreground">منع موظفيه من رؤية أموال المستثمرين.</p>
                                             </div>
-                                            <Switch id={`hide-funds-${manager.id}`} checked={manager.hideEmployeeInvestorFunds ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { hideEmployeeInvestorFunds: checked })} />
+                                            <div className="flex-shrink-0">
+                                                <Switch id={`hide-funds-${manager.id}`} checked={manager.hideEmployeeInvestorFunds ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { hideEmployeeInvestorFunds: checked })} />
+                                            </div>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -573,16 +581,18 @@ export default function UsersPage() {
                                   صلاحيات المساعد
                               </h4>
                               {assistantPermissionsConfig.map((perm) => (
-                                  <div key={perm.key} className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                                  <div key={perm.key} className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
                                       <div className="flex-1 space-y-0.5 min-w-0">
                                           <Label htmlFor={`${perm.key}-${assistant.id}`} className="font-medium">{perm.label}</Label>
                                           <p className="text-xs text-muted-foreground">{perm.description}</p>
                                       </div>
-                                      <Switch
-                                          id={`${perm.key}-${assistant.id}`}
-                                          checked={assistant.permissions?.[perm.key] ?? false}
-                                          onCheckedChange={(checked) => updateAssistantPermission(assistant.id, perm.key, checked)}
-                                      />
+                                      <div className="flex-shrink-0">
+                                        <Switch
+                                            id={`${perm.key}-${assistant.id}`}
+                                            checked={assistant.permissions?.[perm.key] ?? false}
+                                            onCheckedChange={(checked) => updateAssistantPermission(assistant.id, perm.key, checked)}
+                                        />
+                                      </div>
                                   </div>
                               ))}
                           </div>
@@ -619,39 +629,43 @@ export default function UsersPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
                         <div className="flex-1 space-y-0.5 min-w-0">
                         <Label htmlFor="allow-submissions" className="font-medium text-sm">السماح لموظفيك بالإضافة</Label>
                         <p className="text-xs text-muted-foreground">
                             تمكين/تعطيل قدرة الموظفين التابعين لك على رفع طلبات قروض ومستثمرين جدد.
                         </p>
                         </div>
-                        <Switch
-                        id="allow-submissions"
-                        checked={managerForSettings?.allowEmployeeSubmissions ?? false}
-                        onCheckedChange={(checked) => {
-                            if (managerIdForSettings) {
-                            updateManagerSettings(managerIdForSettings, { allowEmployeeSubmissions: checked });
-                            }
-                        }}
-                        />
+                        <div className="flex-shrink-0">
+                            <Switch
+                                id="allow-submissions"
+                                checked={managerForSettings?.allowEmployeeSubmissions ?? false}
+                                onCheckedChange={(checked) => {
+                                    if (managerIdForSettings) {
+                                    updateManagerSettings(managerIdForSettings, { allowEmployeeSubmissions: checked });
+                                    }
+                                }}
+                            />
+                        </div>
                     </div>
-                    <div className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
                         <div className="flex-1 space-y-0.5 min-w-0">
                             <Label htmlFor="hide-investor-funds" className="font-medium text-sm">إخفاء أرصدة المستثمرين عن الموظفين</Label>
                             <p className="text-xs text-muted-foreground">
                                 في حال تفعيله، لن يتمكن الموظفون من رؤية المبالغ المتاحة للمستثمرين.
                             </p>
                         </div>
-                        <Switch
-                            id="hide-investor-funds"
-                            checked={managerForSettings?.hideEmployeeInvestorFunds ?? false}
-                            onCheckedChange={(checked) => {
-                                if (managerIdForSettings) {
-                                    updateManagerSettings(managerIdForSettings, { hideEmployeeInvestorFunds: checked });
-                                }
-                            }}
-                        />
+                         <div className="flex-shrink-0">
+                            <Switch
+                                id="hide-investor-funds"
+                                checked={managerForSettings?.hideEmployeeInvestorFunds ?? false}
+                                onCheckedChange={(checked) => {
+                                    if (managerIdForSettings) {
+                                        updateManagerSettings(managerIdForSettings, { hideEmployeeInvestorFunds: checked });
+                                    }
+                                }}
+                            />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
