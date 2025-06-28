@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { ClientLayout } from '@/components/client-layout';
 import { DataProvider } from '@/contexts/data-context';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
   title: 'منصة تمويل وإدارة استثمار متكاملة',
@@ -16,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -30,12 +31,19 @@ export default function RootLayout({
         ></link>
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
-          <DataProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </DataProvider>
-        </AuthProvider>
-        <Toaster />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <DataProvider>
+              <ClientLayout>{children}</ClientLayout>
+            </DataProvider>
+          </AuthProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { useState } from 'react';
+import { ThemeToggle } from './theme-toggle';
 
 const Logo = () => (
     <Link href="/" className="flex items-center gap-2.5">
@@ -26,7 +27,7 @@ const Logo = () => (
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="text-primary shrink-0"
+      className="text-primary shrink-0 h-10 w-10"
     >
       <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
       <path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -90,7 +91,8 @@ export function AppHeader() {
                 <NavLinks menuItems={menuItems} />
             </div>
 
-            <div className="flex flex-1 items-center justify-end gap-4">
+            <div className="flex flex-1 items-center justify-end gap-2">
+                <ThemeToggle />
                 <Notifications />
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -99,7 +101,7 @@ export function AppHeader() {
                                 <p className="font-semibold text-sm">{user?.name}</p>
                                 <p className="text-xs text-muted-foreground">{user?.role}</p>
                             </div>
-                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-primary shrink-0">
+                           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-primary shrink-0">
                                 <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
                                 <path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
                                 <path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -164,7 +166,8 @@ export function AppHeader() {
             
             <Logo />
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+                <ThemeToggle />
                 <Notifications />
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
