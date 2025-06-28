@@ -9,7 +9,8 @@ export type PermissionKey =
   | 'viewReports'
   | 'manageRequests'
   | 'useCalculator'
-  | 'accessSettings';
+  | 'accessSettings'
+  | 'manageEmployeePermissions';
 
 export type Permissions = {
   [key in PermissionKey]?: boolean;

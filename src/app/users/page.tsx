@@ -96,6 +96,7 @@ const assistantPermissionsConfig: {
   { key: 'manageRequests', label: 'إدارة الطلبات', description: 'السماح بمراجعة طلبات الموظفين والموافقة عليها أو رفضها.' },
   { key: 'useCalculator', label: 'استخدام الحاسبة', description: 'السماح باستخدام حاسبة القروض والأرباح.' },
   { key: 'accessSettings', label: 'الوصول للإعدادات', description: 'السماح بالوصول إلى صفحة الإعدادات الإدارية.' },
+  { key: 'manageEmployeePermissions', label: 'إدارة صلاحيات الموظفين', description: 'تمكين المساعد من تفعيل أو تعطيل صلاحيات الموظفين.' },
 ];
 
 // A reusable component for user actions to avoid repetition
@@ -157,7 +158,7 @@ export default function UsersPage() {
     Record<string, { investorLimit: string; employeeLimit: string }>
   >({});
 
-  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
+  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'مساعد مدير المكتب';
 
   // Get the most up-to-date user data from the data context
   const currentUser = users.find(u => u.id === authUser?.id);
@@ -232,8 +233,8 @@ export default function UsersPage() {
     (u) => u.role !== 'مدير المكتب' && u.role !== 'موظف' && u.role !== 'مساعد مدير المكتب'
   );
 
-  // Data for Office Manager
-  const myEmployees = users.filter((u) => u.managedBy === authUser?.id && u.role === 'موظف');
+  // Data for Office Manager/Assistant
+  const myEmployees = users.filter((u) => u.managedBy === (role === 'مدير المكتب' ? authUser?.id : currentUser?.managedBy) && u.role === 'موظف');
   const myAssistants = users.filter((u) => u.managedBy === authUser?.id && u.role === 'مساعد مدير المكتب');
 
 
@@ -595,164 +596,177 @@ export default function UsersPage() {
     </>
   );
 
-  const renderOfficeManagerView = () => (
+  const renderOfficeManagerView = () => {
+    const canManageAssistants = role === 'مدير المكتب';
+    const canManageEmployees = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageEmployeePermissions);
+    
+    // Logic to find the correct manager for settings
+    const managerIdForSettings = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
+    const managerForSettings = users.find(u => u.id === managerIdForSettings);
+
+    return (
     <div className='space-y-8'>
-      <Card>
-        <CardHeader>
-          <CardTitle className='flex items-center gap-2'>
-            <Users2 className="h-6 w-6 text-primary" />
-            إدارة المساعدين
-          </CardTitle>
-          <CardDescription>
-            عرض وإدارة صلاحيات مساعدي مدير المكتب التابعين لك.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-           {myAssistants.length > 0 ? (
-            <Accordion type="single" collapsible className="w-full">
-              {myAssistants.map((assistant) => (
-                <AccordionItem value={assistant.id} key={assistant.id}>
-                    <AccordionTrigger>
-                        <div className='flex justify-between w-full pr-4'>
-                          {assistant.name}
-                           <Badge variant={statusVariant[assistant.status]}>
-                                {assistant.status}
-                           </Badge>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="bg-muted/30 p-4">
-                        <div className="space-y-4">
-                           <h4 className="font-semibold flex items-center gap-2">
-                                <ShieldCheck className="h-5 w-5 text-primary" />
-                                صلاحيات المساعد
-                            </h4>
-                            {assistantPermissionsConfig.map((perm) => (
-                                <div key={perm.key} className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
-                                    <div className="space-y-0.5">
-                                        <Label htmlFor={`${perm.key}-${assistant.id}`} className="font-medium">{perm.label}</Label>
-                                        <p className="text-xs text-muted-foreground">{perm.description}</p>
-                                    </div>
-                                    <Switch
-                                        id={`${perm.key}-${assistant.id}`}
-                                        checked={assistant.permissions?.[perm.key] ?? false}
-                                        onCheckedChange={(checked) => updateAssistantPermission(assistant.id, perm.key, checked)}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-           ) : (
-             <p className="text-center text-muted-foreground py-4">
-                لا يوجد مساعدون مرتبطون بحسابك.
-             </p>
-           )}
-        </CardContent>
-      </Card>
+      {canManageAssistants && (
+        <Card>
+          <CardHeader>
+            <CardTitle className='flex items-center gap-2'>
+              <Users2 className="h-6 w-6 text-primary" />
+              إدارة المساعدين
+            </CardTitle>
+            <CardDescription>
+              عرض وإدارة صلاحيات مساعدي مدير المكتب التابعين لك.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {myAssistants.length > 0 ? (
+              <Accordion type="single" collapsible className="w-full">
+                {myAssistants.map((assistant) => (
+                  <AccordionItem value={assistant.id} key={assistant.id}>
+                      <AccordionTrigger>
+                          <div className='flex justify-between w-full pr-4'>
+                            {assistant.name}
+                            <Badge variant={statusVariant[assistant.status]}>
+                                  {assistant.status}
+                            </Badge>
+                          </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="bg-muted/30 p-4">
+                          <div className="space-y-4">
+                            <h4 className="font-semibold flex items-center gap-2">
+                                  <ShieldCheck className="h-5 w-5 text-primary" />
+                                  صلاحيات المساعد
+                              </h4>
+                              {assistantPermissionsConfig.map((perm) => (
+                                  <div key={perm.key} className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+                                      <div className="space-y-0.5">
+                                          <Label htmlFor={`${perm.key}-${assistant.id}`} className="font-medium">{perm.label}</Label>
+                                          <p className="text-xs text-muted-foreground">{perm.description}</p>
+                                      </div>
+                                      <Switch
+                                          id={`${perm.key}-${assistant.id}`}
+                                          checked={assistant.permissions?.[perm.key] ?? false}
+                                          onCheckedChange={(checked) => updateAssistantPermission(assistant.id, perm.key, checked)}
+                                      />
+                                  </div>
+                              ))}
+                          </div>
+                      </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                  لا يوجد مساعدون مرتبطون بحسابك.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className='flex items-center gap-2'>
-              <UserCog className="h-6 w-6 text-primary" />
-              إدارة الموظفين
-          </CardTitle>
-          <CardDescription>
-            عرض وإدارة الموظفين المرتبطين بحسابك.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6 space-y-4 rounded-lg border p-4">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Settings className="h-5 w-5 text-primary" />
-              الصلاحيات العامة للموظفين
-            </h3>
-            <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label htmlFor="allow-submissions" className="font-medium">السماح لموظفيك بالإضافة</Label>
-                <p className="text-xs text-muted-foreground">
-                  تمكين/تعطيل قدرة الموظفين التابعين لك على رفع طلبات قروض ومستثمرين جدد.
-                </p>
-              </div>
-              <Switch
-                id="allow-submissions"
-                checked={currentUser?.allowEmployeeSubmissions ?? false}
-                onCheckedChange={(checked) => {
-                  if (currentUser) {
-                    updateManagerSettings(currentUser.id, { allowEmployeeSubmissions: checked });
-                  }
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
-              <div className="space-y-0.5">
-                  <Label htmlFor="hide-investor-funds" className="font-medium">إخفاء أرصدة المستثمرين عن الموظفين</Label>
+      {canManageEmployees && (
+        <Card>
+          <CardHeader>
+            <CardTitle className='flex items-center gap-2'>
+                <UserCog className="h-6 w-6 text-primary" />
+                إدارة الموظفين
+            </CardTitle>
+            <CardDescription>
+              عرض وإدارة الموظفين المرتبطين بالمكتب.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-6 space-y-4 rounded-lg border p-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Settings className="h-5 w-5 text-primary" />
+                الصلاحيات العامة للموظفين
+              </h3>
+              <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label htmlFor="allow-submissions" className="font-medium">السماح لموظفيك بالإضافة</Label>
                   <p className="text-xs text-muted-foreground">
-                      في حال تفعيله، لن يتمكن الموظفون من رؤية المبالغ المتاحة للمستثمرين.
+                    تمكين/تعطيل قدرة الموظفين التابعين لك على رفع طلبات قروض ومستثمرين جدد.
                   </p>
-              </div>
-              <Switch
-                  id="hide-investor-funds"
-                  checked={currentUser?.hideEmployeeInvestorFunds ?? false}
+                </div>
+                <Switch
+                  id="allow-submissions"
+                  checked={managerForSettings?.allowEmployeeSubmissions ?? false}
                   onCheckedChange={(checked) => {
-                      if (currentUser) {
-                          updateManagerSettings(currentUser.id, { hideEmployeeInvestorFunds: checked });
-                      }
+                    if (managerIdForSettings) {
+                      updateManagerSettings(managerIdForSettings, { allowEmployeeSubmissions: checked });
+                    }
                   }}
-              />
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+                <div className="space-y-0.5">
+                    <Label htmlFor="hide-investor-funds" className="font-medium">إخفاء أرصدة المستثمرين عن الموظفين</Label>
+                    <p className="text-xs text-muted-foreground">
+                        في حال تفعيله، لن يتمكن الموظفون من رؤية المبالغ المتاحة للمستثمرين.
+                    </p>
+                </div>
+                <Switch
+                    id="hide-investor-funds"
+                    checked={managerForSettings?.hideEmployeeInvestorFunds ?? false}
+                    onCheckedChange={(checked) => {
+                        if (managerIdForSettings) {
+                            updateManagerSettings(managerIdForSettings, { hideEmployeeInvestorFunds: checked });
+                        }
+                    }}
+                />
+              </div>
             </div>
-          </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>الاسم</TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead>الإجراء</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {myEmployees.length > 0 ? (
-                myEmployees.map((employee) => (
-                  <TableRow key={employee.id}>
-                    <TableCell>
-                      <div className="font-medium">{employee.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {employee.email}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant[employee.status]}>
-                        {employee.status === 'نشط' ? (
-                          <CheckCircle className="w-3 h-3 ml-1" />
-                        ) : (
-                          <Hourglass className="w-3 h-3 ml-1" />
-                        )}
-                        {employee.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <UserActions
-                        user={employee}
-                        onDeleteClick={handleDeleteClick}
-                      />
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>الاسم</TableHead>
+                  <TableHead>الحالة</TableHead>
+                  <TableHead>الإجراء</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {myEmployees.length > 0 ? (
+                  myEmployees.map((employee) => (
+                    <TableRow key={employee.id}>
+                      <TableCell>
+                        <div className="font-medium">{employee.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {employee.email}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant[employee.status]}>
+                          {employee.status === 'نشط' ? (
+                            <CheckCircle className="w-3 h-3 ml-1" />
+                          ) : (
+                            <Hourglass className="w-3 h-3 ml-1" />
+                          )}
+                          {employee.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <UserActions
+                          user={employee}
+                          onDeleteClick={handleDeleteClick}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center h-24">
+                       لا يوجد موظفون مرتبطون بهذا المكتب.
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center h-24">
-                    لا يوجد موظفون مرتبطون بحسابك.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
+  }
 
   return (
     <>
@@ -765,13 +779,12 @@ export default function UsersPage() {
             <p className="text-muted-foreground mt-1">
               {role === 'مدير النظام'
                 ? 'عرض وإدارة مدراء المكاتب والمستخدمين الآخرين في النظام.'
-                : 'عرض وإدارة الموظفين والمساعدين المرتبطين بحسابك.'}
+                : 'عرض وإدارة المساعدين والموظفين المرتبطين بحسابك وصلاحياتهم.'}
             </p>
           </header>
 
-          {role === 'مدير النظام'
-            ? renderSystemAdminView()
-            : renderOfficeManagerView()}
+          {role === 'مدير النظام' && renderSystemAdminView()}
+          {(role === 'مدير المكتب' || role === 'مساعد مدير المكتب') && renderOfficeManagerView()}
         </main>
       </div>
 
