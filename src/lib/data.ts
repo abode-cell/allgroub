@@ -6,6 +6,7 @@ export const usersData: User[] = [
   { id: '3', name: 'أحمد الموظف', email: 'employee@example.com', role: 'موظف', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000003', managedBy: '2', registrationDate: '2023-01-13' },
   { id: '4', name: 'خالد المستثمر', email: 'investor@example.com', role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000004', registrationDate: '2023-02-05' },
   { id: '5', name: 'علي مستخدم معلق', email: 'pending@example.com', role: 'موظف', status: 'معلق', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000005', managedBy: '2', registrationDate: '2024-05-20' },
+  { id: '6', name: 'مساعد المدير', email: 'assistant@example.com', role: 'مساعد مدير المكتب', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000006', managedBy: '2', registrationDate: '2024-06-01', permissions: { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false } },
   { id: 'inv-4', name: 'محفظة الأصول الجديدة', email: 'assets@example.com', role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000007', managedBy: '2', registrationDate: '2024-03-15' },
 ];
 

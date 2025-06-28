@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,6 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FileUp, Loader2, CheckCircle, AlertCircle, ListChecks } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type { Borrower } from '@/lib/types';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
 
 // Define the expected structure of a row in the Excel file
 type ExcelRow = {
@@ -26,6 +28,18 @@ type ExcelRow = {
 export default function ImportPage() {
   const { addBorrower } = useData();
   const { toast } = useToast();
+  const { user, role } = useAuth();
+  const router = useRouter();
+
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.importData);
+
+  useEffect(() => {
+    if (role && !hasAccess) {
+      router.replace('/');
+    }
+  }, [role, hasAccess, router]);
+
+
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [importResult, setImportResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
@@ -146,6 +160,10 @@ export default function ImportPage() {
 
     reader.readAsBinaryString(file);
   };
+  
+  if (!hasAccess) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col flex-1">

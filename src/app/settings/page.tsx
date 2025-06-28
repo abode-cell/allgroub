@@ -15,20 +15,20 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 
 export default function SettingsPage() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const router = useRouter();
 
-  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.accessSettings);
 
   useEffect(() => {
     // Redirect if role is loaded and user doesn't have permission
-    if (role && !canViewPage) {
+    if (role && !hasAccess) {
       router.replace('/');
     }
-  }, [role, canViewPage, router]);
+  }, [role, hasAccess, router]);
 
   // If the role is not yet loaded, or they don't have permission, don't render the page content
-  if (!canViewPage) {
+  if (!hasAccess) {
     return null;
   }
 

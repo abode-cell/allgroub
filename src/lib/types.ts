@@ -1,4 +1,19 @@
-export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'موظف' | 'مستثمر';
+'use client';
+
+export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف' | 'مستثمر';
+
+export type PermissionKey = 
+  | 'manageInvestors'
+  | 'manageBorrowers'
+  | 'importData'
+  | 'viewReports'
+  | 'manageRequests'
+  | 'useCalculator'
+  | 'accessSettings';
+
+export type Permissions = {
+  [key in PermissionKey]?: boolean;
+};
 
 export type BorrowerPaymentStatus = 'تم السداد' | 'مسدد جزئي' | 'تم الإمهال' | 'متعثر';
 
@@ -17,6 +32,7 @@ export type User = {
   employeeLimit?: number;
   allowEmployeeSubmissions?: boolean;
   hideEmployeeInvestorFunds?: boolean;
+  permissions?: Permissions;
 };
 
 export type Borrower = {

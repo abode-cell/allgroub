@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -19,6 +18,8 @@ import type {
   TransactionType,
   Notification,
   BorrowerPaymentStatus,
+  PermissionKey,
+  Permissions,
 } from '@/lib/types';
 import {
   borrowersData,
@@ -113,6 +114,7 @@ type DataContextType = {
     managerId: string,
     settings: { allowEmployeeSubmissions?: boolean; hideEmployeeInvestorFunds?: boolean }
   ) => Promise<void>;
+  updateAssistantPermission: (assistantId: string, key: PermissionKey, value: boolean) => Promise<void>;
   requestCapitalIncrease: (investorId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   clearUserNotifications: (userId: string) => void;
@@ -500,7 +502,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString().split('T')[0],
       submittedBy: currentUser?.id,
       fundedBy: fundedByDetails,
-      // If the loan is active but not fully funded, keep it active
+      amount: totalFundedAmount,
       status: (borrower.status === 'معلق') ? 'معلق' : 'منتظم',
     };
 
@@ -804,6 +806,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({ title: 'تم تحديث إعدادات المدير بنجاح.' });
   }, [toast]);
 
+  const updateAssistantPermission = useCallback(async (
+    assistantId: string,
+    key: PermissionKey,
+    value: boolean
+  ) => {
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === assistantId) {
+          return {
+            ...u,
+            permissions: {
+              ...(u.permissions || {}),
+              [key]: value,
+            },
+          };
+        }
+        return u;
+      })
+    );
+    toast({ title: 'تم تحديث صلاحية المساعد بنجاح.' });
+  }, [toast]);
+
   const requestCapitalIncrease = useCallback(async (investorId: string) => {
     const investor = investors.find(i => i.id === investorId);
     // Notify all admins and managers
@@ -882,6 +906,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateUserRole,
     updateUserLimits,
     updateManagerSettings,
+    updateAssistantPermission,
     requestCapitalIncrease,
     deleteUser,
     clearUserNotifications,
@@ -921,6 +946,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateUserRole,
     updateUserLimits,
     updateManagerSettings,
+    updateAssistantPermission,
     requestCapitalIncrease,
     deleteUser,
     clearUserNotifications,

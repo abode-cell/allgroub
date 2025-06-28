@@ -44,7 +44,7 @@ const statusVariant: {
 
 
 export default function RequestsPage() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const router = useRouter();
   const { 
     borrowers, 
@@ -54,22 +54,19 @@ export default function RequestsPage() {
     rejectBorrower,
     rejectInvestor,
   } = useData();
+  
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.manageRequests);
+
+  useEffect(() => {
+    if (role && !hasAccess) {
+      router.replace('/');
+    }
+  }, [role, hasAccess, router]);
+
 
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [itemToReject, setItemToReject] = useState<{id: string; type: 'borrower' | 'investor'} | null>(null);
-
-  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
-
-  useEffect(() => {
-    if (!canViewPage) {
-      router.replace('/');
-    }
-  }, [role, canViewPage, router]);
-
-  if (!canViewPage) {
-    return null;
-  }
 
   const handleRejectClick = (id: string, type: 'borrower' | 'investor') => {
     setItemToReject({ id, type });
@@ -113,6 +110,9 @@ export default function RequestsPage() {
     }
   };
 
+  if (!hasAccess) {
+    return null;
+  }
 
   const borrowerRequests = borrowers.filter(b => b.submittedBy);
   const investorRequests = investors.filter(i => i.submittedBy);

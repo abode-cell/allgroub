@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,9 +9,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function CalculatorPage() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
+  const router = useRouter();
+
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && user?.permissions?.useCalculator);
+
+  useEffect(() => {
+    if (role && !hasAccess) {
+      router.replace('/');
+    }
+  }, [role, hasAccess, router]);
+
   const { 
     salaryRepaymentPercentage, 
     updateSalaryRepaymentPercentage,
@@ -148,7 +158,11 @@ export default function CalculatorPage() {
       maximumFractionDigits: 2,
     }).format(value);
     
-  const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب';
+  const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.useCalculator);
+
+  if (!hasAccess) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col flex-1">

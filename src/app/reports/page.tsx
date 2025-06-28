@@ -13,7 +13,8 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { useAuth } from '@/contexts/auth-context';
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 
 const formatCurrency = (value: number) =>
@@ -127,19 +128,47 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 export default function ReportsPage() {
   const { borrowers, investors, users } = useData();
   const { user, role } = useAuth();
+  const router = useRouter();
+
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.viewReports);
+
+  useEffect(() => {
+    if (role && !hasAccess) {
+      router.replace('/');
+    }
+  }, [role, hasAccess, router]);
+
 
   const displayedInvestors = useMemo(() => {
     if (role === 'مدير المكتب') {
-      return investors.filter(i => i.submittedBy === user?.id);
+      const mySubordinateIds = users.filter(u => u.managedBy === user?.id).map(u => u.id);
+      const relevantUserIds = [user?.id, ...mySubordinateIds];
+      return investors.filter(i => i.submittedBy && relevantUserIds.includes(i.submittedBy));
+    }
+    if (role === 'مساعد مدير المكتب' && user?.managedBy) {
+        const manager = users.find(u => u.id === user.managedBy);
+        if (manager) {
+            const managerSubordinateIds = users.filter(u => u.managedBy === manager.id).map(u => u.id);
+            const relevantUserIds = [manager.id, ...managerSubordinateIds];
+            return investors.filter(i => i.submittedBy && relevantUserIds.includes(i.submittedBy));
+        }
     }
     return investors;
-  }, [investors, user, role]);
+  }, [investors, users, user, role]);
 
   const displayedBorrowers = useMemo(() => {
     if (role === 'مدير المكتب') {
-      const myEmployeeIds = users.filter(u => u.managedBy === user?.id).map(u => u.id);
-      const myIds = [user?.id, ...myEmployeeIds].filter(Boolean);
+      const mySubordinateIds = users.filter(u => u.managedBy === user?.id).map(u => u.id);
+      const myIds = [user?.id, ...mySubordinateIds].filter(Boolean);
       return borrowers.filter(b => b.submittedBy && myIds.includes(b.submittedBy));
+    }
+     if (role === 'مساعد مدير المكتب' && user?.managedBy) {
+        const manager = users.find(u => u.id === user.managedBy);
+        if (manager) {
+            const managerSubordinateIds = users.filter(u => u.managedBy === manager.id).map(u => u.id);
+            const relevantUserIds = [manager.id, ...managerSubordinateIds];
+            return borrowers.filter(b => b.submittedBy && relevantUserIds.includes(b.submittedBy));
+        }
     }
     return borrowers;
   }, [borrowers, users, user, role]);
@@ -167,6 +196,9 @@ export default function ReportsPage() {
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
 
+  if (!hasAccess) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col flex-1">

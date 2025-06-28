@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { InvestorsTable } from '@/components/investors/investors-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,11 +26,23 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useRouter } from 'next/navigation';
 
 export default function InvestorsPage() {
   const { user, role } = useAuth();
   const { investors, addInvestor, users } = useData();
   const { toast } = useToast();
+  const router = useRouter();
+  
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && user?.permissions?.manageInvestors);
+
+  useEffect(() => {
+    if (role && !hasAccess) {
+      router.replace('/');
+    }
+  }, [role, hasAccess, router]);
+
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newInvestor, setNewInvestor] = useState({
     name: '',
@@ -41,10 +53,11 @@ export default function InvestorsPage() {
 
   const isEmployee = role === 'موظف';
   const isOfficeManager = role === 'مدير المكتب';
+  const isAssistant = role === 'مساعد مدير المكتب';
 
-  const manager = isEmployee ? users.find((u) => u.id === user?.managedBy) : null;
-  const isDirectAdditionEnabled = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
-  const hideInvestorFunds = isEmployee ? manager?.hideEmployeeInvestorFunds ?? false : false;
+  const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === user?.managedBy) : null;
+  const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : false;
+  const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
 
   const investorsAddedByManager = isOfficeManager
     ? investors.filter((i) => i.submittedBy === user?.id).length
@@ -66,7 +79,7 @@ export default function InvestorsPage() {
       return;
     }
 
-    if (isOfficeManager) {
+    if (isOfficeManager || (isAssistant && user?.permissions?.manageInvestors)) {
       if (!newInvestor.email || !newInvestor.password) {
         toast({
           variant: 'destructive',
@@ -85,7 +98,7 @@ export default function InvestorsPage() {
       }
     }
 
-    const status: Investor['status'] = (isEmployee && !isDirectAdditionEnabled) ? 'معلق' : 'نشط';
+    const status: Investor['status'] = ((isEmployee || isAssistant) && !isDirectAdditionEnabled) ? 'معلق' : 'نشط';
 
     addInvestor({
       name: newInvestor.name,
@@ -98,25 +111,29 @@ export default function InvestorsPage() {
     setNewInvestor({ name: '', amount: '', email: '', password: '' });
   };
 
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || isEmployee;
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || (isAssistant && user?.permissions?.manageInvestors) || isEmployee;
   const isAddButtonDisabled = isOfficeManager && !canAddMoreInvestors;
 
   const displayedInvestors =
     role === 'مستثمر'
       ? investors.filter((i) => i.id === user?.id)
-      : role === 'مدير المكتب'
-      ? investors.filter((i) => i.submittedBy === user?.id)
+      : role === 'مدير المكتب' || role === 'مساعد مدير المكتب'
+      ? investors.filter((i) => i.submittedBy === user?.id || i.submittedBy === user?.managedBy)
       : investors;
+      
+  if (!hasAccess) {
+    return null;
+  }
 
   const getDialogTitle = () => {
-    if (isEmployee) {
+    if (isEmployee || isAssistant) {
       return isDirectAdditionEnabled ? 'إضافة مستثمر جديد' : 'رفع طلب إضافة مستثمر جديد';
     }
     return isOfficeManager ? 'إضافة مستثمر جديد وإنشاء حساب' : 'إضافة مستثمر جديد';
   };
 
   const getDialogDescription = () => {
-    if (isOfficeManager) {
+    if (isOfficeManager || isAssistant) {
       return 'أدخل بيانات المستثمر لإنشاء حساب له. سيتمكن من تسجيل الدخول مباشرة.';
     }
     if (isEmployee) {
@@ -128,7 +145,7 @@ export default function InvestorsPage() {
   };
 
   const getSubmitButtonText = () => {
-    if (isEmployee) {
+    if (isEmployee || isAssistant) {
       return isDirectAdditionEnabled ? 'حفظ' : 'إرسال الطلب';
     }
     return 'حفظ';
@@ -138,7 +155,7 @@ export default function InvestorsPage() {
   const AddButton = (
     <Button disabled={isAddButtonDisabled}>
       <PlusCircle className="ml-2 h-4 w-4" />
-      {isEmployee ? (isDirectAdditionEnabled ? 'إضافة مستثمر' : 'رفع طلب إضافة مستثمر') : 'إضافة مستثمر'}
+      {isEmployee || isAssistant ? (isDirectAdditionEnabled ? 'إضافة مستثمر' : 'رفع طلب إضافة مستثمر') : 'إضافة مستثمر'}
     </Button>
   );
 
@@ -214,7 +231,7 @@ export default function InvestorsPage() {
                         required
                       />
                     </div>
-                    {isOfficeManager && (
+                    {(isOfficeManager || (isAssistant && user?.permissions?.manageInvestors)) && (
                       <>
                         <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="email" className="text-right">

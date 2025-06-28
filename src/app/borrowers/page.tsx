@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BorrowersTable } from '@/components/borrowers/borrowers-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +47,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useRouter } from 'next/navigation';
 
 
 const formatCurrency = (value: number) =>
@@ -60,6 +61,17 @@ export default function BorrowersPage() {
   const { role, user: currentUser } = useAuth();
   const { borrowers, investors, addBorrower, users, baseInterestRate } = useData();
   const { toast } = useToast();
+  const router = useRouter();
+
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers);
+  
+  useEffect(() => {
+    if (role && !hasAccess) {
+      router.replace('/');
+    }
+  }, [role, hasAccess, router]);
+
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
   const [newBorrower, setNewBorrower] = useState<{
@@ -85,10 +97,12 @@ export default function BorrowersPage() {
   const [availableFunds, setAvailableFunds] = useState(0);
   
   const isEmployee = role === 'موظف';
-  const manager = isEmployee ? users.find((u) => u.id === currentUser?.managedBy) : null;
-  const isDirectAdditionEnabled = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
-  const hideInvestorFunds = isEmployee ? manager?.hideEmployeeInvestorFunds ?? false : false;
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || isEmployee;
+  const isAssistant = role === 'مساعد مدير المكتب';
+
+  const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
+  const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : false;
+  const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || isEmployee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -105,14 +119,14 @@ export default function BorrowersPage() {
 
   const proceedToAddBorrower = () => {
     const isInstallments = newBorrower.loanType === 'اقساط';
-    // If an employee isn't allowed direct additions, force status to 'معلق'
+    // If an employee/assistant isn't allowed direct additions, force status to 'معلق'
     // Otherwise, use the status selected in the form.
-    const finalStatus = (isEmployee && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status;
+    const finalStatus = ((isEmployee || isAssistant) && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status;
 
     addBorrower({
       ...newBorrower,
       amount: Number(newBorrower.amount),
-      rate: isEmployee && isInstallments ? baseInterestRate : Number(newBorrower.rate),
+      rate: (isEmployee || isAssistant) && isInstallments ? baseInterestRate : Number(newBorrower.rate),
       term: Number(newBorrower.term) || 0,
       status: finalStatus,
       discount: Number(newBorrower.discount) || 0,
@@ -128,8 +142,8 @@ export default function BorrowersPage() {
   const handleAddBorrower = (e: React.FormEvent) => {
     e.preventDefault();
     const isInstallments = newBorrower.loanType === 'اقساط';
-    const rateForValidation = isEmployee && isInstallments ? baseInterestRate : newBorrower.rate;
-    const isPendingRequest = (isEmployee && !isDirectAdditionEnabled);
+    const rateForValidation = (isEmployee || isAssistant) && isInstallments ? baseInterestRate : newBorrower.rate;
+    const isPendingRequest = ((isEmployee || isAssistant) && !isDirectAdditionEnabled);
 
     if (!newBorrower.name || !newBorrower.amount || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
       return;
@@ -156,6 +170,7 @@ export default function BorrowersPage() {
       .reduce((sum, inv) => sum + inv.amount, 0);
 
     if (totalAvailableFromSelected < loanAmount) {
+      setNewBorrower(prev => ({...prev, amount: String(totalAvailableFromSelected)}));
       setAvailableFunds(totalAvailableFromSelected);
       setIsInsufficientFundsDialogOpen(true);
       return; // Stop and show dialog
@@ -166,25 +181,29 @@ export default function BorrowersPage() {
   
   const displayedBorrowers = useMemo(() => {
     if (role === 'مدير المكتب') {
-      const myEmployeeIds = users.filter(u => u.managedBy === currentUser?.id).map(u => u.id);
-      const myIds = [currentUser?.id, ...myEmployeeIds].filter(Boolean);
+      const mySubordinateIds = users.filter(u => u.managedBy === currentUser?.id).map(u => u.id);
+      const myIds = [currentUser?.id, ...mySubordinateIds].filter(Boolean);
       return borrowers.filter(b => b.submittedBy && myIds.includes(b.submittedBy));
     }
     return borrowers;
   }, [borrowers, users, currentUser, role]);
+  
+  if (!hasAccess) {
+    return null;
+  }
 
   const installmentBorrowers = displayedBorrowers.filter((b) => b.loanType === 'اقساط');
   const gracePeriodBorrowers = displayedBorrowers.filter((b) => b.loanType === 'مهلة');
 
   const getDialogTitle = () => {
-    if (isEmployee) {
+    if (isEmployee || isAssistant) {
       return isDirectAdditionEnabled ? 'إضافة قرض جديد' : 'رفع طلب إضافة قرض جديد';
     }
     return 'إضافة قرض جديد';
   };
 
   const getDialogDescription = () => {
-    if (isEmployee) {
+    if (isEmployee || isAssistant) {
       return isDirectAdditionEnabled
         ? 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.'
         : 'أدخل تفاصيل القرض الجديد وسيتم مراجعة الطلب من قبل مديرك.';
@@ -193,7 +212,7 @@ export default function BorrowersPage() {
   };
 
   const getSubmitButtonText = () => {
-    if (isEmployee) {
+    if (isEmployee || isAssistant) {
       return isDirectAdditionEnabled ? 'حفظ' : 'إرسال الطلب';
     }
     return 'حفظ';
@@ -214,7 +233,7 @@ export default function BorrowersPage() {
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="ml-2 h-4 w-4" />
-                {isEmployee ? (isDirectAdditionEnabled ? 'إضافة قرض' : 'رفع طلب إضافة قرض') : 'إضافة قرض'}
+                {isEmployee || isAssistant ? (isDirectAdditionEnabled ? 'إضافة قرض' : 'رفع طلب إضافة قرض') : 'إضافة قرض'}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
@@ -276,7 +295,7 @@ export default function BorrowersPage() {
                         <Label htmlFor="rate" className="text-right">
                           الفائدة (%)
                         </Label>
-                        {isEmployee ? (
+                        {(isEmployee || isAssistant) ? (
                            <Input
                              id="rate"
                              type="number"
@@ -341,7 +360,7 @@ export default function BorrowersPage() {
                       required
                     />
                   </div>
-                  {(!isEmployee || isDirectAdditionEnabled) && (
+                  {(!(isEmployee || isAssistant) || isDirectAdditionEnabled) && (
                      <>
                         <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="status" className="text-right">
