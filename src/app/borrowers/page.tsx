@@ -47,8 +47,8 @@ const formatCurrency = (value: number) =>
 
 
 export default function BorrowersPage() {
-  const { role } = useAuth();
-  const { borrowers, investors, addBorrower } = useData();
+  const { role, user: currentUser } = useAuth();
+  const { borrowers, investors, addBorrower, users } = useData();
   const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
@@ -73,6 +73,9 @@ export default function BorrowersPage() {
   });
   
   const isEmployee = role === 'موظف';
+  const manager = isEmployee ? users.find((u) => u.id === currentUser?.managedBy) : null;
+  const canEmployeeAdd = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || (isEmployee && canEmployeeAdd);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -121,8 +124,6 @@ export default function BorrowersPage() {
     setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
     setSelectedInvestors([]);
   };
-
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
 
   const installmentBorrowers = borrowers.filter((b) => b.loanType === 'اقساط');
   const gracePeriodBorrowers = borrowers.filter((b) => b.loanType === 'مهلة');

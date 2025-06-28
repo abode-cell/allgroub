@@ -32,6 +32,8 @@ import {
   PiggyBank,
   Scale,
   Save,
+  UserCog,
+  Settings,
 } from 'lucide-react';
 import {
   Select,
@@ -67,6 +69,7 @@ import {
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } =
   {
@@ -129,7 +132,7 @@ const UserActions = ({
 
 export default function UsersPage() {
   const { user: currentUser, role } = useAuth();
-  const { users, investors, updateUserRole, deleteUser, updateUserLimits } =
+  const { users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings } =
     useData();
   const router = useRouter();
 
@@ -363,11 +366,25 @@ export default function UsersPage() {
                           )}
                         </div>
                       </div>
-                      <div className="mt-6 pt-4 border-t">
-                        <h5 className="font-semibold mb-4 flex items-center gap-2 text-sm">
-                          <Scale className="h-4 w-4 text-muted-foreground" />
-                          إدارة الحدود
+                      
+                      <div className="mt-6 pt-4 border-t space-y-4">
+                        <h5 className="font-semibold flex items-center gap-2 text-sm">
+                          <Settings className="h-4 w-4 text-muted-foreground" />
+                          إعدادات المدير
                         </h5>
+                         <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                            <div className="space-y-0.5">
+                                <Label htmlFor={`allow-submissions-${manager.id}`} className="font-semibold">السماح لموظفيه بالإضافة</Label>
+                                <p className="text-xs text-muted-foreground">تمكين/تعطيل قدرة الموظفين على رفع طلبات جديدة.</p>
+                            </div>
+                            <Switch
+                                id={`allow-submissions-${manager.id}`}
+                                checked={manager.allowEmployeeSubmissions}
+                                onCheckedChange={(checked) =>
+                                    updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })
+                                }
+                            />
+                        </div>
                         <div className="grid gap-4 md:grid-cols-3 items-end">
                           <div className="space-y-2">
                             <Label htmlFor={`investor-limit-${manager.id}`}>
@@ -511,6 +528,30 @@ export default function UsersPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-6 space-y-4 rounded-lg border p-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <UserCog className="h-5 w-5 text-primary" />
+            صلاحيات الموظفين
+          </h3>
+          <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label htmlFor="allow-submissions" className="font-medium">السماح لموظفيك بالإضافة</Label>
+              <p className="text-xs text-muted-foreground">
+                تمكين/تعطيل قدرة الموظفين التابعين لك على رفع طلبات قروض ومستثمرين جدد.
+              </p>
+            </div>
+            <Switch
+              id="allow-submissions"
+              checked={currentUser?.allowEmployeeSubmissions}
+              onCheckedChange={(checked) => {
+                if (currentUser) {
+                  updateManagerSettings(currentUser.id, { allowEmployeeSubmissions: checked });
+                }
+              }}
+            />
+          </div>
+        </div>
+
         <Table>
           <TableHeader>
             <TableRow>

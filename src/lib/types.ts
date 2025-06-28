@@ -13,6 +13,7 @@ export type User = {
   registrationDate?: string;
   investorLimit?: number;
   employeeLimit?: number;
+  allowEmployeeSubmissions?: boolean;
 };
 
 export type Borrower = {

@@ -102,6 +102,10 @@ type DataContextType = {
     userId: string,
     limits: { investorLimit: number; employeeLimit: number }
   ) => Promise<void>;
+  updateManagerSettings: (
+    managerId: string,
+    settings: { allowEmployeeSubmissions: boolean }
+  ) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   clearUserNotifications: (userId: string) => void;
   markUserNotificationsAsRead: (userId: string) => void;
@@ -233,6 +237,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       registrationDate: new Date().toISOString().split('T')[0],
       investorLimit: 3,
       employeeLimit: 1,
+      allowEmployeeSubmissions: true,
     };
 
     const newEmployee: User = {
@@ -740,6 +745,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
     toast({ title: 'تم تحديث حدود المستخدم بنجاح.' });
   };
+  
+  const updateManagerSettings = async (
+    managerId: string,
+    settings: { allowEmployeeSubmissions: boolean }
+  ) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === managerId ? { ...u, ...settings } : u
+      )
+    );
+    toast({ title: 'تم تحديث صلاحيات الموظفين بنجاح.' });
+  };
 
   const deleteUser = async (userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
@@ -792,6 +809,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateUserStatus,
     updateUserRole,
     updateUserLimits,
+    updateManagerSettings,
     deleteUser,
     clearUserNotifications,
     markUserNotificationsAsRead,

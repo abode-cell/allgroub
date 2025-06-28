@@ -29,7 +29,7 @@ import {
 
 export default function InvestorsPage() {
   const { user, role } = useAuth();
-  const { investors, addInvestor } = useData();
+  const { investors, addInvestor, users } = useData();
   const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newInvestor, setNewInvestor] = useState({
@@ -41,6 +41,9 @@ export default function InvestorsPage() {
 
   const isEmployee = role === 'موظف';
   const isOfficeManager = role === 'مدير المكتب';
+
+  const manager = isEmployee ? users.find((u) => u.id === user?.managedBy) : null;
+  const canEmployeeAdd = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
 
   const investorsAddedByManager = isOfficeManager
     ? investors.filter((i) => i.submittedBy === user?.id).length
@@ -95,7 +98,9 @@ export default function InvestorsPage() {
   };
 
   const showAddButton =
-    role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
+    role === 'مدير النظام' ||
+    role === 'مدير المكتب' ||
+    (isEmployee && canEmployeeAdd);
   const isAddButtonDisabled = isOfficeManager && !canAddMoreInvestors;
 
   const displayedInvestors =
