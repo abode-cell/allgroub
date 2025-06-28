@@ -55,7 +55,7 @@ export default function SignUpPage() {
 
   if(success) {
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <Card className="w-full max-w-sm text-center">
                 <CardHeader>
                     <CardTitle className="text-2xl">تم استلام طلبك</CardTitle>
@@ -74,11 +74,11 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
        <div className="flex items-center gap-2 mb-8">
           <svg
-            width="32"
-            height="32"
+            width="28"
+            height="28"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -89,7 +89,7 @@ export default function SignUpPage() {
             <path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
             <path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
           </svg>
-          <span className="font-semibold text-3xl">Aal group</span>
+          <span className="font-bold text-xl">Aal group</span>
         </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">

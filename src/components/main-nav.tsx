@@ -1,15 +1,7 @@
-'use client';
-
-import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Users,
   Landmark,
   Calculator,
-  BrainCircuit,
-  PanelLeft,
   FileText,
   Settings,
   ClipboardList,
@@ -18,19 +10,18 @@ import {
   UserCog,
   LifeBuoy,
   PiggyBank,
+  type LucideIcon,
 } from 'lucide-react';
-import {
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarTrigger,
-  SidebarContent,
-} from '@/components/ui/sidebar';
-import { Button } from './ui/button';
-import { useAuth } from '@/contexts/auth-context';
+import type { UserRole } from '@/lib/types';
 
-const allMenuItems = [
+export type MenuItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  roles: UserRole[];
+};
+
+export const allMenuItems: MenuItem[] = [
   {
     href: '/',
     label: 'الرئيسية',
@@ -75,85 +66,20 @@ const allMenuItems = [
   },
   {
     href: '/calculator',
-    label: 'حاسبة القروض',
+    label: 'الحاسبة',
     icon: Calculator,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
   },
   {
     href: '/support',
-    label: 'الدعم الفني',
+    label: 'الدعم',
     icon: LifeBuoy,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
   },
   {
     href: '/settings',
-    label: 'الإعدادات الإدارية',
+    label: 'الإعدادات',
     icon: Settings,
     roles: ['مدير النظام', 'مدير المكتب'],
   },
-  {
-    href: '/profile',
-    label: 'الملف الشخصي',
-    icon: UserCog,
-    roles: ['مدير النظام', 'مدير المكتب', 'موظف', 'مستثمر'],
-  },
 ];
-
-export function MainNav() {
-  const pathname = usePathname();
-  const { role } = useAuth();
-
-  const menuItems = allMenuItems.filter((item) => role && item.roles.includes(role));
-
-  return (
-    <>
-      <SidebarHeader className="flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="text-primary"
-            >
-              <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-              <path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-              <path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-              <path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-            </svg>
-          </Button>
-          <span className="font-semibold text-lg">Aal group</span>
-        </Link>
-        <div className="block md:hidden">
-          <SidebarTrigger>
-            <PanelLeft />
-          </SidebarTrigger>
-        </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={
-                  item.href === '/'
-                    ? pathname === item.href
-                    : pathname.startsWith(item.href)
-                }
-                tooltip={item.label}
-              >
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarContent>
-    </>
-  );
-}
