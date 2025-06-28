@@ -6,6 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import type { Borrower } from '@/lib/types';
 import { useData } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 
 const formatCurrency = (value: number) =>
@@ -23,6 +29,8 @@ const statusVariant: {
   معلق: 'secondary',
   'مسدد بالكامل': 'success',
   مرفوض: 'destructive',
+  'نشط': 'success',
+  'غير نشط': 'secondary',
 };
 
 
@@ -69,7 +77,7 @@ const getDynamicStatus = (borrower: Borrower): { text: string; variant: keyof ty
 };
 
 
-const ReportTable = ({ loans, getInvestorNameForLoan }: { loans: Borrower[], getInvestorNameForLoan: (loanId: string) => string }) => (
+const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], getInvestorInfoForLoan: (loan: Borrower) => React.ReactNode }) => (
      <Table>
         <TableHeader>
           <TableRow>
@@ -97,7 +105,7 @@ const ReportTable = ({ loans, getInvestorNameForLoan }: { loans: Borrower[], get
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {getInvestorNameForLoan(loan.id)}
+                    {getInvestorInfoForLoan(loan)}
                   </TableCell>
                 </TableRow>
               );
@@ -117,9 +125,15 @@ const ReportTable = ({ loans, getInvestorNameForLoan }: { loans: Borrower[], get
 export default function ReportsPage() {
   const { borrowers, investors } = useData();
 
-  const getInvestorNameForLoan = (loanId: string) => {
-    const investor = investors.find(inv => inv.fundedLoanIds.includes(loanId));
-    return investor ? investor.name : 'غير محدد';
+  const getInvestorInfoForLoan = (loan: Borrower): React.ReactNode => {
+    if (!loan.fundedBy || loan.fundedBy.length === 0) {
+      return <span className="text-xs text-muted-foreground">غير ممول</span>;
+    }
+    if (loan.fundedBy.length === 1) {
+      const investor = investors.find(inv => inv.id === loan.fundedBy![0].investorId);
+      return investor ? investor.name : 'غير محدد';
+    }
+    return `${loan.fundedBy.length} مستثمرون`;
   };
 
   const loansForReport = borrowers.filter(b => 
@@ -128,6 +142,8 @@ export default function ReportsPage() {
     b.status === 'منتظم' ||
     b.status === 'متأخر'
   );
+  
+  const activeInvestors = investors.filter(i => i.status === 'نشط' || i.status === 'غير نشط');
 
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
@@ -137,16 +153,16 @@ export default function ReportsPage() {
       <main className="flex-1 space-y-8 p-4 md:p-8">
         <div className="flex items-center justify-between">
             <header>
-            <h1 className="text-3xl font-bold tracking-tight">تقرير حالة القروض</h1>
+            <h1 className="text-3xl font-bold tracking-tight">التقارير الشاملة</h1>
             <p className="text-muted-foreground mt-1">
-                نظرة شاملة على جميع القروض النشطة، المعلقة، والمتعثرة.
+                نظرة شاملة على أداء القروض والمستثمرين في النظام.
             </p>
             </header>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>قائمة القروض</CardTitle>
+            <CardTitle>تقرير حالة القروض</CardTitle>
             <CardDescription>
               قائمة بجميع القروض النشطة، المعلقة، والمتعثرة في النظام حسب نوع التمويل.
             </CardDescription>
@@ -162,13 +178,150 @@ export default function ReportsPage() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="installments" className="mt-4">
-                  <ReportTable loans={installmentLoans} getInvestorNameForLoan={getInvestorNameForLoan} />
+                  <ReportTable loans={installmentLoans} getInvestorInfoForLoan={getInvestorInfoForLoan} />
               </TabsContent>
               <TabsContent value="grace-period" className="mt-4">
-                  <ReportTable loans={gracePeriodLoans} getInvestorNameForLoan={getInvestorNameForLoan} />
+                  <ReportTable loans={gracePeriodLoans} getInvestorInfoForLoan={getInvestorInfoForLoan} />
               </TabsContent>
             </Tabs>
           </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>تقارير المستثمرين</CardTitle>
+                <CardDescription>
+                تقارير فردية لكل مستثمر توضح أداء استثماراتهم.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Accordion type="single" collapsible className="w-full">
+                {activeInvestors.map(investor => {
+                const fundedLoans = borrowers.filter(b => 
+                    b.fundedBy?.some(f => f.investorId === investor.id)
+                );
+                const installmentLoansFunded = fundedLoans.filter(l => l.loanType === 'اقساط');
+                const gracePeriodLoansFunded = fundedLoans.filter(l => l.loanType === 'مهلة');
+
+                const totalInvestment = investor.transactionHistory
+                    .filter(tx => tx.type === 'إيداع رأس المال')
+                    .reduce((acc, tx) => acc + tx.amount, 0);
+                const activeInvestment = fundedLoans
+                    .filter(b => b.status === 'منتظم' || b.status === 'متأخر')
+                    .reduce((total, loan) => {
+                        const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+                        return total + (funding?.amount || 0);
+                    }, 0);
+                const idleFunds = investor.amount;
+                const defaultedFunds = investor.defaultedFunds || 0;
+
+                return (
+                    <AccordionItem value={investor.id} key={investor.id}>
+                    <AccordionTrigger>
+                        <div className="flex justify-between w-full pr-4 items-center">
+                        <span className="font-medium">{investor.name}</span>
+                        <Badge variant={statusVariant[investor.status] || 'default'}>{investor.status}</Badge>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-6 bg-muted/30 p-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div className="p-3 rounded-md border bg-background shadow-sm">
+                                <p className="text-muted-foreground">إجمالي الاستثمار</p>
+                                <p className="font-bold text-lg">{formatCurrency(totalInvestment)}</p>
+                            </div>
+                            <div className="p-3 rounded-md border bg-background shadow-sm">
+                                <p className="text-muted-foreground">الأموال النشطة</p>
+                                <p className="font-bold text-lg text-green-600">{formatCurrency(activeInvestment)}</p>
+                            </div>
+                            <div className="p-3 rounded-md border bg-background shadow-sm">
+                                <p className="text-muted-foreground">الأموال الخاملة</p>
+                                <p className="font-bold text-lg">{formatCurrency(idleFunds)}</p>
+                            </div>
+                            <div className="p-3 rounded-md border bg-background shadow-sm">
+                                <p className="text-muted-foreground">الأموال المتعثرة</p>
+                                <p className="font-bold text-lg text-destructive">{formatCurrency(defaultedFunds)}</p>
+                            </div>
+                        </div>
+                        
+                        <div>
+                        <h4 className="font-semibold mb-2">قروض الأقساط الممولة ({installmentLoansFunded.length})</h4>
+                        <div className="border rounded-md bg-background overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                            <TableRow>
+                                <TableHead>اسم المقترض</TableHead>
+                                <TableHead>مبلغ التمويل</TableHead>
+                                <TableHead>تاريخ الاستحقاق</TableHead>
+                                <TableHead>الحالة</TableHead>
+                            </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                            {installmentLoansFunded.length > 0 ? (
+                                installmentLoansFunded.map(loan => {
+                                const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
+                                const dynamicStatus = getDynamicStatus(loan);
+                                return (
+                                    <TableRow key={loan.id}>
+                                    <TableCell>{loan.name}</TableCell>
+                                    <TableCell>{formatCurrency(fundingAmount)}</TableCell>
+                                    <TableCell>{loan.dueDate}</TableCell>
+                                    <TableCell><Badge variant={dynamicStatus.variant}>{dynamicStatus.text}</Badge></TableCell>
+                                    </TableRow>
+                                )
+                                })
+                            ) : (
+                                <TableRow><TableCell colSpan={4} className="text-center h-24">لا توجد قروض أقساط ممولة.</TableCell></TableRow>
+                            )}
+                            </TableBody>
+                        </Table>
+                        </div>
+                        </div>
+
+                        <div>
+                        <h4 className="font-semibold mb-2">قروض المهلة الممولة ({gracePeriodLoansFunded.length})</h4>
+                        <div className="border rounded-md bg-background overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                            <TableRow>
+                                <TableHead>اسم المقترض</TableHead>
+                                <TableHead>مبلغ التمويل</TableHead>
+                                <TableHead>تاريخ الاستحقاق</TableHead>
+                                <TableHead>الحالة</TableHead>
+                            </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                            {gracePeriodLoansFunded.length > 0 ? (
+                                gracePeriodLoansFunded.map(loan => {
+                                const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
+                                const dynamicStatus = getDynamicStatus(loan);
+                                return (
+                                    <TableRow key={loan.id}>
+                                    <TableCell>{loan.name}</TableCell>
+                                    <TableCell>{formatCurrency(fundingAmount)}</TableCell>
+                                    <TableCell>{loan.dueDate}</TableCell>
+                                    <TableCell><Badge variant={dynamicStatus.variant}>{dynamicStatus.text}</Badge></TableCell>
+                                    </TableRow>
+                                )
+                                })
+                            ) : (
+                                <TableRow><TableCell colSpan={4} className="text-center h-24">لا توجد قروض مهلة ممولة.</TableCell></TableRow>
+                            )}
+                            </TableBody>
+                        </Table>
+                        </div>
+                        </div>
+
+                    </AccordionContent>
+                    </AccordionItem>
+                )
+                })}
+                {activeInvestors.length === 0 && (
+                    <div className="text-center text-muted-foreground py-16">
+                        <p>لا يوجد مستثمرون لعرض تقاريرهم.</p>
+                    </div>
+                )}
+                </Accordion>
+            </CardContent>
         </Card>
       </main>
     </div>
