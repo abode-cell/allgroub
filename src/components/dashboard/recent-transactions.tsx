@@ -14,30 +14,62 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { useData } from '@/contexts/data-context';
+import { cn } from '@/lib/utils';
 
-const transactions: {
-  id: string;
-  type: string;
-  user: string;
-  amount: string;
-  date: string;
-  status: string;
-}[] = [];
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'SAR',
+  }).format(value);
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } = {
     'مكتمل': 'default',
     'قيد المعالجة': 'secondary',
     'ملغي': 'destructive',
-}
-
+};
 
 export function RecentTransactions() {
+  const { investors, borrowers } = useData();
+
+  const investorTransactions = investors.flatMap(investor => 
+    investor.transactionHistory.map(tx => ({
+      id: tx.id,
+      type: tx.type,
+      user: investor.name,
+      amount: tx.amount,
+      isDeposit: tx.type.includes('إيداع'),
+      date: tx.date,
+      status: 'مكتمل' as const,
+      rawDate: new Date(tx.date)
+    }))
+  );
+
+  const loanTransactions = borrowers
+    .filter(b => b.status !== 'معلق' && b.status !== 'مرفوض')
+    .map(borrower => ({
+      id: `loan-${borrower.id}`,
+      type: `تمويل قرض جديد`,
+      user: borrower.name,
+      amount: borrower.amount,
+      isDeposit: false, // Funding a loan is an outflow from the platform's perspective
+      date: borrower.date,
+      status: 'مكتمل' as const,
+      rawDate: new Date(borrower.date)
+  }));
+  
+  const allTransactions = [...investorTransactions, ...loanTransactions];
+
+  const sortedTransactions = allTransactions
+    .sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime())
+    .slice(0, 10); // Show top 10 recent transactions
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>المعاملات الأخيرة</CardTitle>
         <CardDescription>
-          قائمة بآخر المعاملات المالية التي تمت على المنصة.
+          قائمة بآخر 10 معاملات مالية تمت على المنصة.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -52,12 +84,18 @@ export function RecentTransactions() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.length > 0 ? (
-              transactions.map((transaction) => (
+            {sortedTransactions.length > 0 ? (
+              sortedTransactions.map((transaction) => (
                 <TableRow key={transaction.id}>
-                  <TableCell>{transaction.type}</TableCell>
+                  <TableCell className="font-medium">{transaction.type}</TableCell>
                   <TableCell>{transaction.user}</TableCell>
-                  <TableCell>{transaction.amount}</TableCell>
+                  <TableCell className={cn(
+                    'font-semibold',
+                    transaction.isDeposit ? 'text-green-600' : (transaction.type.includes('سحب') ? 'text-destructive' : 'text-foreground')
+                  )}>
+                    {transaction.isDeposit ? '+' : (transaction.type.includes('سحب') ? '-' : '')}
+                    {formatCurrency(transaction.amount)}
+                  </TableCell>
                   <TableCell>{transaction.date}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[transaction.status] || 'default'}>
