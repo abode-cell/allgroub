@@ -111,7 +111,7 @@ export function InvestorDashboard() {
                                     <TableRow>
                                         <TableHead>التاريخ</TableHead>
                                         <TableHead>المبلغ</TableHead>
-                                        <TableHead>السبب</TableHead>
+                                        <TableHead className="text-center">السبب</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -121,7 +121,7 @@ export function InvestorDashboard() {
                                         <TableRow key={w.id}>
                                             <TableCell>{w.date}</TableCell>
                                             <TableCell>{formatCurrency(w.amount)}</TableCell>
-                                            <TableCell>{w.description}</TableCell>
+                                            <TableCell className="text-center">{w.description}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

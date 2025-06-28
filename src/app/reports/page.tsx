@@ -100,8 +100,8 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
             <TableHead>مبلغ القرض</TableHead>
             <TableHead>تاريخ القرض</TableHead>
             <TableHead>تاريخ الاستحقاق</TableHead>
-            <TableHead>الحالة</TableHead>
-            <TableHead>المستثمر الممول</TableHead>
+            <TableHead className="text-center">الحالة</TableHead>
+            <TableHead className="text-center">المستثمر الممول</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -114,12 +114,12 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
                   <TableCell>{formatCurrency(loan.amount)}</TableCell>
                   <TableCell>{loan.date}</TableCell>
                   <TableCell>{loan.dueDate}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     <Badge variant={dynamicStatus.variant}>
                       {dynamicStatus.text}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     {getInvestorInfoForLoan(loan)}
                   </TableCell>
                 </TableRow>
@@ -304,7 +304,7 @@ export default function ReportsPage() {
                                 <TableHead>اسم المقترض</TableHead>
                                 <TableHead>مبلغ التمويل</TableHead>
                                 <TableHead>تاريخ الاستحقاق</TableHead>
-                                <TableHead>الحالة</TableHead>
+                                <TableHead className="text-center">الحالة</TableHead>
                             </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -317,7 +317,7 @@ export default function ReportsPage() {
                                     <TableCell>{loan.name}</TableCell>
                                     <TableCell>{formatCurrency(fundingAmount)}</TableCell>
                                     <TableCell>{loan.dueDate}</TableCell>
-                                    <TableCell><Badge variant={dynamicStatus.variant}>{dynamicStatus.text}</Badge></TableCell>
+                                    <TableCell className="text-center"><Badge variant={dynamicStatus.variant}>{dynamicStatus.text}</Badge></TableCell>
                                     </TableRow>
                                 )
                                 })
@@ -338,7 +338,7 @@ export default function ReportsPage() {
                                 <TableHead>اسم المقترض</TableHead>
                                 <TableHead>مبلغ التمويل</TableHead>
                                 <TableHead>تاريخ الاستحقاق</TableHead>
-                                <TableHead>الحالة</TableHead>
+                                <TableHead className="text-center">الحالة</TableHead>
                             </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -351,7 +351,7 @@ export default function ReportsPage() {
                                     <TableCell>{loan.name}</TableCell>
                                     <TableCell>{formatCurrency(fundingAmount)}</TableCell>
                                     <TableCell>{loan.dueDate}</TableCell>
-                                    <TableCell><Badge variant={dynamicStatus.variant}>{dynamicStatus.text}</Badge></TableCell>
+                                    <TableCell className="text-center"><Badge variant={dynamicStatus.variant}>{dynamicStatus.text}</Badge></TableCell>
                                     </TableRow>
                                 )
                                 })

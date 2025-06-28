@@ -89,7 +89,7 @@ export default function MyRequestsPage() {
                   <TableRow>
                     <TableHead>اسم القرض/العميل</TableHead>
                     <TableHead>المبلغ المطلوب</TableHead>
-                    <TableHead>الحالة</TableHead>
+                    <TableHead className="text-center">الحالة</TableHead>
                     <TableHead>سبب الرفض</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -99,7 +99,7 @@ export default function MyRequestsPage() {
                       <TableRow key={borrower.id}>
                         <TableCell className="font-medium">{borrower.name}</TableCell>
                         <TableCell>{formatCurrency(borrower.amount)}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                            <Badge variant={statusVariant[borrower.status] || 'outline'}>
                                 {getStatusText(borrower.status)}
                            </Badge>
@@ -109,7 +109,7 @@ export default function MyRequestsPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center">
+                      <TableCell colSpan={4} className="h-24 text-center">
                         لم تقم بتقديم أي طلبات لإضافة قروض.
                       </TableCell>
                     </TableRow>
@@ -132,7 +132,7 @@ export default function MyRequestsPage() {
                   <TableRow>
                     <TableHead>اسم المستثمر</TableHead>
                     <TableHead>مبلغ الاستثمار</TableHead>
-                    <TableHead>الحالة</TableHead>
+                    <TableHead className="text-center">الحالة</TableHead>
                     <TableHead>سبب الرفض</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -142,7 +142,7 @@ export default function MyRequestsPage() {
                       <TableRow key={investor.id}>
                         <TableCell className="font-medium">{investor.name}</TableCell>
                         <TableCell>{formatCurrency(investor.amount)}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                            <Badge variant={statusVariant[investor.status] || 'outline'}>
                                 {getStatusText(investor.status)}
                             </Badge>
@@ -152,7 +152,7 @@ export default function MyRequestsPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center">
+                      <TableCell colSpan={4} className="h-24 text-center">
                         لم تقم بتقديم أي طلبات لإضافة مستثمرين.
                       </TableCell>
                     </TableRow>

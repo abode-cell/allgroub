@@ -161,78 +161,84 @@ export function InvestorsTable({
                 <TableHead>اسم المستثمر</TableHead>
                 <TableHead>الرصيد المتاح</TableHead>
                 <TableHead>تاريخ البدء</TableHead>
-                <TableHead>الأموال المتعثرة</TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead>
-                  <span className="sr-only">الإجراءات</span>
-                </TableHead>
+                <TableHead className="text-center">الأموال المتعثرة</TableHead>
+                <TableHead className="text-center">الحالة</TableHead>
+                <TableHead className="text-left">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {investors.map((investor) => (
-                <TableRow key={investor.id}>
-                  <TableCell className="font-medium">{investor.name}</TableCell>
-                  <TableCell>{hideFunds ? '*****' : formatCurrency(investor.amount)}</TableCell>
-                  <TableCell>{investor.date}</TableCell>
-                   <TableCell className="text-destructive font-medium">
-                    {hideFunds ? '*****' : formatCurrency(investor.defaultedFunds || 0)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={statusVariant[investor.status] || 'default'}
-                    >
-                      {investor.status === 'معلق' ? 'طلب معلق' : investor.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">فتح القائمة</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                         {canPerformActions && investor.status === 'معلق' && (
-                           <DropdownMenuItem
-                            onSelect={() => handleApproveClick(investor)}
+              {investors.length > 0 ? (
+                investors.map((investor) => (
+                  <TableRow key={investor.id}>
+                    <TableCell className="font-medium">{investor.name}</TableCell>
+                    <TableCell>{hideFunds ? '*****' : formatCurrency(investor.amount)}</TableCell>
+                    <TableCell>{investor.date}</TableCell>
+                    <TableCell className="text-destructive font-medium text-center">
+                      {hideFunds ? '*****' : formatCurrency(investor.defaultedFunds || 0)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant={statusVariant[investor.status] || 'default'}
+                      >
+                        {investor.status === 'معلق' ? 'طلب معلق' : investor.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-left">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">فتح القائمة</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canPerformActions && investor.status === 'معلق' && (
+                            <DropdownMenuItem
+                              onSelect={() => handleApproveClick(investor)}
+                            >
+                              <CheckCircle className="ml-2 h-4 w-4" />
+                              الموافقة على الطلب
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onSelect={() => handleViewDetailsClick(investor)}
                           >
-                            <CheckCircle className="ml-2 h-4 w-4" />
-                            الموافقة على الطلب
+                            عرض التفاصيل
                           </DropdownMenuItem>
-                         )}
-                         <DropdownMenuItem
-                          onSelect={() => handleViewDetailsClick(investor)}
-                        >
-                          عرض التفاصيل
-                        </DropdownMenuItem>
-                        {canEdit && (
-                            <DropdownMenuItem
-                              onSelect={() => handleEditClick(investor)}
-                              disabled={investor.status === 'معلق'}
-                            >
-                              تعديل
-                            </DropdownMenuItem>
-                        )}
-                        {canPerformActions && (
-                            <DropdownMenuItem
-                              onSelect={() => handleWithdrawClick(investor)}
-                              disabled={investor.status === 'معلق' || investor.amount <= 0}
-                            >
-                              سحب الأموال
-                            </DropdownMenuItem>
-                        )}
-                         {investor.amount <= 0 && investor.status === 'نشط' && canPerformActions && (
-                            <DropdownMenuItem onSelect={() => requestCapitalIncrease(investor.id)}>
-                                <TrendingUp className="ml-2 h-4 w-4" />
-                                طلب زيادة رأس المال
-                            </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {canEdit && (
+                              <DropdownMenuItem
+                                onSelect={() => handleEditClick(investor)}
+                                disabled={investor.status === 'معلق'}
+                              >
+                                تعديل
+                              </DropdownMenuItem>
+                          )}
+                          {canPerformActions && (
+                              <DropdownMenuItem
+                                onSelect={() => handleWithdrawClick(investor)}
+                                disabled={investor.status === 'معلق' || investor.amount <= 0}
+                              >
+                                سحب الأموال
+                              </DropdownMenuItem>
+                          )}
+                          {investor.amount <= 0 && investor.status === 'نشط' && canPerformActions && (
+                              <DropdownMenuItem onSelect={() => requestCapitalIncrease(investor.id)}>
+                                  <TrendingUp className="ml-2 h-4 w-4" />
+                                  طلب زيادة رأس المال
+                              </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    لا يوجد مستثمرون لعرضهم.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -350,9 +356,9 @@ export function InvestorsTable({
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>التاريخ</TableHead>
-                                    <TableHead>النوع</TableHead>
+                                    <TableHead className="text-center">النوع</TableHead>
                                     <TableHead>الوصف</TableHead>
-                                    <TableHead>الطريقة</TableHead>
+                                    <TableHead className="text-center">الطريقة</TableHead>
                                     <TableHead>المبلغ</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -364,9 +370,9 @@ export function InvestorsTable({
                                         .map(tx => (
                                             <TableRow key={tx.id}>
                                                 <TableCell className="text-xs">{tx.date}</TableCell>
-                                                <TableCell><Badge variant={transactionTypeVariant[tx.type] || 'outline'}>{tx.type}</Badge></TableCell>
+                                                <TableCell className="text-center"><Badge variant={transactionTypeVariant[tx.type] || 'outline'}>{tx.type}</Badge></TableCell>
                                                 <TableCell className="text-xs">{tx.description}</TableCell>
-                                                <TableCell className="text-xs">{tx.withdrawalMethod || '-'}</TableCell>
+                                                <TableCell className="text-xs text-center">{tx.withdrawalMethod || '-'}</TableCell>
                                                 <TableCell className={`font-medium ${tx.type.includes('إيداع') ? 'text-green-600' : 'text-destructive'}`}>
                                                     {tx.type.includes('إيداع') ? '+' : '-'}
                                                     {formatCurrency(tx.amount)}

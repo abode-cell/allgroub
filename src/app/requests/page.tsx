@@ -180,9 +180,9 @@ export default function RequestsPage() {
                     <TableRow>
                       <TableHead>اسم المقترض</TableHead>
                       <TableHead>المبلغ المطلوب</TableHead>
-                      <TableHead>نوع التمويل</TableHead>
-                      <TableHead>الحالة</TableHead>
-                      <TableHead>الإجراء / ملاحظات</TableHead>
+                      <TableHead className="text-center">نوع التمويل</TableHead>
+                      <TableHead className="text-center">الحالة</TableHead>
+                      <TableHead className="text-left">الإجراء / ملاحظات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -191,13 +191,13 @@ export default function RequestsPage() {
                         <TableRow key={borrower.id}>
                           <TableCell className="font-medium">{borrower.name}</TableCell>
                           <TableCell>{formatCurrency(borrower.amount)}</TableCell>
-                          <TableCell>{borrower.loanType}</TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">{borrower.loanType}</TableCell>
+                          <TableCell className="text-center">
                             {getStatusForBorrower(borrower)}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-left">
                              {borrower.status === 'معلق' ? (
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 justify-start">
                                 <Button size="sm" onClick={() => approveBorrower(borrower.id)}>
                                   <Check className="ml-2 h-4 w-4" />
                                   موافقة
@@ -217,7 +217,7 @@ export default function RequestsPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center">
+                        <TableCell colSpan={5} className="h-24 text-center">
                           لا توجد طلبات قروض.
                         </TableCell>
                       </TableRow>
@@ -240,8 +240,8 @@ export default function RequestsPage() {
                     <TableRow>
                       <TableHead>اسم المستثمر</TableHead>
                       <TableHead>مبلغ الاستثمار</TableHead>
-                      <TableHead>الحالة</TableHead>
-                      <TableHead>الإجراء / ملاحظات</TableHead>
+                      <TableHead className="text-center">الحالة</TableHead>
+                      <TableHead className="text-left">الإجراء / ملاحظات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -250,12 +250,12 @@ export default function RequestsPage() {
                         <TableRow key={investor.id}>
                           <TableCell className="font-medium">{investor.name}</TableCell>
                           <TableCell>{formatCurrency(investor.amount)}</TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">
                             {getStatusForInvestor(investor)}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-left">
                            {investor.status === 'معلق' ? (
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 justify-start">
                                 <Button size="sm" onClick={() => approveInvestor(investor.id)}>
                                   <Check className="ml-2 h-4 w-4" />
                                   موافقة
@@ -275,7 +275,7 @@ export default function RequestsPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center">
+                        <TableCell colSpan={4} className="h-24 text-center">
                           لا توجد طلبات مستثمرين.
                         </TableCell>
                       </TableRow>

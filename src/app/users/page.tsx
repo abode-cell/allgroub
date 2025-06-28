@@ -123,7 +123,7 @@ const UserActions = ({ user, onDeleteClick }: { user: User, onDeleteClick: (user
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 justify-start">
         {user.status === 'معلق' ? (
           <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'نشط')}>
             <Check className="ml-1 h-4 w-4" />
@@ -388,7 +388,7 @@ export default function UsersPage() {
                                             </Table>
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">لا يوجد مستثمرون مرتبطون.</p>
+                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border h-24 flex items-center justify-center">لا يوجد مستثمرون مرتبطون.</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -403,16 +403,16 @@ export default function UsersPage() {
                                      {employees.length > 0 ? (
                                         <div className="rounded-md border bg-background">
                                             <Table>
-                                                <TableHeader><TableRow><TableHead>الاسم</TableHead><TableHead>الحالة</TableHead></TableRow></TableHeader>
+                                                <TableHeader><TableRow><TableHead>الاسم</TableHead><TableHead className="text-center">الحالة</TableHead></TableRow></TableHeader>
                                                 <TableBody>
                                                     {employees.map((emp) => (
-                                                        <TableRow key={emp.id}><TableCell>{emp.name}</TableCell><TableCell><Badge variant={statusVariant[emp.status]}>{emp.status}</Badge></TableCell></TableRow>
+                                                        <TableRow key={emp.id}><TableCell>{emp.name}</TableCell><TableCell className="text-center"><Badge variant={statusVariant[emp.status]}>{emp.status}</Badge></TableCell></TableRow>
                                                     ))}
                                                 </TableBody>
                                             </Table>
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">لا يوجد موظفون مرتبطون.</p>
+                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border h-24 flex items-center justify-center">لا يوجد موظفون مرتبطون.</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -427,16 +427,16 @@ export default function UsersPage() {
                                      {assistants.length > 0 ? (
                                         <div className="rounded-md border bg-background">
                                         <Table>
-                                            <TableHeader><TableRow><TableHead>الاسم</TableHead><TableHead>الحالة</TableHead></TableRow></TableHeader>
+                                            <TableHeader><TableRow><TableHead>الاسم</TableHead><TableHead className="text-center">الحالة</TableHead></TableRow></TableHeader>
                                             <TableBody>
                                                 {assistants.map((ass) => (
-                                                    <TableRow key={ass.id}><TableCell>{ass.name}</TableCell><TableCell><Badge variant={statusVariant[ass.status]}>{ass.status}</Badge></TableCell></TableRow>
+                                                    <TableRow key={ass.id}><TableCell>{ass.name}</TableCell><TableCell className="text-center"><Badge variant={statusVariant[ass.status]}>{ass.status}</Badge></TableCell></TableRow>
                                                 ))}
                                             </TableBody>
                                         </Table>
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">لا يوجد مساعدون مرتبطون.</p>
+                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border h-24 flex items-center justify-center">لا يوجد مساعدون مرتبطون.</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -447,7 +447,7 @@ export default function UsersPage() {
               })}
             </Accordion>
           ) : (
-            <p className="text-center text-muted-foreground py-4">
+            <p className="text-center text-muted-foreground py-4 h-24 flex items-center justify-center">
               لا يوجد مدراء مكاتب حاليًا.
             </p>
           )}
@@ -466,8 +466,8 @@ export default function UsersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>الاسم</TableHead>
-                <TableHead>الدور</TableHead>
-                <TableHead>الحالة</TableHead>
+                <TableHead className="text-center">الدور</TableHead>
+                <TableHead className="text-center">الحالة</TableHead>
                 <TableHead className="text-left">الإجراء</TableHead>
               </TableRow>
             </TableHeader>
@@ -480,33 +480,35 @@ export default function UsersPage() {
                       {user.email}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Select
-                      value={user.role}
-                      onValueChange={(newRole: UserRole) =>
-                        handleRoleChange(user.id, newRole)
-                      }
-                      disabled={user.id === currentUser?.id}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="اختر دورًا" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="مدير النظام">
-                          مدير النظام
-                        </SelectItem>
-                        <SelectItem value="مدير المكتب">
-                          مدير المكتب
-                        </SelectItem>
-                         <SelectItem value="مساعد مدير المكتب">
-                          مساعد مدير المكتب
-                        </SelectItem>
-                        <SelectItem value="موظف">موظف</SelectItem>
-                        <SelectItem value="مستثمر">مستثمر</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <TableCell className="text-center">
+                    <div className='flex justify-center'>
+                      <Select
+                        value={user.role}
+                        onValueChange={(newRole: UserRole) =>
+                          handleRoleChange(user.id, newRole)
+                        }
+                        disabled={user.id === currentUser?.id}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="اختر دورًا" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="مدير النظام">
+                            مدير النظام
+                          </SelectItem>
+                          <SelectItem value="مدير المكتب">
+                            مدير المكتب
+                          </SelectItem>
+                          <SelectItem value="مساعد مدير المكتب">
+                            مساعد مدير المكتب
+                          </SelectItem>
+                          <SelectItem value="موظف">موظف</SelectItem>
+                          <SelectItem value="مستثمر">مستثمر</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     <Badge variant={statusVariant[user.status]}>
                       {user.status === 'نشط' ? (
                         <CheckCircle className="w-3 h-3 ml-1" />
@@ -581,7 +583,7 @@ export default function UsersPage() {
                                   صلاحيات المساعد
                               </h4>
                               {assistantPermissionsConfig.map((perm) => (
-                                  <div key={perm.key} className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                                  <div key={perm.key} className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
                                       <div className="flex-1 space-y-0.5 overflow-hidden">
                                           <Label htmlFor={`${perm.key}-${assistant.id}`} className="font-medium">{perm.label}</Label>
                                           <p className="text-xs text-muted-foreground">{perm.description}</p>
@@ -601,7 +603,7 @@ export default function UsersPage() {
                 ))}
               </Accordion>
             ) : (
-              <p className="text-center text-muted-foreground py-4">
+              <p className="text-center text-muted-foreground py-4 h-24 flex items-center justify-center">
                   لا يوجد مساعدون مرتبطون بحسابك.
               </p>
             )}
@@ -629,7 +631,7 @@ export default function UsersPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
                         <div className="flex-1 space-y-0.5 overflow-hidden">
                         <Label htmlFor="allow-submissions" className="font-medium text-sm">السماح لموظفيك بالإضافة</Label>
                         <p className="text-xs text-muted-foreground">
@@ -648,7 +650,7 @@ export default function UsersPage() {
                             />
                         </div>
                     </div>
-                    <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
                         <div className="flex-1 space-y-0.5 overflow-hidden">
                             <Label htmlFor="hide-investor-funds" className="font-medium text-sm">إخفاء أرصدة المستثمرين عن الموظفين</Label>
                             <p className="text-xs text-muted-foreground">
@@ -674,7 +676,7 @@ export default function UsersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>الاسم</TableHead>
-                  <TableHead>الحالة</TableHead>
+                  <TableHead className="text-center">الحالة</TableHead>
                   <TableHead className="text-left">الإجراء</TableHead>
                 </TableRow>
               </TableHeader>
@@ -688,7 +690,7 @@ export default function UsersPage() {
                           {employee.email}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <Badge variant={statusVariant[employee.status]}>
                           {employee.status === 'نشط' ? (
                             <CheckCircle className="w-3 h-3 ml-1" />

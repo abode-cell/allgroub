@@ -232,139 +232,148 @@ export function BorrowersTable({
                 <TableHead>اسم المقترض</TableHead>
                 <TableHead>مبلغ القرض</TableHead>
                 {isGracePeriodTable && <TableHead>الخصم</TableHead>}
-                <TableHead>نوع التمويل</TableHead>
-                <TableHead>المستثمر</TableHead>
-                <TableHead>حالة السداد</TableHead>
+                <TableHead className="text-center">نوع التمويل</TableHead>
+                <TableHead className="text-center">المستثمر</TableHead>
+                <TableHead className="text-center">حالة السداد</TableHead>
                 <TableHead>تاريخ الاستحقاق</TableHead>
-                <TableHead>حالة الاستحقاق</TableHead>
+                <TableHead className="text-center">حالة الاستحقاق</TableHead>
                 {canPerformActions && (
-                <TableHead>
-                  <span className="sr-only">الإجراءات</span>
-                </TableHead>
+                <TableHead className="text-left">الإجراءات</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {borrowers.map((borrower) => {
-                const fundedByOneInvestor = borrower.fundedBy && borrower.fundedBy.length === 1;
-                const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
-                const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
+              {borrowers.length > 0 ? (
+                borrowers.map((borrower) => {
+                  const fundedByOneInvestor = borrower.fundedBy && borrower.fundedBy.length === 1;
+                  const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
+                  const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
 
-                return (
-                <TableRow key={borrower.id}>
-                  <TableCell className="font-medium">{borrower.name}</TableCell>
-                  <TableCell>{formatCurrency(borrower.amount)}</TableCell>
-                  {isGracePeriodTable && (
-                    <TableCell className="text-green-600 font-medium">
-                        {borrower.discount && borrower.discount > 0 ? formatCurrency(borrower.discount) : '-'}
+                  return (
+                  <TableRow key={borrower.id}>
+                    <TableCell className="font-medium">{borrower.name}</TableCell>
+                    <TableCell>{formatCurrency(borrower.amount)}</TableCell>
+                    {isGracePeriodTable && (
+                      <TableCell className="text-green-600 font-medium">
+                          {borrower.discount && borrower.discount > 0 ? formatCurrency(borrower.discount) : '-'}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-center">{borrower.loanType}</TableCell>
+                    <TableCell className="text-center">
+                      {fundedByOneInvestor && singleInvestor ? (
+                        <span>{singleInvestor.name}</span>
+                      ) : fundedByMultipleInvestors ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-center gap-1 cursor-pointer">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                                <span>{borrower.fundedBy!.length}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-right">
+                                <p className='font-bold mb-2'>المستثمرون:</p>
+                              <ul className="list-disc mr-4">
+                                {borrower.fundedBy!.map(funder => {
+                                  const investor = investors.find(i => i.id === funder.investorId);
+                                  return <li key={funder.investorId}>{investor?.name || 'غير معروف'}</li>
+                                })}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">غير ممول</span>
+                      )}
                     </TableCell>
-                  )}
-                  <TableCell>{borrower.loanType}</TableCell>
-                  <TableCell>
-                    {fundedByOneInvestor && singleInvestor ? (
-                       <span>{singleInvestor.name}</span>
-                    ) : fundedByMultipleInvestors ? (
-                       <TooltipProvider>
-                         <Tooltip>
-                           <TooltipTrigger asChild>
-                             <div className="flex items-center justify-end gap-1 cursor-pointer">
-                               <Users className="h-4 w-4 text-muted-foreground" />
-                               <span>{borrower.fundedBy!.length}</span>
-                             </div>
-                           </TooltipTrigger>
-                           <TooltipContent className="text-right">
-                              <p className='font-bold mb-2'>المستثمرون:</p>
-                             <ul className="list-disc mr-4">
-                               {borrower.fundedBy!.map(funder => {
-                                 const investor = investors.find(i => i.id === funder.investorId);
-                                 return <li key={funder.investorId}>{investor?.name || 'غير معروف'}</li>
-                               })}
-                             </ul>
-                           </TooltipContent>
-                         </Tooltip>
-                       </TooltipProvider>
-                     ) : (
-                       <span className="text-xs text-muted-foreground">غير ممول</span>
-                     )}
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                        value={borrower.paymentStatus || 'none'}
-                        onValueChange={(value: string) => {
-                            if (value === 'none') {
-                                updateBorrowerPaymentStatus(borrower.id, undefined);
-                            } else {
-                                updateBorrowerPaymentStatus(borrower.id, value as BorrowerPaymentStatus);
-                            }
-                        }}
-                        disabled={!canEdit || borrower.status === 'معلق' || borrower.status === 'مرفوض'}
-                    >
-                        <SelectTrigger className={cn(
-                            "w-32", 
-                            borrower.paymentStatus && `${paymentStatusBgColor[borrower.paymentStatus]} ${paymentStatusTextColor[borrower.paymentStatus]}`
-                            )}>
-                            <SelectValue placeholder="اختر الحالة" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="none">--</SelectItem>
-                            <SelectItem value="تم السداد">تم السداد</SelectItem>
-                            <SelectItem value="مسدد جزئي">مسدد جزئي</SelectItem>
-                            <SelectItem value="تم الإمهال">تم الإمهال</SelectItem>
-                            <SelectItem value="متعثر">متعثر</SelectItem>
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>{borrower.dueDate}</TableCell>
-                  <TableCell>
-                    {(() => {
-                        const dueStatus = getDueStatus(borrower);
-                        return (
-                            <Badge variant={dueStatus.variant}>
-                                {dueStatus.text}
-                            </Badge>
-                        );
-                    })()}
-                  </TableCell>
-                  {canPerformActions && (
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">فتح القائمة</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                         <DropdownMenuItem onSelect={() => handleViewDetailsClick(borrower)}>
-                            <Info className="ml-2 h-4 w-4" />
-                            عرض التفاصيل
-                        </DropdownMenuItem>
-                        {canApprove && borrower.status === 'معلق' && (
-                           <DropdownMenuItem
-                            onSelect={() => handleApproveClick(borrower)}
-                          >
-                            <CheckCircle className="ml-2 h-4 w-4" />
-                            الموافقة على الطلب
+                    <TableCell className="text-center">
+                      <div className='flex justify-center'>
+                        <Select
+                            value={borrower.paymentStatus || 'none'}
+                            onValueChange={(value: string) => {
+                                if (value === 'none') {
+                                    updateBorrowerPaymentStatus(borrower.id, undefined);
+                                } else {
+                                    updateBorrowerPaymentStatus(borrower.id, value as BorrowerPaymentStatus);
+                                }
+                            }}
+                            disabled={!canEdit || borrower.status === 'معلق' || borrower.status === 'مرفوض'}
+                        >
+                            <SelectTrigger className={cn(
+                                "w-32", 
+                                borrower.paymentStatus && `${paymentStatusBgColor[borrower.paymentStatus]} ${paymentStatusTextColor[borrower.paymentStatus]}`
+                                )}>
+                                <SelectValue placeholder="اختر الحالة" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">--</SelectItem>
+                                <SelectItem value="تم السداد">تم السداد</SelectItem>
+                                <SelectItem value="مسدد جزئي">مسدد جزئي</SelectItem>
+                                <SelectItem value="تم الإمهال">تم الإمهال</SelectItem>
+                                <SelectItem value="متعثر">متعثر</SelectItem>
+                            </SelectContent>
+                        </Select>
+                      </div>
+                    </TableCell>
+                    <TableCell>{borrower.dueDate}</TableCell>
+                    <TableCell className="text-center">
+                      {(() => {
+                          const dueStatus = getDueStatus(borrower);
+                          return (
+                              <Badge variant={dueStatus.variant}>
+                                  {dueStatus.text}
+                              </Badge>
+                          );
+                      })()}
+                    </TableCell>
+                    {canPerformActions && (
+                    <TableCell className="text-left">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">فتح القائمة</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => handleViewDetailsClick(borrower)}>
+                              <Info className="ml-2 h-4 w-4" />
+                              عرض التفاصيل
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onSelect={() => handleEditClick(borrower)}
-                          disabled={!canEdit}
-                        >
-                          تعديل
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => handleViewScheduleClick(borrower)}
-                          disabled={borrower.loanType === 'مهلة'}
-                        >
-                          عرض جدول السداد
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                  )}
+                          {canApprove && borrower.status === 'معلق' && (
+                            <DropdownMenuItem
+                              onSelect={() => handleApproveClick(borrower)}
+                            >
+                              <CheckCircle className="ml-2 h-4 w-4" />
+                              الموافقة على الطلب
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onSelect={() => handleEditClick(borrower)}
+                            disabled={!canEdit}
+                          >
+                            تعديل
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => handleViewScheduleClick(borrower)}
+                            disabled={borrower.loanType === 'مهلة'}
+                          >
+                            عرض جدول السداد
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })
+            ) : (
+                <TableRow>
+                    <TableCell colSpan={10} className="h-24 text-center">
+                      لا توجد قروض لعرضها.
+                    </TableCell>
                 </TableRow>
-              )})}
+            )}
             </TableBody>
           </Table>
         </CardContent>
@@ -708,7 +717,7 @@ export function BorrowersTable({
                                     })
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={2} className="text-center">لم يتم تمويل هذا القرض بعد.</TableCell>
+                                        <TableCell colSpan={2} className="text-center h-24">لم يتم تمويل هذا القرض بعد.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>

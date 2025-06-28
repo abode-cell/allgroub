@@ -80,7 +80,7 @@ export function RecentTransactions() {
               <TableHead>المستخدم</TableHead>
               <TableHead>المبلغ</TableHead>
               <TableHead>التاريخ</TableHead>
-              <TableHead>الحالة</TableHead>
+              <TableHead className="text-center">الحالة</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -97,7 +97,7 @@ export function RecentTransactions() {
                     {formatCurrency(transaction.amount)}
                   </TableCell>
                   <TableCell>{transaction.date}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     <Badge variant={statusVariant[transaction.status] || 'default'}>
                       {transaction.status}
                     </Badge>
