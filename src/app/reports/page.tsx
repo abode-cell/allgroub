@@ -12,7 +12,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { useAuth } from '@/contexts/auth-context';
 import React, { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -126,40 +125,38 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { borrowers, investors, users } = useData();
-  const { user: authUser, role } = useAuth();
+  const { borrowers, investors, users, currentUser } = useData();
   const router = useRouter();
 
-  const user = users.find(u => u.id === authUser?.id);
-
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.viewReports);
+  const role = currentUser?.role;
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
   useEffect(() => {
-    if (role && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [role, hasAccess, router]);
+  }, [currentUser, hasAccess, router]);
 
 
   const displayedInvestors = useMemo(() => {
     if (role === 'مدير المكتب') {
-        return investors.filter(i => i.submittedBy === user?.id);
+        return investors.filter(i => i.submittedBy === currentUser?.id);
     }
-    if (role === 'مساعد مدير المكتب' && user?.managedBy) {
-        return investors.filter(i => i.submittedBy === user.managedBy || i.submittedBy === user.id);
+    if (role === 'مساعد مدير المكتب' && currentUser?.managedBy) {
+        return investors.filter(i => i.submittedBy === currentUser.managedBy || i.submittedBy === currentUser.id);
     }
     return investors;
-  }, [investors, users, user, role]);
+  }, [investors, currentUser, role]);
 
   const displayedBorrowers = useMemo(() => {
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.managedBy)) {
-        const managerId = role === 'مدير المكتب' ? user?.id : user?.managedBy;
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.managedBy)) {
+        const managerId = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
         const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
         const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
         return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
     }
     return borrowers;
-  }, [borrowers, users, user, role]);
+  }, [borrowers, users, currentUser, role]);
 
   const getInvestorInfoForLoan = (loan: Borrower): React.ReactNode => {
     if (!loan.fundedBy || loan.fundedBy.length === 0) {

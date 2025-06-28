@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -44,7 +43,6 @@ const statusVariant: {
 
 
 export default function RequestsPage() {
-  const { user: authUser, role } = useAuth();
   const router = useRouter();
   const { 
     borrowers, 
@@ -54,17 +52,17 @@ export default function RequestsPage() {
     rejectBorrower,
     rejectInvestor,
     users,
+    currentUser,
   } = useData();
 
-  const user = users.find(u => u.id === authUser?.id);
-  
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.manageRequests);
+  const role = currentUser?.role;
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
 
   useEffect(() => {
-    if (role && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [role, hasAccess, router]);
+  }, [currentUser, hasAccess, router]);
 
 
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -127,8 +125,8 @@ export default function RequestsPage() {
         investorRequests: allInvestorRequests
       };
     }
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.manageRequests)) {
-      const managerId = role === 'مدير المكتب' ? user?.id : user?.managedBy;
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests)) {
+      const managerId = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
       const employeeIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
       
       return {
@@ -137,7 +135,7 @@ export default function RequestsPage() {
       };
     }
     return { borrowerRequests: [], investorRequests: [] };
-  }, [borrowers, investors, users, user, role]);
+  }, [borrowers, investors, users, currentUser, role]);
 
   const { borrowerRequests, investorRequests } = requestsToDisplay;
 

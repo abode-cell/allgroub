@@ -16,7 +16,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import type { Investor } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -29,20 +28,18 @@ import {
 import { useRouter } from 'next/navigation';
 
 export default function InvestorsPage() {
-  const { user: authUser, role } = useAuth();
-  const { investors, addInvestor, users } = useData();
+  const { investors, addInvestor, users, currentUser } = useData();
   const { toast } = useToast();
   const router = useRouter();
   
-  const user = users.find(u => u.id === authUser?.id);
-
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && user?.permissions?.manageInvestors);
+  const role = currentUser?.role;
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
 
   useEffect(() => {
-    if (role && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [role, hasAccess, router]);
+  }, [currentUser, hasAccess, router]);
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -57,17 +54,17 @@ export default function InvestorsPage() {
   const isOfficeManager = role === 'مدير المكتب';
   const isAssistant = role === 'مساعد مدير المكتب';
 
-  const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === user?.managedBy) : null;
+  const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
   const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : false;
   const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
 
   const investorsAddedByManager = isOfficeManager
-    ? investors.filter((i) => i.submittedBy === user?.id).length
+    ? investors.filter((i) => i.submittedBy === currentUser?.id).length
     : 0;
 
   const canAddMoreInvestors =
-    isOfficeManager && user
-      ? investorsAddedByManager < (user.investorLimit ?? 0)
+    isOfficeManager && currentUser
+      ? investorsAddedByManager < (currentUser.investorLimit ?? 0)
       : !isOfficeManager;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,7 +78,7 @@ export default function InvestorsPage() {
       return;
     }
 
-    if (isOfficeManager || (isAssistant && user?.permissions?.manageInvestors)) {
+    if (isOfficeManager || (isAssistant && currentUser?.permissions?.manageInvestors)) {
       if (!newInvestor.email || !newInvestor.password) {
         toast({
           variant: 'destructive',
@@ -113,14 +110,14 @@ export default function InvestorsPage() {
     setNewInvestor({ name: '', amount: '', email: '', password: '' });
   };
 
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || (isAssistant && user?.permissions?.manageInvestors) || isEmployee;
+  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
   const isAddButtonDisabled = isOfficeManager && !canAddMoreInvestors;
 
   const displayedInvestors =
     role === 'مستثمر'
-      ? investors.filter((i) => i.id === user?.id)
+      ? investors.filter((i) => i.id === currentUser?.id)
       : role === 'مدير المكتب' || role === 'مساعد مدير المكتب'
-      ? investors.filter((i) => i.submittedBy === user?.id || i.submittedBy === user?.managedBy)
+      ? investors.filter((i) => i.submittedBy === currentUser?.id || i.submittedBy === currentUser?.managedBy)
       : investors;
       
   if (!hasAccess) {
@@ -170,10 +167,10 @@ export default function InvestorsPage() {
               إدارة المستثمرين
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isOfficeManager && user
+              {isOfficeManager && currentUser
                 ? `يمكنك إضافة ${Math.max(
                     0,
-                    (user.investorLimit ?? 0) - investorsAddedByManager
+                    (currentUser.investorLimit ?? 0) - investorsAddedByManager
                   )} مستثمرين آخرين.`
                 : 'عرض وإدارة قائمة المستثمرين في المنصة.'}
             </p>
@@ -233,7 +230,7 @@ export default function InvestorsPage() {
                         required
                       />
                     </div>
-                    {(isOfficeManager || (isAssistant && user?.permissions?.manageInvestors)) && (
+                    {(isOfficeManager || (isAssistant && currentUser?.permissions?.manageInvestors)) && (
                       <>
                         <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="email" className="text-right">

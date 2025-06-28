@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -107,7 +106,7 @@ const UserActions = ({
   user: User;
   onDeleteClick: (user: User) => void;
 }) => {
-  const { user: currentUser } = useAuth();
+  const { currentUser } = useData();
   const { updateUserStatus } = useData();
 
   if (user.id === currentUser?.id) return null;
@@ -147,8 +146,7 @@ const UserActions = ({
 };
 
 export default function UsersPage() {
-  const { user: authUser, role } = useAuth();
-  const { users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission } =
+  const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission } =
     useData();
   const router = useRouter();
 
@@ -157,18 +155,15 @@ export default function UsersPage() {
   const [editableLimits, setEditableLimits] = useState<
     Record<string, { investorLimit: string; employeeLimit: string }>
   >({});
-
+  
+  const role = currentUser?.role;
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'مساعد مدير المكتب';
 
-  // Get the most up-to-date user data from the data context
-  const currentUser = users.find(u => u.id === authUser?.id);
-
-
   useEffect(() => {
-    if (role && !canViewPage) {
+    if (currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [role, canViewPage, router]);
+  }, [currentUser, canViewPage, router]);
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
     updateUserRole(userId, newRole);
@@ -234,8 +229,8 @@ export default function UsersPage() {
   );
 
   // Data for Office Manager/Assistant
-  const myEmployees = users.filter((u) => u.managedBy === (role === 'مدير المكتب' ? authUser?.id : currentUser?.managedBy) && u.role === 'موظف');
-  const myAssistants = users.filter((u) => u.managedBy === authUser?.id && u.role === 'مساعد مدير المكتب');
+  const myEmployees = users.filter((u) => u.managedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) && u.role === 'موظف');
+  const myAssistants = users.filter((u) => u.managedBy === currentUser?.id && u.role === 'مساعد مدير المكتب');
 
 
   if (!canViewPage) {
@@ -551,7 +546,7 @@ export default function UsersPage() {
                       onValueChange={(newRole: UserRole) =>
                         handleRoleChange(user.id, newRole)
                       }
-                      disabled={user.id === authUser?.id}
+                      disabled={user.id === currentUser?.id}
                     >
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="اختر دورًا" />

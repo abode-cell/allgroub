@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -22,17 +21,18 @@ import { format } from 'date-fns';
 import { Inbox } from 'lucide-react';
 
 export default function SupportInboxPage() {
-  const { role } = useAuth();
-  const { supportTickets } = useData();
+  const { currentUser, supportTickets } = useData();
   const router = useRouter();
 
+  const role = currentUser?.role;
+
   useEffect(() => {
-    if (role && role !== 'مدير النظام') {
+    if (currentUser && role !== 'مدير النظام') {
       router.replace('/');
     }
-  }, [role, router]);
+  }, [currentUser, role, router]);
 
-  if (!role || role !== 'مدير النظام') {
+  if (!currentUser || role !== 'مدير النظام') {
     return null; // or a loading spinner
   }
 

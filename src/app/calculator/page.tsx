@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
@@ -12,9 +11,9 @@ import { Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function CalculatorPage() {
-  const { user: authUser, role } = useAuth();
   const router = useRouter();
   const { 
+    currentUser,
     users,
     salaryRepaymentPercentage, 
     updateSalaryRepaymentPercentage,
@@ -28,15 +27,14 @@ export default function CalculatorPage() {
     updateGraceInvestorSharePercentage,
   } = useData();
 
-  const user = users.find(u => u.id === authUser?.id);
-
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && user?.permissions?.useCalculator);
+  const role = currentUser?.role;
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);
 
   useEffect(() => {
-    if (role && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [role, hasAccess, router]);
+  }, [currentUser, hasAccess, router]);
 
   
   // States for Installments Tab
@@ -161,7 +159,7 @@ export default function CalculatorPage() {
       maximumFractionDigits: 2,
     }).format(value);
     
-  const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.useCalculator);
+  const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);
 
   if (!hasAccess) {
     return null;

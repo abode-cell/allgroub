@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
 import {
   Card,
   CardContent,
@@ -16,19 +15,18 @@ import Link from 'next/link';
 import { useData } from '@/contexts/data-context';
 
 export default function SettingsPage() {
-  const { user: authUser, role } = useAuth();
-  const { users } = useData();
+  const { currentUser } = useData();
   const router = useRouter();
 
-  const user = users.find(u => u.id === authUser?.id);
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.accessSettings);
+  const role = currentUser?.role;
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings);
 
   useEffect(() => {
     // Redirect if role is loaded and user doesn't have permission
-    if (role && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [role, hasAccess, router]);
+  }, [currentUser, hasAccess, router]);
 
   // If the role is not yet loaded, or they don't have permission, don't render the page content
   if (!hasAccess) {

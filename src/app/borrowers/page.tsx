@@ -16,7 +16,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
 import {
   Select,
   SelectContent,
@@ -26,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useData } from '@/contexts/data-context';
-import type { Borrower, Investor } from '@/lib/types';
+import type { Borrower } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -58,20 +57,18 @@ const formatCurrency = (value: number) =>
 
 
 export default function BorrowersPage() {
-  const { role, user: authUser } = useAuth();
-  const { borrowers, investors, addBorrower, users, baseInterestRate } = useData();
+  const { borrowers, investors, addBorrower, users, baseInterestRate, currentUser } = useData();
   const { toast } = useToast();
   const router = useRouter();
-  
-  const currentUser = users.find(u => u.id === authUser?.id);
 
+  const role = currentUser?.role;
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers);
   
   useEffect(() => {
-    if (role && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [role, hasAccess, router]);
+  }, [currentUser, hasAccess, router]);
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

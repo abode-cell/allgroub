@@ -61,6 +61,7 @@ type SignUpCredentials = {
 };
 
 type DataContextType = {
+  currentUser: User | undefined;
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
@@ -149,8 +150,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [supportPhone, setSupportPhone] = useState('920012345');
 
 
-  const { user: currentUser } = useAuth();
+  const { user: authUser } = useAuth();
   const { toast } = useToast();
+
+  const currentUser = useMemo(() => {
+    if (!authUser) return undefined;
+    return users.find(u => u.id === authUser.id);
+  }, [users, authUser]);
   
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
     const newNotification: Notification = {
@@ -592,8 +598,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const userIndex = usersData.findIndex((u) => u.id === userId);
     if (userIndex === -1) return;
 
-    const userToUpdate = { ...usersData[userIndex] };
     usersData[userIndex].status = status;
+    const userToUpdate = { ...usersData[userIndex] };
     let cascadeMessage = '';
 
     if (userToUpdate.role === 'مدير المكتب') {
@@ -683,12 +689,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const value = useMemo(() => ({
-    borrowers, investors, users, supportTickets, notifications, salaryRepaymentPercentage, baseInterestRate, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, supportEmail, supportPhone,
+    currentUser, borrowers, investors, users, supportTickets, notifications, salaryRepaymentPercentage, baseInterestRate, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, supportEmail, supportPhone,
     updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage, updateSalaryRepaymentPercentage, updateGraceTotalProfitPercentage, updateGraceInvestorSharePercentage, addSupportTicket, registerNewOfficeManager,
     addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, updateUserStatus, updateUserRole, updateUserLimits, updateManagerSettings,
     updateAssistantPermission, requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead, updateBorrowerPaymentStatus,
   }), [
-    borrowers, investors, users, supportTickets, notifications, salaryRepaymentPercentage, baseInterestRate, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, supportEmail, supportPhone,
+    currentUser, borrowers, investors, users, supportTickets, notifications, salaryRepaymentPercentage, baseInterestRate, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, supportEmail, supportPhone,
     updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage, updateSalaryRepaymentPercentage, updateGraceTotalProfitPercentage, updateGraceInvestorSharePercentage, addSupportTicket, registerNewOfficeManager,
     addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, updateUserStatus, updateUserRole, updateUserLimits, updateManagerSettings,
     updateAssistantPermission, requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead, updateBorrowerPaymentStatus,

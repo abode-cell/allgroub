@@ -11,7 +11,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FileUp, Loader2, CheckCircle, AlertCircle, ListChecks } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type { Borrower } from '@/lib/types';
-import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 
 // Define the expected structure of a row in the Excel file
@@ -26,20 +25,18 @@ type ExcelRow = {
 };
 
 export default function ImportPage() {
-  const { addBorrower, users } = useData();
+  const { addBorrower, currentUser } = useData();
   const { toast } = useToast();
-  const { user: authUser, role } = useAuth();
   const router = useRouter();
 
-  const user = users.find(u => u.id === authUser?.id);
-
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.importData);
+  const role = currentUser?.role;
+  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.importData);
 
   useEffect(() => {
-    if (role && !hasAccess) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [role, hasAccess, router]);
+  }, [currentUser, hasAccess, router]);
 
 
   const [file, setFile] = useState<File | null>(null);

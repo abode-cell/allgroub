@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -33,25 +32,25 @@ const getStatusText = (status: Borrower['status'] | Investor['status']) => {
 }
 
 export default function MyRequestsPage() {
-  const { user, role } = useAuth();
+  const { borrowers, investors, currentUser } = useData();
   const router = useRouter();
-  const { borrowers, investors } = useData();
 
+  const role = currentUser?.role;
   const isEmployee = role === 'موظف';
 
   useEffect(() => {
-    if (!isEmployee) {
+    if (currentUser && !isEmployee) {
       router.replace('/');
     }
-  }, [role, isEmployee, router]);
+  }, [currentUser, isEmployee, router]);
 
   if (!isEmployee) {
     return null;
   }
   
   // Use logged-in employee's ID
-  const myBorrowerRequests = borrowers.filter(b => b.submittedBy === user?.id);
-  const myInvestorRequests = investors.filter(i => i.submittedBy === user?.id);
+  const myBorrowerRequests = borrowers.filter(b => b.submittedBy === currentUser?.id);
+  const myInvestorRequests = investors.filter(i => i.submittedBy === currentUser?.id);
 
   return (
     <div className="flex flex-col flex-1">
