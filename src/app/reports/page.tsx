@@ -14,6 +14,20 @@ import {
 } from '@/components/ui/accordion';
 import React, { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 
 const formatCurrency = (value: number) =>
@@ -125,6 +139,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
+  const { loading } = useAuth();
   const { borrowers, investors, users, currentUser } = useData();
   const router = useRouter();
 
@@ -132,25 +147,27 @@ export default function ReportsPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
   useEffect(() => {
-    if (currentUser && !hasAccess) {
+    if (!loading && currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router]);
+  }, [currentUser, hasAccess, router, loading]);
 
 
   const displayedInvestors = useMemo(() => {
+    if (!currentUser) return [];
     if (role === 'مدير المكتب') {
-        return investors.filter(i => i.submittedBy === currentUser?.id);
+        return investors.filter(i => i.submittedBy === currentUser.id);
     }
-    if (role === 'مساعد مدير المكتب' && currentUser?.managedBy) {
+    if (role === 'مساعد مدير المكتب' && currentUser.managedBy) {
         return investors.filter(i => i.submittedBy === currentUser.managedBy || i.submittedBy === currentUser.id);
     }
     return investors;
   }, [investors, currentUser, role]);
 
   const displayedBorrowers = useMemo(() => {
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.managedBy)) {
-        const managerId = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
+    if (!currentUser) return [];
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser.managedBy)) {
+        const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
         const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
         const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
         return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
@@ -181,8 +198,8 @@ export default function ReportsPage() {
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
 
-  if (!hasAccess) {
-    return null;
+  if (loading || !currentUser || !hasAccess) {
+    return <PageSkeleton />;
   }
 
   return (

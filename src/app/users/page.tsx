@@ -70,6 +70,20 @@ import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } =
   {
@@ -146,6 +160,7 @@ const UserActions = ({
 };
 
 export default function UsersPage() {
+  const { loading } = useAuth();
   const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission } =
     useData();
   const router = useRouter();
@@ -157,13 +172,13 @@ export default function UsersPage() {
   >({});
   
   const role = currentUser?.role;
-  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'مساعد مدير المكتب';
+  const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings);
 
   useEffect(() => {
-    if (currentUser && !canViewPage) {
+    if (!loading && currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [currentUser, canViewPage, router]);
+  }, [currentUser, canViewPage, router, loading]);
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
     updateUserRole(userId, newRole);
@@ -233,8 +248,8 @@ export default function UsersPage() {
   const myAssistants = users.filter((u) => u.managedBy === currentUser?.id && u.role === 'مساعد مدير المكتب');
 
 
-  if (!canViewPage) {
-    return null; // or a loading spinner
+  if (loading || !currentUser || !canViewPage) {
+    return <PageSkeleton />;
   }
 
   const renderSystemAdminView = () => (

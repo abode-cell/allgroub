@@ -26,8 +26,24 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+            <Skeleton className="h-10 w-28" />
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 export default function InvestorsPage() {
+  const { loading } = useAuth();
   const { investors, addInvestor, users, currentUser } = useData();
   const { toast } = useToast();
   const router = useRouter();
@@ -36,10 +52,10 @@ export default function InvestorsPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
 
   useEffect(() => {
-    if (currentUser && !hasAccess) {
+    if (!loading && currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router]);
+  }, [currentUser, hasAccess, router, loading]);
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -116,12 +132,12 @@ export default function InvestorsPage() {
   const displayedInvestors =
     role === 'مستثمر'
       ? investors.filter((i) => i.id === currentUser?.id)
-      : role === 'مدير المكتب' || role === 'مساعد مدير المكتب'
-      ? investors.filter((i) => i.submittedBy === currentUser?.id || i.submittedBy === currentUser?.managedBy)
+      : role === 'مدير المكتب' || (isAssistant && currentUser?.managedBy)
+      ? investors.filter((i) => i.submittedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) || i.submittedBy === currentUser?.id)
       : investors;
       
-  if (!hasAccess) {
-    return null;
+  if (loading || !currentUser || !hasAccess) {
+    return <PageSkeleton />;
   }
 
   const getDialogTitle = () => {
@@ -132,7 +148,7 @@ export default function InvestorsPage() {
   };
 
   const getDialogDescription = () => {
-    if (isOfficeManager || isAssistant) {
+    if (isOfficeManager || (isAssistant && currentUser?.permissions?.manageInvestors)) {
       return 'أدخل بيانات المستثمر لإنشاء حساب له. سيتمكن من تسجيل الدخول مباشرة.';
     }
     if (isEmployee) {

@@ -47,6 +47,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+            <Skeleton className="h-10 w-28" />
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 
 const formatCurrency = (value: number) =>
@@ -57,6 +72,7 @@ const formatCurrency = (value: number) =>
 
 
 export default function BorrowersPage() {
+  const { loading } = useAuth();
   const { borrowers, investors, addBorrower, users, baseInterestRate, currentUser } = useData();
   const { toast } = useToast();
   const router = useRouter();
@@ -65,11 +81,10 @@ export default function BorrowersPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers);
   
   useEffect(() => {
-    if (currentUser && !hasAccess) {
+    if (!loading && currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router]);
-
+  }, [currentUser, hasAccess, router, loading]);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
@@ -179,8 +194,9 @@ export default function BorrowersPage() {
   };
   
   const displayedBorrowers = useMemo(() => {
+    if (!currentUser) return [];
     if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.managedBy)) {
-      const managerId = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
+      const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
       const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
       const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
       return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
@@ -188,8 +204,8 @@ export default function BorrowersPage() {
     return borrowers;
   }, [borrowers, users, currentUser, role]);
   
-  if (!hasAccess) {
-    return null;
+  if (loading || !currentUser || !hasAccess) {
+    return <PageSkeleton />;
   }
 
   const installmentBorrowers = displayedBorrowers.filter((b) => b.loanType === 'اقساط');

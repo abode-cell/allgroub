@@ -10,8 +10,24 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
+
 
 export default function PoliciesPage() {
+  const { loading } = useAuth();
   const { currentUser } = useData();
   const router = useRouter();
   const { toast } = useToast();
@@ -21,15 +37,10 @@ export default function PoliciesPage() {
 
   useEffect(() => {
     // Redirect if role is loaded and user doesn't have permission
-    if (currentUser && !canViewPage) {
+    if (!loading && currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [currentUser, canViewPage, router]);
-
-  // If the role is not yet loaded, or they don't have permission, don't render the page content
-  if (!canViewPage) {
-    return null;
-  }
+  }, [currentUser, canViewPage, router, loading]);
 
   // Placeholder state for policies
   const [daysUntilDefault, setDaysUntilDefault] = useState(90);
@@ -44,6 +55,10 @@ export default function PoliciesPage() {
     });
   };
 
+  // If the role is not yet loaded, or they don't have permission, don't render the page content
+  if (loading || !currentUser || !canViewPage) {
+    return <PageSkeleton />;
+  }
 
   return (
     <div className="flex flex-col flex-1">

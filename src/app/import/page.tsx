@@ -12,6 +12,20 @@ import { FileUp, Loader2, CheckCircle, AlertCircle, ListChecks } from 'lucide-re
 import * as XLSX from 'xlsx';
 import type { Borrower } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 // Define the expected structure of a row in the Excel file
 type ExcelRow = {
@@ -25,6 +39,7 @@ type ExcelRow = {
 };
 
 export default function ImportPage() {
+  const { loading } = useAuth();
   const { addBorrower, currentUser } = useData();
   const { toast } = useToast();
   const router = useRouter();
@@ -33,10 +48,10 @@ export default function ImportPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.importData);
 
   useEffect(() => {
-    if (currentUser && !hasAccess) {
+    if (!loading && currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router]);
+  }, [currentUser, hasAccess, router, loading]);
 
 
   const [file, setFile] = useState<File | null>(null);
@@ -108,7 +123,7 @@ export default function ImportPage() {
               }
           }
 
-          const newBorrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy'> = {
+          const newBorrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'> = {
             name: row['اسم المقترض'],
             amount: Number(row['المبلغ']),
             loanType: row['نوع التمويل'],
@@ -160,8 +175,8 @@ export default function ImportPage() {
     reader.readAsBinaryString(file);
   };
   
-  if (!hasAccess) {
-    return null;
+  if (loading || !currentUser || !hasAccess) {
+    return <PageSkeleton />;
   }
 
   return (

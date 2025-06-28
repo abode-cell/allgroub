@@ -7,6 +7,20 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import type { Borrower, Investor } from '@/lib/types';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -32,6 +46,7 @@ const getStatusText = (status: Borrower['status'] | Investor['status']) => {
 }
 
 export default function MyRequestsPage() {
+  const { loading } = useAuth();
   const { borrowers, investors, currentUser } = useData();
   const router = useRouter();
 
@@ -39,13 +54,13 @@ export default function MyRequestsPage() {
   const isEmployee = role === 'موظف';
 
   useEffect(() => {
-    if (currentUser && !isEmployee) {
+    if (!loading && currentUser && !isEmployee) {
       router.replace('/');
     }
-  }, [currentUser, isEmployee, router]);
+  }, [currentUser, isEmployee, router, loading]);
 
-  if (!isEmployee) {
-    return null;
+  if (loading || !currentUser || !isEmployee) {
+    return <PageSkeleton />;
   }
   
   // Use logged-in employee's ID

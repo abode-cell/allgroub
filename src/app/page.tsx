@@ -15,6 +15,20 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useMemo } from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 
 const formatCurrency = (value: number) =>
@@ -236,26 +250,26 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
 };
 
 export default function DashboardPage() {
+  const { loading } = useAuth();
   const { borrowers, investors, users, currentUser } = useData();
+  
   const role = currentUser?.role;
 
-  if (role === 'مستثمر') {
-    return <InvestorDashboard />;
-  }
-  
   const displayedInvestors = useMemo(() => {
+    if (!currentUser) return [];
     if (role === 'مدير المكتب') {
-        return investors.filter(i => i.submittedBy === currentUser?.id);
+        return investors.filter(i => i.submittedBy === currentUser.id);
     }
-    if (role === 'مساعد مدير المكتب' && currentUser?.managedBy) {
+    if (role === 'مساعد مدير المكتب' && currentUser.managedBy) {
         return investors.filter(i => i.submittedBy === currentUser.managedBy || i.submittedBy === currentUser.id);
     }
     return investors;
   }, [investors, currentUser, role]);
 
   const displayedBorrowers = useMemo(() => {
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.managedBy)) {
-        const managerId = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
+    if (!currentUser) return [];
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser.managedBy)) {
+        const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
         const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
         const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
         return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
@@ -263,7 +277,14 @@ export default function DashboardPage() {
     return borrowers;
   }, [borrowers, users, currentUser, role]);
 
+  if (loading || !currentUser) {
+      return <PageSkeleton />;
+  }
 
+  if (role === 'مستثمر') {
+    return <InvestorDashboard />;
+  }
+  
   const totalCapital = displayedInvestors.reduce((acc, inv) => acc + inv.amount + (inv.defaultedFunds || 0), 0);
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
   

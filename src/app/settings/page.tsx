@@ -13,8 +13,24 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useData } from '@/contexts/data-context';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
+
 
 export default function SettingsPage() {
+  const { loading } = useAuth();
   const { currentUser } = useData();
   const router = useRouter();
 
@@ -23,14 +39,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Redirect if role is loaded and user doesn't have permission
-    if (currentUser && !hasAccess) {
+    if (!loading && currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router]);
+  }, [currentUser, hasAccess, router, loading]);
 
   // If the role is not yet loaded, or they don't have permission, don't render the page content
-  if (!hasAccess) {
-    return null;
+  if (loading || !currentUser || !hasAccess) {
+    return <PageSkeleton />;
   }
 
   // This specific permission relies on the actual user role.

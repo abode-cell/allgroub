@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Bell, Trash2 } from 'lucide-react';
+import { Bell, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
@@ -26,11 +26,11 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { notifications, clearUserNotifications } = useData();
 
-  if (!user) {
-    return null;
+  if (loading || !user) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   const relevantNotifications = notifications

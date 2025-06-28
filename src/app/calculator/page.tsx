@@ -9,8 +9,24 @@ import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
+
 
 export default function CalculatorPage() {
+  const { loading } = useAuth();
   const router = useRouter();
   const { 
     currentUser,
@@ -31,10 +47,10 @@ export default function CalculatorPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);
 
   useEffect(() => {
-    if (currentUser && !hasAccess) {
+    if (!loading && currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router]);
+  }, [currentUser, hasAccess, router, loading]);
 
   
   // States for Installments Tab
@@ -159,10 +175,10 @@ export default function CalculatorPage() {
       maximumFractionDigits: 2,
     }).format(value);
     
-  const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);
+  const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
-  if (!hasAccess) {
-    return null;
+  if (loading || !currentUser || !hasAccess) {
+    return <PageSkeleton />;
   }
 
   return (

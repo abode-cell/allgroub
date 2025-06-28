@@ -8,8 +8,23 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 export default function SupportSettingsPage() {
+  const { loading } = useAuth();
   const { currentUser, supportEmail, supportPhone, updateSupportInfo } = useData();
   const router = useRouter();
   
@@ -20,10 +35,10 @@ export default function SupportSettingsPage() {
   const canViewPage = role === 'مدير النظام';
 
   useEffect(() => {
-    if (currentUser && !canViewPage) {
+    if (!loading && currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [currentUser, canViewPage, router]);
+  }, [currentUser, canViewPage, router, loading]);
   
   useEffect(() => {
     setLocalEmail(supportEmail);
@@ -31,8 +46,8 @@ export default function SupportSettingsPage() {
   }, [supportEmail, supportPhone]);
 
 
-  if (!canViewPage) {
-    return null;
+  if (loading || !currentUser || !canViewPage) {
+    return <PageSkeleton />;
   }
 
   const handleSaveChanges = () => {

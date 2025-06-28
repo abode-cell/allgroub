@@ -20,6 +20,20 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import type { Borrower, Investor } from '@/lib/types';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
 
 
 const formatCurrency = (value: number) =>
@@ -43,6 +57,7 @@ const statusVariant: {
 
 
 export default function RequestsPage() {
+  const { loading } = useAuth();
   const router = useRouter();
   const { 
     borrowers, 
@@ -59,10 +74,10 @@ export default function RequestsPage() {
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
 
   useEffect(() => {
-    if (currentUser && !hasAccess) {
+    if (!loading && currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router]);
+  }, [currentUser, hasAccess, router, loading]);
 
 
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -110,14 +125,12 @@ export default function RequestsPage() {
         return <Badge variant="default">تمت الموافقة</Badge>;
     }
   };
-
-  if (!hasAccess) {
-    return null;
-  }
   
   const requestsToDisplay = useMemo(() => {
     const allBorrowerRequests = borrowers.filter(b => b.submittedBy);
     const allInvestorRequests = investors.filter(i => i.submittedBy);
+
+    if (!currentUser) return { borrowerRequests: [], investorRequests: [] };
 
     if (role === 'مدير النظام') {
       return { 
@@ -126,7 +139,7 @@ export default function RequestsPage() {
       };
     }
     if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests)) {
-      const managerId = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
+      const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
       const employeeIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
       
       return {
@@ -136,6 +149,10 @@ export default function RequestsPage() {
     }
     return { borrowerRequests: [], investorRequests: [] };
   }, [borrowers, investors, users, currentUser, role]);
+
+  if (loading || !currentUser || !hasAccess) {
+    return <PageSkeleton />;
+  }
 
   const { borrowerRequests, investorRequests } = requestsToDisplay;
 
