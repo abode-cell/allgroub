@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useData } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,18 +12,19 @@ import { Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function PoliciesPage() {
-  const { role } = useAuth();
+  const { currentUser } = useData();
   const router = useRouter();
   const { toast } = useToast();
 
+  const role = currentUser?.role;
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
 
   useEffect(() => {
     // Redirect if role is loaded and user doesn't have permission
-    if (role && !canViewPage) {
+    if (currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [role, canViewPage, router]);
+  }, [currentUser, canViewPage, router]);
 
   // If the role is not yet loaded, or they don't have permission, don't render the page content
   if (!canViewPage) {

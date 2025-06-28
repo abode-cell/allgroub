@@ -43,16 +43,16 @@ function AppSkeleton() {
 }
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
-    const { user, loading } = useAuth();
+    const { userId, loading } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (!loading && !user) {
+        if (!loading && !userId) {
             router.replace('/login');
         }
-    }, [user, loading, router]);
+    }, [userId, loading, router]);
 
-    if (loading || !user) {
+    if (loading || !userId) {
         return <AppSkeleton />;
     }
 
@@ -69,18 +69,18 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { userId, loading } = useAuth();
   
   const isAuthPage = pathname === '/login' || pathname === '/signup';
 
   useEffect(() => {
-    if (!loading && user && isAuthPage) {
+    if (!loading && userId && isAuthPage) {
         router.replace('/');
     }
-  },[user, loading, isAuthPage, router])
+  },[userId, loading, isAuthPage, router])
 
   if (isAuthPage) {
-    if(loading || (!loading && user)) return <AppSkeleton /> 
+    if(loading || (!loading && userId)) return <AppSkeleton /> 
     return <>{children}</>;
   }
 

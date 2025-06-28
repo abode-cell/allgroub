@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { User, UserRole } from '@/lib/types';
+import type { User } from '@/lib/types';
 import { usersData } from '@/lib/data';
 
 // This is a mock implementation and does not connect to any backend service.
@@ -11,19 +11,17 @@ type SignInCredentials = {
 };
 
 type AuthContextType = {
-  user: User | null;
+  userId: string | null;
   loading: boolean;
-  role: UserRole | null;
   signIn: (credentials: SignInCredentials) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
-  updateUserIdentity: (updates: Partial<User>) => Promise<{ success: boolean; message: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -32,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (loggedInUserId) {
         const loggedInUser = usersData.find(u => u.id === loggedInUserId);
         if (loggedInUser) {
-          setUser(loggedInUser);
+          setUserId(loggedInUser.id);
         }
       }
     } catch (error) {
@@ -41,8 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
     }
   }, []);
-
-  const role = user?.role ?? null;
 
   const signIn = async (credentials: SignInCredentials): Promise<{ success: boolean; message: string }> => {
     const { identifier, password } = credentials;
@@ -61,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'البريد الإلكتروني/رقم الجوال أو كلمة المرور غير صحيحة.' };
     }
 
-    setUser(userToSignIn);
+    setUserId(userToSignIn.id);
     try {
         localStorage.setItem('loggedInUserId', userToSignIn.id);
     } catch (error) {
@@ -71,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 };
 
   const signOutUser = () => {
-    setUser(null);
+    setUserId(null);
     try {
       localStorage.removeItem('loggedInUserId');
       window.location.href = '/login'; // Force reload to clear state
@@ -79,18 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Could not access localStorage:", error);
     }
   };
-  
-  const updateUserIdentity = async (updates: Partial<User>): Promise<{ success: boolean; message: string }> => {
-    if(user){
-        const updatedUser = { ...user, ...updates };
-        setUser(updatedUser);
-        // This is a mock update and won't persist in the main data array across sessions.
-        // A full implementation would require calling an update function from DataContext.
-    }
-    return { success: true, message: "تم تحديث معلوماتك بنجاح (تجريبيًا)." };
-  };
 
-  const value = { user, loading, role, signIn, signOutUser, updateUserIdentity };
+  const value = { userId, loading, signIn, signOutUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

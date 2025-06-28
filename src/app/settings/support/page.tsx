@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useData } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,23 +8,22 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
-import { useData } from '@/contexts/data-context';
 
 export default function SupportSettingsPage() {
-  const { role } = useAuth();
+  const { currentUser, supportEmail, supportPhone, updateSupportInfo } = useData();
   const router = useRouter();
-  const { supportEmail, supportPhone, updateSupportInfo } = useData();
-
+  
   const [localEmail, setLocalEmail] = useState(supportEmail);
   const [localPhone, setLocalPhone] = useState(supportPhone);
 
+  const role = currentUser?.role;
   const canViewPage = role === 'مدير النظام';
 
   useEffect(() => {
-    if (role && !canViewPage) {
+    if (currentUser && !canViewPage) {
       router.replace('/');
     }
-  }, [role, canViewPage, router]);
+  }, [currentUser, canViewPage, router]);
   
   useEffect(() => {
     setLocalEmail(supportEmail);

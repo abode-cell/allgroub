@@ -6,7 +6,6 @@ import { ProfitChart } from './profit-chart';
 import { useData } from '@/contexts/data-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { useAuth } from '@/contexts/auth-context';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -16,11 +15,10 @@ const formatCurrency = (value: number) =>
 
 
 export function InvestorDashboard() {
-  const { user } = useAuth();
-  const { investors, borrowers } = useData();
+  const { currentUser, investors, borrowers } = useData();
 
   // Fetch data for the logged-in investor
-  const investor = investors.find(i => i.id === user?.id);
+  const investor = investors.find(i => i.id === currentUser?.id);
 
   if (!investor) {
     return (

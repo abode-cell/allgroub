@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useData } from '@/contexts/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +35,7 @@ const passwordSchema = z.object({
 
 
 export default function ProfilePage() {
-  const { user, updateUserIdentity } = useAuth();
+  const { currentUser, updateUserIdentity } = useData();
   const { toast } = useToast();
   const [isProfileSubmitting, setIsProfileSubmitting] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
@@ -57,13 +57,13 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (user) {
+    if (currentUser) {
       profileForm.reset({
-        name: user.name || '',
-        phone: user.phone || '',
+        name: currentUser.name || '',
+        phone: currentUser.phone || '',
       });
     }
-  }, [user, profileForm]);
+  }, [currentUser, profileForm]);
 
   const onProfileSubmit = async (values: z.infer<typeof profileSchema>) => {
     setIsProfileSubmitting(true);
@@ -88,7 +88,7 @@ export default function ProfilePage() {
     setIsPasswordSubmitting(false);
   };
 
-  if (!user) {
+  if (!currentUser) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
@@ -194,7 +194,7 @@ export default function ProfilePage() {
                 <CardHeader>
                     <CardTitle>تغيير البريد الإلكتروني</CardTitle>
                     <CardDescription>
-                       البريد الإلكتروني الحالي الخاص بك هو <span className="font-semibold text-primary">{user.email}</span>.
+                       البريد الإلكتروني الحالي الخاص بك هو <span className="font-semibold text-primary">{currentUser.email}</span>.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

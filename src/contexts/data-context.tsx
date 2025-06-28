@@ -105,6 +105,7 @@ type DataContextType = {
     investorId: string,
     withdrawal: Omit<Transaction, 'id'>
   ) => Promise<void>;
+  updateUserIdentity: (updates: Partial<User>) => Promise<{ success: boolean; message: string }>;
   updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
   updateUserLimits: (
@@ -150,13 +151,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [supportPhone, setSupportPhone] = useState('920012345');
 
 
-  const { user: authUser } = useAuth();
+  const { userId } = useAuth();
   const { toast } = useToast();
 
   const currentUser = useMemo(() => {
-    if (!authUser) return undefined;
-    return users.find(u => u.id === authUser.id);
-  }, [users, authUser]);
+    if (!userId) return undefined;
+    return users.find(u => u.id === userId);
+  }, [users, userId]);
   
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
     const newNotification: Notification = {
@@ -593,6 +594,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toast({ title: 'تمت عملية السحب بنجاح (تجريبيًا)' });
     }
   }, [addNotification, toast]);
+  
+  const updateUserIdentity = useCallback(async (updates: Partial<User>): Promise<{ success: boolean; message: string }> => {
+    if(!currentUser) return { success: false, message: "لم يتم العثور على المستخدم." };
+    const userIndex = usersData.findIndex(u => u.id === currentUser.id);
+    if(userIndex > -1){
+        usersData[userIndex] = { ...usersData[userIndex], ...updates };
+        setUsers([...usersData]);
+        toast({ title: 'نجاح', description: "تم تحديث معلوماتك بنجاح (تجريبيًا)." });
+        return { success: true, message: "تم تحديث معلوماتك بنجاح (تجريبيًا)." };
+    }
+    return { success: false, message: "فشل تحديث المعلومات." };
+  }, [currentUser, toast]);
+
 
   const updateUserStatus = useCallback(async (userId: string, status: User['status']) => {
     const userIndex = usersData.findIndex((u) => u.id === userId);
@@ -691,12 +705,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     currentUser, borrowers, investors, users, supportTickets, notifications, salaryRepaymentPercentage, baseInterestRate, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, supportEmail, supportPhone,
     updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage, updateSalaryRepaymentPercentage, updateGraceTotalProfitPercentage, updateGraceInvestorSharePercentage, addSupportTicket, registerNewOfficeManager,
-    addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, updateUserStatus, updateUserRole, updateUserLimits, updateManagerSettings,
+    addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, updateUserIdentity, updateUserStatus, updateUserRole, updateUserLimits, updateManagerSettings,
     updateAssistantPermission, requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead, updateBorrowerPaymentStatus,
   }), [
     currentUser, borrowers, investors, users, supportTickets, notifications, salaryRepaymentPercentage, baseInterestRate, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, supportEmail, supportPhone,
     updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage, updateSalaryRepaymentPercentage, updateGraceTotalProfitPercentage, updateGraceInvestorSharePercentage, addSupportTicket, registerNewOfficeManager,
-    addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, updateUserStatus, updateUserRole, updateUserLimits, updateManagerSettings,
+    addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, updateUserIdentity, updateUserStatus, updateUserRole, updateUserLimits, updateManagerSettings,
     updateAssistantPermission, requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead, updateBorrowerPaymentStatus,
   ]);
 

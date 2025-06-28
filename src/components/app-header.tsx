@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
+import { useData } from '@/contexts/data-context';
 import { Button } from './ui/button';
 import { Notifications } from './notifications';
 import { LogOut, Menu, User } from 'lucide-react';
@@ -66,8 +67,10 @@ function NavLinks({ menuItems }: { menuItems: MenuItem[] }) {
 
 
 export function AppHeader() {
-  const { user, role, signOutUser } = useAuth();
+  const { signOutUser } = useAuth();
+  const { currentUser } = useData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const role = currentUser?.role;
   const menuItems = allMenuItems.filter((item) => role && item.roles.includes(role));
 
   const getInitials = (name: string) => {
@@ -98,8 +101,8 @@ export function AppHeader() {
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="flex items-center gap-3">
                             <div className="text-right">
-                                <p className="font-semibold text-sm">{user?.name}</p>
-                                <p className="text-xs text-muted-foreground">{user?.role}</p>
+                                <p className="font-semibold text-sm">{currentUser?.name}</p>
+                                <p className="text-xs text-muted-foreground">{currentUser?.role}</p>
                             </div>
                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-primary shrink-0">
                                 <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -112,9 +115,9 @@ export function AppHeader() {
                     <DropdownMenuContent className="w-56" align="end" forceMount>
                         <DropdownMenuLabel className="font-normal">
                             <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                                <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
                                 <p className="text-xs leading-none text-muted-foreground">
-                                    {user?.email}
+                                    {currentUser?.email}
                                 </p>
                             </div>
                         </DropdownMenuLabel>
@@ -178,9 +181,9 @@ export function AppHeader() {
                     <DropdownMenuContent className="w-56" align="end" forceMount>
                         <DropdownMenuLabel className="font-normal">
                             <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                                <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
                                 <p className="text-xs leading-none text-muted-foreground">
-                                    {user?.email}
+                                    {currentUser?.email}
                                 </p>
                             </div>
                         </DropdownMenuLabel>

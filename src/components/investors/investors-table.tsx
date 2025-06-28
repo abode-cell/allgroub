@@ -30,7 +30,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import { Textarea } from '../ui/textarea';
 import type { Investor, Transaction, TransactionType, WithdrawalMethod } from '@/lib/types';
@@ -78,8 +77,8 @@ export function InvestorsTable({
   investors,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { role } = useAuth();
-  const { borrowers, updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease } = useData();
+  const { currentUser, borrowers, updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease } = useData();
+  const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);

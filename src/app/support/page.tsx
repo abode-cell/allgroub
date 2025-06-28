@@ -14,17 +14,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Inbox, Loader2, Send, Mail, Phone } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import Link from 'next/link';
 
 export default function SupportPage() {
-  const { user, role } = useAuth();
-  const { addSupportTicket, supportEmail, supportPhone } = useData();
+  const { currentUser, addSupportTicket, supportEmail, supportPhone } = useData();
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const role = currentUser?.role;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +36,7 @@ export default function SupportPage() {
       return;
     }
 
-    if (!user) {
+    if (!currentUser) {
       toast({
         variant: 'destructive',
         title: 'خطأ',
@@ -51,9 +50,9 @@ export default function SupportPage() {
     await addSupportTicket({
       subject,
       message,
-      fromUserId: user.id,
-      fromUserName: user.name,
-      fromUserEmail: user.email,
+      fromUserId: currentUser.id,
+      fromUserName: currentUser.name,
+      fromUserEmail: currentUser.email,
     });
 
     setSubject('');
