@@ -21,8 +21,8 @@ import { useState } from 'react';
 const Logo = () => (
     <Link href="/" className="flex items-center gap-2.5">
     <svg
-      width="32"
-      height="32"
+      width="40"
+      height="40"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -34,8 +34,8 @@ const Logo = () => (
       <path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
     </svg>
     <div className="flex flex-col">
-        <span className="font-bold text-base sm:text-lg text-foreground leading-tight">مجموعة عال | Aal Group</span>
-        <span className="text-xs text-muted-foreground leading-tight hidden sm:block">إدارة, تمويل, تطوير ,وأكثر...</span>
+        <span className="font-bold text-lg sm:text-xl text-foreground leading-tight">Aal Group | مجموعة عال</span>
+        <span className="text-sm text-muted-foreground leading-tight hidden sm:block">إدارة, تمويل, تطوير ,وأكثر...</span>
     </div>
   </Link>
 );
@@ -99,7 +99,7 @@ export function AppHeader() {
                                 <p className="font-semibold text-sm">{user?.name}</p>
                                 <p className="text-xs text-muted-foreground">{user?.role}</p>
                             </div>
-                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-primary shrink-0">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-primary shrink-0">
                                 <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
                                 <path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
                                 <path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -168,7 +168,7 @@ export function AppHeader() {
                 <Notifications />
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                         <Button variant="ghost" className="relative h-12 w-12 rounded-full p-0">
+                         <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-full w-full"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
                         </Button>
                     </DropdownMenuTrigger>

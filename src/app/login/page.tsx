@@ -50,8 +50,8 @@ export default function LoginPage() {
        <div className="flex flex-col items-center gap-2 mb-6">
           <div className="flex items-center gap-3">
             <svg
-                width="32"
-                height="32"
+                width="40"
+                height="40"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -62,7 +62,7 @@ export default function LoginPage() {
                 <path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
                 <path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
             </svg>
-            <span className="font-bold text-2xl">Aal Group | مجموعة عال</span>
+            <span className="font-bold text-3xl">Aal Group | مجموعة عال</span>
           </div>
           <p className="text-sm text-muted-foreground">
             إدارة, تمويل, تطوير ,وأكثر...
