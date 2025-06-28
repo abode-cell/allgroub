@@ -90,6 +90,7 @@ export const borrowersData: Borrower[] = [
     status: 'منتظم',
     dueDate: '2028-02-01',
     fundedBy: [{ investorId: 'inv-1', amount: 150000 }],
+    paymentStatus: 'مسدد جزئي',
   },
   {
     id: 'bor-2',
@@ -102,6 +103,7 @@ export const borrowersData: Borrower[] = [
     status: 'متأخر',
     dueDate: '2030-04-10',
     fundedBy: [{ investorId: 'inv-2', amount: 200000 }],
+    paymentStatus: 'تم الإمهال',
   },
   {
     id: 'bor-3',

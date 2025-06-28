@@ -1,5 +1,7 @@
 export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'موظف' | 'مستثمر';
 
+export type BorrowerPaymentStatus = 'تم السداد' | 'مسدد جزئي' | 'تم الإمهال' | 'متعثر';
+
 export type User = {
   id: string;
   name: string;
@@ -31,6 +33,7 @@ export type Borrower = {
   submittedBy?: string;
   rejectionReason?: string;
   fundedBy?: { investorId: string; amount: number }[];
+  paymentStatus?: BorrowerPaymentStatus;
 };
 
 export type Payment = {

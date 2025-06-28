@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -10,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, ShieldAlert, CheckCircle, Users, Info, AlertCircle } from 'lucide-react';
+import { MoreHorizontal, Info, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -41,7 +42,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
-import type { Borrower, Payment } from '@/lib/types';
+import type { Borrower, BorrowerPaymentStatus, Payment } from '@/lib/types';
 import {
   Tooltip,
   TooltipContent,
@@ -49,27 +50,27 @@ import {
   TooltipTrigger,
 } from '../ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { cn } from '@/lib/utils';
+import { CheckCircle, Users } from 'lucide-react';
 
-type BorrowersTableProps = {
-  borrowers: Borrower[];
-};
-
-const statusVariant: {
+const dueStatusVariant: {
   [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
 } = {
-  منتظم: 'default',
+  جديد: 'default',
+  'متوسط المدة': 'outline',
+  'مستحق الدفع': 'destructive',
   متأخر: 'destructive',
-  متعثر: 'destructive',
-  معلق: 'secondary',
-  'مسدد بالكامل': 'success',
+  'تمت المعالجة': 'success',
+  'طلب معلق': 'secondary',
   مرفوض: 'destructive',
+  منتظم: 'default',
 };
 
-
-const getDynamicStatus = (borrower: Borrower): { text: string; variant: keyof typeof statusVariant } => {
-    // Priority statuses that are manually set or are terminal
-    if (borrower.status === 'مسدد بالكامل') return { text: 'مسدد بالكامل', variant: 'success' };
-    if (borrower.status === 'متعثر') return { text: 'متعثر', variant: 'destructive' };
+const getDueStatus = (borrower: Borrower): { text: string; variant: keyof typeof dueStatusVariant } => {
+    if (borrower.paymentStatus) {
+        return { text: 'تمت المعالجة', variant: 'success' };
+    }
+    
     if (borrower.status === 'معلق') return { text: 'طلب معلق', variant: 'secondary' };
     if (borrower.status === 'مرفوض') return { text: 'مرفوض', variant: 'destructive' };
 
@@ -77,37 +78,58 @@ const getDynamicStatus = (borrower: Borrower): { text: string; variant: keyof ty
     today.setHours(0, 0, 0, 0);
     const dueDate = new Date(borrower.dueDate);
     dueDate.setHours(0, 0, 0, 0);
-    const startDate = new Date(borrower.date);
-    startDate.setHours(0, 0, 0, 0);
 
-    // Automatic 'Late' status if due date is passed
     if (today > dueDate) {
         return { text: 'متأخر', variant: 'destructive' };
     }
-    
-    // If the loan is manually marked as late, respect that.
-    if (borrower.status === 'متأخر') {
-         return { text: 'متأخر', variant: 'destructive' };
-    }
 
-    // Lifecycle statuses for ongoing loans (i.e., status is 'منتظم')
+    const startDate = new Date(borrower.date);
+    startDate.setHours(0, 0, 0, 0);
+
     const totalDuration = dueDate.getTime() - startDate.getTime();
     if (totalDuration <= 0) {
-        return { text: borrower.status, variant: statusVariant[borrower.status] || 'default' };
+        return { text: 'منتظم', variant: 'default' };
     }
 
     const elapsedDuration = today.getTime() - startDate.getTime();
     const progress = elapsedDuration / totalDuration;
 
-    if (progress < 0.25) { 
+    if (progress < 0.50) { 
         return { text: 'جديد', variant: 'default' };
     }
-    if (progress < 0.80) { 
-        return { text: 'منتصف المدة', variant: 'default' };
+    if (progress < 0.90) { 
+        return { text: 'متوسط المدة', variant: 'outline' };
     }
-    return { text: 'اقترب السداد', variant: 'outline' };
+    return { text: 'مستحق الدفع', variant: 'destructive' };
 };
 
+
+const paymentStatusVariant: {
+  [key in BorrowerPaymentStatus]: 'success' | 'default' | 'secondary' | 'destructive';
+} = {
+  'تم السداد': 'success',
+  'مسدد جزئي': 'default', // primary color is blueish
+  'تم الإمهال': 'secondary', // gray
+  'متعثر': 'destructive',
+};
+
+const paymentStatusTextColor: {
+  [key in BorrowerPaymentStatus]: string;
+} = {
+  'تم السداد': 'text-success-foreground',
+  'مسدد جزئي': 'text-primary-foreground',
+  'تم الإمهال': 'text-secondary-foreground',
+  'متعثر': 'text-destructive-foreground',
+};
+
+const paymentStatusBgColor: {
+  [key in BorrowerPaymentStatus]: string;
+} = {
+  'تم السداد': 'bg-success hover:bg-success/90',
+  'مسدد جزئي': 'bg-primary hover:bg-primary/90',
+  'تم الإمهال': 'bg-secondary hover:bg-secondary/80',
+  'متعثر': 'bg-destructive hover:bg-destructive/90',
+};
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -118,9 +140,11 @@ const formatCurrency = (value: number) =>
 
 export function BorrowersTable({
   borrowers,
-}: BorrowersTableProps) {
+}: {
+  borrowers: Borrower[];
+}) {
   const { role } = useAuth();
-  const { investors, updateBorrower, approveBorrower } = useData();
+  const { investors, updateBorrower, approveBorrower, updateBorrowerPaymentStatus } = useData();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
@@ -155,8 +179,6 @@ export function BorrowersTable({
   };
   
   const handleApproveClick = (borrower: Borrower) => {
-    // In a real app, you might need a dialog to select investors first.
-    // For this mock, we approve it, but it remains unfunded until edited by a manager.
     approveBorrower(borrower.id);
   };
 
@@ -214,6 +236,7 @@ export function BorrowersTable({
                 <TableHead>المستثمر</TableHead>
                 <TableHead>حالة السداد</TableHead>
                 <TableHead>تاريخ الاستحقاق</TableHead>
+                <TableHead>حالة الاستحقاق</TableHead>
                 {canPerformActions && (
                 <TableHead>
                   <span className="sr-only">الإجراءات</span>
@@ -265,17 +288,38 @@ export function BorrowersTable({
                      )}
                   </TableCell>
                   <TableCell>
+                    <Select
+                        value={borrower.paymentStatus}
+                        onValueChange={(value: BorrowerPaymentStatus) => {
+                            updateBorrowerPaymentStatus(borrower.id, value);
+                        }}
+                        disabled={!canEdit || borrower.status === 'معلق' || borrower.status === 'مرفوض'}
+                    >
+                        <SelectTrigger className={cn(
+                            "w-32", 
+                            borrower.paymentStatus && `${paymentStatusBgColor[borrower.paymentStatus]} ${paymentStatusTextColor[borrower.paymentStatus]}`
+                            )}>
+                            <SelectValue placeholder="اختر الحالة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="تم السداد">تم السداد</SelectItem>
+                            <SelectItem value="مسدد جزئي">مسدد جزئي</SelectItem>
+                            <SelectItem value="تم الإمهال">تم الإمهال</SelectItem>
+                            <SelectItem value="متعثر">متعثر</SelectItem>
+                        </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>{borrower.dueDate}</TableCell>
+                  <TableCell>
                     {(() => {
-                        const dynamicStatus = getDynamicStatus(borrower);
+                        const dueStatus = getDueStatus(borrower);
                         return (
-                            <Badge variant={dynamicStatus.variant}>
-                                {dynamicStatus.text === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
-                                {dynamicStatus.text}
+                            <Badge variant={dueStatus.variant}>
+                                {dueStatus.text}
                             </Badge>
                         );
                     })()}
                   </TableCell>
-                  <TableCell>{borrower.dueDate}</TableCell>
                   {canPerformActions && (
                   <TableCell>
                     <DropdownMenu>
@@ -567,6 +611,16 @@ export function BorrowersTable({
           {selectedBorrower && (() => {
             const totalFunded = selectedBorrower.fundedBy?.reduce((sum, funder) => sum + funder.amount, 0) || 0;
             const isPartiallyFunded = totalFunded < selectedBorrower.amount;
+            const statusVariant: {
+              [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
+            } = {
+              منتظم: 'default',
+              متأخر: 'destructive',
+              متعثر: 'destructive',
+              معلق: 'secondary',
+              'مسدد بالكامل': 'success',
+              مرفوض: 'destructive',
+            };
 
             return (
               <div className="grid gap-4 py-4 text-sm">

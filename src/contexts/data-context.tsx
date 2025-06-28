@@ -18,6 +18,7 @@ import type {
   SupportTicket,
   TransactionType,
   Notification,
+  BorrowerPaymentStatus,
 } from '@/lib/types';
 import {
   borrowersData,
@@ -86,11 +87,12 @@ type DataContextType = {
   addBorrower: (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'
     >,
     investorIds: string[]
   ) => Promise<void>;
   updateBorrower: (borrower: Borrower) => Promise<void>;
+  updateBorrowerPaymentStatus: (borrowerId: string, paymentStatus: BorrowerPaymentStatus) => Promise<void>;
   approveBorrower: (borrowerId: string) => Promise<void>;
   rejectBorrower: (borrowerId: string, reason: string) => Promise<void>;
   addInvestor: (investor: NewInvestorPayload) => Promise<void>;
@@ -374,6 +376,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({ title: 'تم تحديث القرض (تجريبيًا)' });
   }, [borrowers, graceTotalProfitPercentage, investorSharePercentage, addNotification, toast]);
 
+  const updateBorrowerPaymentStatus = useCallback(async (
+    borrowerId: string,
+    paymentStatus: BorrowerPaymentStatus
+  ) => {
+    setBorrowers((prev) =>
+      prev.map((b) =>
+        b.id === borrowerId ? { ...b, paymentStatus: paymentStatus } : b
+      )
+    );
+    const borrower = borrowersData.find(b => b.id === borrowerId);
+    if(borrower) borrower.paymentStatus = paymentStatus;
+    toast({
+      title: 'تم تحديث حالة السداد',
+      description: `تم تحديث حالة القرض إلى "${paymentStatus}".`,
+    });
+  }, [toast]);
+
+
   const approveBorrower = useCallback(async (borrowerId: string) => {
     const borrower = borrowers.find(b => b.id === borrowerId);
     if (!borrower) return;
@@ -419,7 +439,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBorrower = useCallback(async (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'
     >,
     investorIds: string[]
   ) => {
@@ -843,6 +863,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteUser,
     clearUserNotifications,
     markUserNotificationsAsRead,
+    updateBorrowerPaymentStatus,
   }), [
     borrowers,
     investors,
@@ -881,6 +902,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteUser,
     clearUserNotifications,
     markUserNotificationsAsRead,
+    updateBorrowerPaymentStatus,
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
