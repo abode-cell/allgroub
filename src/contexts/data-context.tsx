@@ -291,33 +291,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateBorrower = useCallback((updatedBorrower: Borrower) => {
-    let originalBorrower: Borrower | undefined;
-    
-    setData(prev => {
-        const newBorrowers = prev.borrowers.map(b => {
-            if (b.id === updatedBorrower.id) {
-                originalBorrower = b;
-                return updatedBorrower;
-            }
-            return b;
-        });
+    const originalBorrower = data.borrowers.find(b => b.id === updatedBorrower.id);
+    if (!originalBorrower) return;
 
-        if (!originalBorrower) return prev;
+    const statusChanged = originalBorrower.status !== updatedBorrower.status;
+    let investorsToUpdate = [...data.investors];
+    const notificationsToSend: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
 
-        const statusChanged = originalBorrower.status !== updatedBorrower.status;
-        if (!statusChanged) {
-            toast({ title: 'تم تحديث القرض' });
-            return { ...prev, borrowers: newBorrowers };
-        }
-
-        let newInvestors = [...prev.investors];
+    if (statusChanged) {
         if (updatedBorrower.status === 'متعثر' && originalBorrower.status !== 'متعثر' && originalBorrower.fundedBy) {
             originalBorrower.fundedBy.forEach(funder => {
-                const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
+                const investorIndex = investorsToUpdate.findIndex(i => i.id === funder.investorId);
                 if (investorIndex > -1) {
-                    const newDefaultedFunds = (newInvestors[investorIndex].defaultedFunds || 0) + funder.amount;
-                    newInvestors[investorIndex] = { ...newInvestors[investorIndex], defaultedFunds: newDefaultedFunds };
-                    addNotification({
+                    const newDefaultedFunds = (investorsToUpdate[investorIndex].defaultedFunds || 0) + funder.amount;
+                    investorsToUpdate[investorIndex] = { ...investorsToUpdate[investorIndex], defaultedFunds: newDefaultedFunds };
+                    notificationsToSend.push({
                         recipientId: funder.investorId,
                         title: 'تنبيه: تعثر قرض مرتبط',
                         description: `القرض الخاص بالعميل "${originalBorrower?.name}" قد تعثر، مما قد يؤثر على استثماراتك.`
@@ -333,7 +321,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const totalProfit = originalBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
 
             originalBorrower.fundedBy.forEach(funder => {
-                const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
+                const investorIndex = investorsToUpdate.findIndex(i => i.id === funder.investorId);
                 if (investorIndex > -1) {
                     const loanShare = funder.amount / originalBorrower!.amount;
                     const investorProfitShare = originalBorrower!.loanType === 'اقساط'
@@ -349,19 +337,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
                         description: `أرباح من قرض "${originalBorrower?.name}"`,
                     };
                     
-                    const investor = { ...newInvestors[investorIndex] };
+                    const investor = { ...investorsToUpdate[investorIndex] };
                     investor.transactionHistory = [...investor.transactionHistory, profitTransaction];
                     investor.amount += principalReturn + investorProfitShare;
                     investor.fundedLoanIds = investor.fundedLoanIds.filter(id => id !== originalBorrower?.id);
-                    newInvestors[investorIndex] = investor;
+                    investorsToUpdate[investorIndex] = investor;
                 }
             });
             toast({ title: 'تم سداد القرض بالكامل وإعادة الأموال والأرباح للمستثمرين.' });
         }
-        
-        return { ...prev, borrowers: newBorrowers, investors: newInvestors };
-    });
-  }, [addNotification, data.graceTotalProfitPercentage, data.investorSharePercentage, data.graceInvestorSharePercentage, toast]);
+    } else {
+        toast({ title: 'تم تحديث القرض' });
+    }
+
+    setData(prev => ({
+        ...prev,
+        borrowers: prev.borrowers.map(b => b.id === updatedBorrower.id ? updatedBorrower : b),
+        investors: investorsToUpdate
+    }));
+
+    notificationsToSend.forEach(addNotification);
+}, [data, addNotification, toast]);
 
   const updateBorrowerPaymentStatus = useCallback((borrowerId: string, paymentStatus?: BorrowerPaymentStatus) => {
     setData(prev => ({
@@ -426,48 +422,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
     }
     
+    const isPending = borrower.status === 'معلق';
+    if (!isPending && investorIds.length === 0) {
+        toast({ variant: 'destructive', title: 'خطأ في التمويل', description: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' });
+        return;
+    }
+    
     setData(prev => {
-        if (borrower.status !== 'معلق' && investorIds.length === 0) {
-            toast({ variant: 'destructive', title: 'خطأ في التمويل', description: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' });
-            return prev;
-        }
-
         const loanAmount = borrower.amount;
         const newId = `bor_${Date.now()}`;
         const fundedByDetails: { investorId: string; amount: number }[] = [];
-        let totalFundedAmount = 0;
-        
         let newInvestors = [...prev.investors];
-        investorIds.forEach(id => {
-            const investorIndex = newInvestors.findIndex(i => i.id === id);
-            if (investorIndex > -1) {
-                const inv = { ...newInvestors[investorIndex] };
-                const remainingAmountToFund = loanAmount - totalFundedAmount;
-                const actualContribution = Math.min(inv.amount, remainingAmountToFund);
 
-                if (actualContribution > 0) {
-                  fundedByDetails.push({ investorId: inv.id, amount: actualContribution });
-                  totalFundedAmount += actualContribution;
-                  inv.amount -= actualContribution;
-                  inv.fundedLoanIds = [...inv.fundedLoanIds, newId];
-                  newInvestors[investorIndex] = inv;
+        if (!isPending) {
+            let totalFundedAmount = 0;
+            investorIds.forEach(id => {
+                const investorIndex = newInvestors.findIndex(i => i.id === id);
+                if (investorIndex > -1) {
+                    const inv = { ...newInvestors[investorIndex] };
+                    const remainingAmountToFund = loanAmount - totalFundedAmount;
+                    const actualContribution = Math.min(inv.amount, remainingAmountToFund);
+
+                    if (actualContribution > 0) {
+                        fundedByDetails.push({ investorId: inv.id, amount: actualContribution });
+                        totalFundedAmount += actualContribution;
+                        inv.amount -= actualContribution;
+                        inv.fundedLoanIds = [...inv.fundedLoanIds, newId];
+                        newInvestors[investorIndex] = inv;
+                    }
                 }
-            }
-        });
-
-        const newEntry: Borrower = {
-            ...borrower, id: newId, date: new Date().toISOString().split('T')[0],
-            submittedBy: currentUser.id, fundedBy: fundedByDetails, amount: loanAmount,
-            status: (borrower.status === 'معلق') ? 'معلق' : 'منتظم',
-        };
-
-        if (newEntry.status === 'معلق' && currentUser?.managedBy) {
-            addNotification({ recipientId: currentUser.managedBy, title: 'طلب قرض جديد معلق', description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة القرض "${newEntry.name}".` });
+            });
         }
         
-        toast({ title: 'تمت إضافة القرض بنجاح' });
+        const newEntry: Borrower = {
+            ...borrower, id: newId, date: new Date().toISOString().split('T')[0],
+            submittedBy: currentUser.id, fundedBy: fundedByDetails,
+        };
+        
         return { ...prev, borrowers: [...prev.borrowers, newEntry], investors: newInvestors };
     });
+
+    if (isPending && currentUser?.managedBy) {
+        addNotification({ recipientId: currentUser.managedBy, title: 'طلب قرض جديد معلق', description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة القرض "${borrower.name}".` });
+    }
+    
+    toast({ title: 'تمت إضافة القرض بنجاح' });
   }, [currentUser, toast, addNotification]);
 
   const updateInvestor = useCallback((updatedInvestor) => {
@@ -522,52 +521,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
     }
 
-    setData(prev => {
-        if (currentUser.role === 'مدير المكتب' || (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.manageInvestors)) {
-            const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-            const manager = prev.users.find(u => u.id === managerId);
-            const investorsAddedByManager = prev.investors.filter(i => i.submittedBy === managerId).length;
+    if (currentUser.role === 'مدير المكتب' || (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.manageInvestors)) {
+        const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+        const manager = data.users.find(u => u.id === managerId);
+        const investorsAddedByManager = data.investors.filter(i => i.submittedBy === managerId).length;
 
-            if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
-                toast({ variant: 'destructive', title: 'تم الوصول للحد الأقصى', description: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' });
-                return prev;
-            }
-            if (!investorPayload.email || !investorPayload.password) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر الجديد.' });
-                return prev;
-            }
-            if (prev.users.some((u) => u.email === investorPayload.email)) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني مستخدم بالفعل.' });
-                return prev;
-            }
-
-            const newId = `user_inv_${Date.now()}`;
-            const newInvestorUser: User = {
-                id: newId, name: investorPayload.name, email: investorPayload.email, phone: '', password: investorPayload.password, role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString().split('T')[0], managedBy: managerId,
-            };
-            const newInvestorEntry: Investor = {
-                id: newId, name: investorPayload.name, amount: investorPayload.amount, status: 'نشط', date: new Date().toISOString().split('T')[0],
-                transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
-                defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
-            };
-            
-            toast({ title: 'تمت إضافة المستثمر والمستخدم المرتبط به بنجاح.' });
-            return { ...prev, users: [...prev.users, newInvestorUser], investors: [...prev.investors, newInvestorEntry] };
-        } else {
-            const newEntry: Investor = {
-                ...investorPayload, id: `inv_${Date.now()}`, date: new Date().toISOString().split('T')[0],
-                transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
-                defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
-            };
-            
-            if (newEntry.status === 'معلق' && currentUser?.managedBy) {
-                addNotification({ recipientId: currentUser.managedBy, title: 'طلب مستثمر جديد معلق', description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newEntry.name}".` });
-            }
-            toast({ title: 'تمت إضافة المستثمر بنجاح.' });
-            return { ...prev, investors: [...prev.investors, newEntry] };
+        if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
+            toast({ variant: 'destructive', title: 'تم الوصول للحد الأقصى', description: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' });
+            return;
         }
-    });
-  }, [currentUser, toast, addNotification]);
+        if (!investorPayload.email || !investorPayload.password) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر الجديد.' });
+            return;
+        }
+        if (data.users.some((u) => u.email === investorPayload.email)) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني مستخدم بالفعل.' });
+            return;
+        }
+
+        const newId = `user_inv_${Date.now()}`;
+        const newInvestorUser: User = {
+            id: newId, name: investorPayload.name, email: investorPayload.email, phone: '', password: investorPayload.password, role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString().split('T')[0], managedBy: managerId,
+        };
+        const newInvestorEntry: Investor = {
+            id: newId, name: investorPayload.name, amount: investorPayload.amount, status: 'نشط', date: new Date().toISOString().split('T')[0],
+            transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
+            defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
+        };
+        
+        setData(prev => ({ ...prev, users: [...prev.users, newInvestorUser], investors: [...prev.investors, newInvestorEntry] }));
+        toast({ title: 'تمت إضافة المستثمر والمستخدم المرتبط به بنجاح.' });
+    } else {
+        const newEntry: Investor = {
+            ...investorPayload, id: `inv_${Date.now()}`, date: new Date().toISOString().split('T')[0],
+            transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
+            defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
+        };
+        
+        setData(prev => ({ ...prev, investors: [...prev.investors, newEntry] }));
+        
+        if (newEntry.status === 'معلق' && currentUser?.managedBy) {
+            addNotification({ recipientId: currentUser.managedBy, title: 'طلب مستثمر جديد معلق', description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newEntry.name}".` });
+        }
+        toast({ title: 'تمت إضافة المستثمر بنجاح.' });
+    }
+  }, [currentUser, data, addNotification, toast]);
 
   const withdrawFromInvestor = useCallback((investorId, withdrawal) => {
     setData(prev => ({
