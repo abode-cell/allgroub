@@ -44,6 +44,7 @@ export default function InvestorsPage() {
 
   const manager = isEmployee ? users.find((u) => u.id === user?.managedBy) : null;
   const isDirectAdditionEnabled = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
+  const hideInvestorFunds = isEmployee ? manager?.hideEmployeeInvestorFunds ?? false : false;
 
   const investorsAddedByManager = isOfficeManager
     ? investors.filter((i) => i.submittedBy === user?.id).length
@@ -259,7 +260,7 @@ export default function InvestorsPage() {
             </Dialog>
           )}
         </div>
-        <InvestorsTable investors={displayedInvestors} />
+        <InvestorsTable investors={displayedInvestors} hideFunds={hideInvestorFunds} />
       </main>
     </div>
   );

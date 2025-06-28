@@ -389,6 +389,19 @@ export default function UsersPage() {
                                 }
                             />
                         </div>
+                        <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                            <div className="space-y-0.5">
+                                <Label htmlFor={`hide-funds-${manager.id}`} className="font-semibold">إخفاء أرصدة المستثمرين</Label>
+                                <p className="text-xs text-muted-foreground">يمنع موظفي هذا المدير من رؤية أموال المستثمرين.</p>
+                            </div>
+                            <Switch
+                                id={`hide-funds-${manager.id}`}
+                                checked={manager.hideEmployeeInvestorFunds ?? false}
+                                onCheckedChange={(checked) =>
+                                    updateManagerSettings(manager.id, { hideEmployeeInvestorFunds: checked })
+                                }
+                            />
+                        </div>
                         <div className="grid gap-4 md:grid-cols-3 items-end">
                           <div className="space-y-2">
                             <Label htmlFor={`investor-limit-${manager.id}`}>
@@ -552,6 +565,23 @@ export default function UsersPage() {
                   updateManagerSettings(currentUser.id, { allowEmployeeSubmissions: checked });
                 }
               }}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+            <div className="space-y-0.5">
+                <Label htmlFor="hide-investor-funds" className="font-medium">إخفاء أرصدة المستثمرين عن الموظفين</Label>
+                <p className="text-xs text-muted-foreground">
+                    في حال تفعيله، لن يتمكن الموظفون من رؤية المبالغ المتاحة للمستثمرين.
+                </p>
+            </div>
+            <Switch
+                id="hide-investor-funds"
+                checked={currentUser?.hideEmployeeInvestorFunds ?? false}
+                onCheckedChange={(checked) => {
+                    if (currentUser) {
+                        updateManagerSettings(currentUser.id, { hideEmployeeInvestorFunds: checked });
+                    }
+                }}
             />
           </div>
         </div>

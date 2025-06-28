@@ -109,8 +109,9 @@ type DataContextType = {
   ) => Promise<void>;
   updateManagerSettings: (
     managerId: string,
-    settings: { allowEmployeeSubmissions: boolean }
+    settings: { allowEmployeeSubmissions?: boolean; hideEmployeeInvestorFunds?: boolean }
   ) => Promise<void>;
+  requestCapitalIncrease: (investorId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   clearUserNotifications: (userId: string) => void;
   markUserNotificationsAsRead: (userId: string) => void;
@@ -258,6 +259,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       investorLimit: 3,
       employeeLimit: 1,
       allowEmployeeSubmissions: true,
+      hideEmployeeInvestorFunds: false,
     };
 
     const newEmployee: User = {
@@ -768,15 +770,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const updateManagerSettings = useCallback(async (
     managerId: string,
-    settings: { allowEmployeeSubmissions: boolean }
+    settings: { allowEmployeeSubmissions?: boolean; hideEmployeeInvestorFunds?: boolean }
   ) => {
     setUsers((prev) =>
       prev.map((u) =>
         u.id === managerId ? { ...u, ...settings } : u
       )
     );
-    toast({ title: 'تم تحديث صلاحيات الموظفين بنجاح.' });
+    toast({ title: 'تم تحديث إعدادات المدير بنجاح.' });
   }, [toast]);
+
+  const requestCapitalIncrease = useCallback(async (investorId: string) => {
+    const investor = investors.find(i => i.id === investorId);
+    // Notify all admins and managers
+    const managers = users.filter(u => u.role === 'مدير النظام' || u.role === 'مدير المكتب');
+
+    if (!investor) return;
+
+    if (managers.length > 0) {
+        managers.forEach(manager => {
+            addNotification({
+                recipientId: manager.id,
+                title: 'طلب زيادة رأس المال',
+                description: `المستثمر "${investor.name}" يرغب بزيادة رأس ماله للاستمرار بالاستثمار.`
+            });
+        });
+    }
+
+    toast({
+        title: 'تم إرسال طلبك',
+        description: 'تم إعلام الإدارة برغبتك في زيادة رأس المال.'
+    });
+  }, [investors, users, addNotification, toast]);
 
   const deleteUser = useCallback(async (userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
@@ -833,6 +858,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateUserRole,
     updateUserLimits,
     updateManagerSettings,
+    requestCapitalIncrease,
     deleteUser,
     clearUserNotifications,
     markUserNotificationsAsRead,
@@ -870,6 +896,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateUserRole,
     updateUserLimits,
     updateManagerSettings,
+    requestCapitalIncrease,
     deleteUser,
     clearUserNotifications,
     markUserNotificationsAsRead,

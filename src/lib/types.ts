@@ -14,6 +14,7 @@ export type User = {
   investorLimit?: number;
   employeeLimit?: number;
   allowEmployeeSubmissions?: boolean;
+  hideEmployeeInvestorFunds?: boolean;
 };
 
 export type Borrower = {

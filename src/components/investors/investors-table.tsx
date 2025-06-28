@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils';
 
 type InvestorsTableProps = {
   investors: Investor[];
+  hideFunds?: boolean;
 };
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } = {
@@ -75,9 +76,10 @@ const formatCurrency = (value: number) =>
 
 export function InvestorsTable({
   investors,
+  hideFunds = false,
 }: InvestorsTableProps) {
   const { role } = useAuth();
-  const { borrowers, updateInvestor, withdrawFromInvestor, approveInvestor } = useData();
+  const { borrowers, updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease } = useData();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
@@ -147,7 +149,7 @@ export function InvestorsTable({
     setSelectedInvestor(null);
   }
 
-  const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب';
+  const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'مستثمر';
   const canEdit = role === 'مدير النظام' || role === 'مدير المكتب';
       
   return (
@@ -158,7 +160,7 @@ export function InvestorsTable({
             <TableHeader>
               <TableRow>
                 <TableHead>اسم المستثمر</TableHead>
-                <TableHead>مبلغ الاستثمار</TableHead>
+                <TableHead>الرصيد المتاح</TableHead>
                 <TableHead>تاريخ البدء</TableHead>
                 <TableHead>الأموال المتعثرة</TableHead>
                 <TableHead>الحالة</TableHead>
@@ -171,10 +173,10 @@ export function InvestorsTable({
               {investors.map((investor) => (
                 <TableRow key={investor.id}>
                   <TableCell className="font-medium">{investor.name}</TableCell>
-                  <TableCell>{formatCurrency(investor.amount)}</TableCell>
+                  <TableCell>{hideFunds ? '*****' : formatCurrency(investor.amount)}</TableCell>
                   <TableCell>{investor.date}</TableCell>
                    <TableCell className="text-destructive font-medium">
-                    {formatCurrency(investor.defaultedFunds || 0)}
+                    {hideFunds ? '*****' : formatCurrency(investor.defaultedFunds || 0)}
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -216,9 +218,15 @@ export function InvestorsTable({
                         {canPerformActions && (
                             <DropdownMenuItem
                               onSelect={() => handleWithdrawClick(investor)}
-                              disabled={investor.status === 'معلق'}
+                              disabled={investor.status === 'معلق' || investor.amount <= 0}
                             >
                               سحب الأموال
+                            </DropdownMenuItem>
+                        )}
+                         {investor.amount <= 0 && investor.status === 'نشط' && canPerformActions && (
+                            <DropdownMenuItem onSelect={() => requestCapitalIncrease(investor.id)}>
+                                <TrendingUp className="ml-2 h-4 w-4" />
+                                طلب زيادة رأس المال
                             </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -319,19 +327,19 @@ export function InvestorsTable({
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
                         <div>
                             <span className='text-muted-foreground'>إجمالي رأس المال:</span>
-                            <span className='font-bold text-base float-left'>{formatCurrency(totalCapital)}</span>
+                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(totalCapital)}</span>
                         </div>
                         <div>
                             <span className='text-muted-foreground'>الأموال النشطة:</span>
-                            <span className='font-bold text-base float-left text-green-600'>{formatCurrency(activeInvestment)}</span>
+                            <span className='font-bold text-base float-left text-green-600'>{hideFunds ? '*****' : formatCurrency(activeInvestment)}</span>
                         </div>
                         <div>
                             <span className='text-muted-foreground'>الأموال الخاملة:</span>
-                            <span className='font-bold text-base float-left'>{formatCurrency(idleFunds)}</span>
+                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(idleFunds)}</span>
                         </div>
                         <div>
                             <span className='text-muted-foreground'>الأموال المتعثرة:</span>
-                            <span className='font-bold text-base float-left text-destructive'>{formatCurrency(defaultedFunds)}</span>
+                            <span className='font-bold text-base float-left text-destructive'>{hideFunds ? '*****' : formatCurrency(defaultedFunds)}</span>
                         </div>
                     </div>
                 </div>

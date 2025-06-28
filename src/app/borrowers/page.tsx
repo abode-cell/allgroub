@@ -75,6 +75,7 @@ export default function BorrowersPage() {
   const isEmployee = role === 'موظف';
   const manager = isEmployee ? users.find((u) => u.id === currentUser?.managedBy) : null;
   const isDirectAdditionEnabled = isEmployee ? manager?.allowEmployeeSubmissions ?? false : false;
+  const hideInvestorFunds = isEmployee ? manager?.hideEmployeeInvestorFunds ?? false : false;
   const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || isEmployee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -355,7 +356,9 @@ export default function BorrowersPage() {
                                         >
                                             <div className='flex justify-between w-full'>
                                                 <span>{investor.name}</span>
-                                                <span className='text-muted-foreground text-xs'>{formatCurrency(investor.amount)}</span>
+                                                {!hideInvestorFunds && (
+                                                  <span className='text-muted-foreground text-xs'>{formatCurrency(investor.amount)}</span>
+                                                )}
                                             </div>
                                         </DropdownMenuCheckboxItem>
                                     ))}
