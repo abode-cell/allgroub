@@ -436,15 +436,18 @@ export default function BorrowersPage() {
       <AlertDialog open={isInsufficientFundsDialogOpen} onOpenChange={setIsInsufficientFundsDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>سيولة المستثمرين غير كافية</AlertDialogTitle>
+                <AlertDialogTitle>رصيد المستثمر غير كافٍ</AlertDialogTitle>
                 <AlertDialogDescription>
-                    السيولة المتاحة من المستثمرين المختارين ({formatCurrency(availableFunds)}) غير كافية لتغطية مبلغ القرض المطلوب ({formatCurrency(Number(newBorrower.amount))}).
+                    الرصيد المتاح من المستثمرين المختارين ({formatCurrency(availableFunds)}) لا يغطي مبلغ القرض المطلوب ({formatCurrency(Number(newBorrower.amount))}).
                     <br/><br/>
-                    الرجاء اختيار مستثمرين آخرين أو تقليل مبلغ القرض.
+                    يمكنك المتابعة وحفظ الطلب كـ "معلق"، أو العودة لتغيير اختيارك من المستثمرين (أو دمج المزيد منهم) لتغطية المبلغ.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel>موافق</AlertDialogCancel>
+                <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
+                <AlertDialogAction onClick={() => proceedToAddBorrower('معلق')}>
+                    المتابعة على أي حال (حفظ كطلب معلق)
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
