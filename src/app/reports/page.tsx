@@ -127,8 +127,10 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 export default function ReportsPage() {
   const { borrowers, investors, users } = useData();
-  const { user, role } = useAuth();
+  const { user: authUser, role } = useAuth();
   const router = useRouter();
+
+  const user = users.find(u => u.id === authUser?.id);
 
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.viewReports);
 

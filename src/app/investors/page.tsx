@@ -29,11 +29,13 @@ import {
 import { useRouter } from 'next/navigation';
 
 export default function InvestorsPage() {
-  const { user, role } = useAuth();
+  const { user: authUser, role } = useAuth();
   const { investors, addInvestor, users } = useData();
   const { toast } = useToast();
   const router = useRouter();
   
+  const user = users.find(u => u.id === authUser?.id);
+
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && user?.permissions?.manageInvestors);
 
   useEffect(() => {

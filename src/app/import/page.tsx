@@ -26,10 +26,12 @@ type ExcelRow = {
 };
 
 export default function ImportPage() {
-  const { addBorrower } = useData();
+  const { addBorrower, users } = useData();
   const { toast } = useToast();
-  const { user, role } = useAuth();
+  const { user: authUser, role } = useAuth();
   const router = useRouter();
+
+  const user = users.find(u => u.id === authUser?.id);
 
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.importData);
 

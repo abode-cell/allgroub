@@ -44,7 +44,7 @@ const statusVariant: {
 
 
 export default function RequestsPage() {
-  const { user, role } = useAuth();
+  const { user: authUser, role } = useAuth();
   const router = useRouter();
   const { 
     borrowers, 
@@ -53,7 +53,10 @@ export default function RequestsPage() {
     approveInvestor,
     rejectBorrower,
     rejectInvestor,
+    users,
   } = useData();
+
+  const user = users.find(u => u.id === authUser?.id);
   
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.manageRequests);
 

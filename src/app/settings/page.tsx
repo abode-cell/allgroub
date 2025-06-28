@@ -13,11 +13,14 @@ import { UserCog, Scale, ChevronLeft, Contact } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { useData } from '@/contexts/data-context';
 
 export default function SettingsPage() {
-  const { user, role } = useAuth();
+  const { user: authUser, role } = useAuth();
+  const { users } = useData();
   const router = useRouter();
 
+  const user = users.find(u => u.id === authUser?.id);
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && user?.permissions?.accessSettings);
 
   useEffect(() => {

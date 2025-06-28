@@ -58,10 +58,12 @@ const formatCurrency = (value: number) =>
 
 
 export default function BorrowersPage() {
-  const { role, user: currentUser } = useAuth();
+  const { role, user: authUser } = useAuth();
   const { borrowers, investors, addBorrower, users, baseInterestRate } = useData();
   const { toast } = useToast();
   const router = useRouter();
+  
+  const currentUser = users.find(u => u.id === authUser?.id);
 
   const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers);
   
