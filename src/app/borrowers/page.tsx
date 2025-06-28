@@ -48,7 +48,7 @@ const formatCurrency = (value: number) =>
 
 export default function BorrowersPage() {
   const { role, user: currentUser } = useAuth();
-  const { borrowers, investors, addBorrower, users } = useData();
+  const { borrowers, investors, addBorrower, users, baseInterestRate } = useData();
   const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
@@ -94,7 +94,9 @@ export default function BorrowersPage() {
   const handleAddBorrower = (e: React.FormEvent) => {
     e.preventDefault();
     const isInstallments = newBorrower.loanType === 'اقساط';
-    if (!newBorrower.name || !newBorrower.amount || !newBorrower.dueDate || (isInstallments && (!newBorrower.rate || !newBorrower.term))) {
+    const rateForValidation = isEmployee && isInstallments ? baseInterestRate : newBorrower.rate;
+
+    if (!newBorrower.name || !newBorrower.amount || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
       return;
     }
     
@@ -112,7 +114,7 @@ export default function BorrowersPage() {
     addBorrower({
       ...newBorrower,
       amount: Number(newBorrower.amount),
-      rate: Number(newBorrower.rate) || 0,
+      rate: isEmployee && isInstallments ? baseInterestRate : Number(newBorrower.rate),
       term: Number(newBorrower.term) || 0,
       status: finalStatus,
       discount: Number(newBorrower.discount) || 0,
@@ -224,18 +226,28 @@ export default function BorrowersPage() {
                     <>
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="rate" className="text-right">
-                          الفائدة
+                          الفائدة (%)
                         </Label>
-                        <Input
-                          id="rate"
-                          type="number"
-                          step="0.1"
-                          placeholder="نسبة الفائدة %"
-                          className="col-span-3"
-                          value={newBorrower.rate}
-                          onChange={handleInputChange}
-                          required={newBorrower.loanType === 'اقساط'}
-                        />
+                        {isEmployee ? (
+                           <Input
+                             id="rate"
+                             type="number"
+                             value={baseInterestRate}
+                             readOnly
+                             className="col-span-3 bg-muted/50"
+                           />
+                        ) : (
+                           <Input
+                             id="rate"
+                             type="number"
+                             step="0.1"
+                             placeholder="نسبة الفائدة %"
+                             className="col-span-3"
+                             value={newBorrower.rate}
+                             onChange={handleInputChange}
+                             required={newBorrower.loanType === 'اقساط'}
+                           />
+                        )}
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="term" className="text-right">
