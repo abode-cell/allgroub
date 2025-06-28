@@ -140,7 +140,21 @@ const GracePeriodDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
                     changeColor="text-red-500"
                 />
             </div>
-            <LoansStatusChart borrowers={gracePeriodLoans} />
+            
+            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
+              {showSensitiveData && (
+                <div className="col-span-12 lg:col-span-4">
+                  <ProfitChart />
+                </div>
+              )}
+              <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-3" : "lg:col-span-7")}>
+                <LoansStatusChart borrowers={gracePeriodLoans} />
+              </div>
+            </div>
+
+            <div>
+              <RecentTransactions />
+            </div>
         </div>
     );
 };
