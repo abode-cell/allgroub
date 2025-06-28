@@ -131,7 +131,7 @@ const UserActions = ({
 };
 
 export default function UsersPage() {
-  const { user: currentUser, role } = useAuth();
+  const { user: authUser, role } = useAuth();
   const { users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings } =
     useData();
   const router = useRouter();
@@ -143,6 +143,10 @@ export default function UsersPage() {
   >({});
 
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
+
+  // Get the most up-to-date user data from the data context
+  const currentUser = users.find(u => u.id === authUser?.id);
+
 
   useEffect(() => {
     if (role && !canViewPage) {
@@ -214,7 +218,7 @@ export default function UsersPage() {
   );
 
   // Data for Office Manager
-  const myEmployees = users.filter((u) => u.managedBy === currentUser?.id);
+  const myEmployees = users.filter((u) => u.managedBy === authUser?.id);
 
   if (!canViewPage) {
     return null; // or a loading spinner
@@ -379,7 +383,7 @@ export default function UsersPage() {
                             </div>
                             <Switch
                                 id={`allow-submissions-${manager.id}`}
-                                checked={manager.allowEmployeeSubmissions}
+                                checked={manager.allowEmployeeSubmissions ?? false}
                                 onCheckedChange={(checked) =>
                                     updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })
                                 }
@@ -477,7 +481,7 @@ export default function UsersPage() {
                       onValueChange={(newRole: UserRole) =>
                         handleRoleChange(user.id, newRole)
                       }
-                      disabled={user.id === currentUser?.id}
+                      disabled={user.id === authUser?.id}
                     >
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="اختر دورًا" />
@@ -542,7 +546,7 @@ export default function UsersPage() {
             </div>
             <Switch
               id="allow-submissions"
-              checked={currentUser?.allowEmployeeSubmissions}
+              checked={currentUser?.allowEmployeeSubmissions ?? false}
               onCheckedChange={(checked) => {
                 if (currentUser) {
                   updateManagerSettings(currentUser.id, { allowEmployeeSubmissions: checked });
