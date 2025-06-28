@@ -344,21 +344,21 @@ export default function UsersPage() {
                                     </div>
                                     <Separator />
                                     <div className="space-y-3">
-                                        <div className="grid grid-cols-[1fr_auto] items-start gap-4 rounded-lg border p-3 shadow-sm bg-background">
-                                            <div className="space-y-0.5">
+                                        <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                                            <div className="flex-1 space-y-0.5 overflow-hidden">
                                                 <Label htmlFor={`allow-submissions-${manager.id}`} className="font-semibold text-sm">السماح بالإضافة للموظفين</Label>
                                                 <p className="text-xs text-muted-foreground">تمكين موظفيه من رفع طلبات جديدة.</p>
                                             </div>
-                                            <div>
+                                            <div className="flex-shrink-0">
                                                 <Switch id={`allow-submissions-${manager.id}`} checked={manager.allowEmployeeSubmissions ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })} />
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-[1fr_auto] items-start gap-4 rounded-lg border p-3 shadow-sm bg-background">
-                                            <div className="space-y-0.5">
+                                        <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                                            <div className="flex-1 space-y-0.5 overflow-hidden">
                                                 <Label htmlFor={`hide-funds-${manager.id}`} className="font-semibold text-sm">إخفاء أرصدة المستثمرين</Label>
                                                 <p className="text-xs text-muted-foreground">منع موظفيه من رؤية أموال المستثمرين.</p>
                                             </div>
-                                            <div>
+                                            <div className="flex-shrink-0">
                                                 <Switch id={`hide-funds-${manager.id}`} checked={manager.hideEmployeeInvestorFunds ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { hideEmployeeInvestorFunds: checked })} />
                                             </div>
                                         </div>
@@ -581,12 +581,12 @@ export default function UsersPage() {
                                   صلاحيات المساعد
                               </h4>
                               {assistantPermissionsConfig.map((perm) => (
-                                  <div key={perm.key} className="grid grid-cols-[1fr_auto] items-start gap-4 rounded-lg border bg-background p-3 shadow-sm">
-                                      <div className="space-y-0.5">
+                                  <div key={perm.key} className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                                      <div className="flex-1 space-y-0.5 overflow-hidden">
                                           <Label htmlFor={`${perm.key}-${assistant.id}`} className="font-medium">{perm.label}</Label>
                                           <p className="text-xs text-muted-foreground">{perm.description}</p>
                                       </div>
-                                      <div>
+                                      <div className="flex-shrink-0">
                                         <Switch
                                             id={`${perm.key}-${assistant.id}`}
                                             checked={assistant.permissions?.[perm.key] ?? false}
@@ -629,14 +629,14 @@ export default function UsersPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    <div className="grid grid-cols-[1fr_auto] items-start gap-4 rounded-lg border bg-background p-3 shadow-sm">
-                        <div className="space-y-0.5">
+                    <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                        <div className="flex-1 space-y-0.5 overflow-hidden">
                         <Label htmlFor="allow-submissions" className="font-medium text-sm">السماح لموظفيك بالإضافة</Label>
                         <p className="text-xs text-muted-foreground">
                             تمكين/تعطيل قدرة الموظفين التابعين لك على رفع طلبات قروض ومستثمرين جدد.
                         </p>
                         </div>
-                        <div>
+                        <div className="flex-shrink-0">
                             <Switch
                                 id="allow-submissions"
                                 checked={managerForSettings?.allowEmployeeSubmissions ?? false}
@@ -648,14 +648,14 @@ export default function UsersPage() {
                             />
                         </div>
                     </div>
-                    <div className="grid grid-cols-[1fr_auto] items-start gap-4 rounded-lg border bg-background p-3 shadow-sm">
-                        <div className="space-y-0.5">
+                    <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                        <div className="flex-1 space-y-0.5 overflow-hidden">
                             <Label htmlFor="hide-investor-funds" className="font-medium text-sm">إخفاء أرصدة المستثمرين عن الموظفين</Label>
                             <p className="text-xs text-muted-foreground">
                                 في حال تفعيله، لن يتمكن الموظفون من رؤية المبالغ المتاحة للمستثمرين.
                             </p>
                         </div>
-                         <div>
+                         <div className="flex-shrink-0">
                             <Switch
                                 id="hide-investor-funds"
                                 checked={managerForSettings?.hideEmployeeInvestorFunds ?? false}
