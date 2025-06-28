@@ -19,17 +19,17 @@ import type {
   Notification,
   BorrowerPaymentStatus,
   PermissionKey,
-  Permissions,
 } from '@/lib/types';
 import {
   borrowersData,
   investorsData,
-  usersData as initialUsersData,
-  supportTicketsData as initialSupportTicketsData,
-  notificationsData as initialNotificationsData,
+  usersData,
+  supportTicketsData,
+  notificationsData,
 } from '@/lib/data';
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 // This is a mock implementation using local state and does not connect to any backend service.
 
@@ -133,12 +133,12 @@ const formatCurrency = (value: number) =>
 export function DataProvider({ children }: { children: ReactNode }) {
   const [borrowers, setBorrowers] = useState<Borrower[]>(borrowersData);
   const [investors, setInvestors] = useState<Investor[]>(investorsData);
-  const [users, setUsers] = useState<User[]>(initialUsersData);
+  const [users, setUsers] = useState<User[]>(usersData);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(
-    initialSupportTicketsData
+    supportTicketsData
   );
   const [notifications, setNotifications] = useState<Notification[]>(
-    initialNotificationsData
+    notificationsData
   );
   const [salaryRepaymentPercentage, setSalaryRepaymentPercentage] = useState<number>(30);
   const [baseInterestRate, setBaseInterestRate] = useState<number>(5.5);
@@ -159,25 +159,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
         date: new Date().toISOString(),
         isRead: false,
     };
-    setNotifications(prev => [newNotification, ...prev]);
-    initialNotificationsData.unshift(newNotification);
+    notificationsData.unshift(newNotification);
+    setNotifications([...notificationsData]);
   }, []);
 
   const clearUserNotifications = useCallback((userId: string) => {
-    setNotifications(prev => prev.filter(n => n.recipientId !== userId));
-    const updatedNotificationsData = initialNotificationsData.filter(n => n.recipientId !== userId);
-    initialNotificationsData.length = 0;
-    Array.prototype.push.apply(initialNotificationsData, updatedNotificationsData);
+    const updatedNotifications = notificationsData.filter(n => n.recipientId !== userId);
+    notificationsData.length = 0;
+    notificationsData.push(...updatedNotifications);
+    setNotifications([...notificationsData]);
     toast({ title: 'تم حذف جميع التنبيهات' });
   }, [toast]);
 
   const markUserNotificationsAsRead = useCallback((userId: string) => {
-      setNotifications(prev => prev.map(n => n.recipientId === userId ? { ...n, isRead: true } : n));
-      initialNotificationsData.forEach(n => {
-          if (n.recipientId === userId) {
+      notificationsData.forEach(n => {
+          if (n.recipientId === userId && !n.isRead) {
               n.isRead = true;
           }
       });
+      setNotifications([...notificationsData]);
   }, []);
 
   const updateSalaryRepaymentPercentage = useCallback(async (percentage: number) => {
@@ -279,8 +279,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       registrationDate: new Date().toISOString().split('T')[0],
     };
 
-    setUsers((prev) => [...prev, newManager, newEmployee]);
-    initialUsersData.push(newManager, newEmployee);
+    usersData.push(newManager, newEmployee);
+    setUsers([...usersData]);
 
     return {
       success: true,
@@ -289,169 +289,128 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [users]);
 
   const updateBorrower = useCallback(async (updatedBorrower: Borrower) => {
-    const originalBorrower = borrowers.find((b) => b.id === updatedBorrower.id);
-    if (!originalBorrower) return;
-
+    const borrowerIndex = borrowersData.findIndex((b) => b.id === updatedBorrower.id);
+    if (borrowerIndex === -1) return;
+    
+    const originalBorrower = { ...borrowersData[borrowerIndex] };
     const statusChanged = originalBorrower.status !== updatedBorrower.status;
 
+    // Merge new data into the source array item
+    borrowersData[borrowerIndex] = { ...originalBorrower, ...updatedBorrower };
+    
     if (statusChanged) {
-      if (
-        updatedBorrower.status === 'متعثر' &&
-        originalBorrower.status !== 'متعثر'
-      ) {
+      if (updatedBorrower.status === 'متعثر' && originalBorrower.status !== 'متعثر') {
         if (originalBorrower.fundedBy && originalBorrower.fundedBy.length > 0) {
-          setInvestors((prevInvestors) => {
-            let newInvestors = [...prevInvestors];
-            for (const funder of originalBorrower.fundedBy!) {
-              const investorIndex = newInvestors.findIndex(
-                (i) => i.id === funder.investorId
-              );
-              if (investorIndex > -1) {
-                newInvestors[investorIndex].defaultedFunds += funder.amount;
-                 addNotification({
-                    recipientId: funder.investorId,
-                    title: 'تنبيه: تعثر قرض مرتبط',
-                    description: `القرض الخاص بالعميل "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.`
-                });
-              }
+          originalBorrower.fundedBy.forEach(funder => {
+            const investorIndex = investorsData.findIndex(i => i.id === funder.investorId);
+            if (investorIndex > -1) {
+              investorsData[investorIndex].defaultedFunds += funder.amount;
+              addNotification({
+                recipientId: funder.investorId,
+                title: 'تنبيه: تعثر قرض مرتبط',
+                description: `القرض الخاص بالعميل "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.`
+              });
             }
-            return newInvestors;
           });
+          setInvestors([...investorsData]);
           toast({ title: 'تم تسجيل القرض كمتعثر وتحديث أموال المستثمرين.' });
         }
       }
 
-      if (
-        updatedBorrower.status === 'مسدد بالكامل' &&
-        originalBorrower.status !== 'مسدد بالكامل'
-      ) {
+      if (updatedBorrower.status === 'مسدد بالكامل' && originalBorrower.status !== 'مسدد بالكامل') {
         if (originalBorrower.fundedBy && originalBorrower.fundedBy.length > 0) {
-          
           const installmentTotalInterest = originalBorrower.amount * (originalBorrower.rate / 100) * originalBorrower.term;
           const graceTotalProfit = originalBorrower.amount * (graceTotalProfitPercentage / 100);
           const totalProfit = originalBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
 
-          setInvestors((prevInvestors) => {
-            let newInvestors = [...prevInvestors];
-            for (const funder of originalBorrower.fundedBy!) {
-              const investorIndex = newInvestors.findIndex(
-                (i) => i.id === funder.investorId
-              );
-              if (investorIndex > -1) {
-                 const loanShare = funder.amount / originalBorrower.amount;
-                let investorProfitShare = 0;
-                if(originalBorrower.loanType === 'اقساط') {
-                    investorProfitShare = totalProfit * (investorSharePercentage / 100) * loanShare;
-                } else { // 'مهلة'
-                    investorProfitShare = totalProfit * (graceInvestorSharePercentage / 100) * loanShare;
-                }
-                
-                const principalReturn = funder.amount;
-                
-                 const profitTransaction: Transaction = {
-                    id: `t-profit-${Date.now()}-${newInvestors[investorIndex].id}`,
-                    date: new Date().toISOString().split('T')[0],
-                    type: 'إيداع أرباح',
-                    amount: investorProfitShare,
-                    description: `أرباح من قرض "${originalBorrower.name}"`,
-                };
-                
-                newInvestors[investorIndex].transactionHistory.push(profitTransaction);
-                newInvestors[investorIndex].amount += principalReturn + investorProfitShare; // Return principal + profit
-                newInvestors[investorIndex].fundedLoanIds = newInvestors[
-                  investorIndex
-                ].fundedLoanIds.filter((id) => id !== originalBorrower.id);
+          originalBorrower.fundedBy.forEach(funder => {
+            const investorIndex = investorsData.findIndex(i => i.id === funder.investorId);
+            if (investorIndex > -1) {
+              const loanShare = funder.amount / originalBorrower.amount;
+              let investorProfitShare = 0;
+              if (originalBorrower.loanType === 'اقساط') {
+                investorProfitShare = totalProfit * (investorSharePercentage / 100) * loanShare;
+              } else { // 'مهلة'
+                investorProfitShare = totalProfit * (graceInvestorSharePercentage / 100) * loanShare;
               }
+              
+              const principalReturn = funder.amount;
+              const profitTransaction: Transaction = {
+                id: `t-profit-${Date.now()}-${investorsData[investorIndex].id}`,
+                date: new Date().toISOString().split('T')[0],
+                type: 'إيداع أرباح',
+                amount: investorProfitShare,
+                description: `أرباح من قرض "${originalBorrower.name}"`,
+              };
+              
+              const investor = investorsData[investorIndex];
+              investor.transactionHistory.push(profitTransaction);
+              investor.amount += principalReturn + investorProfitShare;
+              investor.fundedLoanIds = investor.fundedLoanIds.filter(id => id !== originalBorrower.id);
             }
-            return newInvestors;
           });
-          toast({
-            title: 'تم سداد القرض بالكامل وإعادة الأموال والأرباح للمستثمرين.',
-          });
+          setInvestors([...investorsData]);
+          toast({ title: 'تم سداد القرض بالكامل وإعادة الأموال والأرباح للمستثمرين.' });
         }
       }
     }
-
-    setBorrowers((prev) =>
-      prev.map((b) => (b.id === updatedBorrower.id ? updatedBorrower : b))
-    );
+    setBorrowers([...borrowersData]);
     toast({ title: 'تم تحديث القرض (تجريبيًا)' });
-  }, [borrowers, graceTotalProfitPercentage, investorSharePercentage, addNotification, toast]);
+  }, [addNotification, graceTotalProfitPercentage, investorSharePercentage, graceInvestorSharePercentage, toast]);
 
   const updateBorrowerPaymentStatus = useCallback(async (
     borrowerId: string,
     paymentStatus?: BorrowerPaymentStatus
   ) => {
-    setBorrowers((prev) =>
-      prev.map((b) => {
-        if (b.id === borrowerId) {
-          const updatedBorrower = { ...b };
-          if (paymentStatus) {
-            updatedBorrower.paymentStatus = paymentStatus;
-          } else {
-            delete updatedBorrower.paymentStatus;
-          }
-          return updatedBorrower;
-        }
-        return b;
-      })
-    );
-    const borrower = borrowersData.find(b => b.id === borrowerId);
-    if(borrower) {
-        if (paymentStatus) {
-            borrower.paymentStatus = paymentStatus;
-        } else {
-            delete (borrower as Partial<Borrower>).paymentStatus;
-        }
+    const borrowerIndex = borrowersData.findIndex(b => b.id === borrowerId);
+    if (borrowerIndex > -1) {
+      if (paymentStatus) {
+        borrowersData[borrowerIndex].paymentStatus = paymentStatus;
+      } else {
+        delete (borrowersData[borrowerIndex] as Partial<Borrower>).paymentStatus;
+      }
+      setBorrowers([...borrowersData]);
+      toast({
+        title: 'تم تحديث حالة السداد',
+        description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".`,
+      });
     }
-    toast({
-      title: 'تم تحديث حالة السداد',
-      description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".`,
-    });
   }, [toast]);
 
-
   const approveBorrower = useCallback(async (borrowerId: string) => {
-    const borrower = borrowers.find(b => b.id === borrowerId);
-    if (!borrower) return;
-
-    setBorrowers((prev) =>
-      prev.map((b) => (b.id === borrowerId ? { ...b, status: 'منتظم' } : b))
-    );
-
-    if (borrower.submittedBy) {
+    const borrowerIndex = borrowersData.findIndex(b => b.id === borrowerId);
+    if (borrowerIndex > -1) {
+      const borrower = borrowersData[borrowerIndex];
+      borrower.status = 'منتظم';
+      if (borrower.submittedBy) {
         addNotification({
-            recipientId: borrower.submittedBy,
-            title: 'تمت الموافقة على طلبك',
-            description: `تمت الموافقة على طلب إضافة القرض "${borrower.name}".`
+          recipientId: borrower.submittedBy,
+          title: 'تمت الموافقة على طلبك',
+          description: `تمت الموافقة على طلب إضافة القرض "${borrower.name}".`
         });
+      }
+      setBorrowers([...borrowersData]);
+      toast({ title: 'تمت الموافقة على القرض (تجريبيًا)' });
     }
-
-    toast({ title: 'تمت الموافقة على القرض (تجريبيًا)' });
-  }, [borrowers, addNotification, toast]);
+  }, [addNotification, toast]);
 
   const rejectBorrower = useCallback(async (borrowerId: string, reason: string) => {
-    const borrower = borrowers.find(b => b.id === borrowerId);
-    if (!borrower) return;
-
-    setBorrowers((prev) =>
-      prev.map((b) =>
-        b.id === borrowerId
-          ? { ...b, status: 'مرفوض', rejectionReason: reason }
-          : b
-      )
-    );
-    
-    if (borrower.submittedBy) {
+    const borrowerIndex = borrowersData.findIndex(b => b.id === borrowerId);
+    if (borrowerIndex > -1) {
+      const borrower = borrowersData[borrowerIndex];
+      borrower.status = 'مرفوض';
+      borrower.rejectionReason = reason;
+      if (borrower.submittedBy) {
         addNotification({
-            recipientId: borrower.submittedBy,
-            title: 'تم رفض طلبك',
-            description: `تم رفض طلب إضافة القرض "${borrower.name}". السبب: ${reason}`
+          recipientId: borrower.submittedBy,
+          title: 'تم رفض طلبك',
+          description: `تم رفض طلب إضافة القرض "${borrower.name}". السبب: ${reason}`
         });
+      }
+      setBorrowers([...borrowersData]);
+      toast({ variant: 'destructive', title: 'تم رفض القرض (تجريبيًا)' });
     }
-
-    toast({ variant: 'destructive', title: 'تم رفض القرض (تجريبيًا)' });
-  }, [borrowers, addNotification, toast]);
+  }, [addNotification, toast]);
 
   const addBorrower = useCallback(async (
     borrower: Omit<
@@ -474,26 +433,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const fundedByDetails: { investorId: string; amount: number }[] = [];
     let totalFundedAmount = 0;
 
-    const updatedInvestors = investors.map(inv => {
-      if (investorIds.includes(inv.id)) {
-        // Distribute the remaining required amount among remaining selected investors
-        const remainingAmountToFund = loanAmount - totalFundedAmount;
-        const remainingInvestorsCount = investorIds.length - fundedByDetails.length;
-        const desiredContribution = remainingInvestorsCount > 0 ? remainingAmountToFund / remainingInvestorsCount : 0;
-        
-        const actualContribution = Math.min(inv.amount, desiredContribution);
+    investorIds.forEach(id => {
+        const investorIndex = investorsData.findIndex(i => i.id === id);
+        if (investorIndex > -1) {
+            const inv = investorsData[investorIndex];
+            const remainingAmountToFund = loanAmount - totalFundedAmount;
+            const actualContribution = Math.min(inv.amount, remainingAmountToFund);
 
-        if (actualContribution > 0) {
-          fundedByDetails.push({ investorId: inv.id, amount: actualContribution });
-          totalFundedAmount += actualContribution;
-          return {
-            ...inv,
-            amount: inv.amount - actualContribution,
-            fundedLoanIds: [...inv.fundedLoanIds, newId],
-          };
+            if (actualContribution > 0) {
+              fundedByDetails.push({ investorId: inv.id, amount: actualContribution });
+              totalFundedAmount += actualContribution;
+              inv.amount -= actualContribution;
+              inv.fundedLoanIds.push(newId);
+            }
         }
-      }
-      return inv;
     });
 
     const newEntry: Borrower = {
@@ -502,17 +455,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString().split('T')[0],
       submittedBy: currentUser?.id,
       fundedBy: fundedByDetails,
-      amount: totalFundedAmount,
+      amount: loanAmount,
       status: (borrower.status === 'معلق') ? 'معلق' : 'منتظم',
     };
 
-    setInvestors(updatedInvestors);
-    investorsData.length = 0;
-    Array.prototype.push.apply(investorsData, updatedInvestors);
-
-    setBorrowers((prev) => [...prev, newEntry]);
+    setInvestors([...investorsData]);
     borrowersData.push(newEntry);
-
+    setBorrowers([...borrowersData]);
 
     if (newEntry.status === 'معلق' && currentUser?.managedBy) {
       addNotification({
@@ -521,437 +470,228 @@ export function DataProvider({ children }: { children: ReactNode }) {
         description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة القرض "${newEntry.name}".`,
       });
     }
-
-    toast({
-      title: 'تمت إضافة القرض بنجاح (تجريبيًا)',
-    });
-  }, [investors, currentUser, toast, addNotification]);
+    toast({ title: 'تمت إضافة القرض بنجاح (تجريبيًا)' });
+  }, [currentUser, toast, addNotification]);
 
   const updateInvestor = useCallback(async (updatedInvestor: UpdatableInvestor) => {
-    setInvestors((prev) =>
-      prev.map((i) =>
-        i.id === updatedInvestor.id ? { ...i, ...updatedInvestor } : i
-      )
-    );
-    toast({ title: 'تم تحديث المستثمر (تجريبيًا)' });
+    const investorIndex = investorsData.findIndex(i => i.id === updatedInvestor.id);
+    if (investorIndex > -1) {
+      const originalInvestor = investorsData[investorIndex];
+      investorsData[investorIndex] = { ...originalInvestor, ...updatedInvestor };
+      setInvestors([...investorsData]);
+      toast({ title: 'تم تحديث المستثمر (تجريبيًا)' });
+    }
   }, [toast]);
 
   const approveInvestor = useCallback(async (investorId: string) => {
-    const investor = investors.find(i => i.id === investorId);
-    if (!investor) return;
-
-    setInvestors((prev) =>
-      prev.map((i) => (i.id === investorId ? { ...i, status: 'نشط' } : i))
-    );
-
-    if (investor.submittedBy) {
+    const investorIndex = investorsData.findIndex(i => i.id === investorId);
+    if (investorIndex > -1) {
+      const investor = investorsData[investorIndex];
+      investor.status = 'نشط';
+      if (investor.submittedBy) {
         addNotification({
-            recipientId: investor.submittedBy,
-            title: 'تمت الموافقة على طلبك',
-            description: `تمت الموافقة على طلب إضافة المستثمر "${investor.name}".`
+          recipientId: investor.submittedBy,
+          title: 'تمت الموافقة على طلبك',
+          description: `تمت الموافقة على طلب إضافة المستثمر "${investor.name}".`
         });
+      }
+      setInvestors([...investorsData]);
+      toast({ title: 'تمت الموافقة على المستثمر (تجريبيًا)' });
     }
-
-    toast({ title: 'تمت الموافقة على المستثمر (تجريبيًا)' });
-  }, [investors, addNotification, toast]);
+  }, [addNotification, toast]);
 
   const rejectInvestor = useCallback(async (investorId: string, reason: string) => {
-    const investor = investors.find(i => i.id === investorId);
-    if (!investor) return;
-
-    setInvestors((prev) =>
-      prev.map((i) =>
-        i.id === investorId
-          ? { ...i, status: 'مرفوض', rejectionReason: reason }
-          : i
-      )
-    );
-    
-    if (investor.submittedBy) {
+    const investorIndex = investorsData.findIndex(i => i.id === investorId);
+    if (investorIndex > -1) {
+      const investor = investorsData[investorIndex];
+      investor.status = 'مرفوض';
+      investor.rejectionReason = reason;
+      if (investor.submittedBy) {
         addNotification({
-            recipientId: investor.submittedBy,
-            title: 'تم رفض طلبك',
-            description: `تم رفض طلب إضافة المستثمر "${investor.name}". السبب: ${reason}`
+          recipientId: investor.submittedBy,
+          title: 'تم رفض طلبك',
+          description: `تم رفض طلب إضافة المستثمر "${investor.name}". السبب: ${reason}`
         });
+      }
+      setInvestors([...investorsData]);
+      toast({ variant: 'destructive', title: 'تم رفض المستثمر (تجريبيًا)' });
     }
+  }, [addNotification, toast]);
 
-    toast({ variant: 'destructive', title: 'تم رفض المستثمر (تجريبيًا)' });
-  }, [investors, addNotification, toast]);
-
- const addInvestor = useCallback(async (investorPayload: NewInvestorPayload) => {
+  const addInvestor = useCallback(async (investorPayload: NewInvestorPayload) => {
     if (!currentUser) {
-      toast({
-        variant: 'destructive',
-        title: 'خطأ',
-        description: 'يجب تسجيل الدخول أولاً.',
-      });
+      toast({ variant: 'destructive', title: 'خطأ', description: 'يجب تسجيل الدخول أولاً.' });
       return;
     }
 
-    // Office Manager logic: Create investor and user
-    if (currentUser.role === 'مدير المكتب') {
-      const investorsAddedByManager = investors.filter(
-        (i) => i.submittedBy === currentUser.id
-      ).length;
-      if (investorsAddedByManager >= (currentUser.investorLimit ?? 0)) {
-        toast({
-          variant: 'destructive',
-          title: 'تم الوصول للحد الأقصى',
-          description:
-            'لقد وصلت إلى الحد الأقصى لعدد المستثمرين. للتوسيع، يرجى التواصل مع الدعم الفني.',
-        });
+    if (currentUser.role === 'مدير المكتب' || (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.manageInvestors)) {
+      const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+      const manager = usersData.find(u => u.id === managerId);
+      
+      const investorsAddedByManager = investorsData.filter(i => i.submittedBy === managerId).length;
+      if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
+        toast({ variant: 'destructive', title: 'تم الوصول للحد الأقصى', description: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' });
         return;
       }
-
       if (!investorPayload.email || !investorPayload.password) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description:
-            'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر الجديد.',
-        });
+        toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر الجديد.' });
         return;
       }
-
-      const emailExists = users.some((u) => u.email === investorPayload.email);
+      const emailExists = usersData.some((u) => u.email === investorPayload.email);
       if (emailExists) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: 'البريد الإلكتروني مستخدم بالفعل.',
-        });
+        toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني مستخدم بالفعل.' });
         return;
       }
 
       const newId = `user_inv_${Date.now()}`;
-
       const newInvestorUser: User = {
-        id: newId,
-        name: investorPayload.name,
-        email: investorPayload.email,
-        phone: '',
-        password: investorPayload.password,
-        role: 'مستثمر',
-        status: 'نشط',
-        photoURL: 'https://placehold.co/40x40.png',
-        registrationDate: new Date().toISOString().split('T')[0],
-        managedBy: currentUser.id,
+        id: newId, name: investorPayload.name, email: investorPayload.email, phone: '', password: investorPayload.password, role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString().split('T')[0], managedBy: managerId,
       };
-
       const newInvestorEntry: Investor = {
-        id: newId,
-        name: investorPayload.name,
-        amount: investorPayload.amount,
-        status: 'نشط',
-        date: new Date().toISOString().split('T')[0],
-        transactionHistory: [
-            {
-                id: `t_${Date.now()}`,
-                date: new Date().toISOString().split('T')[0],
-                type: 'إيداع رأس المال',
-                amount: investorPayload.amount,
-                description: 'إيداع تأسيسي للحساب',
-            }
-        ],
-        defaultedFunds: 0,
-        fundedLoanIds: [],
-        submittedBy: currentUser.id,
+        id: newId, name: investorPayload.name, amount: investorPayload.amount, status: 'نشط', date: new Date().toISOString().split('T')[0],
+        transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
+        defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
       };
-
-      setUsers((prev) => [...prev, newInvestorUser]);
-      initialUsersData.push(newInvestorUser);
-      setInvestors((prev) => [...prev, newInvestorEntry]);
+      
+      usersData.push(newInvestorUser);
       investorsData.push(newInvestorEntry);
-
+      setUsers([...usersData]);
+      setInvestors([...investorsData]);
       toast({ title: 'تمت إضافة المستثمر والمستخدم المرتبط به بنجاح.' });
       return;
     }
 
-    // Existing logic for Employee/Admin
     const newEntry: Investor = {
-      ...investorPayload,
-      id: `inv_${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-       transactionHistory: [
-            {
-                id: `t_${Date.now()}`,
-                date: new Date().toISOString().split('T')[0],
-                type: 'إيداع رأس المال',
-                amount: investorPayload.amount,
-                description: 'إيداع تأسيسي للحساب',
-            }
-        ],
-      defaultedFunds: 0,
-      fundedLoanIds: [],
-      submittedBy: currentUser.id,
+      ...investorPayload, id: `inv_${Date.now()}`, date: new Date().toISOString().split('T')[0],
+      transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
+      defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
     };
-    setInvestors((prev) => [...prev, newEntry]);
     investorsData.push(newEntry);
+    setInvestors([...investorsData]);
 
     if (newEntry.status === 'معلق' && currentUser?.managedBy) {
-        addNotification({
-            recipientId: currentUser.managedBy,
-            title: 'طلب مستثمر جديد معلق',
-            description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newEntry.name}".`
-        });
+      addNotification({ recipientId: currentUser.managedBy, title: 'طلب مستثمر جديد معلق', description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newEntry.name}".` });
     }
-
     toast({ title: 'تمت إضافة المستثمر بنجاح.' });
-  }, [currentUser, investors, users, toast, addNotification]);
+  }, [currentUser, toast, addNotification]);
 
-  const withdrawFromInvestor = useCallback(async (
-    investorId: string,
-    withdrawal: Omit<Transaction, 'id'>
-  ) => {
-    setInvestors((prev) =>
-      prev.map((inv) => {
-        if (inv.id === investorId) {
-          const newTransaction: Transaction = {
-            ...withdrawal,
-            id: `t_${Date.now()}`,
-          };
-          return {
-            ...inv,
-            amount: inv.amount - newTransaction.amount,
-            transactionHistory: [...inv.transactionHistory, newTransaction],
-          };
-        }
-        return inv;
-      })
-    );
-
-    addNotification({
-        recipientId: investorId,
-        title: 'عملية سحب ناجحة',
-        description: `تم سحب مبلغ ${formatCurrency(withdrawal.amount)} من حسابك.`
-    });
-
-    toast({ title: 'تمت عملية السحب بنجاح (تجريبيًا)' });
+  const withdrawFromInvestor = useCallback(async (investorId: string, withdrawal: Omit<Transaction, 'id'>) => {
+    const investorIndex = investorsData.findIndex(i => i.id === investorId);
+    if (investorIndex > -1) {
+      const investor = investorsData[investorIndex];
+      const newTransaction: Transaction = { ...withdrawal, id: `t_${Date.now()}` };
+      investor.amount -= newTransaction.amount;
+      investor.transactionHistory.push(newTransaction);
+      setInvestors([...investorsData]);
+      addNotification({ recipientId: investorId, title: 'عملية سحب ناجحة', description: `تم سحب مبلغ ${formatCurrency(withdrawal.amount)} من حسابك.` });
+      toast({ title: 'تمت عملية السحب بنجاح (تجريبيًا)' });
+    }
   }, [addNotification, toast]);
 
   const updateUserStatus = useCallback(async (userId: string, status: User['status']) => {
-    const userToUpdate = users.find((u) => u.id === userId);
-    if (!userToUpdate) return;
+    const userIndex = usersData.findIndex((u) => u.id === userId);
+    if (userIndex === -1) return;
 
-    let newUsers = [...users];
-    let newInvestors = [...investors];
+    const userToUpdate = { ...usersData[userIndex] };
+    usersData[userIndex].status = status;
     let cascadeMessage = '';
 
-    // Update the primary user's status first
-    const userIndex = newUsers.findIndex((u) => u.id === userId);
-    if (userIndex !== -1) {
-      newUsers[userIndex] = { ...newUsers[userIndex], status };
-    }
-
-    // If the user is an Office Manager, apply cascading status changes
     if (userToUpdate.role === 'مدير المكتب') {
       const isSuspending = status === 'معلق';
-      const isReactivating =
-        status === 'نشط' && userToUpdate.status === 'معلق';
-
-      if (isSuspending) {
-        // Suspend associated employees
-        newUsers = newUsers.map((u) =>
-          u.managedBy === userId ? { ...u, status: 'معلق' } : u
-        );
-        // Set associated investors to inactive
-        newInvestors = newInvestors.map((inv) =>
-          inv.submittedBy === userId ? { ...inv, status: 'غير نشط' } : inv
-        );
-        cascadeMessage = 'وتم تعليق الحسابات المرتبطة به.';
-      } else if (isReactivating) {
-        // Reactivate associated employees
-        newUsers = newUsers.map((u) =>
-          u.managedBy === userId ? { ...u, status: 'نشط' } : u
-        );
-        // Reactivate associated investors (only if they were inactive)
-        newInvestors = newInvestors.map((inv) =>
-          inv.submittedBy === userId && inv.status === 'غير نشط'
-            ? { ...inv, status: 'نشط' }
-            : inv
-        );
-        cascadeMessage = 'وتم إعادة تفعيل الحسابات المرتبطة به.';
+      const isReactivating = status === 'نشط' && userToUpdate.status === 'معلق';
+      if (isSuspending || isReactivating) {
+        usersData.forEach(u => { if (u.managedBy === userId) u.status = status; });
+        investorsData.forEach(inv => {
+          if (inv.submittedBy === userId) {
+            const newStatus = isSuspending ? 'غير نشط' : 'نشط';
+            if (!(isReactivating && inv.status !== 'غير نشط')) { inv.status = newStatus; }
+          }
+        });
+        setInvestors([...investorsData]);
+        cascadeMessage = isSuspending ? 'وتم تعليق الحسابات المرتبطة به.' : 'وتم إعادة تفعيل الحسابات المرتبطة به.';
       }
     }
-
-    setUsers(newUsers);
-    setInvestors(newInvestors);
+    setUsers([...usersData]);
     toast({ title: `تم تحديث حالة المستخدم ${cascadeMessage}`.trim() });
-  }, [users, investors, toast]);
+  }, [toast]);
 
   const updateUserRole = useCallback(async (userId: string, role: UserRole) => {
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-    toast({ title: 'تم تحديث دور المستخدم (تجريبيًا)' });
+    const userIndex = usersData.findIndex(u => u.id === userId);
+    if (userIndex > -1) {
+      usersData[userIndex].role = role;
+      setUsers([...usersData]);
+      toast({ title: 'تم تحديث دور المستخدم (تجريبيًا)' });
+    }
   }, [toast]);
 
-  const updateUserLimits = useCallback(async (
-    userId: string,
-    limits: { investorLimit: number; employeeLimit: number }
-  ) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, ...limits } : u))
-    );
-    toast({ title: 'تم تحديث حدود المستخدم بنجاح.' });
-  }, [toast]);
-  
-  const updateManagerSettings = useCallback(async (
-    managerId: string,
-    settings: { allowEmployeeSubmissions?: boolean; hideEmployeeInvestorFunds?: boolean }
-  ) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === managerId ? { ...u, ...settings } : u
-      )
-    );
-    toast({ title: 'تم تحديث إعدادات المدير بنجاح.' });
+  const updateUserLimits = useCallback(async (userId: string, limits: { investorLimit: number; employeeLimit: number }) => {
+    const userIndex = usersData.findIndex(u => u.id === userId);
+    if (userIndex > -1) {
+      usersData[userIndex] = { ...usersData[userIndex], ...limits };
+      setUsers([...usersData]);
+      toast({ title: 'تم تحديث حدود المستخدم بنجاح.' });
+    }
   }, [toast]);
 
-  const updateAssistantPermission = useCallback(async (
-    assistantId: string,
-    key: PermissionKey,
-    value: boolean
-  ) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === assistantId) {
-          return {
-            ...u,
-            permissions: {
-              ...(u.permissions || {}),
-              [key]: value,
-            },
-          };
-        }
-        return u;
-      })
-    );
-    toast({ title: 'تم تحديث صلاحية المساعد بنجاح.' });
+  const updateManagerSettings = useCallback(async (managerId: string, settings: { allowEmployeeSubmissions?: boolean; hideEmployeeInvestorFunds?: boolean }) => {
+    const userIndex = usersData.findIndex(u => u.id === managerId);
+    if (userIndex > -1) {
+      usersData[userIndex] = { ...usersData[userIndex], ...settings };
+      setUsers([...usersData]);
+      toast({ title: 'تم تحديث إعدادات المدير بنجاح.' });
+    }
+  }, [toast]);
+
+  const updateAssistantPermission = useCallback(async (assistantId: string, key: PermissionKey, value: boolean) => {
+    const userIndex = usersData.findIndex(u => u.id === assistantId);
+    if (userIndex > -1) {
+      const user = usersData[userIndex];
+      user.permissions = { ...(user.permissions || {}), [key]: value };
+      setUsers([...usersData]);
+      toast({ title: 'تم تحديث صلاحية المساعد بنجاح.' });
+    }
+  }, [toast]);
+
+  const deleteUser = useCallback(async (userId: string) => {
+    const userIndex = usersData.findIndex(u => u.id === userId);
+    if (userIndex > -1) {
+      usersData.splice(userIndex, 1);
+      setUsers([...usersData]);
+      toast({ variant: 'destructive', title: 'تم حذف المستخدم (تجريبيًا)' });
+    }
   }, [toast]);
 
   const requestCapitalIncrease = useCallback(async (investorId: string) => {
     const investor = investors.find(i => i.id === investorId);
-    // Notify all admins and managers
     const managers = users.filter(u => u.role === 'مدير النظام' || u.role === 'مدير المكتب');
-
     if (!investor) return;
-
     if (managers.length > 0) {
-        managers.forEach(manager => {
-            addNotification({
-                recipientId: manager.id,
-                title: 'طلب زيادة رأس المال',
-                description: `المستثمر "${investor.name}" يرغب بزيادة رأس ماله للاستمرار بالاستثمار.`
-            });
-        });
+      managers.forEach(manager => {
+        addNotification({ recipientId: manager.id, title: 'طلب زيادة رأس المال', description: `المستثمر "${investor.name}" يرغب بزيادة رأس ماله للاستمرار بالاستثمار.` });
+      });
     }
-
-    toast({
-        title: 'تم إرسال طلبك',
-        description: 'تم إعلام الإدارة برغبتك في زيادة رأس المال.'
-    });
+    toast({ title: 'تم إرسال طلبك', description: 'تم إعلام الإدارة برغبتك في زيادة رأس المال.' });
   }, [investors, users, addNotification, toast]);
 
-  const deleteUser = useCallback(async (userId: string) => {
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
-    toast({ variant: 'destructive', title: 'تم حذف المستخدم (تجريبيًا)' });
-  }, [toast]);
-
-  const addSupportTicket = useCallback(async (
-    ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
-  ) => {
+  const addSupportTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>) => {
     const newTicket: SupportTicket = {
-      ...ticket,
-      id: `ticket_${Date.now()}`,
-      date: new Date().toISOString(),
-      isRead: false,
+      ...ticket, id: `ticket_${Date.now()}`, date: new Date().toISOString(), isRead: false,
     };
-    setSupportTickets((prev) => [newTicket, ...prev]);
-    toast({
-      title: 'تم إرسال طلب الدعم بنجاح',
-      description: 'سيقوم مدير النظام بمراجعة طلبك في أقرب وقت.',
-    });
+    supportTicketsData.unshift(newTicket);
+    setSupportTickets([...supportTicketsData]);
+    toast({ title: 'تم إرسال طلب الدعم بنجاح', description: 'سيقوم مدير النظام بمراجعة طلبك في أقرب وقت.' });
   }, [toast]);
 
   const value = useMemo(() => ({
-    borrowers,
-    investors,
-    users,
-    supportTickets,
-    notifications,
-    salaryRepaymentPercentage,
-    baseInterestRate,
-    investorSharePercentage,
-    graceTotalProfitPercentage,
-    graceInvestorSharePercentage,
-    supportEmail,
-    supportPhone,
-    updateSupportInfo,
-    updateBaseInterestRate,
-    updateInvestorSharePercentage,
-    updateSalaryRepaymentPercentage,
-    updateGraceTotalProfitPercentage,
-    updateGraceInvestorSharePercentage,
-    addSupportTicket,
-    registerNewOfficeManager,
-    addBorrower,
-    updateBorrower,
-    addInvestor,
-    updateInvestor,
-    withdrawFromInvestor,
-    approveBorrower,
-    approveInvestor,
-    rejectBorrower,
-    rejectInvestor,
-    updateUserStatus,
-    updateUserRole,
-    updateUserLimits,
-    updateManagerSettings,
-    updateAssistantPermission,
-    requestCapitalIncrease,
-    deleteUser,
-    clearUserNotifications,
-    markUserNotificationsAsRead,
-    updateBorrowerPaymentStatus,
+    borrowers, investors, users, supportTickets, notifications, salaryRepaymentPercentage, baseInterestRate, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, supportEmail, supportPhone,
+    updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage, updateSalaryRepaymentPercentage, updateGraceTotalProfitPercentage, updateGraceInvestorSharePercentage, addSupportTicket, registerNewOfficeManager,
+    addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, updateUserStatus, updateUserRole, updateUserLimits, updateManagerSettings,
+    updateAssistantPermission, requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead, updateBorrowerPaymentStatus,
   }), [
-    borrowers,
-    investors,
-    users,
-    supportTickets,
-    notifications,
-    salaryRepaymentPercentage,
-    baseInterestRate,
-    investorSharePercentage,
-    graceTotalProfitPercentage,
-    graceInvestorSharePercentage,
-    supportEmail,
-    supportPhone,
-    updateSupportInfo,
-    updateBaseInterestRate,
-    updateInvestorSharePercentage,
-    updateSalaryRepaymentPercentage,
-    updateGraceTotalProfitPercentage,
-    updateGraceInvestorSharePercentage,
-    addSupportTicket,
-    registerNewOfficeManager,
-    addBorrower,
-    updateBorrower,
-    addInvestor,
-    updateInvestor,
-    withdrawFromInvestor,
-    approveBorrower,
-    approveInvestor,
-    rejectBorrower,
-    rejectInvestor,
-    updateUserStatus,
-    updateUserRole,
-    updateUserLimits,
-    updateManagerSettings,
-    updateAssistantPermission,
-    requestCapitalIncrease,
-    deleteUser,
-    clearUserNotifications,
-    markUserNotificationsAsRead,
-    updateBorrowerPaymentStatus,
+    borrowers, investors, users, supportTickets, notifications, salaryRepaymentPercentage, baseInterestRate, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, supportEmail, supportPhone,
+    updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage, updateSalaryRepaymentPercentage, updateGraceTotalProfitPercentage, updateGraceInvestorSharePercentage, addSupportTicket, registerNewOfficeManager,
+    addBorrower, updateBorrower, addInvestor, updateInvestor, withdrawFromInvestor, approveBorrower, approveInvestor, rejectBorrower, rejectInvestor, updateUserStatus, updateUserRole, updateUserLimits, updateManagerSettings,
+    updateAssistantPermission, requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead, updateBorrowerPaymentStatus,
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
