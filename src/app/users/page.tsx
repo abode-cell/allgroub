@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useData } from '@/contexts/data-context';
@@ -47,7 +48,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -71,6 +71,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -111,41 +112,31 @@ const assistantPermissionsConfig: {
   { key: 'manageEmployeePermissions', label: 'إدارة صلاحيات الموظفين', description: 'تمكين المساعد من تفعيل أو تعطيل صلاحيات الموظفين.' },
 ];
 
-// A reusable component for user actions to avoid repetition
-const UserActions = ({
+const MoreActionsMenu = ({
   user,
   onDeleteClick,
 }: {
   user: User;
   onDeleteClick: (user: User) => void;
 }) => {
-  const { currentUser } = useData();
   const { updateUserStatus } = useData();
-
-  if (user.id === currentUser?.id) return null;
+  const canDeactivate = user.status === 'نشط';
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0">
-          <span className="sr-only">فتح القائمة</span>
+        <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
           <MoreHorizontal className="h-4 w-4" />
+          <span className="sr-only">فتح القائمة</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {user.status === 'معلق' && (
-          <DropdownMenuItem onClick={() => updateUserStatus(user.id, 'نشط')}>
-            <CheckCircle className="ml-2 h-4 w-4" />
-            <span>تفعيل الحساب</span>
-          </DropdownMenuItem>
-        )}
-        {user.status === 'نشط' && (
+        {canDeactivate && (
           <DropdownMenuItem onClick={() => updateUserStatus(user.id, 'معلق')}>
             <UserX className="ml-2 h-4 w-4" />
             <span>تعليق الحساب</span>
           </DropdownMenuItem>
         )}
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-destructive focus:bg-destructive/10 focus:text-destructive"
           onClick={() => onDeleteClick(user)}
@@ -162,6 +153,7 @@ export default function UsersPage() {
   const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission } =
     useData();
   const router = useRouter();
+  const { updateUserStatus } = useData();
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -295,225 +287,152 @@ export default function UsersPage() {
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <div className="flex items-center gap-4">
-                          <Badge variant={statusVariant[manager.status]}>
-                            {manager.status === 'نشط' ? (
-                              <CheckCircle className="w-3 h-3 ml-1" />
+                        <div className="flex items-center gap-2">
+                            {manager.status === 'معلق' ? (
+                                <Button size="sm" onClick={() => updateUserStatus(manager.id, 'نشط')}>
+                                  <CheckCircle className="ml-2 h-4 w-4" />
+                                  تفعيل
+                                </Button>
                             ) : (
-                              <Hourglass className="w-3 h-3 ml-1" />
+                                <Badge variant={statusVariant[manager.status]}>
+                                <CheckCircle className="w-3 h-3 ml-1" />
+                                {manager.status}
+                                </Badge>
                             )}
-                            {manager.status}
-                          </Badge>
-                          <div className="hidden sm:block">
-                            <UserActions
-                              user={manager}
-                              onDeleteClick={handleDeleteClick}
-                            />
-                          </div>
+                            <MoreActionsMenu user={manager} onDeleteClick={handleDeleteClick} />
                         </div>
                       </div>
                     </AccordionPrimitive.Header>
-                    <AccordionContent className="bg-muted/30 p-4 border-l-4 border-primary">
-                      <div className="flex justify-between items-center mb-4">
-                        <div className="space-y-1">
-                          <h4 className="font-semibold">تفاصيل المدير</h4>
-                          <p className="text-xs text-muted-foreground">
-                            تاريخ التسجيل:{' '}
-                            {manager.registrationDate || 'غير محدد'}
-                          </p>
+                    <AccordionContent className="bg-muted/30 p-4 border-l-4 border-primary space-y-6">
+                        <p className="text-xs text-muted-foreground">
+                            تاريخ التسجيل: {manager.registrationDate || 'غير محدد'}
+                        </p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Settings className="h-4 w-4 text-muted-foreground" />
+                                        إعدادات المدير
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-4 rounded-lg border p-3 shadow-sm bg-background">
+                                        <div className="grid gap-4 md:grid-cols-2 items-end">
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`investor-limit-${manager.id}`}>حد المستثمرين</Label>
+                                                <Input id={`investor-limit-${manager.id}`} type="number" value={editableLimits[manager.id]?.investorLimit ?? ''}
+                                                onChange={(e) => handleLimitsChange(manager.id, 'investorLimit', e.target.value)}
+                                                placeholder={String(manager.investorLimit ?? 10)}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`employee-limit-${manager.id}`}>حد الموظفين</Label>
+                                                <Input id={`employee-limit-${manager.id}`} type="number" value={editableLimits[manager.id]?.employeeLimit ?? ''}
+                                                onChange={(e) => handleLimitsChange(manager.id, 'employeeLimit', e.target.value)}
+                                                placeholder={String(manager.employeeLimit ?? 5)}
+                                                />
+                                            </div>
+                                        </div>
+                                        <Button onClick={() => handleSaveLimits(manager.id)} size="sm" className="w-full">
+                                            <Save className="ml-2 h-4 w-4" />
+                                            حفظ الحدود
+                                        </Button>
+                                    </div>
+                                    <Separator />
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                                            <div className="space-y-0.5">
+                                                <Label htmlFor={`allow-submissions-${manager.id}`} className="font-semibold text-sm">السماح بالإضافة للموظفين</Label>
+                                                <p className="text-xs text-muted-foreground">تمكين موظفيه من رفع طلبات جديدة.</p>
+                                            </div>
+                                            <Switch id={`allow-submissions-${manager.id}`} checked={manager.allowEmployeeSubmissions ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })} />
+                                        </div>
+                                        <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                                            <div className="space-y-0.5">
+                                                <Label htmlFor={`hide-funds-${manager.id}`} className="font-semibold text-sm">إخفاء أرصدة المستثمرين</Label>
+                                                <p className="text-xs text-muted-foreground">منع موظفيه من رؤية أموال المستثمرين.</p>
+                                            </div>
+                                            <Switch id={`hide-funds-${manager.id}`} checked={manager.hideEmployeeInvestorFunds ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { hideEmployeeInvestorFunds: checked })} />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                             <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <PiggyBank className="h-4 w-4 text-muted-foreground" />
+                                        المستثمرون ({managerInvestors.length})
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {managerInvestors.length > 0 ? (
+                                        <div className="rounded-md border bg-background">
+                                            <Table>
+                                                <TableHeader><TableRow><TableHead>الاسم</TableHead><TableHead>المبلغ</TableHead></TableRow></TableHeader>
+                                                <TableBody>
+                                                    {managerInvestors.map((inv) => (
+                                                        <TableRow key={inv.id}>
+                                                        <TableCell>{inv.name}</TableCell>
+                                                        <TableCell>{formatCurrency(inv.amount)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">لا يوجد مستثمرون مرتبطون.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader>
+                                     <CardTitle className="text-base flex items-center gap-2">
+                                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                                        الموظفون ({employees.length})
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                     {employees.length > 0 ? (
+                                        <div className="rounded-md border bg-background">
+                                            <Table>
+                                                <TableHeader><TableRow><TableHead>الاسم</TableHead><TableHead>الحالة</TableHead></TableRow></TableHeader>
+                                                <TableBody>
+                                                    {employees.map((emp) => (
+                                                        <TableRow key={emp.id}><TableCell>{emp.name}</TableCell><TableCell><Badge variant={statusVariant[emp.status]}>{emp.status}</Badge></TableCell></TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">لا يوجد موظفون مرتبطون.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                             <Card>
+                                <CardHeader>
+                                     <CardTitle className="text-base flex items-center gap-2">
+                                        <Users2 className="h-4 w-4 text-muted-foreground" />
+                                        المساعدون ({assistants.length})
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                     {assistants.length > 0 ? (
+                                        <div className="rounded-md border bg-background">
+                                        <Table>
+                                            <TableHeader><TableRow><TableHead>الاسم</TableHead><TableHead>الحالة</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                                {assistants.map((ass) => (
+                                                    <TableRow key={ass.id}><TableCell>{ass.name}</TableCell><TableCell><Badge variant={statusVariant[ass.status]}>{ass.status}</Badge></TableCell></TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">لا يوجد مساعدون مرتبطون.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
-                        <div className="sm:hidden">
-                          <UserActions
-                            user={manager}
-                            onDeleteClick={handleDeleteClick}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid gap-6 md:grid-cols-3">
-                        <div>
-                          <h5 className="font-semibold mb-2 flex items-center gap-2 text-sm">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />{' '}
-                            الموظفون ({employees.length})
-                          </h5>
-                          {employees.length > 0 ? (
-                            <div className="rounded-md border bg-background">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>الاسم</TableHead>
-                                    <TableHead>الحالة</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {employees.map((emp) => (
-                                    <TableRow key={emp.id}>
-                                      <TableCell>{emp.name}</TableCell>
-                                      <TableCell>
-                                        <Badge
-                                          variant={statusVariant[emp.status]}
-                                        >
-                                          {emp.status}
-                                        </Badge>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">
-                              لا يوجد موظفون مرتبطون.
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <h5 className="font-semibold mb-2 flex items-center gap-2 text-sm">
-                            <Users2 className="h-4 w-4 text-muted-foreground" />{' '}
-                            المساعدون ({assistants.length})
-                          </h5>
-                          {assistants.length > 0 ? (
-                             <div className="rounded-md border bg-background">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>الاسم</TableHead>
-                                    <TableHead>الحالة</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {assistants.map((ass) => (
-                                    <TableRow key={ass.id}>
-                                      <TableCell>{ass.name}</TableCell>
-                                      <TableCell>
-                                        <Badge
-                                          variant={statusVariant[ass.status]}
-                                        >
-                                          {ass.status}
-                                        </Badge>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">
-                               لا يوجد مساعدون مرتبطون.
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <h5 className="font-semibold mb-2 flex items-center gap-2 text-sm">
-                            <PiggyBank className="h-4 w-4 text-muted-foreground" />{' '}
-                            المستثمرون ({managerInvestors.length})
-                          </h5>
-                          {managerInvestors.length > 0 ? (
-                            <div className="rounded-md border bg-background">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>الاسم</TableHead>
-                                    <TableHead>المبلغ</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {managerInvestors.map((inv) => (
-                                    <TableRow key={inv.id}>
-                                      <TableCell>{inv.name}</TableCell>
-                                      <TableCell>
-                                        {formatCurrency(inv.amount)}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-center text-muted-foreground bg-background py-4 rounded-md border">
-                              لا يوجد مستثمرون مرتبطون.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="mt-6 pt-4 border-t space-y-4">
-                        <h5 className="font-semibold flex items-center gap-2 text-sm">
-                          <Settings className="h-4 w-4 text-muted-foreground" />
-                          إعدادات المدير
-                        </h5>
-                         <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
-                            <div className="space-y-0.5">
-                                <Label htmlFor={`allow-submissions-${manager.id}`} className="font-semibold">السماح لموظفيه بالإضافة</Label>
-                                <p className="text-xs text-muted-foreground">تمكين/تعطيل قدرة الموظفين على رفع طلبات جديدة.</p>
-                            </div>
-                            <Switch
-                                id={`allow-submissions-${manager.id}`}
-                                checked={manager.allowEmployeeSubmissions ?? false}
-                                onCheckedChange={(checked) =>
-                                    updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })
-                                }
-                            />
-                        </div>
-                        <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
-                            <div className="space-y-0.5">
-                                <Label htmlFor={`hide-funds-${manager.id}`} className="font-semibold">إخفاء أرصدة المستثمرين</Label>
-                                <p className="text-xs text-muted-foreground">يمنع موظفي هذا المدير من رؤية أموال المستثمرين.</p>
-                            </div>
-                            <Switch
-                                id={`hide-funds-${manager.id}`}
-                                checked={manager.hideEmployeeInvestorFunds ?? false}
-                                onCheckedChange={(checked) =>
-                                    updateManagerSettings(manager.id, { hideEmployeeInvestorFunds: checked })
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-4 md:grid-cols-3 items-end">
-                          <div className="space-y-2">
-                            <Label htmlFor={`investor-limit-${manager.id}`}>
-                              حد المستثمرين
-                            </Label>
-                            <Input
-                              id={`investor-limit-${manager.id}`}
-                              type="number"
-                              value={
-                                editableLimits[manager.id]?.investorLimit ?? ''
-                              }
-                              onChange={(e) =>
-                                handleLimitsChange(
-                                  manager.id,
-                                  'investorLimit',
-                                  e.target.value
-                                )
-                              }
-                              placeholder={String(manager.investorLimit ?? 10)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`employee-limit-${manager.id}`}>
-                              حد الموظفين
-                            </Label>
-                            <Input
-                              id={`employee-limit-${manager.id}`}
-                              type="number"
-                              value={
-                                editableLimits[manager.id]?.employeeLimit ?? ''
-                              }
-                              onChange={(e) =>
-                                handleLimitsChange(
-                                  manager.id,
-                                  'employeeLimit',
-                                  e.target.value
-                                )
-                              }
-                              placeholder={String(manager.employeeLimit ?? 5)}
-                            />
-                          </div>
-                          <Button onClick={() => handleSaveLimits(manager.id)}>
-                            <Save className="ml-2 h-4 w-4" />
-                            حفظ الحدود
-                          </Button>
-                        </div>
-                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 );
@@ -541,7 +460,7 @@ export default function UsersPage() {
                 <TableHead>الاسم</TableHead>
                 <TableHead>الدور</TableHead>
                 <TableHead>الحالة</TableHead>
-                <TableHead>الإجراء</TableHead>
+                <TableHead className="text-left">الإجراء</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -589,11 +508,18 @@ export default function UsersPage() {
                       {user.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <UserActions
-                      user={user}
-                      onDeleteClick={handleDeleteClick}
-                    />
+                  <TableCell className="text-left">
+                    <div className="flex gap-2 items-center justify-start">
+                        {user.status === 'معلق' && user.id !== currentUser?.id && (
+                        <Button size="sm" onClick={() => updateUserStatus(user.id, 'نشط')}>
+                            <CheckCircle className="ml-2 h-4 w-4" />
+                            تفعيل
+                        </Button>
+                        )}
+                        {user.id !== currentUser?.id && (
+                        <MoreActionsMenu user={user} onDeleteClick={handleDeleteClick} />
+                        )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -682,54 +608,58 @@ export default function UsersPage() {
               عرض وإدارة الموظفين المرتبطين بالمكتب.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="mb-6 space-y-4 rounded-lg border p-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Settings className="h-5 w-5 text-primary" />
-                الصلاحيات العامة للموظفين
-              </h3>
-              <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
-                <div className="space-y-0.5">
-                  <Label htmlFor="allow-submissions" className="font-medium">السماح لموظفيك بالإضافة</Label>
-                  <p className="text-xs text-muted-foreground">
-                    تمكين/تعطيل قدرة الموظفين التابعين لك على رفع طلبات قروض ومستثمرين جدد.
-                  </p>
-                </div>
-                <Switch
-                  id="allow-submissions"
-                  checked={managerForSettings?.allowEmployeeSubmissions ?? false}
-                  onCheckedChange={(checked) => {
-                    if (managerIdForSettings) {
-                      updateManagerSettings(managerIdForSettings, { allowEmployeeSubmissions: checked });
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
-                <div className="space-y-0.5">
-                    <Label htmlFor="hide-investor-funds" className="font-medium">إخفاء أرصدة المستثمرين عن الموظفين</Label>
-                    <p className="text-xs text-muted-foreground">
-                        في حال تفعيله، لن يتمكن الموظفون من رؤية المبالغ المتاحة للمستثمرين.
-                    </p>
-                </div>
-                <Switch
-                    id="hide-investor-funds"
-                    checked={managerForSettings?.hideEmployeeInvestorFunds ?? false}
-                    onCheckedChange={(checked) => {
-                        if (managerIdForSettings) {
-                            updateManagerSettings(managerIdForSettings, { hideEmployeeInvestorFunds: checked });
-                        }
-                    }}
-                />
-              </div>
-            </div>
+          <CardContent className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Settings className="h-5 w-5 text-primary" />
+                        الصلاحيات العامة للموظفين
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                        <Label htmlFor="allow-submissions" className="font-medium text-sm">السماح لموظفيك بالإضافة</Label>
+                        <p className="text-xs text-muted-foreground">
+                            تمكين/تعطيل قدرة الموظفين التابعين لك على رفع طلبات قروض ومستثمرين جدد.
+                        </p>
+                        </div>
+                        <Switch
+                        id="allow-submissions"
+                        checked={managerForSettings?.allowEmployeeSubmissions ?? false}
+                        onCheckedChange={(checked) => {
+                            if (managerIdForSettings) {
+                            updateManagerSettings(managerIdForSettings, { allowEmployeeSubmissions: checked });
+                            }
+                        }}
+                        />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="hide-investor-funds" className="font-medium text-sm">إخفاء أرصدة المستثمرين عن الموظفين</Label>
+                            <p className="text-xs text-muted-foreground">
+                                في حال تفعيله، لن يتمكن الموظفون من رؤية المبالغ المتاحة للمستثمرين.
+                            </p>
+                        </div>
+                        <Switch
+                            id="hide-investor-funds"
+                            checked={managerForSettings?.hideEmployeeInvestorFunds ?? false}
+                            onCheckedChange={(checked) => {
+                                if (managerIdForSettings) {
+                                    updateManagerSettings(managerIdForSettings, { hideEmployeeInvestorFunds: checked });
+                                }
+                            }}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
 
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>الاسم</TableHead>
                   <TableHead>الحالة</TableHead>
-                  <TableHead>الإجراء</TableHead>
+                  <TableHead className="text-left">الإجراء</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -752,11 +682,18 @@ export default function UsersPage() {
                           {employee.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <UserActions
-                          user={employee}
-                          onDeleteClick={handleDeleteClick}
-                        />
+                      <TableCell className="text-left">
+                         <div className="flex gap-2 items-center justify-start">
+                            {employee.status === 'معلق' && employee.id !== currentUser?.id && (
+                            <Button size="sm" onClick={() => updateUserStatus(employee.id, 'نشط')}>
+                                <CheckCircle className="ml-2 h-4 w-4" />
+                                تفعيل
+                            </Button>
+                            )}
+                            {employee.id !== currentUser?.id && (
+                            <MoreActionsMenu user={employee} onDeleteClick={handleDeleteClick} />
+                            )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
