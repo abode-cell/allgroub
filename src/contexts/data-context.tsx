@@ -156,6 +156,25 @@ const usePersistentState = <T,>(key: string, initialValue: T): [T, React.Dispatc
     }
   }, [key, state]);
 
+  // Listen for storage changes from other tabs
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === key && e.newValue) {
+        try {
+          setState(JSON.parse(e.newValue));
+        } catch (error) {
+          console.warn(`Error parsing storage event value for key “${key}”:`, error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [key]);
+
   return [state, setState];
 };
 
@@ -258,56 +277,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (
     credentials: SignUpCredentials
   ): Promise<{ success: boolean; message: string }> => {
-    const existingUser = users.find(
-      (u) => u.email === credentials.email || u.phone === credentials.phone
-    );
-    if (existingUser) {
-      return {
-        success: false,
-        message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.',
-      };
+    setUsers(prevUsers => {
+        const existingUser = prevUsers.find(
+          (u) => u.email === credentials.email || u.phone === credentials.phone
+        );
+        if (existingUser) {
+          return prevUsers; // Return previous state to prevent update
+        }
+
+        const managerId = `user_${Date.now()}`;
+        const employeeId = `user_${Date.now() + 1}`;
+
+        const newManager: User = {
+          id: managerId, name: credentials.name, email: credentials.email, phone: credentials.phone, password: credentials.password, role: 'مدير المكتب', status: 'معلق',
+          photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString().split('T')[0], investorLimit: 3, employeeLimit: 1, allowEmployeeSubmissions: true,
+          hideEmployeeInvestorFunds: false, permissions: {},
+        };
+
+        const newEmployee: User = {
+          id: employeeId, name: `موظف لدى ${credentials.name}`, email: `employee-${Date.now()}@example.com`, phone: '', password: 'password123',
+          role: 'موظف', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', managedBy: managerId, registrationDate: new Date().toISOString().split('T')[0], permissions: {},
+        };
+
+        return [...prevUsers, newManager, newEmployee];
+    });
+    
+    // Check after attempting to set state
+    if (users.find(u => u.email === credentials.email || u.phone === credentials.phone)) {
+       return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
     }
 
-    const managerId = `user_${Date.now()}`;
-    const employeeId = `user_${Date.now() + 1}`;
-
-    const newManager: User = {
-      id: managerId,
-      name: credentials.name,
-      email: credentials.email,
-      phone: credentials.phone,
-      password: credentials.password,
-      role: 'مدير المكتب',
-      status: 'معلق',
-      photoURL: 'https://placehold.co/40x40.png',
-      registrationDate: new Date().toISOString().split('T')[0],
-      investorLimit: 3,
-      employeeLimit: 1,
-      allowEmployeeSubmissions: true,
-      hideEmployeeInvestorFunds: false,
-      permissions: {},
-    };
-
-    const newEmployee: User = {
-      id: employeeId,
-      name: `موظف لدى ${credentials.name}`,
-      email: `employee-${Date.now()}@example.com`,
-      phone: '',
-      password: 'password123', // Default password
-      role: 'موظف',
-      status: 'نشط', // Employee is active by default under the manager
-      photoURL: 'https://placehold.co/40x40.png',
-      managedBy: managerId,
-      registrationDate: new Date().toISOString().split('T')[0],
-      permissions: {},
-    };
-
-    setUsers(prev => [...prev, newManager, newEmployee]);
-
-    return {
-      success: true,
-      message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.',
-    };
+    return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
   }, [users, setUsers]);
 
   const updateBorrower = useCallback(async (updatedBorrower: Borrower) => {
@@ -568,52 +568,57 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (currentUser.role === 'مدير المكتب' || (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.manageInvestors)) {
-      const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-      const manager = users.find(u => u.id === managerId);
-      
-      const investorsAddedByManager = investors.filter(i => i.submittedBy === managerId).length;
-      if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
-        toast({ variant: 'destructive', title: 'تم الوصول للحد الأقصى', description: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' });
-        return;
-      }
-      if (!investorPayload.email || !investorPayload.password) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر الجديد.' });
-        return;
-      }
-      if (users.some((u) => u.email === investorPayload.email)) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني مستخدم بالفعل.' });
-        return;
-      }
+    setUsers(prevUsers => {
+        let usersToUpdate = [...prevUsers];
+        let investorsToUpdate = [...investors];
+        let toastMessage: { variant?: 'destructive', title: string, description: string } | null = null;
 
-      const newId = `user_inv_${Date.now()}`;
-      const newInvestorUser: User = {
-        id: newId, name: investorPayload.name, email: investorPayload.email, phone: '', password: investorPayload.password, role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString().split('T')[0], managedBy: managerId,
-      };
-      const newInvestorEntry: Investor = {
-        id: newId, name: investorPayload.name, amount: investorPayload.amount, status: 'نشط', date: new Date().toISOString().split('T')[0],
-        transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
-        defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
-      };
-      
-      setUsers(prev => [...prev, newInvestorUser]);
-      setInvestors(prev => [...prev, newInvestorEntry]);
-      toast({ title: 'تمت إضافة المستثمر والمستخدم المرتبط به بنجاح.' });
-      return;
-    }
+        if (currentUser.role === 'مدير المكتب' || (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.manageInvestors)) {
+            const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+            const manager = usersToUpdate.find(u => u.id === managerId);
+            const investorsAddedByManager = investors.filter(i => i.submittedBy === managerId).length;
 
-    const newEntry: Investor = {
-      ...investorPayload, id: `inv_${Date.now()}`, date: new Date().toISOString().split('T')[0],
-      transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
-      defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
-    };
-    
-    setInvestors(prev => [...prev, newEntry]);
+            if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
+                toastMessage = { variant: 'destructive', title: 'تم الوصول للحد الأقصى', description: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' };
+            } else if (!investorPayload.email || !investorPayload.password) {
+                toastMessage = { variant: 'destructive', title: 'خطأ', description: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر الجديد.' };
+            } else if (usersToUpdate.some((u) => u.email === investorPayload.email)) {
+                toastMessage = { variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني مستخدم بالفعل.' };
+            } else {
+                const newId = `user_inv_${Date.now()}`;
+                const newInvestorUser: User = {
+                    id: newId, name: investorPayload.name, email: investorPayload.email, phone: '', password: investorPayload.password, role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString().split('T')[0], managedBy: managerId,
+                };
+                const newInvestorEntry: Investor = {
+                    id: newId, name: investorPayload.name, amount: investorPayload.amount, status: 'نشط', date: new Date().toISOString().split('T')[0],
+                    transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
+                    defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
+                };
+                
+                usersToUpdate = [...usersToUpdate, newInvestorUser];
+                setInvestors(prev => [...prev, newInvestorEntry]);
+                toastMessage = { title: 'تمت إضافة المستثمر والمستخدم المرتبط به بنجاح.' };
+            }
+        } else {
+            const newEntry: Investor = {
+                ...investorPayload, id: `inv_${Date.now()}`, date: new Date().toISOString().split('T')[0],
+                transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
+                defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
+            };
+            
+            setInvestors(prev => [...prev, newEntry]);
+            if (newEntry.status === 'معلق' && currentUser?.managedBy) {
+                addNotification({ recipientId: currentUser.managedBy, title: 'طلب مستثمر جديد معلق', description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newEntry.name}".` });
+            }
+            toastMessage = { title: 'تمت إضافة المستثمر بنجاح.' };
+        }
+        
+        if (toastMessage) {
+            toast(toastMessage);
+        }
 
-    if (newEntry.status === 'معلق' && currentUser?.managedBy) {
-      addNotification({ recipientId: currentUser.managedBy, title: 'طلب مستثمر جديد معلق', description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newEntry.name}".` });
-    }
-    toast({ title: 'تمت إضافة المستثمر بنجاح.' });
+        return usersToUpdate;
+    });
   }, [currentUser, users, investors, toast, addNotification, setUsers, setInvestors]);
 
   const withdrawFromInvestor = useCallback(async (investorId: string, withdrawal: Omit<Transaction, 'id'>) => {
