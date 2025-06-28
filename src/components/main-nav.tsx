@@ -10,6 +10,7 @@ import {
   UserCog,
   LifeBuoy,
   PiggyBank,
+  FileUp,
   type LucideIcon,
 } from 'lucide-react';
 import type { UserRole } from '@/lib/types';
@@ -39,6 +40,12 @@ export const allMenuItems: MenuItem[] = [
     label: 'القروض',
     icon: Landmark,
     roles: ['مدير النظام', 'مدير المكتب', 'موظف'],
+  },
+  {
+    href: '/import',
+    label: 'استيراد',
+    icon: FileUp,
+    roles: ['مدير النظام', 'مدير المكتب'],
   },
    {
     href: '/my-requests',
