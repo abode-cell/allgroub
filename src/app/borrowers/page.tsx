@@ -440,14 +440,11 @@ export default function BorrowersPage() {
                 <AlertDialogDescription>
                     السيولة المتاحة من المستثمرين المختارين ({formatCurrency(availableFunds)}) غير كافية لتغطية مبلغ القرض المطلوب ({formatCurrency(Number(newBorrower.amount))}).
                     <br/><br/>
-                    يمكنك المتابعة لإنشاء القرض كـ "طلب معلق" لمراجعته لاحقًا، أو العودة لتغيير المستثمرين.
+                    الرجاء اختيار مستثمرين آخرين أو تقليل مبلغ القرض.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel>تغيير المستثمرين</AlertDialogCancel>
-                <AlertDialogAction onClick={() => proceedToAddBorrower('معلق')}>
-                    المتابعة كطلب معلق
-                </AlertDialogAction>
+                <AlertDialogCancel>موافق</AlertDialogCancel>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
