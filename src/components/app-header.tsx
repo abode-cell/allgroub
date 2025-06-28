@@ -35,7 +35,7 @@ const Logo = () => (
       <path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
     </svg>
     <div className="flex flex-col">
-        <span className="font-bold text-base sm:text-lg text-foreground leading-tight">Aal Group | مجموعة عال</span>
+        <span className="font-bold text-base sm:text-lg text-foreground leading-tight">مجموعة عال | Aal Group</span>
         <span className="text-xs text-muted-foreground leading-tight hidden sm:block">إدارة, تمويل, تطوير ,وأكثر...</span>
     </div>
   </Link>
@@ -82,10 +82,10 @@ export function AppHeader() {
     <header className="sticky top-0 z-40 w-full border-b bg-card/95 backdrop-blur-md">
       <div className="flex h-20 items-center px-4 md:px-6">
         {/* DESKTOP VIEW */}
-        <div className="hidden w-full items-center gap-6 md:flex">
+        <div className="hidden w-full items-center justify-between md:flex">
             <Logo />
             <NavLinks menuItems={menuItems} />
-            <div className="ml-auto flex items-center gap-4 rtl:mr-auto rtl:ml-0">
+            <div className="flex items-center gap-4">
                 <Notifications />
                  <div className="flex items-center gap-3 border-l border-border pl-3 rtl:border-l-0 rtl:border-r rtl:pl-0 rtl:pr-3">
                     <div className="text-right">
