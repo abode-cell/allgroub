@@ -20,6 +20,7 @@ import { FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { amiriFont } from '@/lib/amiri-font';
 
 
 const formatCurrency = (value: number) =>
@@ -207,11 +208,16 @@ export default function ReportsPage() {
       XLSX.writeFile(workbook, `${reportName}.xlsx`);
     } else {
       const doc = new jsPDF();
+      // Add the Arabic font
+      doc.addFileToVFS('Amiri-Regular.ttf', amiriFont);
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+      doc.setFont('Amiri');
+
       (doc as any).autoTable({
         head: [headers],
         body: data.map(d => Object.values(d)),
-        styles: { font: 'Helvetica', halign: 'right' },
-        headStyles: { halign: 'right', fillColor: [22, 163, 74] },
+        styles: { font: 'Amiri', halign: 'right' },
+        headStyles: { halign: 'right', font: 'Amiri', fillColor: [22, 163, 74] },
       });
       doc.save(`${reportName}.pdf`);
     }
@@ -247,11 +253,16 @@ export default function ReportsPage() {
       XLSX.writeFile(workbook, `${reportName}.xlsx`);
     } else {
       const doc = new jsPDF();
+      // Add the Arabic font
+      doc.addFileToVFS('Amiri-Regular.ttf', amiriFont);
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+      doc.setFont('Amiri');
+
       (doc as any).autoTable({
         head: [headers],
         body: data.map(d => Object.values(d)),
-        styles: { font: 'Helvetica', halign: 'right' },
-        headStyles: { halign: 'right', fillColor: [22, 163, 74] },
+        styles: { font: 'Amiri', halign: 'right' },
+        headStyles: { halign: 'right', font: 'Amiri', fillColor: [22, 163, 74] },
       });
       doc.save(`${reportName}.pdf`);
     }
