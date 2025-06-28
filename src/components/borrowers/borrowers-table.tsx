@@ -218,10 +218,30 @@ export function BorrowersTable({
                      )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant[borrower.status] || 'outline'}>
-                      {borrower.status === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
-                      {borrower.status === 'معلق' ? 'طلب معلق' : borrower.status}
-                    </Badge>
+                    {canApprove ? (
+                      <Select
+                        value={borrower.status}
+                        onValueChange={(newStatus: Borrower['status']) => {
+                          updateBorrower({ ...borrower, status: newStatus });
+                        }}
+                        disabled={borrower.status === 'معلق' || borrower.status === 'مرفوض'}
+                      >
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue placeholder="اختر الحالة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="منتظم">منتظم</SelectItem>
+                          <SelectItem value="متأخر">متأخر</SelectItem>
+                          <SelectItem value="متعثر">متعثر</SelectItem>
+                          <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge variant={statusVariant[borrower.status] || 'outline'}>
+                        {borrower.status === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
+                        {borrower.status === 'معلق' ? 'طلب معلق' : borrower.status}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>{borrower.dueDate}</TableCell>
                   {canPerformActions && (
