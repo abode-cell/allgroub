@@ -188,7 +188,7 @@ export default function CalculatorPage() {
                       className="text-right"
                     />
                   </div>
-                   {showProfitDetails ? (
+                   {showProfitDetails && (
                     <div className="space-y-2">
                         <div className="space-y-2">
                             <Label htmlFor="baseInterestRate">
@@ -215,17 +215,6 @@ export default function CalculatorPage() {
                             <Save className="ml-2 h-4 w-4" />
                             تأكيد النسبة
                         </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Label>نسبة الربح السنوية الافتراضية (%)</Label>
-                      <Input
-                        type="number"
-                        value={baseInterestRate}
-                        readOnly
-                        style={{ direction: 'ltr' }}
-                        className="bg-muted/50 text-right"
-                      />
                     </div>
                   )}
                   <div className="space-y-2">
@@ -286,12 +275,12 @@ export default function CalculatorPage() {
                             <p className="text-muted-foreground">إجمالي المبلغ المسدد</p>
                             <p className="font-semibold">{formatCurrency(installmentResults.totalPayment)}</p>
                         </div>
-                        <div className="flex justify-between">
-                            <p className="text-muted-foreground">إجمالي الأرباح</p>
-                            <p className="font-semibold">{formatCurrency(installmentResults.totalInterest)}</p>
-                        </div>
                         {showProfitDetails && (
                             <>
+                                <div className="flex justify-between">
+                                    <p className="text-muted-foreground">إجمالي الأرباح</p>
+                                    <p className="font-semibold">{formatCurrency(installmentResults.totalInterest)}</p>
+                                </div>
                                 <div className="my-2 border-t border-dashed"></div>
                                 <div className="flex justify-between text-accent-foreground">
                                     <p>ربح المؤسسة</p>
@@ -395,24 +384,26 @@ export default function CalculatorPage() {
                     <CardTitle>نتائج أرباح المهلة</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-baseline justify-between rounded-lg bg-muted p-4">
-                        <p className="text-lg text-muted-foreground">إجمالي الأرباح ({localGraceTotalProfitPercentage || graceTotalProfitPercentage}%)</p>
-                        <p className="text-3xl font-bold">{formatCurrency(gracePeriodResults.totalProfit)}</p>
-                    </div>
                     {showProfitDetails ? (
-                        <div className="space-y-2 rounded-lg border p-4">
-                            <div className="flex justify-between text-accent-foreground">
-                                <p>ربح المؤسسة</p>
-                                <p className="font-semibold">{formatCurrency(gracePeriodResults.institutionProfit)}</p>
+                        <>
+                            <div className="flex items-baseline justify-between rounded-lg bg-muted p-4">
+                                <p className="text-lg text-muted-foreground">إجمالي الأرباح ({localGraceTotalProfitPercentage || graceTotalProfitPercentage}%)</p>
+                                <p className="text-3xl font-bold">{formatCurrency(gracePeriodResults.totalProfit)}</p>
                             </div>
-                            <div className="flex justify-between text-primary">
-                                <p>ربح المستثمر ({parseFloat(localGraceInvestorSharePercentage || String(graceInvestorSharePercentage)).toFixed(1)}%)</p>
-                                <p className="font-semibold">{formatCurrency(gracePeriodResults.investorProfit)}</p>
+                            <div className="space-y-2 rounded-lg border p-4">
+                                <div className="flex justify-between text-accent-foreground">
+                                    <p>ربح المؤسسة</p>
+                                    <p className="font-semibold">{formatCurrency(gracePeriodResults.institutionProfit)}</p>
+                                </div>
+                                <div className="flex justify-between text-primary">
+                                    <p>ربح المستثمر ({parseFloat(localGraceInvestorSharePercentage || String(graceInvestorSharePercentage)).toFixed(1)}%)</p>
+                                    <p className="font-semibold">{formatCurrency(gracePeriodResults.investorProfit)}</p>
+                                </div>
                             </div>
-                        </div>
+                        </>
                     ) : (
-                        <div className="p-4 text-center text-muted-foreground bg-muted/50 rounded-lg">
-                            <p>تفاصيل الأرباح متاحة للمدراء فقط.</p>
+                        <div className="flex items-center justify-center rounded-lg bg-muted/50 p-4 min-h-[160px]">
+                            <p className="text-center text-muted-foreground">تفاصيل الأرباح متاحة للمدراء فقط.</p>
                         </div>
                     )}
                 </CardContent>
@@ -495,10 +486,12 @@ export default function CalculatorPage() {
                             <span className="text-muted-foreground">أصل القرض</span>
                             <span className="font-semibold">{formatCurrency(bySalaryResults.maxGraceLoanAmount)}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">الربح ({localGraceTotalProfitPercentage || graceTotalProfitPercentage}%)</span>
-                            <span className="font-semibold">{formatCurrency(bySalaryResults.profit)}</span>
-                        </div>
+                        {showProfitDetails && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">الربح ({localGraceTotalProfitPercentage || graceTotalProfitPercentage}%)</span>
+                                <span className="font-semibold">{formatCurrency(bySalaryResults.profit)}</span>
+                            </div>
+                        )}
                         <div className="my-2 border-t border-dashed"></div>
                         <div className="flex justify-between text-lg">
                             <span className="text-muted-foreground">إجمالي السداد</span>
