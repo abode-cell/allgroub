@@ -100,8 +100,8 @@ export function AppHeader() {
                                 <p className="font-semibold text-sm">{user?.name}</p>
                                 <p className="text-xs text-muted-foreground">{user?.role}</p>
                             </div>
-                            <Avatar className="h-12 w-12 border-0 bg-transparent">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-8 w-8 m-auto"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
+                            <Avatar className="h-14 w-14 border-0 bg-transparent">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-10 w-10 m-auto"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
                             </Avatar>
                         </Button>
                     </DropdownMenuTrigger>
@@ -166,9 +166,9 @@ export function AppHeader() {
                 <Notifications />
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                         <Button variant="ghost" className="relative h-12 w-12 rounded-full p-0">
-                             <Avatar className="h-12 w-12 border-0 bg-transparent">
-                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-7 w-7 m-auto"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
+                         <Button variant="ghost" className="relative h-14 w-14 rounded-full p-0">
+                             <Avatar className="h-14 w-14 border-0 bg-transparent">
+                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-9 w-9 m-auto"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
                              </Avatar>
                         </Button>
                     </DropdownMenuTrigger>
