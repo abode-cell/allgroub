@@ -15,13 +15,13 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 const statusVariant: {
-  [key: string]: 'default' | 'secondary' | 'destructive' | 'outline';
+  [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
 } = {
   منتظم: 'default',
   متأخر: 'destructive',
   متعثر: 'destructive',
   معلق: 'secondary',
-  'مسدد بالكامل': 'secondary',
+  'مسدد بالكامل': 'success',
 };
 
 const ReportTable = ({ loans, getInvestorNameForLoan }: { loans: Borrower[], getInvestorNameForLoan: (loanId: string) => string }) => (

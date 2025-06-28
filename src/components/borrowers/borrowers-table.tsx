@@ -55,13 +55,13 @@ type BorrowersTableProps = {
 };
 
 const statusVariant: {
-  [key: string]: 'default' | 'secondary' | 'destructive' | 'outline';
+  [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
 } = {
   منتظم: 'default',
   متأخر: 'destructive',
   متعثر: 'destructive',
   معلق: 'secondary',
-  'مسدد بالكامل': 'secondary',
+  'مسدد بالكامل': 'success',
 };
 
 const formatCurrency = (value: number) =>
@@ -79,7 +79,7 @@ const getStatusColorClass = (status: Borrower['status']): string => {
     case 'متعثر':
       return 'text-destructive';
     case 'مسدد بالكامل':
-      return 'text-muted-foreground';
+      return 'text-green-600';
     default:
       return '';
   }
@@ -249,7 +249,7 @@ export function BorrowersTable({
                           <SelectItem value="منتظم" className="text-primary font-medium">منتظم</SelectItem>
                           <SelectItem value="متأخر" className="text-destructive font-medium">متأخر</SelectItem>
                           <SelectItem value="متعثر" className="text-destructive font-medium">متعثر</SelectItem>
-                          <SelectItem value="مسدد بالكامل" className="text-muted-foreground font-medium">مسدد بالكامل</SelectItem>
+                          <SelectItem value="مسدد بالكامل" className="text-green-600 font-medium">مسدد بالكامل</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
