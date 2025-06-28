@@ -112,42 +112,49 @@ const assistantPermissionsConfig: {
   { key: 'manageEmployeePermissions', label: 'إدارة صلاحيات الموظفين', description: 'تمكين المساعد من تفعيل أو تعطيل صلاحيات الموظفين.' },
 ];
 
-const MoreActionsMenu = ({
-  user,
-  onDeleteClick,
-}: {
-  user: User;
-  onDeleteClick: (user: User) => void;
-}) => {
-  const { updateUserStatus } = useData();
-  const canDeactivate = user.status === 'نشط';
+const UserActions = ({ user, onDeleteClick }: { user: User, onDeleteClick: (user: User) => void }) => {
+  const { updateUserStatus, currentUser } = useData();
+  const isCurrentUser = user.id === currentUser?.id;
+
+  if (isCurrentUser) {
+    return null; // Can't perform actions on yourself
+  }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-          <MoreHorizontal className="h-4 w-4" />
-          <span className="sr-only">فتح القائمة</span>
+    <div className="flex items-center gap-2 justify-start">
+      {user.status === 'معلق' ? (
+        <Button size="sm" onClick={() => updateUserStatus(user.id, 'نشط')}>
+          <CheckCircle className="ml-2 h-4 w-4" />
+          تفعيل
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {canDeactivate && (
-          <DropdownMenuItem onClick={() => updateUserStatus(user.id, 'معلق')}>
-            <UserX className="ml-2 h-4 w-4" />
-            <span>تعليق الحساب</span>
+      ) : (
+        <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'معلق')}>
+          <UserX className="ml-2 h-4 w-4" />
+          تعليق
+        </Button>
+      )}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+            <MoreHorizontal className="h-4 w-4" />
+            <span className="sr-only">إجراءات إضافية</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+            onClick={() => onDeleteClick(user)}
+          >
+            <Trash2 className="ml-2 h-4 w-4" />
+            <span>حذف الحساب</span>
           </DropdownMenuItem>
-        )}
-        <DropdownMenuItem
-          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-          onClick={() => onDeleteClick(user)}
-        >
-          <Trash2 className="ml-2 h-4 w-4" />
-          <span>حذف الحساب</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 };
+
 
 export default function UsersPage() {
   const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission } =
@@ -287,19 +294,16 @@ export default function UsersPage() {
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <div className="flex items-center gap-2">
-                            {manager.status === 'معلق' ? (
-                                <Button size="sm" onClick={() => updateUserStatus(manager.id, 'نشط')}>
-                                  <CheckCircle className="ml-2 h-4 w-4" />
-                                  تفعيل
-                                </Button>
+                        <div className="flex items-center gap-4">
+                          <Badge variant={statusVariant[manager.status]}>
+                            {manager.status === 'نشط' ? (
+                              <CheckCircle className="w-3 h-3 ml-1" />
                             ) : (
-                                <Badge variant={statusVariant[manager.status]}>
-                                <CheckCircle className="w-3 h-3 ml-1" />
-                                {manager.status}
-                                </Badge>
+                              <Hourglass className="w-3 h-3 ml-1" />
                             )}
-                            <MoreActionsMenu user={manager} onDeleteClick={handleDeleteClick} />
+                            {manager.status}
+                          </Badge>
+                          <UserActions user={manager} onDeleteClick={handleDeleteClick} />
                         </div>
                       </div>
                     </AccordionPrimitive.Header>
@@ -509,17 +513,7 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-left">
-                    <div className="flex gap-2 items-center justify-start">
-                        {user.status === 'معلق' && user.id !== currentUser?.id && (
-                        <Button size="sm" onClick={() => updateUserStatus(user.id, 'نشط')}>
-                            <CheckCircle className="ml-2 h-4 w-4" />
-                            تفعيل
-                        </Button>
-                        )}
-                        {user.id !== currentUser?.id && (
-                        <MoreActionsMenu user={user} onDeleteClick={handleDeleteClick} />
-                        )}
-                    </div>
+                     <UserActions user={user} onDeleteClick={handleDeleteClick} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -556,14 +550,26 @@ export default function UsersPage() {
               <Accordion type="single" collapsible className="w-full">
                 {myAssistants.map((assistant) => (
                   <AccordionItem value={assistant.id} key={assistant.id}>
-                      <AccordionTrigger>
-                          <div className='flex justify-between w-full pr-4'>
-                            {assistant.name}
+                       <AccordionPrimitive.Header className="flex">
+                        <div className="flex flex-1 items-center justify-between hover:bg-muted/50 px-4 rounded-t-md">
+                          <AccordionTrigger className="flex-1 text-right p-0 hover:no-underline justify-start">
+                              <div className="font-bold text-base py-4">
+                                {assistant.name}
+                              </div>
+                          </AccordionTrigger>
+                          <div className="flex items-center gap-4">
                             <Badge variant={statusVariant[assistant.status]}>
-                                  {assistant.status}
+                              {assistant.status === 'نشط' ? (
+                                <CheckCircle className="w-3 h-3 ml-1" />
+                              ) : (
+                                <Hourglass className="w-3 h-3 ml-1" />
+                              )}
+                              {assistant.status}
                             </Badge>
+                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} />
                           </div>
-                      </AccordionTrigger>
+                        </div>
+                      </AccordionPrimitive.Header>
                       <AccordionContent className="bg-muted/30 p-4">
                           <div className="space-y-4">
                             <h4 className="font-semibold flex items-center gap-2">
@@ -683,17 +689,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-left">
-                         <div className="flex gap-2 items-center justify-start">
-                            {employee.status === 'معلق' && employee.id !== currentUser?.id && (
-                            <Button size="sm" onClick={() => updateUserStatus(employee.id, 'نشط')}>
-                                <CheckCircle className="ml-2 h-4 w-4" />
-                                تفعيل
-                            </Button>
-                            )}
-                            {employee.id !== currentUser?.id && (
-                            <MoreActionsMenu user={employee} onDeleteClick={handleDeleteClick} />
-                            )}
-                        </div>
+                         <UserActions user={employee} onDeleteClick={handleDeleteClick} />
                       </TableCell>
                     </TableRow>
                   ))
