@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from './ui/button';
 import { Notifications } from './notifications';
-import { LogOut, Menu } from 'lucide-react';
+import { LogOut, Menu, User } from 'lucide-react';
 import { allMenuItems, type MenuItem } from './main-nav';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
@@ -83,31 +83,51 @@ export function AppHeader() {
       <div className="flex h-20 items-center px-4 md:px-6">
         {/* DESKTOP VIEW */}
         <div className="hidden w-full items-center justify-between md:flex">
-            <Logo />
-            <NavLinks menuItems={menuItems} />
-            <div className="flex items-center gap-4">
+            <div className="flex-1">
+                <Logo />
+            </div>
+            
+            <div className="flex-none">
+                <NavLinks menuItems={menuItems} />
+            </div>
+
+            <div className="flex flex-1 items-center justify-end gap-4">
                 <Notifications />
-                 <div className="flex items-center gap-3 border-l border-border pl-3 rtl:border-l-0 rtl:border-r rtl:pl-0 rtl:pr-3">
-                    <div className="text-right">
-                        <Link href="/profile" className="font-semibold text-sm hover:underline">{user?.name}</Link>
-                        <p className="text-xs text-muted-foreground">{user?.role}</p>
-                    </div>
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
-                                 <Avatar className="h-10 w-10 border-0 bg-transparent">
-                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-7 w-7 m-auto"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
-                                </Avatar>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-48" align="end" forceMount>
-                            <DropdownMenuItem onClick={signOutUser} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                                <LogOut className="ml-2 h-4 w-4" />
-                                تسجيل الخروج
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="flex items-center gap-3 h-auto py-2 px-3">
+                            <div className="text-right">
+                                <p className="font-semibold text-sm">{user?.name}</p>
+                                <p className="text-xs text-muted-foreground">{user?.role}</p>
+                            </div>
+                            <Avatar className="h-10 w-10 border-0 bg-transparent">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-7 w-7 m-auto"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
+                            </Avatar>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56" align="end" forceMount>
+                        <DropdownMenuLabel className="font-normal">
+                            <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                                <p className="text-xs leading-none text-muted-foreground">
+                                    {user?.email}
+                                </p>
+                            </div>
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                           <Link href="/profile">
+                                <User className="ml-2 h-4 w-4" />
+                                <span>الملف الشخصي</span>
+                           </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={signOutUser} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                            <LogOut className="ml-2 h-4 w-4" />
+                            <span>تسجيل الخروج</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
 
@@ -157,18 +177,21 @@ export function AppHeader() {
                             <div className="flex flex-col space-y-1">
                                 <p className="text-sm font-medium leading-none">{user?.name}</p>
                                 <p className="text-xs leading-none text-muted-foreground">
-                                    {user?.role}
+                                    {user?.email}
                                 </p>
                             </div>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                            <Link href="/profile">الملف الشخصي</Link>
+                            <Link href="/profile">
+                                <User className="ml-2 h-4 w-4" />
+                                <span>الملف الشخصي</span>
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={signOutUser} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                             <LogOut className="ml-2 h-4 w-4" />
-                            تسجيل الخروج
+                            <span>تسجيل الخروج</span>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
