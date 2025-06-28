@@ -32,6 +32,7 @@ export async function generateDailySummary(
 
 const prompt = ai.definePrompt({
   name: 'generateDailySummaryPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `أنت مساعد ذكاء اصطناعي متخصص في التحليل المالي. مهمتك هي إنشاء ملخص يومي واضح ومختصر جدًا باللغة العربية لمدير المنصة.

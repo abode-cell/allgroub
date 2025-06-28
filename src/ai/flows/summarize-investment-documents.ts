@@ -44,6 +44,7 @@ export async function summarizeInvestmentDocument(
 
 const prompt = ai.definePrompt({
   name: 'summarizeInvestmentDocumentPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: {schema: SummarizeInvestmentDocumentInputSchema},
   output: {schema: SummarizeInvestmentDocumentOutputSchema},
   prompt: `You are an expert financial analyst. Your task is to analyze the following investment document.
