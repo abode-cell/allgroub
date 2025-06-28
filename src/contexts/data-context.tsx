@@ -67,6 +67,9 @@ type DataContextType = {
   investorSharePercentage: number;
   graceTotalProfitPercentage: number;
   graceInvestorSharePercentage: number;
+  supportEmail: string;
+  supportPhone: string;
+  updateSupportInfo: (info: { email?: string; phone?: string; }) => Promise<void>;
   updateBaseInterestRate: (rate: number) => Promise<void>;
   updateInvestorSharePercentage: (percentage: number) => Promise<void>;
   updateSalaryRepaymentPercentage: (percentage: number) => Promise<void>;
@@ -135,6 +138,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [investorSharePercentage, setInvestorSharePercentage] = useState<number>(70);
   const [graceTotalProfitPercentage, setGraceTotalProfitPercentage] = useState<number>(30);
   const [graceInvestorSharePercentage, setGraceInvestorSharePercentage] = useState<number>(33.3);
+  const [supportEmail, setSupportEmail] = useState('support@aalg-group.com');
+  const [supportPhone, setSupportPhone] = useState('920012345');
 
 
   const { user: currentUser } = useAuth();
@@ -205,6 +210,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({
       title: 'تم تحديث النسبة',
       description: `تم تحديث حصة المستثمر من أرباح المهلة إلى ${percentage}%.`,
+    });
+  };
+  
+  const updateSupportInfo = async (info: { email?: string; phone?: string; }) => {
+    if (info.email) {
+        setSupportEmail(info.email);
+    }
+    if (info.phone) {
+        setSupportPhone(info.phone);
+    }
+    toast({
+        title: 'تم تحديث معلومات الدعم',
+        description: 'تم تحديث معلومات التواصل بنجاح (تجريبيًا).',
     });
   };
 
@@ -790,6 +808,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     investorSharePercentage,
     graceTotalProfitPercentage,
     graceInvestorSharePercentage,
+    supportEmail,
+    supportPhone,
+    updateSupportInfo,
     updateBaseInterestRate,
     updateInvestorSharePercentage,
     updateSalaryRepaymentPercentage,

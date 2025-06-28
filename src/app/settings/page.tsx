@@ -9,7 +9,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserCog, Scale, ChevronLeft } from 'lucide-react';
+import { UserCog, Scale, ChevronLeft, Contact } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
@@ -47,7 +47,7 @@ export default function SettingsPage() {
           </p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader>
               <UserCog className="h-8 w-8 text-primary mb-2" />
@@ -84,6 +84,27 @@ export default function SettingsPage() {
                 </Button>
             </CardContent>
           </Card>
+
+          {role === 'مدير النظام' && (
+             <Card>
+                <CardHeader>
+                <Contact className="h-8 w-8 text-primary mb-2" />
+                <CardTitle>إعدادات الدعم الفني</CardTitle>
+                <CardDescription>
+                    تحديث معلومات التواصل التي تظهر للمستخدمين في صفحة الدعم.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild>
+                        <Link href="/settings/support">
+                            تعديل معلومات الدعم
+                            <ChevronLeft className="mr-2 h-4 w-4" />
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+          )}
+
         </div>
       </main>
     </div>

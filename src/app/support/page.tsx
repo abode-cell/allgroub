@@ -13,14 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Inbox, Loader2, Send } from 'lucide-react';
+import { Inbox, Loader2, Send, Mail, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import Link from 'next/link';
 
 export default function SupportPage() {
   const { user, role } = useAuth();
-  const { addSupportTicket } = useData();
+  const { addSupportTicket, supportEmail, supportPhone } = useData();
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -87,45 +87,79 @@ export default function SupportPage() {
           </div>
         )}
 
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>إرسال طلب دعم</CardTitle>
-            <CardDescription>{descriptionText}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="subject">الموضوع</Label>
-                <Input
-                  id="subject"
-                  placeholder="مثال: طلب زيادة عدد المستثمرين"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="message">الرسالة</Label>
-                <Textarea
-                  id="message"
-                  placeholder="يرجى وصف طلبك بالتفصيل هنا..."
-                  className="min-h-[150px]"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="ml-2 h-4 w-4" />
-                )}
-                إرسال الرسالة
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <div className="grid gap-8 lg:grid-cols-5">
+            <div className='lg:col-span-3'>
+                <Card>
+                <CardHeader>
+                    <CardTitle>إرسال طلب دعم</CardTitle>
+                    <CardDescription>{descriptionText}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="subject">الموضوع</Label>
+                        <Input
+                        id="subject"
+                        placeholder="مثال: طلب زيادة عدد المستثمرين"
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        required
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="message">الرسالة</Label>
+                        <Textarea
+                        id="message"
+                        placeholder="يرجى وصف طلبك بالتفصيل هنا..."
+                        className="min-h-[150px]"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        required
+                        />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        {isSubmitting ? (
+                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                        ) : (
+                        <Send className="ml-2 h-4 w-4" />
+                        )}
+                        إرسال الرسالة
+                    </Button>
+                    </form>
+                </CardContent>
+                </Card>
+            </div>
+            <div className="lg:col-span-2">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>معلومات التواصل المباشر</CardTitle>
+                        <CardDescription>
+                        للمساعدة العاجلة، يمكنك التواصل معنا مباشرة عبر القنوات التالية.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center gap-4">
+                            <Mail className="h-6 w-6 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm text-muted-foreground">البريد الإلكتروني</p>
+                                <a href={`mailto:${supportEmail}`} className="font-semibold text-primary" dir="ltr">
+                                    {supportEmail}
+                                </a>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Phone className="h-6 w-6 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm text-muted-foreground">الهاتف</p>
+                                <a href={`tel:${supportPhone}`} className="font-semibold text-primary" dir="ltr">
+                                    {supportPhone}
+                                </a>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
       </main>
     </div>
   );
