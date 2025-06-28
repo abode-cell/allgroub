@@ -289,9 +289,13 @@ export function BorrowersTable({
                   </TableCell>
                   <TableCell>
                     <Select
-                        value={borrower.paymentStatus}
-                        onValueChange={(value: BorrowerPaymentStatus) => {
-                            updateBorrowerPaymentStatus(borrower.id, value);
+                        value={borrower.paymentStatus || 'none'}
+                        onValueChange={(value: string) => {
+                            if (value === 'none') {
+                                updateBorrowerPaymentStatus(borrower.id, undefined);
+                            } else {
+                                updateBorrowerPaymentStatus(borrower.id, value as BorrowerPaymentStatus);
+                            }
                         }}
                         disabled={!canEdit || borrower.status === 'معلق' || borrower.status === 'مرفوض'}
                     >
@@ -302,6 +306,7 @@ export function BorrowersTable({
                             <SelectValue placeholder="اختر الحالة" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="none">--</SelectItem>
                             <SelectItem value="تم السداد">تم السداد</SelectItem>
                             <SelectItem value="مسدد جزئي">مسدد جزئي</SelectItem>
                             <SelectItem value="تم الإمهال">تم الإمهال</SelectItem>
@@ -344,7 +349,7 @@ export function BorrowersTable({
                         )}
                         <DropdownMenuItem
                           onSelect={() => handleEditClick(borrower)}
-                          disabled={isEmployee}
+                          disabled={!canEdit}
                         >
                           تعديل
                         </DropdownMenuItem>

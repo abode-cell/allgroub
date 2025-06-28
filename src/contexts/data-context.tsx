@@ -92,7 +92,7 @@ type DataContextType = {
     investorIds: string[]
   ) => Promise<void>;
   updateBorrower: (borrower: Borrower) => Promise<void>;
-  updateBorrowerPaymentStatus: (borrowerId: string, paymentStatus: BorrowerPaymentStatus) => Promise<void>;
+  updateBorrowerPaymentStatus: (borrowerId: string, paymentStatus?: BorrowerPaymentStatus) => Promise<void>;
   approveBorrower: (borrowerId: string) => Promise<void>;
   rejectBorrower: (borrowerId: string, reason: string) => Promise<void>;
   addInvestor: (investor: NewInvestorPayload) => Promise<void>;
@@ -378,18 +378,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateBorrowerPaymentStatus = useCallback(async (
     borrowerId: string,
-    paymentStatus: BorrowerPaymentStatus
+    paymentStatus?: BorrowerPaymentStatus
   ) => {
     setBorrowers((prev) =>
-      prev.map((b) =>
-        b.id === borrowerId ? { ...b, paymentStatus: paymentStatus } : b
-      )
+      prev.map((b) => {
+        if (b.id === borrowerId) {
+          const updatedBorrower = { ...b };
+          if (paymentStatus) {
+            updatedBorrower.paymentStatus = paymentStatus;
+          } else {
+            delete updatedBorrower.paymentStatus;
+          }
+          return updatedBorrower;
+        }
+        return b;
+      })
     );
     const borrower = borrowersData.find(b => b.id === borrowerId);
-    if(borrower) borrower.paymentStatus = paymentStatus;
+    if(borrower) {
+        if (paymentStatus) {
+            borrower.paymentStatus = paymentStatus;
+        } else {
+            delete (borrower as Partial<Borrower>).paymentStatus;
+        }
+    }
     toast({
       title: 'تم تحديث حالة السداد',
-      description: `تم تحديث حالة القرض إلى "${paymentStatus}".`,
+      description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".`,
     });
   }, [toast]);
 
@@ -455,14 +470,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const loanAmount = borrower.amount;
     const newId = `bor_${Date.now()}`;
     const fundedByDetails: { investorId: string; amount: number }[] = [];
+    let totalFundedAmount = 0;
 
     const updatedInvestors = investors.map(inv => {
       if (investorIds.includes(inv.id)) {
-        const desiredContribution = investorIds.length > 0 ? loanAmount / investorIds.length : 0;
+        // Distribute the remaining required amount among remaining selected investors
+        const remainingAmountToFund = loanAmount - totalFundedAmount;
+        const remainingInvestorsCount = investorIds.length - fundedByDetails.length;
+        const desiredContribution = remainingInvestorsCount > 0 ? remainingAmountToFund / remainingInvestorsCount : 0;
+        
         const actualContribution = Math.min(inv.amount, desiredContribution);
 
         if (actualContribution > 0) {
           fundedByDetails.push({ investorId: inv.id, amount: actualContribution });
+          totalFundedAmount += actualContribution;
           return {
             ...inv,
             amount: inv.amount - actualContribution,
@@ -479,6 +500,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString().split('T')[0],
       submittedBy: currentUser?.id,
       fundedBy: fundedByDetails,
+      // If the loan is active but not fully funded, keep it active
+      status: (borrower.status === 'معلق') ? 'معلق' : 'منتظم',
     };
 
     setInvestors(updatedInvestors);
