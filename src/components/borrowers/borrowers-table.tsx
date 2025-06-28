@@ -48,6 +48,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../ui/tooltip';
+import { cn } from '@/lib/utils';
 
 type BorrowersTableProps = {
   borrowers: Borrower[];
@@ -68,6 +69,21 @@ const formatCurrency = (value: number) =>
     style: 'currency',
     currency: 'SAR',
   }).format(value);
+
+const getStatusColorClass = (status: Borrower['status']): string => {
+  switch (status) {
+    case 'منتظم':
+      return 'text-primary';
+    case 'متأخر':
+      return 'text-destructive';
+    case 'متعثر':
+      return 'text-destructive';
+    case 'مسدد بالكامل':
+      return 'text-muted-foreground';
+    default:
+      return '';
+  }
+};
 
 export function BorrowersTable({
   borrowers,
@@ -218,7 +234,7 @@ export function BorrowersTable({
                      )}
                   </TableCell>
                   <TableCell>
-                    {canApprove ? (
+                    {canPerformActions ? (
                       <Select
                         value={borrower.status}
                         onValueChange={(newStatus: Borrower['status']) => {
@@ -226,14 +242,14 @@ export function BorrowersTable({
                         }}
                         disabled={borrower.status === 'معلق' || borrower.status === 'مرفوض'}
                       >
-                        <SelectTrigger className="w-[130px]">
+                        <SelectTrigger className={cn("w-[130px] font-medium", getStatusColorClass(borrower.status))}>
                           <SelectValue placeholder="اختر الحالة" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="منتظم">منتظم</SelectItem>
-                          <SelectItem value="متأخر">متأخر</SelectItem>
-                          <SelectItem value="متعثر">متعثر</SelectItem>
-                          <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
+                          <SelectItem value="منتظم" className="text-primary font-medium">منتظم</SelectItem>
+                          <SelectItem value="متأخر" className="text-destructive font-medium">متأخر</SelectItem>
+                          <SelectItem value="متعثر" className="text-destructive font-medium">متعثر</SelectItem>
+                          <SelectItem value="مسدد بالكامل" className="text-muted-foreground font-medium">مسدد بالكامل</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
