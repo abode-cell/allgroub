@@ -15,6 +15,9 @@ import {
 import React, { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { FileDown } from 'lucide-react';
+import { exportToPdf } from '@/lib/pdf-export';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -184,6 +187,17 @@ export default function ReportsPage() {
     return `${loan.fundedBy.length} مستثمرون`;
   };
 
+  const getInvestorInfoForPdf = (loan: Borrower): string => {
+    if (!loan.fundedBy || loan.fundedBy.length === 0) {
+      return 'غير ممول';
+    }
+    if (loan.fundedBy.length === 1) {
+      const investor = investors.find(inv => inv.id === loan.fundedBy![0].investorId);
+      return investor ? investor.name : 'غير محدد';
+    }
+    return `${loan.fundedBy.length} مستثمرون`;
+  }
+
   const loansForReport = displayedBorrowers.filter(b => 
     b.status === 'متعثر' || 
     b.status === 'معلق' ||
@@ -195,6 +209,50 @@ export default function ReportsPage() {
 
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
+
+  const handleExportInstallments = () => {
+    if (!currentUser) return;
+    const columns = ['اسم المقترض', 'مبلغ القرض', 'الفائدة', 'المدة', 'تاريخ الاستحقاق', 'الحالة', 'الممول'];
+    const rows = installmentLoans.map(loan => [
+      loan.name,
+      formatCurrency(loan.amount),
+      `${loan.rate}%`,
+      `${loan.term} سنوات`,
+      loan.dueDate,
+      getDynamicStatus(loan).text,
+      getInvestorInfoForPdf(loan)
+    ]);
+
+    exportToPdf({
+      title: 'تقرير قروض الأقساط',
+      user: currentUser,
+      columns: columns,
+      rows: rows,
+      filename: 'report-installments',
+    });
+  };
+
+  const handleExportGracePeriod = () => {
+    if (!currentUser) return;
+    const columns = ['اسم المقترض', 'مبلغ القرض', 'الخصم', 'تاريخ الاستحقاق', 'الحالة', 'الممول'];
+    const rows = gracePeriodLoans.map(loan => [
+      loan.name,
+      formatCurrency(loan.amount),
+      formatCurrency(loan.discount || 0),
+      loan.dueDate,
+      getDynamicStatus(loan).text,
+      getInvestorInfoForPdf(loan)
+    ]);
+    
+    exportToPdf({
+      title: 'تقرير قروض المهلة',
+      user: currentUser,
+      columns: columns,
+      rows: rows,
+      filename: 'report-grace-period',
+    });
+  };
+
 
   if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
@@ -230,9 +288,21 @@ export default function ReportsPage() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="installments" className="mt-4">
+                  <div className="flex justify-end mb-4">
+                    <Button onClick={handleExportInstallments} disabled={installmentLoans.length === 0}>
+                        <FileDown className="ml-2 h-4 w-4" />
+                        تصدير إلى PDF
+                    </Button>
+                  </div>
                   <ReportTable loans={installmentLoans} getInvestorInfoForLoan={getInvestorInfoForLoan} />
               </TabsContent>
               <TabsContent value="grace-period" className="mt-4">
+                   <div className="flex justify-end mb-4">
+                    <Button onClick={handleExportGracePeriod} disabled={gracePeriodLoans.length === 0}>
+                        <FileDown className="ml-2 h-4 w-4" />
+                        تصدير إلى PDF
+                    </Button>
+                  </div>
                   <ReportTable loans={gracePeriodLoans} getInvestorInfoForLoan={getInvestorInfoForLoan} />
               </TabsContent>
             </Tabs>
