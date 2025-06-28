@@ -90,7 +90,7 @@ export default function SignUpPage() {
                 <path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
                 <path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
             </svg>
-            <span className="font-bold text-2xl">Aal Group | مجموعة آل</span>
+            <span className="font-bold text-2xl">Aal Group | مجموعة عال</span>
           </div>
           <p className="text-sm text-muted-foreground">
             إدارة, تمويل, تطوير ,وأكثر...

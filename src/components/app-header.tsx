@@ -35,7 +35,7 @@ const Logo = () => (
       <path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
     </svg>
     <div className="flex flex-col">
-        <span className="font-bold text-base sm:text-lg text-foreground leading-tight">Aal Group | مجموعة آل</span>
+        <span className="font-bold text-base sm:text-lg text-foreground leading-tight">Aal Group | مجموعة عال</span>
         <span className="text-xs text-muted-foreground leading-tight hidden sm:block">إدارة, تمويل, تطوير ,وأكثر...</span>
     </div>
   </Link>
@@ -64,63 +64,50 @@ function NavLinks({ menuItems }: { menuItems: MenuItem[] }) {
   );
 }
 
-function UserMenu() {
-    const { user, signOutUser } = useAuth();
-    const getInitials = (name: string) => {
-        const names = name.split(' ');
-        if (names.length > 1 && names[1]) {
-            return `${names[0][0]}${names[1][0]}`.toUpperCase();
-        }
-        return name.substring(0, 2).toUpperCase();
-    }
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10 border-2 border-primary/20">
-                        <AvatarImage src={user?.photoURL} alt={user?.name || ''} />
-                        <AvatarFallback>{user ? getInitials(user.name) : '...'}</AvatarFallback>
-                    </Avatar>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{user?.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                            {user?.role}
-                        </p>
-                    </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                    <Link href="/profile">الملف الشخصي</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOutUser} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                    <LogOut className="ml-2 h-4 w-4" />
-                    تسجيل الخروج
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-}
 
 export function AppHeader() {
-  const { role } = useAuth();
+  const { user, role, signOutUser } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuItems = allMenuItems.filter((item) => role && item.roles.includes(role));
 
+  const getInitials = (name: string) => {
+      const names = name.split(' ');
+      if (names.length > 1 && names[1]) {
+          return `${names[0][0]}${names[1][0]}`.toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+  }
+
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-card/95 backdrop-blur-md">
-      <div className="container flex h-20 items-center px-4 md:px-6">
+      <div className="flex h-20 items-center px-4 md:px-6">
         {/* DESKTOP VIEW */}
         <div className="hidden w-full items-center gap-6 md:flex">
             <Logo />
             <NavLinks menuItems={menuItems} />
             <div className="ml-auto flex items-center gap-4 rtl:mr-auto rtl:ml-0">
                 <Notifications />
-                <UserMenu />
+                 <div className="flex items-center gap-3 border-l border-border pl-3 rtl:border-l-0 rtl:border-r rtl:pl-0 rtl:pr-3">
+                    <div className="text-right">
+                        <Link href="/profile" className="font-semibold text-sm hover:underline">{user?.name}</Link>
+                        <p className="text-xs text-muted-foreground">{user?.role}</p>
+                    </div>
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
+                                 <Avatar className="h-10 w-10 border-0 bg-transparent">
+                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-7 w-7 m-auto"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
+                                </Avatar>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-48" align="end" forceMount>
+                            <DropdownMenuItem onClick={signOutUser} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                <LogOut className="ml-2 h-4 w-4" />
+                                تسجيل الخروج
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
         </div>
 
@@ -157,7 +144,34 @@ export function AppHeader() {
             
             <div className="flex items-center gap-2">
                 <Notifications />
-                <UserMenu />
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                         <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
+                             <Avatar className="h-10 w-10 border-0 bg-transparent">
+                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-6 w-6 m-auto"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path><path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path></svg>
+                             </Avatar>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56" align="end" forceMount>
+                        <DropdownMenuLabel className="font-normal">
+                            <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                                <p className="text-xs leading-none text-muted-foreground">
+                                    {user?.role}
+                                </p>
+                            </div>
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <Link href="/profile">الملف الشخصي</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={signOutUser} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                            <LogOut className="ml-2 h-4 w-4" />
+                            تسجيل الخروج
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
       </div>
