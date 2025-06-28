@@ -37,6 +37,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 
 const formatCurrency = (value: number) =>
@@ -71,6 +81,8 @@ export default function BorrowersPage() {
     dueDate: '',
     discount: '',
   });
+  const [isInsufficientFundsDialogOpen, setIsInsufficientFundsDialogOpen] = useState(false);
+  const [availableFunds, setAvailableFunds] = useState(0);
   
   const isEmployee = role === 'موظف';
   const manager = isEmployee ? users.find((u) => u.id === currentUser?.managedBy) : null;
@@ -91,6 +103,24 @@ export default function BorrowersPage() {
     setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '', discount: '' }));
   };
 
+  const proceedToAddBorrower = (statusOverride?: Borrower['status']) => {
+    const isInstallments = newBorrower.loanType === 'اقساط';
+    const finalStatus = statusOverride ?? ((isEmployee && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status);
+
+    addBorrower({
+      ...newBorrower,
+      amount: Number(newBorrower.amount),
+      rate: isEmployee && isInstallments ? baseInterestRate : Number(newBorrower.rate),
+      term: Number(newBorrower.term) || 0,
+      status: finalStatus,
+      discount: Number(newBorrower.discount) || 0,
+    }, finalStatus === 'معلق' ? [] : selectedInvestors);
+
+    setIsAddDialogOpen(false);
+    setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
+    setSelectedInvestors([]);
+    setIsInsufficientFundsDialogOpen(false); // Also close this dialog
+  };
 
   const handleAddBorrower = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,9 +131,9 @@ export default function BorrowersPage() {
       return;
     }
     
-    const finalStatus: Borrower['status'] = (isEmployee && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status;
+    const intendedStatus: Borrower['status'] = (isEmployee && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status;
 
-    if (finalStatus !== 'معلق' && selectedInvestors.length === 0) {
+    if (intendedStatus !== 'معلق' && selectedInvestors.length === 0) {
         toast({
             variant: 'destructive',
             title: 'خطأ',
@@ -111,19 +141,19 @@ export default function BorrowersPage() {
         });
         return;
     }
+    
+    const loanAmount = Number(newBorrower.amount);
+    const totalAvailableFromSelected = investors
+      .filter(inv => selectedInvestors.includes(inv.id))
+      .reduce((sum, inv) => sum + inv.amount, 0);
 
-    addBorrower({
-      ...newBorrower,
-      amount: Number(newBorrower.amount),
-      rate: isEmployee && isInstallments ? baseInterestRate : Number(newBorrower.rate),
-      term: Number(newBorrower.term) || 0,
-      status: finalStatus,
-      discount: Number(newBorrower.discount) || 0,
-    }, selectedInvestors);
+    if (intendedStatus !== 'معلق' && totalAvailableFromSelected < loanAmount) {
+      setAvailableFunds(totalAvailableFromSelected);
+      setIsInsufficientFundsDialogOpen(true);
+      return; // Stop and show dialog
+    }
 
-    setIsAddDialogOpen(false);
-    setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
-    setSelectedInvestors([]);
+    proceedToAddBorrower();
   };
   
   const displayedBorrowers = useMemo(() => {
@@ -385,7 +415,7 @@ export default function BorrowersPage() {
           </Dialog>
           )}
         </div>
-        <Tabs defaultValue="installments" className="w-full">
+        <Tabs defaultValue="grace-period" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="installments">
                   قروض الأقساط ({installmentBorrowers.length})
@@ -402,6 +432,25 @@ export default function BorrowersPage() {
             </TabsContent>
         </Tabs>
       </main>
+
+      <AlertDialog open={isInsufficientFundsDialogOpen} onOpenChange={setIsInsufficientFundsDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>سيولة المستثمرين غير كافية</AlertDialogTitle>
+                <AlertDialogDescription>
+                    السيولة المتاحة من المستثمرين المختارين ({formatCurrency(availableFunds)}) غير كافية لتغطية مبلغ القرض المطلوب ({formatCurrency(Number(newBorrower.amount))}).
+                    <br/><br/>
+                    يمكنك المتابعة لإنشاء القرض كـ "طلب معلق" لمراجعته لاحقًا، أو العودة لتغيير المستثمرين.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>تغيير المستثمرين</AlertDialogCancel>
+                <AlertDialogAction onClick={() => proceedToAddBorrower('معلق')}>
+                    المتابعة كطلب معلق
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
