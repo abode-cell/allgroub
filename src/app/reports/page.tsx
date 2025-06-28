@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,7 +14,12 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { useAuth } from '@/contexts/auth-context';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 
 const formatCurrency = (value: number) =>
@@ -127,6 +133,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 export default function ReportsPage() {
   const { borrowers, investors, users } = useData();
   const { user, role } = useAuth();
+  const [activeTab, setActiveTab] = useState('installments');
 
   const displayedInvestors = useMemo(() => {
     if (role === 'مدير المكتب') {
@@ -155,6 +162,17 @@ export default function ReportsPage() {
     return `${loan.fundedBy.length} مستثمرون`;
   };
 
+  const getInvestorNamesForExport = (loan: Borrower): string => {
+    if (!loan.fundedBy || loan.fundedBy.length === 0) {
+      return 'غير ممول';
+    }
+    if (loan.fundedBy.length === 1) {
+      const investor = investors.find(inv => inv.id === loan.fundedBy![0].investorId);
+      return investor ? investor.name : 'غير محدد';
+    }
+    return `${loan.fundedBy.length} مستثمرون`;
+  };
+
   const loansForReport = displayedBorrowers.filter(b => 
     b.status === 'متعثر' || 
     b.status === 'معلق' ||
@@ -166,6 +184,79 @@ export default function ReportsPage() {
 
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
+
+  const exportLoans = (format: 'xlsx' | 'pdf') => {
+    const loansToExport = activeTab === 'installments' ? installmentLoans : gracePeriodLoans;
+    const reportName = `تقرير-القروض-${activeTab === 'installments' ? 'الأقساط' : 'المهلة'}`;
+    const headers = ['اسم المقترض', 'مبلغ القرض', 'تاريخ القرض', 'تاريخ الاستحقاق', 'الحالة', 'المستثمر الممول'];
+    
+    const data = loansToExport.map(loan => ({
+      name: loan.name,
+      amount: formatCurrency(loan.amount),
+      date: loan.date,
+      dueDate: loan.dueDate,
+      status: getDynamicStatus(loan).text,
+      funder: getInvestorNamesForExport(loan),
+    }));
+
+    if (format === 'xlsx') {
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'القروض');
+      XLSX.writeFile(workbook, `${reportName}.xlsx`);
+    } else {
+      const doc = new jsPDF();
+      (doc as any).autoTable({
+        head: [headers],
+        body: data.map(d => Object.values(d)),
+        styles: { font: 'Helvetica', halign: 'right' },
+        headStyles: { halign: 'right', fillColor: [22, 163, 74] },
+      });
+      doc.save(`${reportName}.pdf`);
+    }
+  }
+
+  const exportInvestors = (format: 'xlsx' | 'pdf') => {
+    const reportName = 'تقرير-المستثمرين';
+    const headers = ['اسم المستثمر', 'إجمالي الاستثمار', 'الأموال النشطة', 'الأموال الخاملة', 'الأموال المتعثرة', 'الحالة'];
+    
+    const data = activeInvestors.map(investor => {
+        const fundedLoans = borrowers.filter(b => b.fundedBy?.some(f => f.investorId === investor.id));
+        const totalInvestment = investor.transactionHistory.filter(tx => tx.type === 'إيداع رأس المال').reduce((acc, tx) => acc + tx.amount, 0);
+        const activeInvestment = fundedLoans.filter(b => b.status === 'منتظم' || b.status === 'متأخر').reduce((total, loan) => {
+            const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+            return total + (funding?.amount || 0);
+        }, 0);
+        
+        return {
+            name: investor.name,
+            totalInvestment: formatCurrency(totalInvestment),
+            activeInvestment: formatCurrency(activeInvestment),
+            idleFunds: formatCurrency(investor.amount),
+            defaultedFunds: formatCurrency(investor.defaultedFunds || 0),
+            status: investor.status,
+        };
+    });
+
+    if (format === 'xlsx') {
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'المستثمرون');
+      XLSX.writeFile(workbook, `${reportName}.xlsx`);
+    } else {
+      const doc = new jsPDF();
+      (doc as any).autoTable({
+        head: [headers],
+        body: data.map(d => Object.values(d)),
+        styles: { font: 'Helvetica', halign: 'right' },
+        headStyles: { halign: 'right', fillColor: [22, 163, 74] },
+      });
+      doc.save(`${reportName}.pdf`);
+    }
+  };
+
 
   return (
     <div className="flex flex-col flex-1">
@@ -181,13 +272,27 @@ export default function ReportsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>تقرير حالة القروض</CardTitle>
-            <CardDescription>
-              قائمة بجميع القروض النشطة، المعلقة، والمتعثرة في النظام حسب نوع التمويل.
-            </CardDescription>
+             <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle>تقرير حالة القروض</CardTitle>
+                <CardDescription>
+                  قائمة بجميع القروض النشطة، المعلقة، والمتعثرة في النظام حسب نوع التمويل.
+                </CardDescription>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button onClick={() => exportLoans('xlsx')} variant="outline" size="sm">
+                  <FileDown className="ml-2 h-4 w-4" />
+                  Excel
+                </Button>
+                <Button onClick={() => exportLoans('pdf')} variant="outline" size="sm">
+                  <FileDown className="ml-2 h-4 w-4" />
+                  PDF
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="installments" className="w-full">
+            <Tabs defaultValue="installments" className="w-full" onValueChange={(value) => setActiveTab(value)}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="installments">
                   قروض الأقساط ({installmentLoans.length})
@@ -208,10 +313,24 @@ export default function ReportsPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>تقارير المستثمرين</CardTitle>
-                <CardDescription>
-                تقارير فردية لكل مستثمر توضح أداء استثماراتهم.
-                </CardDescription>
+              <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>تقارير المستثمرين</CardTitle>
+                    <CardDescription>
+                    تقارير فردية لكل مستثمر توضح أداء استثماراتهم.
+                    </CardDescription>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button onClick={() => exportInvestors('xlsx')} variant="outline" size="sm">
+                      <FileDown className="ml-2 h-4 w-4" />
+                      Excel
+                    </Button>
+                    <Button onClick={() => exportInvestors('pdf')} variant="outline" size="sm">
+                      <FileDown className="ml-2 h-4 w-4" />
+                      PDF
+                    </Button>
+                  </div>
+              </div>
             </CardHeader>
             <CardContent>
                 <Accordion type="single" collapsible className="w-full">
