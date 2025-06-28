@@ -48,7 +48,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../ui/tooltip';
-import { cn } from '@/lib/utils';
 
 type BorrowersTableProps = {
   borrowers: Borrower[];
@@ -62,7 +61,52 @@ const statusVariant: {
   متعثر: 'destructive',
   معلق: 'secondary',
   'مسدد بالكامل': 'success',
+  مرفوض: 'destructive',
 };
+
+
+const getDynamicStatus = (borrower: Borrower): { text: string; variant: keyof typeof statusVariant } => {
+    // Priority statuses that are manually set or are terminal
+    if (borrower.status === 'مسدد بالكامل') return { text: 'مسدد بالكامل', variant: 'success' };
+    if (borrower.status === 'متعثر') return { text: 'متعثر', variant: 'destructive' };
+    if (borrower.status === 'معلق') return { text: 'طلب معلق', variant: 'secondary' };
+    if (borrower.status === 'مرفوض') return { text: 'مرفوض', variant: 'destructive' };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(borrower.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    const startDate = new Date(borrower.date);
+    startDate.setHours(0, 0, 0, 0);
+
+    // Automatic 'Late' status if due date is passed
+    if (today > dueDate) {
+        return { text: 'متأخر', variant: 'destructive' };
+    }
+    
+    // If the loan is manually marked as late, respect that.
+    if (borrower.status === 'متأخر') {
+         return { text: 'متأخر', variant: 'destructive' };
+    }
+
+    // Lifecycle statuses for ongoing loans (i.e., status is 'منتظم')
+    const totalDuration = dueDate.getTime() - startDate.getTime();
+    if (totalDuration <= 0) {
+        return { text: borrower.status, variant: statusVariant[borrower.status] || 'default' };
+    }
+
+    const elapsedDuration = today.getTime() - startDate.getTime();
+    const progress = elapsedDuration / totalDuration;
+
+    if (progress < 0.25) { 
+        return { text: 'جديد', variant: 'default' };
+    }
+    if (progress < 0.80) { 
+        return { text: 'منتصف المدة', variant: 'default' };
+    }
+    return { text: 'اقترب السداد', variant: 'outline' };
+};
+
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -70,20 +114,6 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const getStatusColorClass = (status: Borrower['status']): string => {
-  switch (status) {
-    case 'منتظم':
-      return 'text-primary';
-    case 'متأخر':
-      return 'text-destructive';
-    case 'متعثر':
-      return 'text-destructive';
-    case 'مسدد بالكامل':
-      return 'text-green-600';
-    default:
-      return '';
-  }
-};
 
 export function BorrowersTable({
   borrowers,
@@ -234,30 +264,15 @@ export function BorrowersTable({
                      )}
                   </TableCell>
                   <TableCell>
-                    {canPerformActions ? (
-                      <Select
-                        value={borrower.status}
-                        onValueChange={(newStatus: Borrower['status']) => {
-                          updateBorrower({ ...borrower, status: newStatus });
-                        }}
-                        disabled={borrower.status === 'معلق' || borrower.status === 'مرفوض'}
-                      >
-                        <SelectTrigger className={cn("w-[130px] font-medium", getStatusColorClass(borrower.status))}>
-                          <SelectValue placeholder="اختر الحالة" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="منتظم" className="text-primary font-medium">منتظم</SelectItem>
-                          <SelectItem value="متأخر" className="text-destructive font-medium">متأخر</SelectItem>
-                          <SelectItem value="متعثر" className="text-destructive font-medium">متعثر</SelectItem>
-                          <SelectItem value="مسدد بالكامل" className="text-green-600 font-medium">مسدد بالكامل</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant={statusVariant[borrower.status] || 'outline'}>
-                        {borrower.status === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
-                        {borrower.status === 'معلق' ? 'طلب معلق' : borrower.status}
-                      </Badge>
-                    )}
+                    {(() => {
+                        const dynamicStatus = getDynamicStatus(borrower);
+                        return (
+                            <Badge variant={dynamicStatus.variant}>
+                                {dynamicStatus.text === 'متعثر' && <ShieldAlert className='w-3 h-3 ml-1' />}
+                                {dynamicStatus.text}
+                            </Badge>
+                        );
+                    })()}
                   </TableCell>
                   <TableCell>{borrower.dueDate}</TableCell>
                   {canPerformActions && (

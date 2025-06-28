@@ -22,7 +22,52 @@ const statusVariant: {
   متعثر: 'destructive',
   معلق: 'secondary',
   'مسدد بالكامل': 'success',
+  مرفوض: 'destructive',
 };
+
+
+const getDynamicStatus = (borrower: Borrower): { text: string; variant: keyof typeof statusVariant } => {
+    // Priority statuses that are manually set or are terminal
+    if (borrower.status === 'مسدد بالكامل') return { text: 'مسدد بالكامل', variant: 'success' };
+    if (borrower.status === 'متعثر') return { text: 'متعثر', variant: 'destructive' };
+    if (borrower.status === 'معلق') return { text: 'طلب معلق', variant: 'secondary' };
+    if (borrower.status === 'مرفوض') return { text: 'مرفوض', variant: 'destructive' };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(borrower.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    const startDate = new Date(borrower.date);
+    startDate.setHours(0, 0, 0, 0);
+
+    // Automatic 'Late' status if due date is passed
+    if (today > dueDate) {
+        return { text: 'متأخر', variant: 'destructive' };
+    }
+    
+    // If the loan is manually marked as late, respect that.
+    if (borrower.status === 'متأخر') {
+         return { text: 'متأخر', variant: 'destructive' };
+    }
+
+    // Lifecycle statuses for ongoing loans (i.e., status is 'منتظم')
+    const totalDuration = dueDate.getTime() - startDate.getTime();
+    if (totalDuration <= 0) {
+        return { text: borrower.status, variant: statusVariant[borrower.status] || 'default' };
+    }
+
+    const elapsedDuration = today.getTime() - startDate.getTime();
+    const progress = elapsedDuration / totalDuration;
+
+    if (progress < 0.25) { 
+        return { text: 'جديد', variant: 'default' };
+    }
+    if (progress < 0.80) { 
+        return { text: 'منتصف المدة', variant: 'default' };
+    }
+    return { text: 'اقترب السداد', variant: 'outline' };
+};
+
 
 const ReportTable = ({ loans, getInvestorNameForLoan }: { loans: Borrower[], getInvestorNameForLoan: (loanId: string) => string }) => (
      <Table>
@@ -38,22 +83,25 @@ const ReportTable = ({ loans, getInvestorNameForLoan }: { loans: Borrower[], get
         </TableHeader>
         <TableBody>
           {loans.length > 0 ? (
-            loans.map((loan) => (
-              <TableRow key={loan.id}>
-                <TableCell className="font-medium">{loan.name}</TableCell>
-                <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                <TableCell>{loan.date}</TableCell>
-                <TableCell>{loan.dueDate}</TableCell>
-                <TableCell>
-                  <Badge variant={statusVariant[loan.status] || 'outline'}>
-                    {loan.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {getInvestorNameForLoan(loan.id)}
-                </TableCell>
-              </TableRow>
-            ))
+            loans.map((loan) => {
+              const dynamicStatus = getDynamicStatus(loan);
+              return (
+                <TableRow key={loan.id}>
+                  <TableCell className="font-medium">{loan.name}</TableCell>
+                  <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                  <TableCell>{loan.date}</TableCell>
+                  <TableCell>{loan.dueDate}</TableCell>
+                  <TableCell>
+                    <Badge variant={dynamicStatus.variant}>
+                      {dynamicStatus.text}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {getInvestorNameForLoan(loan.id)}
+                  </TableCell>
+                </TableRow>
+              );
+            })
           ) : (
             <TableRow>
               <TableCell colSpan={6} className="text-center h-24">
