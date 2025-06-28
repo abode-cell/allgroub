@@ -13,13 +13,14 @@ import {
   FileUp,
   type LucideIcon,
 } from 'lucide-react';
-import type { UserRole } from '@/lib/types';
+import type { UserRole, PermissionKey } from '@/lib/types';
 
 export type MenuItem = {
   href: string;
   label: string;
   icon: LucideIcon;
   roles: UserRole[];
+  permission?: PermissionKey;
 };
 
 export const allMenuItems: MenuItem[] = [
@@ -34,18 +35,21 @@ export const allMenuItems: MenuItem[] = [
     label: 'المستثمرون',
     icon: PiggyBank,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
+    permission: 'manageInvestors',
   },
   {
     href: '/borrowers',
     label: 'القروض',
     icon: Landmark,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
+    permission: 'manageBorrowers',
   },
   {
     href: '/import',
     label: 'استيراد',
     icon: FileUp,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
+    permission: 'importData',
   },
    {
     href: '/my-requests',
@@ -58,12 +62,14 @@ export const allMenuItems: MenuItem[] = [
     label: 'التقارير',
     icon: FileText,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
+    permission: 'viewReports',
   },
   {
     href: '/requests',
     label: 'الطلبات',
     icon: ClipboardList,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
+    permission: 'manageRequests',
   },
   {
     href: '/notifications',
@@ -76,6 +82,7 @@ export const allMenuItems: MenuItem[] = [
     label: 'الحاسبة',
     icon: Calculator,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
+    permission: 'useCalculator',
   },
   {
     href: '/support',
@@ -88,5 +95,6 @@ export const allMenuItems: MenuItem[] = [
     label: 'الإعدادات',
     icon: Settings,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
+    permission: 'accessSettings',
   },
 ];

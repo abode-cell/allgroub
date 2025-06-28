@@ -71,7 +71,21 @@ export function AppHeader() {
   const { currentUser } = useData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const role = currentUser?.role;
-  const menuItems = allMenuItems.filter((item) => role && item.roles.includes(role));
+
+  const menuItems = allMenuItems.filter((item) => {
+    if (!role || !item.roles.includes(role)) {
+      return false;
+    }
+    // If a permission is required for this menu item...
+    if (item.permission) {
+      // For assistants, check if they have the specific permission.
+      if (role === 'مساعد مدير المكتب') {
+        return currentUser?.permissions?.[item.permission];
+      }
+    }
+    // For other roles or items without a specific permission, show if role matches.
+    return true;
+  });
 
   const getInitials = (name: string) => {
       const names = name.split(' ');
