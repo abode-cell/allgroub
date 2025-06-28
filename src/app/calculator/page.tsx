@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useData } from '@/contexts/data-context';
@@ -187,15 +186,15 @@ export default function CalculatorPage() {
                     <div className="space-y-2">
                         <div className="space-y-2">
                             <Label htmlFor="baseInterestRate">
-                            نسبة الربح السنوية: {localBaseInterestRate}%
+                              نسبة الربح السنوية (%)
                             </Label>
-                            <Slider
-                            id="baseInterestRate"
-                            min={0}
-                            max={100}
-                            step={0.5}
-                            value={[localBaseInterestRate]}
-                            onValueChange={(value) => setLocalBaseInterestRate(value[0])}
+                            <Input
+                              id="baseInterestRate"
+                              type="number"
+                              step="0.1"
+                              value={localBaseInterestRate}
+                              onChange={(e) => setLocalBaseInterestRate(Number(e.target.value))}
+                              placeholder="نسبة الربح السنوية"
                             />
                         </div>
                         <Button 
@@ -233,16 +232,16 @@ export default function CalculatorPage() {
                   {showProfitDetails && (
                     <div className="space-y-2 pt-4">
                         <div className="space-y-2">
-                            <Label htmlFor="investorShare">
-                            حصة المستثمر من الأرباح: {localInvestorSharePercentage}%
+                           <Label htmlFor="investorShare">
+                              حصة المستثمر من الأرباح (%)
                             </Label>
-                            <Slider
-                            id="investorShare"
-                            min={0}
-                            max={100}
-                            step={5}
-                            value={[localInvestorSharePercentage]}
-                            onValueChange={(value) => setLocalInvestorSharePercentage(value[0])}
+                            <Input
+                              id="investorShare"
+                              type="number"
+                              step="1"
+                              value={localInvestorSharePercentage}
+                              onChange={(e) => setLocalInvestorSharePercentage(Number(e.target.value))}
+                              placeholder="حصة المستثمر"
                             />
                         </div>
                         <Button 
@@ -324,13 +323,15 @@ export default function CalculatorPage() {
                           <div className="space-y-2 pt-4">
                               <div className="space-y-2">
                                   <Label htmlFor="graceTotalProfit">
-                                      إجمالي الربح: {localGraceTotalProfitPercentage}%
+                                    إجمالي الربح (%)
                                   </Label>
-                                  <Slider
+                                  <Input
                                       id="graceTotalProfit"
-                                      min={0} max={50} step={1}
-                                      value={[localGraceTotalProfitPercentage]}
-                                      onValueChange={(value) => setLocalGraceTotalProfitPercentage(value[0])}
+                                      type="number"
+                                      step="1"
+                                      value={localGraceTotalProfitPercentage}
+                                      onChange={(e) => setLocalGraceTotalProfitPercentage(Number(e.target.value))}
+                                      placeholder="نسبة الربح الإجمالية"
                                   />
                               </div>
                               <Button
@@ -345,13 +346,15 @@ export default function CalculatorPage() {
                           <div className="space-y-2">
                               <div className="space-y-2">
                                   <Label htmlFor="graceInvestorShare">
-                                      حصة المستثمر من الربح: {localGraceInvestorSharePercentage.toFixed(1)}%
+                                    حصة المستثمر من الربح (%)
                                   </Label>
-                                  <Slider
+                                  <Input
                                       id="graceInvestorShare"
-                                      min={0} max={100} step={1}
-                                      value={[localGraceInvestorSharePercentage]}
-                                      onValueChange={(value) => setLocalGraceInvestorSharePercentage(value[0])}
+                                      type="number"
+                                      step="0.1"
+                                      value={localGraceInvestorSharePercentage}
+                                      onChange={(e) => setLocalGraceInvestorSharePercentage(Number(e.target.value))}
+                                      placeholder="حصة المستثمر من الربح"
                                   />
                               </div>
                               <Button
@@ -425,15 +428,15 @@ export default function CalculatorPage() {
                     <div className="space-y-2 pt-4">
                       <div className="space-y-2">
                         <Label htmlFor="salaryRepaymentPercentage">
-                          نسبة السداد من الراتب: {localSalaryRepaymentPercentage}%
+                          نسبة السداد من الراتب (%)
                         </Label>
-                        <Slider
+                        <Input
                           id="salaryRepaymentPercentage"
-                          min={10}
-                          max={50}
-                          step={1}
-                          value={[localSalaryRepaymentPercentage]}
-                          onValueChange={(value) => setLocalSalaryRepaymentPercentage(value[0])}
+                          type="number"
+                          step="1"
+                          value={localSalaryRepaymentPercentage}
+                          onChange={(e) => setLocalSalaryRepaymentPercentage(Number(e.target.value))}
+                          placeholder="نسبة السداد من الراتب"
                         />
                       </div>
                        <Button 
