@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -26,54 +27,50 @@ export default function CalculatorPage() {
   } = useData();
   
   // States for Installments Tab
-  const [loanAmount, setLoanAmount] = useState(100000);
-  const [loanTerm, setLoanTerm] = useState(5);
+  const [loanAmount, setLoanAmount] = useState('100000');
+  const [loanTerm, setLoanTerm] = useState('5');
 
   // State for Grace Period Tab
-  const [graceLoanAmount, setGraceLoanAmount] = useState(100000);
+  const [graceLoanAmount, setGraceLoanAmount] = useState('100000');
   
   // States for By Salary Tab
-  const [salary, setSalary] = useState(5000);
+  const [salary, setSalary] = useState('5000');
 
-  // Local states for manager edits
-  const [localBaseInterestRate, setLocalBaseInterestRate] = useState(baseInterestRate);
-  const [localInvestorSharePercentage, setLocalInvestorSharePercentage] = useState(investorSharePercentage);
-  const [localSalaryRepaymentPercentage, setLocalSalaryRepaymentPercentage] = useState(salaryRepaymentPercentage);
-  const [localGraceTotalProfitPercentage, setLocalGraceTotalProfitPercentage] = useState(graceTotalProfitPercentage);
-  const [localGraceInvestorSharePercentage, setLocalGraceInvestorSharePercentage] = useState(graceInvestorSharePercentage);
+  // Local states for manager edits - use strings to handle partial input
+  const [localBaseInterestRate, setLocalBaseInterestRate] = useState(String(baseInterestRate));
+  const [localInvestorSharePercentage, setLocalInvestorSharePercentage] = useState(String(investorSharePercentage));
+  const [localSalaryRepaymentPercentage, setLocalSalaryRepaymentPercentage] = useState(String(salaryRepaymentPercentage));
+  const [localGraceTotalProfitPercentage, setLocalGraceTotalProfitPercentage] = useState(String(graceTotalProfitPercentage));
+  const [localGraceInvestorSharePercentage, setLocalGraceInvestorSharePercentage] = useState(String(graceInvestorSharePercentage));
 
 
   useEffect(() => {
-    setLocalBaseInterestRate(baseInterestRate);
+    setLocalBaseInterestRate(String(baseInterestRate));
   }, [baseInterestRate]);
   
   useEffect(() => {
-    setLocalInvestorSharePercentage(investorSharePercentage);
+    setLocalInvestorSharePercentage(String(investorSharePercentage));
   }, [investorSharePercentage]);
 
   useEffect(() => {
-    setLocalSalaryRepaymentPercentage(salaryRepaymentPercentage);
+    setLocalSalaryRepaymentPercentage(String(salaryRepaymentPercentage));
   }, [salaryRepaymentPercentage]);
   
   useEffect(() => {
-    setLocalGraceTotalProfitPercentage(graceTotalProfitPercentage);
+    setLocalGraceTotalProfitPercentage(String(graceTotalProfitPercentage));
   }, [graceTotalProfitPercentage]);
 
   useEffect(() => {
-    setLocalGraceInvestorSharePercentage(graceInvestorSharePercentage);
+    setLocalGraceInvestorSharePercentage(String(graceInvestorSharePercentage));
   }, [graceInvestorSharePercentage]);
 
 
   const calculateInstallments = () => {
-    if (!loanAmount || !loanTerm) {
-      return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0, institutionProfit: 0, investorProfit: 0 };
-    }
+    const principal = parseFloat(loanAmount);
+    const annualRate = parseFloat(localBaseInterestRate || '0') / 100;
+    const termInYears = parseFloat(loanTerm);
 
-    const principal = parseFloat(loanAmount.toString());
-    const annualRate = parseFloat(baseInterestRate.toString() || '0') / 100;
-    const termInYears = parseFloat(loanTerm.toString());
-
-    if (principal <= 0 || termInYears <= 0 || annualRate < 0) {
+    if (isNaN(principal) || isNaN(annualRate) || isNaN(termInYears) || principal <= 0 || termInYears <= 0 || annualRate < 0) {
       return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0, institutionProfit: 0, investorProfit: 0 };
     }
     
@@ -87,9 +84,10 @@ export default function CalculatorPage() {
     }
     
     const monthlyPayment = termInMonths > 0 ? totalPayment / termInMonths : totalPayment;
-
-    const institutionProfit = totalInterest * ((100 - investorSharePercentage) / 100);
-    const investorProfit = totalInterest * (investorSharePercentage / 100);
+    
+    const currentInvestorShare = parseFloat(localInvestorSharePercentage || '0');
+    const institutionProfit = totalInterest * ((100 - currentInvestorShare) / 100);
+    const investorProfit = totalInterest * (currentInvestorShare / 100);
 
     return {
       monthlyPayment: isFinite(monthlyPayment) ? monthlyPayment : 0,
@@ -101,27 +99,33 @@ export default function CalculatorPage() {
   };
 
   const calculateGracePeriod = () => {
-    const principal = parseFloat(graceLoanAmount.toString());
-    if (principal <= 0) {
+    const principal = parseFloat(graceLoanAmount);
+     if (isNaN(principal) || principal <= 0) {
       return { institutionProfit: 0, investorProfit: 0, totalProfit: 0 };
     }
+    
+    const totalProfitPercentage = parseFloat(localGraceTotalProfitPercentage || '0');
+    const investorProfitPercentage = parseFloat(localGraceInvestorSharePercentage || '0');
 
-    const totalProfit = principal * (graceTotalProfitPercentage / 100);
-    const investorProfit = totalProfit * (graceInvestorSharePercentage / 100);
+    const totalProfit = principal * (totalProfitPercentage / 100);
+    const investorProfit = totalProfit * (investorProfitPercentage / 100);
     const institutionProfit = totalProfit - investorProfit;
 
     return { institutionProfit, investorProfit, totalProfit };
   }
   
    const calculateBySalary = () => {
-        const monthlySalary = parseFloat(salary.toString());
+        const monthlySalary = parseFloat(salary);
         
-        if (monthlySalary <= 0) {
+        if (isNaN(monthlySalary) || monthlySalary <= 0) {
             return { maxGraceLoanAmount: 0, totalRepayment: 0, profit: 0 };
         }
+        
+        const currentSalaryRepaymentPercentage = parseFloat(localSalaryRepaymentPercentage || '0');
+        const currentGraceTotalProfitPercentage = parseFloat(localGraceTotalProfitPercentage || '0');
 
-        const maxRepayment = monthlySalary * (salaryRepaymentPercentage / 100); 
-        const graceProfitFactor = 1 + (graceTotalProfitPercentage / 100);
+        const maxRepayment = monthlySalary * (currentSalaryRepaymentPercentage / 100); 
+        const graceProfitFactor = 1 + (currentGraceTotalProfitPercentage / 100);
         const maxLoanAmount = maxRepayment / graceProfitFactor;
         const profit = maxRepayment - maxLoanAmount;
 
@@ -178,7 +182,7 @@ export default function CalculatorPage() {
                       id="loanAmount"
                       type="number"
                       value={loanAmount}
-                      onChange={(e) => setLoanAmount(Number(e.target.value))}
+                      onChange={(e) => setLoanAmount(e.target.value)}
                       placeholder="أدخل مبلغ القرض"
                       style={{ direction: 'ltr' }}
                       className="text-right"
@@ -195,7 +199,7 @@ export default function CalculatorPage() {
                               type="number"
                               step="0.1"
                               value={localBaseInterestRate}
-                              onChange={(e) => setLocalBaseInterestRate(Number(e.target.value))}
+                              onChange={(e) => setLocalBaseInterestRate(e.target.value)}
                               placeholder="نسبة الربح السنوية"
                               style={{ direction: 'ltr' }}
                               className="text-right"
@@ -205,8 +209,8 @@ export default function CalculatorPage() {
                             size="sm" 
                             variant="outline" 
                             className="w-full"
-                            onClick={() => updateBaseInterestRate(localBaseInterestRate)}
-                            disabled={localBaseInterestRate === baseInterestRate}
+                            onClick={() => updateBaseInterestRate(parseFloat(localBaseInterestRate || '0'))}
+                            disabled={parseFloat(localBaseInterestRate || String(baseInterestRate)) === baseInterestRate}
                         >
                             <Save className="ml-2 h-4 w-4" />
                             تأكيد النسبة
@@ -230,7 +234,7 @@ export default function CalculatorPage() {
                       id="loanTerm"
                       type="number"
                       value={loanTerm}
-                      onChange={(e) => setLoanTerm(Number(e.target.value))}
+                      onChange={(e) => setLoanTerm(e.target.value)}
                       placeholder="أدخل مدة القرض"
                       style={{ direction: 'ltr' }}
                       className="text-right"
@@ -247,7 +251,7 @@ export default function CalculatorPage() {
                               type="number"
                               step="1"
                               value={localInvestorSharePercentage}
-                              onChange={(e) => setLocalInvestorSharePercentage(Number(e.target.value))}
+                              onChange={(e) => setLocalInvestorSharePercentage(e.target.value)}
                               placeholder="حصة المستثمر"
                               style={{ direction: 'ltr' }}
                               className="text-right"
@@ -257,8 +261,8 @@ export default function CalculatorPage() {
                             size="sm" 
                             variant="outline" 
                             className="w-full"
-                            onClick={() => updateInvestorSharePercentage(localInvestorSharePercentage)}
-                            disabled={localInvestorSharePercentage === investorSharePercentage}
+                            onClick={() => updateInvestorSharePercentage(parseFloat(localInvestorSharePercentage || '0'))}
+                            disabled={parseFloat(localInvestorSharePercentage || String(investorSharePercentage)) === investorSharePercentage}
                         >
                             <Save className="ml-2 h-4 w-4" />
                             تأكيد الحصة
@@ -323,7 +327,7 @@ export default function CalculatorPage() {
                         id="graceLoanAmount"
                         type="number"
                         value={graceLoanAmount}
-                        onChange={(e) => setGraceLoanAmount(Number(e.target.value))}
+                        onChange={(e) => setGraceLoanAmount(e.target.value)}
                         placeholder="أدخل مبلغ القرض"
                         style={{ direction: 'ltr' }}
                         className="text-right"
@@ -341,7 +345,7 @@ export default function CalculatorPage() {
                                       type="number"
                                       step="1"
                                       value={localGraceTotalProfitPercentage}
-                                      onChange={(e) => setLocalGraceTotalProfitPercentage(Number(e.target.value))}
+                                      onChange={(e) => setLocalGraceTotalProfitPercentage(e.target.value)}
                                       placeholder="نسبة الربح الإجمالية"
                                       style={{ direction: 'ltr' }}
                                       className="text-right"
@@ -349,8 +353,8 @@ export default function CalculatorPage() {
                               </div>
                               <Button
                                   size="sm" variant="outline" className="w-full"
-                                  onClick={() => updateGraceTotalProfitPercentage(localGraceTotalProfitPercentage)}
-                                  disabled={localGraceTotalProfitPercentage === graceTotalProfitPercentage}
+                                  onClick={() => updateGraceTotalProfitPercentage(parseFloat(localGraceTotalProfitPercentage || '0'))}
+                                  disabled={parseFloat(localGraceTotalProfitPercentage || String(graceTotalProfitPercentage)) === graceTotalProfitPercentage}
                               >
                                   <Save className="ml-2 h-4 w-4" />
                                   تأكيد نسبة الربح
@@ -366,7 +370,7 @@ export default function CalculatorPage() {
                                       type="number"
                                       step="0.1"
                                       value={localGraceInvestorSharePercentage}
-                                      onChange={(e) => setLocalGraceInvestorSharePercentage(Number(e.target.value))}
+                                      onChange={(e) => setLocalGraceInvestorSharePercentage(e.target.value)}
                                       placeholder="حصة المستثمر من الربح"
                                       style={{ direction: 'ltr' }}
                                       className="text-right"
@@ -374,8 +378,8 @@ export default function CalculatorPage() {
                               </div>
                               <Button
                                   size="sm" variant="outline" className="w-full"
-                                  onClick={() => updateGraceInvestorSharePercentage(localGraceInvestorSharePercentage)}
-                                  disabled={localGraceInvestorSharePercentage === graceInvestorSharePercentage}
+                                  onClick={() => updateGraceInvestorSharePercentage(parseFloat(localGraceInvestorSharePercentage || '0'))}
+                                  disabled={parseFloat(localGraceInvestorSharePercentage || String(graceInvestorSharePercentage)) === graceInvestorSharePercentage}
                               >
                                   <Save className="ml-2 h-4 w-4" />
                                   تأكيد حصة المستثمر
@@ -392,7 +396,7 @@ export default function CalculatorPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-baseline justify-between rounded-lg bg-muted p-4">
-                        <p className="text-lg text-muted-foreground">إجمالي الأرباح ({graceTotalProfitPercentage}%)</p>
+                        <p className="text-lg text-muted-foreground">إجمالي الأرباح ({localGraceTotalProfitPercentage || graceTotalProfitPercentage}%)</p>
                         <p className="text-3xl font-bold">{formatCurrency(gracePeriodResults.totalProfit)}</p>
                     </div>
                     {showProfitDetails ? (
@@ -402,7 +406,7 @@ export default function CalculatorPage() {
                                 <p className="font-semibold">{formatCurrency(gracePeriodResults.institutionProfit)}</p>
                             </div>
                             <div className="flex justify-between text-primary">
-                                <p>ربح المستثمر ({graceInvestorSharePercentage.toFixed(1)}%)</p>
+                                <p>ربح المستثمر ({parseFloat(localGraceInvestorSharePercentage || String(graceInvestorSharePercentage)).toFixed(1)}%)</p>
                                 <p className="font-semibold">{formatCurrency(gracePeriodResults.investorProfit)}</p>
                             </div>
                         </div>
@@ -424,7 +428,7 @@ export default function CalculatorPage() {
                     أدخل راتبك لتقدير أقصى مبلغ تمويل مهلة لمدة شهر واحد.
                     <br />
                     <small className="text-xs mt-2 block">
-                      يعتمد التقدير على أن إجمالي السداد (أصل القرض + الربح) لا يتجاوز {salaryRepaymentPercentage}% من راتبك الشهري.
+                      يعتمد التقدير على أن إجمالي السداد (أصل القرض + الربح) لا يتجاوز {localSalaryRepaymentPercentage || salaryRepaymentPercentage}% من راتبك الشهري.
                     </small>
                   </CardDescription>
                 </CardHeader>
@@ -435,7 +439,7 @@ export default function CalculatorPage() {
                       id="salary"
                       type="number"
                       value={salary}
-                      onChange={(e) => setSalary(Number(e.target.value))}
+                      onChange={(e) => setSalary(e.target.value)}
                       placeholder="أدخل راتبك الشهري"
                       style={{ direction: 'ltr' }}
                       className="text-right"
@@ -452,7 +456,7 @@ export default function CalculatorPage() {
                           type="number"
                           step="1"
                           value={localSalaryRepaymentPercentage}
-                          onChange={(e) => setLocalSalaryRepaymentPercentage(Number(e.target.value))}
+                          onChange={(e) => setLocalSalaryRepaymentPercentage(e.target.value)}
                           placeholder="نسبة السداد من الراتب"
                           style={{ direction: 'ltr' }}
                           className="text-right"
@@ -462,8 +466,8 @@ export default function CalculatorPage() {
                         size="sm" 
                         variant="outline" 
                         className="w-full"
-                        onClick={() => updateSalaryRepaymentPercentage(localSalaryRepaymentPercentage)}
-                        disabled={localSalaryRepaymentPercentage === salaryRepaymentPercentage}
+                        onClick={() => updateSalaryRepaymentPercentage(parseFloat(localSalaryRepaymentPercentage || '0'))}
+                        disabled={parseFloat(localSalaryRepaymentPercentage || String(salaryRepaymentPercentage)) === salaryRepaymentPercentage}
                       >
                         <Save className="ml-2 h-4 w-4" />
                         تأكيد النسبة
@@ -492,7 +496,7 @@ export default function CalculatorPage() {
                             <span className="font-semibold">{formatCurrency(bySalaryResults.maxGraceLoanAmount)}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">الربح ({graceTotalProfitPercentage}%)</span>
+                            <span className="text-muted-foreground">الربح ({localGraceTotalProfitPercentage || graceTotalProfitPercentage}%)</span>
                             <span className="font-semibold">{formatCurrency(bySalaryResults.profit)}</span>
                         </div>
                         <div className="my-2 border-t border-dashed"></div>
