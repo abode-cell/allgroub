@@ -103,9 +103,11 @@ export default function BorrowersPage() {
     setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '', discount: '' }));
   };
 
-  const proceedToAddBorrower = (statusOverride?: Borrower['status']) => {
+  const proceedToAddBorrower = () => {
     const isInstallments = newBorrower.loanType === 'اقساط';
-    const finalStatus = statusOverride ?? ((isEmployee && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status);
+    // If an employee isn't allowed direct additions, force status to 'معلق'
+    // Otherwise, use the status selected in the form.
+    const finalStatus = (isEmployee && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status;
 
     addBorrower({
       ...newBorrower,
@@ -116,24 +118,30 @@ export default function BorrowersPage() {
       discount: Number(newBorrower.discount) || 0,
     }, finalStatus === 'معلق' ? [] : selectedInvestors);
 
+    // Reset all dialogs and forms
     setIsAddDialogOpen(false);
     setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
     setSelectedInvestors([]);
-    setIsInsufficientFundsDialogOpen(false); // Also close this dialog
+    setIsInsufficientFundsDialogOpen(false);
   };
 
   const handleAddBorrower = (e: React.FormEvent) => {
     e.preventDefault();
     const isInstallments = newBorrower.loanType === 'اقساط';
     const rateForValidation = isEmployee && isInstallments ? baseInterestRate : newBorrower.rate;
+    const isPendingRequest = (isEmployee && !isDirectAdditionEnabled);
 
     if (!newBorrower.name || !newBorrower.amount || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
       return;
     }
     
-    const intendedStatus: Borrower['status'] = (isEmployee && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status;
+    // If it's a pending request, no need to check for investors or funds.
+    if (isPendingRequest) {
+      proceedToAddBorrower();
+      return;
+    }
 
-    if (intendedStatus !== 'معلق' && selectedInvestors.length === 0) {
+    if (selectedInvestors.length === 0) {
         toast({
             variant: 'destructive',
             title: 'خطأ',
@@ -147,7 +155,7 @@ export default function BorrowersPage() {
       .filter(inv => selectedInvestors.includes(inv.id))
       .reduce((sum, inv) => sum + inv.amount, 0);
 
-    if (intendedStatus !== 'معلق' && totalAvailableFromSelected < loanAmount) {
+    if (totalAvailableFromSelected < loanAmount) {
       setAvailableFunds(totalAvailableFromSelected);
       setIsInsufficientFundsDialogOpen(true);
       return; // Stop and show dialog
@@ -333,7 +341,7 @@ export default function BorrowersPage() {
                       required
                     />
                   </div>
-                  {(role !== 'موظف' || isDirectAdditionEnabled) && (
+                  {(!isEmployee || isDirectAdditionEnabled) && (
                      <>
                         <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="status" className="text-right">
@@ -440,11 +448,14 @@ export default function BorrowersPage() {
                 <AlertDialogDescription>
                     الرصيد المتاح من المستثمرين المختارين ({formatCurrency(availableFunds)}) لا يغطي مبلغ القرض المطلوب ({formatCurrency(Number(newBorrower.amount))}).
                     <br/><br/>
-                    الرجاء العودة وتغيير اختيارك من المستثمرين أو دمج المزيد منهم لتغطية المبلغ المطلوب بالكامل.
+                    يمكنك المتابعة على أي حال وسيتم إنشاء القرض بالمبلغ المتاح، أو العودة لتغيير اختيارك من المستثمرين.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
+                <AlertDialogAction onClick={() => proceedToAddBorrower()}>
+                  المتابعة على أي حال
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, ShieldAlert, CheckCircle, Users, Info } from 'lucide-react';
+import { MoreHorizontal, ShieldAlert, CheckCircle, Users, Info, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -48,6 +48,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../ui/tooltip';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 type BorrowersTableProps = {
   borrowers: Borrower[];
@@ -563,87 +564,101 @@ export function BorrowersTable({
               عرض تفصيلي لمعلومات قرض المقترض {selectedBorrower?.name}.
             </DialogDescription>
           </DialogHeader>
-          {selectedBorrower && (
-            <div className="grid gap-4 py-4 text-sm">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
-                  <div>
-                      <span className='text-muted-foreground'>اسم المقترض:</span>
-                      <span className='font-bold float-left'>{selectedBorrower.name}</span>
-                  </div>
-                  <div>
-                      <span className='text-muted-foreground'>مبلغ القرض:</span>
-                      <span className='font-bold float-left'>{formatCurrency(selectedBorrower.amount)}</span>
-                  </div>
-                  <div>
-                      <span className='text-muted-foreground'>نوع التمويل:</span>
-                      <span className='font-bold float-left'>{selectedBorrower.loanType}</span>
-                  </div>
-                  <div>
-                      <span className='text-muted-foreground'>تاريخ الاستحقاق:</span>
-                      <span className='font-bold float-left'>{selectedBorrower.dueDate}</span>
-                  </div>
-                  <div>
-                      <span className='text-muted-foreground'>الحالة:</span>
-                      <span className='font-bold float-left'>
-                          <Badge variant={statusVariant[selectedBorrower.status] || 'outline'}>{selectedBorrower.status}</Badge>
-                      </span>
-                  </div>
-              </div>
-              
-              {selectedBorrower.loanType === 'اقساط' && (
+          {selectedBorrower && (() => {
+            const totalFunded = selectedBorrower.fundedBy?.reduce((sum, funder) => sum + funder.amount, 0) || 0;
+            const isPartiallyFunded = totalFunded < selectedBorrower.amount;
+
+            return (
+              <div className="grid gap-4 py-4 text-sm">
+                {isPartiallyFunded && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>تمويل غير مكتمل</AlertTitle>
+                    <AlertDescription>
+                      تم تمويل {formatCurrency(totalFunded)} من أصل {formatCurrency(selectedBorrower.amount)}.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
                     <div>
-                        <span className='text-muted-foreground'>نسبة الفائدة:</span>
-                        <span className='font-bold float-left'>{selectedBorrower.rate}%</span>
+                        <span className='text-muted-foreground'>اسم المقترض:</span>
+                        <span className='font-bold float-left'>{selectedBorrower.name}</span>
                     </div>
                     <div>
-                        <span className='text-muted-foreground'>المدة (سنوات):</span>
-                        <span className='font-bold float-left'>{selectedBorrower.term}</span>
+                        <span className='text-muted-foreground'>مبلغ القرض:</span>
+                        <span className='font-bold float-left'>{formatCurrency(selectedBorrower.amount)}</span>
+                    </div>
+                    <div>
+                        <span className='text-muted-foreground'>نوع التمويل:</span>
+                        <span className='font-bold float-left'>{selectedBorrower.loanType}</span>
+                    </div>
+                    <div>
+                        <span className='text-muted-foreground'>تاريخ الاستحقاق:</span>
+                        <span className='font-bold float-left'>{selectedBorrower.dueDate}</span>
+                    </div>
+                    <div>
+                        <span className='text-muted-foreground'>الحالة:</span>
+                        <span className='font-bold float-left'>
+                            <Badge variant={statusVariant[selectedBorrower.status] || 'outline'}>{selectedBorrower.status}</Badge>
+                        </span>
                     </div>
                 </div>
-              )}
-
-              {selectedBorrower.loanType === 'مهلة' && (
-                <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
-                     <div>
-                        <span className='text-muted-foreground'>مبلغ الخصم:</span>
-                        <span className='font-bold float-left text-green-600'>{formatCurrency(selectedBorrower.discount || 0)}</span>
-                    </div>
-                </div>
-              )}
-
-              <div>
-                  <h4 className="font-semibold mb-2">المستثمرون</h4>
-                  <div className="rounded-md border">
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead>الاسم</TableHead>
-                                  <TableHead>المبلغ الممول</TableHead>
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {selectedBorrower.fundedBy && selectedBorrower.fundedBy.length > 0 ? (
-                                  selectedBorrower.fundedBy.map(funder => {
-                                      const investor = investors.find(i => i.id === funder.investorId);
-                                      return (
-                                          <TableRow key={funder.investorId}>
-                                              <TableCell>{investor?.name || 'غير معروف'}</TableCell>
-                                              <TableCell>{formatCurrency(funder.amount)}</TableCell>
-                                          </TableRow>
-                                      )
-                                  })
-                              ) : (
-                                  <TableRow>
-                                      <TableCell colSpan={2} className="text-center">لم يتم تمويل هذا القرض بعد.</TableCell>
-                                  </TableRow>
-                              )}
-                          </TableBody>
-                      </Table>
+                
+                {selectedBorrower.loanType === 'اقساط' && (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                      <div>
+                          <span className='text-muted-foreground'>نسبة الفائدة:</span>
+                          <span className='font-bold float-left'>{selectedBorrower.rate}%</span>
+                      </div>
+                      <div>
+                          <span className='text-muted-foreground'>المدة (سنوات):</span>
+                          <span className='font-bold float-left'>{selectedBorrower.term}</span>
+                      </div>
                   </div>
+                )}
+
+                {selectedBorrower.loanType === 'مهلة' && (
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                       <div>
+                          <span className='text-muted-foreground'>مبلغ الخصم:</span>
+                          <span className='font-bold float-left text-green-600'>{formatCurrency(selectedBorrower.discount || 0)}</span>
+                      </div>
+                  </div>
+                )}
+
+                <div>
+                    <h4 className="font-semibold mb-2">المستثمرون</h4>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>الاسم</TableHead>
+                                    <TableHead>المبلغ الممول</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedBorrower.fundedBy && selectedBorrower.fundedBy.length > 0 ? (
+                                    selectedBorrower.fundedBy.map(funder => {
+                                        const investor = investors.find(i => i.id === funder.investorId);
+                                        return (
+                                            <TableRow key={funder.investorId}>
+                                                <TableCell>{investor?.name || 'غير معروف'}</TableCell>
+                                                <TableCell>{formatCurrency(funder.amount)}</TableCell>
+                                            </TableRow>
+                                        )
+                                    })
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="text-center">لم يتم تمويل هذا القرض بعد.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="secondary">

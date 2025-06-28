@@ -427,46 +427,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toast({
         variant: 'destructive',
         title: 'خطأ في التمويل',
-        description:
-          'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.',
+        description: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.',
       });
       return;
     }
 
     const loanAmount = borrower.amount;
-    const amountPerInvestor = loanAmount / investorIds.length;
-
-    let funders: Investor[] = [];
-    for (const id of investorIds) {
-      const investor = investors.find((i) => i.id === id);
-      if (!investor) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: `لم يتم العثور على المستثمر.`,
-        });
-        return;
-      }
-      if (investor.amount < amountPerInvestor) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ في السيولة',
-          description: `المستثمر "${investor.name}" لا يملك سيولة كافية لتمويل حصته.`,
-        });
-        return;
-      }
-      funders.push(investor);
-    }
-
     const newId = `bor_${Date.now()}`;
+    const fundedByDetails: { investorId: string; amount: number }[] = [];
 
-    const updatedInvestors = investors.map((inv) => {
+    const updatedInvestors = investors.map(inv => {
       if (investorIds.includes(inv.id)) {
-        return {
-          ...inv,
-          amount: inv.amount - amountPerInvestor,
-          fundedLoanIds: [...inv.fundedLoanIds, newId],
-        };
+        const desiredContribution = investorIds.length > 0 ? loanAmount / investorIds.length : 0;
+        const actualContribution = Math.min(inv.amount, desiredContribution);
+
+        if (actualContribution > 0) {
+          fundedByDetails.push({ investorId: inv.id, amount: actualContribution });
+          return {
+            ...inv,
+            amount: inv.amount - actualContribution,
+            fundedLoanIds: [...inv.fundedLoanIds, newId],
+          };
+        }
       }
       return inv;
     });
@@ -476,24 +458,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
       id: newId,
       date: new Date().toISOString().split('T')[0],
       submittedBy: currentUser?.id,
-      fundedBy:
-        investorIds.length > 0
-          ? investorIds.map((id) => ({
-              investorId: id,
-              amount: amountPerInvestor,
-            }))
-          : [],
+      fundedBy: fundedByDetails,
     };
 
     setInvestors(updatedInvestors);
+    investorsData.length = 0;
+    Array.prototype.push.apply(investorsData, updatedInvestors);
+
     setBorrowers((prev) => [...prev, newEntry]);
+    borrowersData.push(newEntry);
+
 
     if (newEntry.status === 'معلق' && currentUser?.managedBy) {
-        addNotification({
-            recipientId: currentUser.managedBy,
-            title: 'طلب قرض جديد معلق',
-            description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة القرض "${newEntry.name}".`
-        });
+      addNotification({
+        recipientId: currentUser.managedBy,
+        title: 'طلب قرض جديد معلق',
+        description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة القرض "${newEntry.name}".`,
+      });
     }
 
     toast({
