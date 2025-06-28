@@ -1,3 +1,4 @@
+
 'use client';
 
 import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent } from 'lucide-react';
@@ -287,7 +288,7 @@ export default function DashboardPage() {
 
         {showSensitiveData && <DailySummary />}
 
-        <Tabs defaultValue="installments" className="w-full">
+        <Tabs defaultValue="grace-period" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="installments">قروض الأقساط</TabsTrigger>
                 <TabsTrigger value="grace-period">قروض المهلة</TabsTrigger>

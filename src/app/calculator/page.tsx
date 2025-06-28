@@ -160,7 +160,7 @@ export default function CalculatorPage() {
           </p>
         </header>
 
-        <Tabs defaultValue="installments" className="w-full">
+        <Tabs defaultValue="grace-period" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="installments">الأقساط</TabsTrigger>
             <TabsTrigger value="grace-period">المهلة</TabsTrigger>
