@@ -440,14 +440,11 @@ export default function BorrowersPage() {
                 <AlertDialogDescription>
                     الرصيد المتاح من المستثمرين المختارين ({formatCurrency(availableFunds)}) لا يغطي مبلغ القرض المطلوب ({formatCurrency(Number(newBorrower.amount))}).
                     <br/><br/>
-                    يمكنك المتابعة وحفظ الطلب كـ "معلق"، أو العودة لتغيير اختيارك من المستثمرين (أو دمج المزيد منهم) لتغطية المبلغ.
+                    الرجاء العودة وتغيير اختيارك من المستثمرين أو دمج المزيد منهم لتغطية المبلغ المطلوب بالكامل.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
-                <AlertDialogAction onClick={() => proceedToAddBorrower('معلق')}>
-                    المتابعة على أي حال (حفظ كطلب معلق)
-                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
