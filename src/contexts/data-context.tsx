@@ -6,6 +6,8 @@ import {
   useContext,
   useState,
   ReactNode,
+  useCallback,
+  useMemo,
 } from 'react';
 import type {
   Borrower,
@@ -145,7 +147,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   
-  const addNotification = (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
     const newNotification: Notification = {
         ...notification,
         id: `notif_${Date.now()}_${Math.random()}`,
@@ -154,66 +156,66 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
     setNotifications(prev => [newNotification, ...prev]);
     initialNotificationsData.unshift(newNotification);
-  };
+  }, []);
 
-  const clearUserNotifications = (userId: string) => {
+  const clearUserNotifications = useCallback((userId: string) => {
     setNotifications(prev => prev.filter(n => n.recipientId !== userId));
     const updatedNotificationsData = initialNotificationsData.filter(n => n.recipientId !== userId);
     initialNotificationsData.length = 0;
     Array.prototype.push.apply(initialNotificationsData, updatedNotificationsData);
     toast({ title: 'تم حذف جميع التنبيهات' });
-  }
+  }, [toast]);
 
-  const markUserNotificationsAsRead = (userId: string) => {
+  const markUserNotificationsAsRead = useCallback((userId: string) => {
       setNotifications(prev => prev.map(n => n.recipientId === userId ? { ...n, isRead: true } : n));
       initialNotificationsData.forEach(n => {
           if (n.recipientId === userId) {
               n.isRead = true;
           }
       });
-  };
+  }, []);
 
-  const updateSalaryRepaymentPercentage = async (percentage: number) => {
+  const updateSalaryRepaymentPercentage = useCallback(async (percentage: number) => {
     setSalaryRepaymentPercentage(percentage);
     toast({
       title: 'تم تحديث النسبة',
       description: `تم تحديث نسبة السداد من الراتب إلى ${percentage}%.`,
     });
-  };
+  }, [toast]);
 
-  const updateBaseInterestRate = async (rate: number) => {
+  const updateBaseInterestRate = useCallback(async (rate: number) => {
     setBaseInterestRate(rate);
     toast({
       title: 'تم تحديث النسبة',
       description: `تم تحديث نسبة الربح الأساسية إلى ${rate}%.`,
     });
-  };
+  }, [toast]);
 
-  const updateInvestorSharePercentage = async (percentage: number) => {
+  const updateInvestorSharePercentage = useCallback(async (percentage: number) => {
     setInvestorSharePercentage(percentage);
     toast({
       title: 'تم تحديث النسبة',
       description: `تم تحديث حصة المستثمر من الأرباح إلى ${percentage}%.`,
     });
-  };
+  }, [toast]);
 
-  const updateGraceTotalProfitPercentage = async (percentage: number) => {
+  const updateGraceTotalProfitPercentage = useCallback(async (percentage: number) => {
     setGraceTotalProfitPercentage(percentage);
     toast({
       title: 'تم تحديث النسبة',
       description: `تم تحديث نسبة الربح الإجمالية لتمويل المهلة إلى ${percentage}%.`,
     });
-  };
+  }, [toast]);
 
-  const updateGraceInvestorSharePercentage = async (percentage: number) => {
+  const updateGraceInvestorSharePercentage = useCallback(async (percentage: number) => {
     setGraceInvestorSharePercentage(percentage);
     toast({
       title: 'تم تحديث النسبة',
       description: `تم تحديث حصة المستثمر من أرباح المهلة إلى ${percentage}%.`,
     });
-  };
+  }, [toast]);
   
-  const updateSupportInfo = async (info: { email?: string; phone?: string; }) => {
+  const updateSupportInfo = useCallback(async (info: { email?: string; phone?: string; }) => {
     if (info.email) {
         setSupportEmail(info.email);
     }
@@ -224,10 +226,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         title: 'تم تحديث معلومات الدعم',
         description: 'تم تحديث معلومات التواصل بنجاح (تجريبيًا).',
     });
-  };
+  }, [toast]);
 
 
-  const registerNewOfficeManager = async (
+  const registerNewOfficeManager = useCallback(async (
     credentials: SignUpCredentials
   ): Promise<{ success: boolean; message: string }> => {
     const existingUser = users.find(
@@ -278,9 +280,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       success: true,
       message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.',
     };
-  };
+  }, [users]);
 
-  const updateBorrower = async (updatedBorrower: Borrower) => {
+  const updateBorrower = useCallback(async (updatedBorrower: Borrower) => {
     const originalBorrower = borrowers.find((b) => b.id === updatedBorrower.id);
     if (!originalBorrower) return;
 
@@ -368,9 +370,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       prev.map((b) => (b.id === updatedBorrower.id ? updatedBorrower : b))
     );
     toast({ title: 'تم تحديث القرض (تجريبيًا)' });
-  };
+  }, [borrowers, graceTotalProfitPercentage, investorSharePercentage, addNotification, toast]);
 
-  const approveBorrower = async (borrowerId: string) => {
+  const approveBorrower = useCallback(async (borrowerId: string) => {
     const borrower = borrowers.find(b => b.id === borrowerId);
     if (!borrower) return;
 
@@ -387,9 +389,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     toast({ title: 'تمت الموافقة على القرض (تجريبيًا)' });
-  };
+  }, [borrowers, addNotification, toast]);
 
-  const rejectBorrower = async (borrowerId: string, reason: string) => {
+  const rejectBorrower = useCallback(async (borrowerId: string, reason: string) => {
     const borrower = borrowers.find(b => b.id === borrowerId);
     if (!borrower) return;
 
@@ -410,9 +412,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     toast({ variant: 'destructive', title: 'تم رفض القرض (تجريبيًا)' });
-  };
+  }, [borrowers, addNotification, toast]);
 
-  const addBorrower = async (
+  const addBorrower = useCallback(async (
     borrower: Omit<
       Borrower,
       'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy'
@@ -495,18 +497,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({
       title: 'تمت إضافة القرض بنجاح (تجريبيًا)',
     });
-  };
+  }, [investors, currentUser, toast, addNotification]);
 
-  const updateInvestor = async (updatedInvestor: UpdatableInvestor) => {
+  const updateInvestor = useCallback(async (updatedInvestor: UpdatableInvestor) => {
     setInvestors((prev) =>
       prev.map((i) =>
         i.id === updatedInvestor.id ? { ...i, ...updatedInvestor } : i
       )
     );
     toast({ title: 'تم تحديث المستثمر (تجريبيًا)' });
-  };
+  }, [toast]);
 
-  const approveInvestor = async (investorId: string) => {
+  const approveInvestor = useCallback(async (investorId: string) => {
     const investor = investors.find(i => i.id === investorId);
     if (!investor) return;
 
@@ -523,9 +525,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     toast({ title: 'تمت الموافقة على المستثمر (تجريبيًا)' });
-  };
+  }, [investors, addNotification, toast]);
 
-  const rejectInvestor = async (investorId: string, reason: string) => {
+  const rejectInvestor = useCallback(async (investorId: string, reason: string) => {
     const investor = investors.find(i => i.id === investorId);
     if (!investor) return;
 
@@ -546,9 +548,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     toast({ variant: 'destructive', title: 'تم رفض المستثمر (تجريبيًا)' });
-  };
+  }, [investors, addNotification, toast]);
 
- const addInvestor = async (investorPayload: NewInvestorPayload) => {
+ const addInvestor = useCallback(async (investorPayload: NewInvestorPayload) => {
     if (!currentUser) {
       toast({
         variant: 'destructive',
@@ -667,9 +669,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     toast({ title: 'تمت إضافة المستثمر بنجاح.' });
-  };
+  }, [currentUser, investors, users, toast, addNotification]);
 
-  const withdrawFromInvestor = async (
+  const withdrawFromInvestor = useCallback(async (
     investorId: string,
     withdrawal: Omit<Transaction, 'id'>
   ) => {
@@ -697,9 +699,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
 
     toast({ title: 'تمت عملية السحب بنجاح (تجريبيًا)' });
-  };
+  }, [addNotification, toast]);
 
-  const updateUserStatus = async (userId: string, status: User['status']) => {
+  const updateUserStatus = useCallback(async (userId: string, status: User['status']) => {
     const userToUpdate = users.find((u) => u.id === userId);
     if (!userToUpdate) return;
 
@@ -747,14 +749,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setUsers(newUsers);
     setInvestors(newInvestors);
     toast({ title: `تم تحديث حالة المستخدم ${cascadeMessage}`.trim() });
-  };
+  }, [users, investors, toast]);
 
-  const updateUserRole = async (userId: string, role: UserRole) => {
+  const updateUserRole = useCallback(async (userId: string, role: UserRole) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
     toast({ title: 'تم تحديث دور المستخدم (تجريبيًا)' });
-  };
+  }, [toast]);
 
-  const updateUserLimits = async (
+  const updateUserLimits = useCallback(async (
     userId: string,
     limits: { investorLimit: number; employeeLimit: number }
   ) => {
@@ -762,9 +764,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       prev.map((u) => (u.id === userId ? { ...u, ...limits } : u))
     );
     toast({ title: 'تم تحديث حدود المستخدم بنجاح.' });
-  };
+  }, [toast]);
   
-  const updateManagerSettings = async (
+  const updateManagerSettings = useCallback(async (
     managerId: string,
     settings: { allowEmployeeSubmissions: boolean }
   ) => {
@@ -774,14 +776,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       )
     );
     toast({ title: 'تم تحديث صلاحيات الموظفين بنجاح.' });
-  };
+  }, [toast]);
 
-  const deleteUser = async (userId: string) => {
+  const deleteUser = useCallback(async (userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     toast({ variant: 'destructive', title: 'تم حذف المستخدم (تجريبيًا)' });
-  };
+  }, [toast]);
 
-  const addSupportTicket = async (
+  const addSupportTicket = useCallback(async (
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
   ) => {
     const newTicket: SupportTicket = {
@@ -795,9 +797,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       title: 'تم إرسال طلب الدعم بنجاح',
       description: 'سيقوم مدير النظام بمراجعة طلبك في أقرب وقت.',
     });
-  };
+  }, [toast]);
 
-  const value = {
+  const value = useMemo(() => ({
     borrowers,
     investors,
     users,
@@ -834,7 +836,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteUser,
     clearUserNotifications,
     markUserNotificationsAsRead,
-  };
+  }), [
+    borrowers,
+    investors,
+    users,
+    supportTickets,
+    notifications,
+    salaryRepaymentPercentage,
+    baseInterestRate,
+    investorSharePercentage,
+    graceTotalProfitPercentage,
+    graceInvestorSharePercentage,
+    supportEmail,
+    supportPhone,
+    updateSupportInfo,
+    updateBaseInterestRate,
+    updateInvestorSharePercentage,
+    updateSalaryRepaymentPercentage,
+    updateGraceTotalProfitPercentage,
+    updateGraceInvestorSharePercentage,
+    addSupportTicket,
+    registerNewOfficeManager,
+    addBorrower,
+    updateBorrower,
+    addInvestor,
+    updateInvestor,
+    withdrawFromInvestor,
+    approveBorrower,
+    approveInvestor,
+    rejectBorrower,
+    rejectInvestor,
+    updateUserStatus,
+    updateUserRole,
+    updateUserLimits,
+    updateManagerSettings,
+    deleteUser,
+    clearUserNotifications,
+    markUserNotificationsAsRead,
+  ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
