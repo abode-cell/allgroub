@@ -180,6 +180,8 @@ export default function CalculatorPage() {
                       value={loanAmount}
                       onChange={(e) => setLoanAmount(Number(e.target.value))}
                       placeholder="أدخل مبلغ القرض"
+                      style={{ direction: 'ltr' }}
+                      className="text-right"
                     />
                   </div>
                    {showProfitDetails ? (
@@ -195,6 +197,8 @@ export default function CalculatorPage() {
                               value={localBaseInterestRate}
                               onChange={(e) => setLocalBaseInterestRate(Number(e.target.value))}
                               placeholder="نسبة الربح السنوية"
+                              style={{ direction: 'ltr' }}
+                              className="text-right"
                             />
                         </div>
                         <Button 
@@ -215,7 +219,8 @@ export default function CalculatorPage() {
                         type="number"
                         value={baseInterestRate}
                         readOnly
-                        className="bg-muted/50"
+                        style={{ direction: 'ltr' }}
+                        className="bg-muted/50 text-right"
                       />
                     </div>
                   )}
@@ -227,6 +232,8 @@ export default function CalculatorPage() {
                       value={loanTerm}
                       onChange={(e) => setLoanTerm(Number(e.target.value))}
                       placeholder="أدخل مدة القرض"
+                      style={{ direction: 'ltr' }}
+                      className="text-right"
                     />
                   </div>
                   {showProfitDetails && (
@@ -242,6 +249,8 @@ export default function CalculatorPage() {
                               value={localInvestorSharePercentage}
                               onChange={(e) => setLocalInvestorSharePercentage(Number(e.target.value))}
                               placeholder="حصة المستثمر"
+                              style={{ direction: 'ltr' }}
+                              className="text-right"
                             />
                         </div>
                         <Button 
@@ -316,6 +325,8 @@ export default function CalculatorPage() {
                         value={graceLoanAmount}
                         onChange={(e) => setGraceLoanAmount(Number(e.target.value))}
                         placeholder="أدخل مبلغ القرض"
+                        style={{ direction: 'ltr' }}
+                        className="text-right"
                       />
                     </div>
                     {showProfitDetails && (
@@ -332,6 +343,8 @@ export default function CalculatorPage() {
                                       value={localGraceTotalProfitPercentage}
                                       onChange={(e) => setLocalGraceTotalProfitPercentage(Number(e.target.value))}
                                       placeholder="نسبة الربح الإجمالية"
+                                      style={{ direction: 'ltr' }}
+                                      className="text-right"
                                   />
                               </div>
                               <Button
@@ -355,6 +368,8 @@ export default function CalculatorPage() {
                                       value={localGraceInvestorSharePercentage}
                                       onChange={(e) => setLocalGraceInvestorSharePercentage(Number(e.target.value))}
                                       placeholder="حصة المستثمر من الربح"
+                                      style={{ direction: 'ltr' }}
+                                      className="text-right"
                                   />
                               </div>
                               <Button
@@ -422,6 +437,8 @@ export default function CalculatorPage() {
                       value={salary}
                       onChange={(e) => setSalary(Number(e.target.value))}
                       placeholder="أدخل راتبك الشهري"
+                      style={{ direction: 'ltr' }}
+                      className="text-right"
                     />
                   </div>
                    {showProfitDetails && (
@@ -437,6 +454,8 @@ export default function CalculatorPage() {
                           value={localSalaryRepaymentPercentage}
                           onChange={(e) => setLocalSalaryRepaymentPercentage(Number(e.target.value))}
                           placeholder="نسبة السداد من الراتب"
+                          style={{ direction: 'ltr' }}
+                          className="text-right"
                         />
                       </div>
                        <Button 
