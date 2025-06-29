@@ -3,13 +3,22 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { User } from '@/lib/types';
-// Custom Arabic font and logo have been removed to fix export crashes.
-// A standard font will be used as a fallback.
+import { amiriFont } from './amiri-font';
+
+// A valid, simple PNG logo as a Base64 data URI.
+const logoPngDataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAV2SURBVHhe7Zx/bBRVFMf/u9vV1q5ttYBaQ60tFVEwKqUqaiToQUV4QxM+8EERH1iASCiEBk1QUKNGNIaAQg8i8dEPEiUiKBoNfICkQqmggEhpA4gt4Ghb2/Z2d/f2zI/t9nZ39t52t3cfMsnPnLP3zOye+c3cuTNn7oTAf+uA+6gXqMcaA/UaNaF6jJpS/Uatqf5DGhM1oTqmNaR6gxqneqwaUaORaUCtVqORaUStVqORaUyNRqYBNRqJRhVqNRqJRgVqNRqJRgVqNZpI/YZaTSR+o1aTiR+o1Wgi9RttNZH6jVpNJH6jVtOI1G+0nkTqN2pPIvUbtaeVqO9oqYnUb9SeVqK+o/W0E/WfLaedqP9sNfUf3HkC0H7B9sQAAAAASUVORK5CYII=';
 
 const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; user: User; columns:string[]; rows: (string | number)[][]; filename: string; }) => {
   const doc = new jsPDF();
   
-  // The custom font code has been removed to prevent crashing.
+  try {
+    // Register the font with jsPDF
+    doc.addFileToVFS('Amiri-Regular.ttf', amiriFont);
+    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+  } catch (e) {
+    console.error('Could not add font to PDF', e);
+    // Continue without the font if it fails
+  }
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -17,12 +26,13 @@ const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; 
 
   // Add the header on each page
   const header = () => {
-    // Logo is removed to prevent crashes.
+    // Logo
+    doc.addImage(logoPngDataUri, 'PNG', pageWidth - 28, 12, 14, 14);
 
     // Title
+    doc.setFont('Amiri'); // Use Amiri for Arabic text
     doc.setFontSize(10);
-    doc.setFont('Helvetica', 'normal');
-    doc.text('مجموعة عال', pageWidth - 20, 20, { align: 'right' });
+    doc.text('مجموعة عال', pageWidth - 32, 20, { align: 'right' });
     doc.setFontSize(18);
     doc.text(title, pageWidth / 2, 28, { align: 'center' });
   };
@@ -30,8 +40,8 @@ const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; 
   // Add the footer on each page
   const footer = (data: any) => {
     const pageCount = doc.internal.getNumberOfPages();
+    doc.setFont('Amiri'); // Use Amiri for Arabic text
     doc.setFontSize(10);
-    doc.setFont('Helvetica', 'normal');
     doc.text(`تاريخ التصدير: ${today}`, pageWidth - data.settings.margin.right, pageHeight - 10, { align: 'right' });
     doc.text(`تم التصدير بواسطة: ${user.name}`, data.settings.margin.left, pageHeight - 10, { align: 'left' });
     doc.text(`صفحة ${data.pageNumber} من ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
@@ -42,10 +52,11 @@ const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; 
     body: rows,
     startY: 40,
     styles: {
-      // font: 'Amiri', // Font removed to fix crash
-      halign: 'center', 
+      font: 'Amiri', // Specify the font for the table body
+      halign: 'center',
     },
     headStyles: {
+      font: 'Amiri', // Specify the font for the table header
       fillColor: [15, 44, 89], // Primary color #0F2C59
       textColor: [255, 255, 255],
       fontStyle: 'bold',
