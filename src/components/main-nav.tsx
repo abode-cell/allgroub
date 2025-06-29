@@ -11,6 +11,7 @@ import {
   LifeBuoy,
   PiggyBank,
   FileUp,
+  KeyRound,
   type LucideIcon,
 } from 'lucide-react';
 import type { UserRole, PermissionKey } from '@/lib/types';
@@ -96,5 +97,11 @@ export const allMenuItems: MenuItem[] = [
     icon: Settings,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
     permission: 'accessSettings',
+  },
+  {
+    href: '/credentials',
+    label: 'بيانات الدخول',
+    icon: KeyRound,
+    roles: ['مدير النظام'],
   },
 ];
