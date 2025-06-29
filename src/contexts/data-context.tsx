@@ -131,56 +131,35 @@ const formatCurrency = (value: number) =>
 
 const APP_DATA_KEY = 'appData';
 
+const initialData = {
+  borrowers: initialBorrowersData,
+  investors: initialInvestorsData,
+  users: initialUsersData,
+  supportTickets: initialSupportTicketsData,
+  notifications: initialNotificationsData,
+  salaryRepaymentPercentage: 30,
+  baseInterestRate: 5.5,
+  investorSharePercentage: 70,
+  graceTotalProfitPercentage: 30,
+  graceInvestorSharePercentage: 33.3,
+  supportEmail: 'support@aalg-group.com',
+  supportPhone: '920012345',
+};
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState(() => {
     if (typeof window === 'undefined') {
-      return {
-        borrowers: initialBorrowersData,
-        investors: initialInvestorsData,
-        users: initialUsersData,
-        supportTickets: initialSupportTicketsData,
-        notifications: initialNotificationsData,
-        salaryRepaymentPercentage: 30,
-        baseInterestRate: 5.5,
-        investorSharePercentage: 70,
-        graceTotalProfitPercentage: 30,
-        graceInvestorSharePercentage: 33.3,
-        supportEmail: 'support@aalg-group.com',
-        supportPhone: '920012345',
-      };
+      return initialData;
     }
     try {
       const item = window.localStorage.getItem(APP_DATA_KEY);
-      return item ? JSON.parse(item) : {
-        borrowers: initialBorrowersData,
-        investors: initialInvestorsData,
-        users: initialUsersData,
-        supportTickets: initialSupportTicketsData,
-        notifications: initialNotificationsData,
-        salaryRepaymentPercentage: 30,
-        baseInterestRate: 5.5,
-        investorSharePercentage: 70,
-        graceTotalProfitPercentage: 30,
-        graceInvestorSharePercentage: 33.3,
-        supportEmail: 'support@aalg-group.com',
-        supportPhone: '920012345',
-      };
+      if (item) {
+        return JSON.parse(item);
+      }
+      return initialData;
     } catch (error) {
       console.warn(`Error reading localStorage key “${APP_DATA_KEY}”:`, error);
-       return {
-        borrowers: initialBorrowersData,
-        investors: initialInvestorsData,
-        users: initialUsersData,
-        supportTickets: initialSupportTicketsData,
-        notifications: initialNotificationsData,
-        salaryRepaymentPercentage: 30,
-        baseInterestRate: 5.5,
-        investorSharePercentage: 70,
-        graceTotalProfitPercentage: 30,
-        graceInvestorSharePercentage: 33.3,
-        supportEmail: 'support@aalg-group.com',
-        supportPhone: '920012345',
-      };
+      return initialData;
     }
   });
 
@@ -622,8 +601,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({ title: `تم تحديث حالة المستخدم ${cascadeMessage}`.trim() });
   }, [toast]);
 
-  const updateUserRole = useCallback((userId, role) => {
-    setData(prev => ({...prev, users: prev.users.map(u => u.id === userId ? { ...u, role } : u)}));
+  const updateUserRole = useCallback((userId: string, role: UserRole) => {
+    setData(prev => ({
+      ...prev,
+      users: prev.users.map(u => {
+        if (u.id === userId) {
+          const updatedUser = { ...u, role };
+
+          // Reset properties that are not relevant to the new role
+          if (role === 'مستثمر' || role === 'مدير النظام') {
+            delete updatedUser.managedBy;
+            delete updatedUser.permissions;
+          }
+          if (role !== 'مدير المكتب') {
+            delete updatedUser.investorLimit;
+            delete updatedUser.employeeLimit;
+            delete updatedUser.allowEmployeeSubmissions;
+            delete updatedUser.hideEmployeeInvestorFunds;
+          }
+           if (role !== 'مساعد مدير المكتب') {
+             if(updatedUser.permissions) delete updatedUser.permissions;
+           } else {
+             updatedUser.permissions = {}; // Initialize empty permissions for new assistants
+           }
+
+          return updatedUser;
+        }
+        return u;
+      })
+    }));
     toast({ title: 'تم تحديث دور المستخدم' });
   }, [toast]);
 
