@@ -278,20 +278,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateBorrowerPaymentStatus = useCallback((borrowerId: string, paymentStatus?: BorrowerPaymentStatus) => {
     setData(prev => {
-        const originalBorrower = prev.borrowers.find(b => b.id === borrowerId);
-        if (!originalBorrower) return prev;
-
-        let toastMessage: { title: string, description: string, variant?: "destructive" } | null = null;
-        const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-        
-        // Create new arrays from the start to avoid mutation
         const newBorrowers = [...prev.borrowers];
         const newInvestors = [...prev.investors];
 
         const borrowerIndex = newBorrowers.findIndex(b => b.id === borrowerId);
         if (borrowerIndex === -1) return prev;
 
-        const updatedBorrower: Borrower = { ...newBorrowers[borrowerIndex] };
+        const originalBorrower = newBorrowers[borrowerIndex];
+        const updatedBorrower: Borrower = { ...originalBorrower };
 
         if (paymentStatus) {
             updatedBorrower.paymentStatus = paymentStatus;
@@ -299,7 +293,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             delete (updatedBorrower as Partial<Borrower>).paymentStatus;
         }
 
-        // Logic for "Paid Off"
+        let toastMessage: { title: string, description: string, variant?: "destructive" } | null = null;
+        const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+
         if (paymentStatus === 'تم السداد' && originalBorrower.status !== 'مسدد بالكامل') {
             updatedBorrower.status = 'مسدد بالكامل';
             if (originalBorrower.fundedBy) {
@@ -310,7 +306,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 originalBorrower.fundedBy.forEach(funder => {
                     const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
                     if (investorIndex > -1) {
-                        const investor = newInvestors[investorIndex];
+                        const investor = { ...newInvestors[investorIndex] }; // Create copy
                         const loanShare = funder.amount / originalBorrower.amount;
                         const investorProfitShare = originalBorrower.loanType === 'اقساط'
                             ? totalProfit * (prev.investorSharePercentage / 100) * loanShare
@@ -322,47 +318,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
                             description: `أرباح من قرض "${originalBorrower.name}"`,
                         };
                         
-                        newInvestors[investorIndex] = {
-                          ...investor,
-                          transactionHistory: [...investor.transactionHistory, profitTransaction],
-                          amount: investor.amount + principalReturn + investorProfitShare,
-                          fundedLoanIds: investor.fundedLoanIds.filter(id => id !== originalBorrower.id)
-                        };
+                        investor.transactionHistory = [...investor.transactionHistory, profitTransaction];
+                        investor.amount = investor.amount + principalReturn + investorProfitShare;
+                        investor.fundedLoanIds = investor.fundedLoanIds.filter(id => id !== originalBorrower.id);
+                        newInvestors[investorIndex] = investor;
 
                         notificationsToQueue.push({ recipientId: funder.investorId, title: 'أرباح محققة', description: `تم سداد قرض "${originalBorrower.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.` });
                     }
                 });
                 toastMessage = { title: 'تم سداد القرض بالكامل', description: 'تمت إعادة الأموال والأرباح للمستثمرين بنجاح.' };
             }
-        }
-        // Logic for "Defaulted"
-        else if (paymentStatus === 'متعثر' && originalBorrower.status !== 'متعثر') {
-          updatedBorrower.status = 'متعثر';
-          if (originalBorrower.fundedBy) {
-              originalBorrower.fundedBy.forEach(funder => {
-                const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
-                if (investorIndex > -1) {
-                    const investor = newInvestors[investorIndex];
-                    newInvestors[investorIndex] = { ...investor, defaultedFunds: (investor.defaultedFunds || 0) + funder.amount };
-                    notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.` });
-                }
-            });
-            toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
-          }
+        } else if (paymentStatus === 'متعثر' && originalBorrower.status !== 'متعثر') {
+            updatedBorrower.status = 'متعثر';
+            if (originalBorrower.fundedBy) {
+                originalBorrower.fundedBy.forEach(funder => {
+                    const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
+                    if (investorIndex > -1) {
+                        const investor = { ...newInvestors[investorIndex] };
+                        investor.defaultedFunds = (investor.defaultedFunds || 0) + funder.amount;
+                        newInvestors[investorIndex] = investor;
+                        notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.` });
+                    }
+                });
+                toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
+            }
         }
 
         newBorrowers[borrowerIndex] = updatedBorrower;
         
         setTimeout(() => {
-          if (toastMessage) {
-            toast(toastMessage);
-          } else {
-            toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".` });
-          }
-          notificationsToQueue.forEach(addNotification);
+            if (toastMessage) {
+                toast(toastMessage);
+            } else {
+                toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".` });
+            }
+            notificationsToQueue.forEach(addNotification);
         }, 0);
         
-        // Return the new state object with the new arrays
         return {
             ...prev,
             borrowers: newBorrowers,
@@ -583,36 +575,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [currentUser, toast]);
 
   const updateUserStatus = useCallback((userId: string, status: User['status']) => {
-    let userToUpdate: User | undefined;
     setData(prev => {
-        userToUpdate = prev.users.find(u => u.id === userId);
-        if (!userToUpdate) return prev;
-        
+        const userToUpdate = prev.users.find(u => u.id === userId);
+        if (!userToUpdate) {
+            setTimeout(() => toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' }), 0);
+            return prev;
+        }
+
+        const isSuspending = status === 'معلق';
+
         const newUsers = prev.users.map(u => {
-            if (u.id === userId) return { ...u, status };
-            if (userToUpdate?.role === 'مدير المكتب' && u.managedBy === userId) return { ...u, status };
+            if (u.id === userId) {
+                return { ...u, status };
+            }
+            if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userId) {
+                return { ...u, status };
+            }
             return u;
         });
         
-        let newInvestors = prev.investors;
+        let newInvestors = [...prev.investors];
         if (userToUpdate.role === 'مدير المكتب') {
-            const isSuspending = status === 'معلق';
-            const newInvestorStatus = isSuspending ? 'غير نشط' : 'نشط';
             newInvestors = prev.investors.map(inv => {
                 if (inv.submittedBy === userId) {
-                    if (isSuspending || inv.status === 'غير نشط') return { ...inv, status: newInvestorStatus };
+                    if (isSuspending && inv.status === 'نشط') {
+                        return { ...inv, status: 'غير نشط' };
+                    }
+                    if (!isSuspending && inv.status === 'غير نشط') {
+                        return { ...inv, status: 'نشط' };
+                    }
                 }
                 return inv;
             });
         }
         
+        setTimeout(() => {
+            const cascadeMessage = userToUpdate?.role === 'مدير المكتب' 
+              ? (status === 'معلق' ? 'وتم تعليق الحسابات المرتبطة به.' : 'وتم إعادة تفعيل الحسابات المرتبطة به.')
+              : '';
+            toast({ title: `تم تحديث حالة المستخدم ${cascadeMessage}`.trim() });
+        }, 0);
+        
         return { ...prev, users: newUsers, investors: newInvestors };
     });
-
-    const cascadeMessage = userToUpdate?.role === 'مدير المكتب' 
-      ? (status === 'معلق' ? 'وتم تعليق الحسابات المرتبطة به.' : 'وتم إعادة تفعيل الحسابات المرتبطة به.')
-      : '';
-    toast({ title: `تم تحديث حالة المستخدم ${cascadeMessage}`.trim() });
   }, [toast]);
 
   const updateUserRole = useCallback((userId: string, role: UserRole) => {
@@ -622,7 +627,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (u.id === userId) {
           const updatedUser = { ...u, role };
 
-          // Reset properties that are not relevant to the new role
           if (role === 'مستثمر' || role === 'مدير النظام') {
             delete updatedUser.managedBy;
             delete updatedUser.permissions;
@@ -636,7 +640,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
            if (role !== 'مساعد مدير المكتب') {
              if(updatedUser.permissions) delete updatedUser.permissions;
            } else {
-             updatedUser.permissions = {}; // Initialize empty permissions for new assistants
+             updatedUser.permissions = {};
            }
 
           return updatedUser;
@@ -666,8 +670,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const deleteUser = useCallback((userId: string) => {
-    setData(prev => ({...prev, users: prev.users.filter(u => u.id !== userId)}));
-    toast({ variant: 'destructive', title: 'تم حذف المستخدم' });
+    setData(prev => {
+        const userToDelete = prev.users.find(u => u.id === userId);
+        if (!userToDelete) {
+             setTimeout(() => toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' }), 0);
+            return prev;
+        };
+
+        let idsToDelete = [userId];
+
+        if (userToDelete.role === 'مدير المكتب') {
+            prev.users.forEach(u => {
+                if (u.managedBy === userId && (u.role === 'موظف' || u.role === 'مساعد مدير المكتب')) {
+                    idsToDelete.push(u.id);
+                }
+            });
+        }
+        
+        const newUsers = prev.users.filter(u => !idsToDelete.includes(u.id));
+        
+        setTimeout(() => {
+            const message = idsToDelete.length > 1 ? `تم حذف المستخدم و ${idsToDelete.length - 1} حسابات مرتبطة.` : '';
+            toast({ variant: 'destructive', title: 'تم حذف المستخدم بنجاح', description: message });
+        }, 0);
+
+        return { ...prev, users: newUsers };
+    });
   }, [toast]);
 
   const requestCapitalIncrease = useCallback((investorId: string) => {
