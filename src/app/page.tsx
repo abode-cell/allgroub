@@ -372,24 +372,36 @@ export default function DashboardPage() {
 
   const displayedInvestors = useMemo(() => {
     if (!currentUser) return [];
-    if (role === 'مدير المكتب') {
+    if (role === 'مدير النظام') {
+        return investors;
+    }
+    if (role === 'موظف') {
         return investors.filter(i => i.submittedBy === currentUser.id);
     }
-    if (role === 'مساعد مدير المكتب' && currentUser.managedBy) {
-        return investors.filter(i => i.submittedBy === currentUser.managedBy || i.submittedBy === currentUser.id);
-    }
-    return investors;
-  }, [investors, currentUser, role]);
-
-  const displayedBorrowers = useMemo(() => {
-    if (!currentUser) return [];
     if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser.managedBy)) {
         const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
         const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
-        const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
-        return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
+        const relevantIds = [managerId, ...subordinateIds, currentUser.id].filter(Boolean);
+        return investors.filter(i => i.submittedBy && Array.from(new Set(relevantIds)).includes(i.submittedBy));
     }
-    return borrowers;
+    return [];
+  }, [investors, users, currentUser, role]);
+
+  const displayedBorrowers = useMemo(() => {
+    if (!currentUser) return [];
+    if (role === 'مدير النظام') {
+        return borrowers;
+    }
+     if (role === 'موظف') {
+        return borrowers.filter(b => b.submittedBy === currentUser.id);
+    }
+    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser.managedBy)) {
+        const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+        const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
+        const relevantIds = [managerId, ...subordinateIds, currentUser.id].filter(Boolean);
+        return borrowers.filter(b => b.submittedBy && Array.from(new Set(relevantIds)).includes(b.submittedBy));
+    }
+    return [];
   }, [borrowers, users, currentUser, role]);
 
   if (!currentUser) {

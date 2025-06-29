@@ -48,59 +48,8 @@ import {
   TooltipTrigger,
 } from '../ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { cn } from '@/lib/utils';
+import { cn, getBorrowerStatus } from '@/lib/utils';
 import { CheckCircle, Users } from 'lucide-react';
-
-const dueStatusVariant: {
-  [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
-} = {
-  جديد: 'default',
-  'متوسط المدة': 'outline',
-  'مستحق الدفع': 'destructive',
-  متأخر: 'destructive',
-  'تمت المعالجة': 'success',
-  'طلب معلق': 'secondary',
-  مرفوض: 'destructive',
-  منتظم: 'default',
-};
-
-const getDueStatus = (borrower: Borrower): { text: string; variant: keyof typeof dueStatusVariant } => {
-    if (borrower.paymentStatus) {
-        return { text: 'تمت المعالجة', variant: 'success' };
-    }
-    
-    if (borrower.status === 'معلق') return { text: 'طلب معلق', variant: 'secondary' };
-    if (borrower.status === 'مرفوض') return { text: 'مرفوض', variant: 'destructive' };
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDate = new Date(borrower.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
-
-    if (today > dueDate) {
-        return { text: 'متأخر', variant: 'destructive' };
-    }
-
-    const startDate = new Date(borrower.date);
-    startDate.setHours(0, 0, 0, 0);
-
-    const totalDuration = dueDate.getTime() - startDate.getTime();
-    if (totalDuration <= 0) {
-        return { text: 'منتظم', variant: 'default' };
-    }
-
-    const elapsedDuration = today.getTime() - startDate.getTime();
-    const progress = elapsedDuration / totalDuration;
-
-    if (progress < 0.50) { 
-        return { text: 'جديد', variant: 'default' };
-    }
-    if (progress < 0.90) { 
-        return { text: 'متوسط المدة', variant: 'outline' };
-    }
-    return { text: 'مستحق الدفع', variant: 'destructive' };
-};
-
 
 const paymentStatusVariant: {
   [key in BorrowerPaymentStatus]: 'success' | 'default' | 'secondary' | 'destructive';
@@ -248,6 +197,7 @@ export function BorrowersTable({
                   const fundedByOneInvestor = borrower.fundedBy && borrower.fundedBy.length === 1;
                   const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
+                  const borrowerStatus = getBorrowerStatus(borrower);
 
                   return (
                   <TableRow key={borrower.id}>
@@ -317,14 +267,9 @@ export function BorrowersTable({
                     </TableCell>
                     <TableCell>{borrower.dueDate}</TableCell>
                     <TableCell className="text-center">
-                      {(() => {
-                          const dueStatus = getDueStatus(borrower);
-                          return (
-                              <Badge variant={dueStatus.variant}>
-                                  {dueStatus.text}
-                              </Badge>
-                          );
-                      })()}
+                      <Badge variant={borrowerStatus.variant}>
+                          {borrowerStatus.text}
+                      </Badge>
                     </TableCell>
                     {canPerformActions && (
                     <TableCell className="text-left">
@@ -541,9 +486,10 @@ export function BorrowersTable({
                   <SelectContent>
                     <SelectItem value="منتظم">منتظم</SelectItem>
                     <SelectItem value="متأخر">متأخر</SelectItem>
-                    <SelectItem value="متعثر">متعثر</SelectItem>
                     <SelectItem value="معلق">طلب معلق</SelectItem>
-                    <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
+                    {/* Critical statuses are handled by payment status dropdown */}
+                    <SelectItem value="متعثر" disabled>متعثر (يتم تحديده من حالة السداد)</SelectItem>
+                    <SelectItem value="مسدد بالكامل" disabled>مسدد بالكامل (يتم تحديده من حالة السداد)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -625,16 +571,7 @@ export function BorrowersTable({
           {selectedBorrower && (() => {
             const totalFunded = selectedBorrower.fundedBy?.reduce((sum, funder) => sum + funder.amount, 0) || 0;
             const isPartiallyFunded = totalFunded < selectedBorrower.amount;
-            const statusVariant: {
-              [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
-            } = {
-              منتظم: 'default',
-              متأخر: 'destructive',
-              متعثر: 'destructive',
-              معلق: 'secondary',
-              'مسدد بالكامل': 'success',
-              مرفوض: 'destructive',
-            };
+            const borrowerStatus = getBorrowerStatus(selectedBorrower);
 
             return (
               <div className="grid gap-4 py-4 text-sm">
@@ -667,7 +604,7 @@ export function BorrowersTable({
                     <div>
                         <span className='text-muted-foreground'>الحالة:</span>
                         <span className='font-bold float-left'>
-                            <Badge variant={statusVariant[selectedBorrower.status] || 'outline'}>{selectedBorrower.status}</Badge>
+                            <Badge variant={borrowerStatus.variant}>{borrowerStatus.text}</Badge>
                         </span>
                     </div>
                 </div>

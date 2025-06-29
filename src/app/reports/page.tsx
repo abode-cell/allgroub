@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { exportToPrintableHtml } from '@/lib/html-export';
+import { getBorrowerStatus } from '@/lib/utils';
 
 
 const PageSkeleton = () => (
@@ -50,51 +51,15 @@ const statusVariant: {
   مرفوض: 'destructive',
   'نشط': 'success',
   'غير نشط': 'secondary',
+  'جديد': 'default',
+  'منتصف المدة': 'outline',
+  'اقترب السداد': 'default',
+  'متأخر السداد': 'destructive',
+  'طلب معلق': 'secondary',
+  'تم السداد': 'success',
+  'مسدد جزئي': 'default',
+  'تم الإمهال': 'secondary',
 };
-
-
-const getDynamicStatus = (borrower: Borrower): { text: string; variant: keyof typeof statusVariant } => {
-    // Priority statuses that are manually set or are terminal
-    if (borrower.status === 'مسدد بالكامل') return { text: 'مسدد بالكامل', variant: 'success' };
-    if (borrower.status === 'متعثر') return { text: 'متعثر', variant: 'destructive' };
-    if (borrower.status === 'معلق') return { text: 'طلب معلق', variant: 'secondary' };
-    if (borrower.status === 'مرفوض') return { text: 'مرفوض', variant: 'destructive' };
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDate = new Date(borrower.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
-    const startDate = new Date(borrower.date);
-    startDate.setHours(0, 0, 0, 0);
-
-    // Automatic 'Late' status if due date is passed
-    if (today > dueDate) {
-        return { text: 'متأخر', variant: 'destructive' };
-    }
-    
-    // If the loan is manually marked as late, respect that.
-    if (borrower.status === 'متأخر') {
-         return { text: 'متأخر', variant: 'destructive' };
-    }
-
-    // Lifecycle statuses for ongoing loans (i.e., status is 'منتظم')
-    const totalDuration = dueDate.getTime() - startDate.getTime();
-    if (totalDuration <= 0) {
-        return { text: borrower.status, variant: statusVariant[borrower.status] || 'default' };
-    }
-
-    const elapsedDuration = today.getTime() - startDate.getTime();
-    const progress = elapsedDuration / totalDuration;
-
-    if (progress < 0.25) { 
-        return { text: 'جديد', variant: 'default' };
-    }
-    if (progress < 0.80) { 
-        return { text: 'منتصف المدة', variant: 'default' };
-    }
-    return { text: 'اقترب السداد', variant: 'outline' };
-};
-
 
 const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], getInvestorInfoForLoan: (loan: Borrower) => React.ReactNode }) => (
      <Table>
@@ -111,7 +76,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
         <TableBody>
           {loans.length > 0 ? (
             loans.map((loan) => {
-              const dynamicStatus = getDynamicStatus(loan);
+              const borrowerStatus = getBorrowerStatus(loan);
               return (
                 <TableRow key={loan.id}>
                   <TableCell className="font-medium">{loan.name}</TableCell>
@@ -119,8 +84,8 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
                   <TableCell>{loan.date}</TableCell>
                   <TableCell>{loan.dueDate}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant={dynamicStatus.variant}>
-                      {dynamicStatus.text}
+                    <Badge variant={borrowerStatus.variant}>
+                      {borrowerStatus.text}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center">
@@ -205,8 +170,8 @@ export default function ReportsPage() {
     const title = "تقرير قروض الأقساط";
     const columns = ["اسم المقترض", "مبلغ القرض", "تاريخ القرض", "تاريخ الاستحقاق", "الحالة", "الممول"];
     const rows = installmentLoans.map(loan => {
-      const dynamicStatus = getDynamicStatus(loan);
-      return [loan.name, loan.amount, loan.date, loan.dueDate, dynamicStatus.text, getInvestorInfoForLoan(loan) as string];
+      const borrowerStatus = getBorrowerStatus(loan);
+      return [loan.name, loan.amount, loan.date, loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
     exportToPrintableHtml(title, columns, rows, currentUser);
   };
@@ -216,8 +181,8 @@ export default function ReportsPage() {
     const title = "تقرير قروض المهلة";
     const columns = ["اسم المقترض", "مبلغ القرض", "تاريخ القرض", "تاريخ الاستحقاق", "الحالة", "الممول"];
     const rows = gracePeriodLoans.map(loan => {
-      const dynamicStatus = getDynamicStatus(loan);
-      return [loan.name, loan.amount, loan.date, loan.dueDate, dynamicStatus.text, getInvestorInfoForLoan(loan) as string];
+      const borrowerStatus = getBorrowerStatus(loan);
+      return [loan.name, loan.amount, loan.date, loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
     exportToPrintableHtml(title, columns, rows, currentUser);
   };
@@ -378,13 +343,13 @@ export default function ReportsPage() {
                             {installmentLoansFunded.length > 0 ? (
                                 installmentLoansFunded.map(loan => {
                                 const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
-                                const dynamicStatus = getDynamicStatus(loan);
+                                const borrowerStatus = getBorrowerStatus(loan);
                                 return (
                                     <TableRow key={loan.id}>
                                     <TableCell>{loan.name}</TableCell>
                                     <TableCell>{formatCurrency(fundingAmount)}</TableCell>
                                     <TableCell>{loan.dueDate}</TableCell>
-                                    <TableCell className="text-center"><Badge variant={dynamicStatus.variant}>{dynamicStatus.text}</Badge></TableCell>
+                                    <TableCell className="text-center"><Badge variant={borrowerStatus.variant}>{borrowerStatus.text}</Badge></TableCell>
                                     </TableRow>
                                 )
                                 })
@@ -412,13 +377,13 @@ export default function ReportsPage() {
                             {gracePeriodLoansFunded.length > 0 ? (
                                 gracePeriodLoansFunded.map(loan => {
                                 const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
-                                const dynamicStatus = getDynamicStatus(loan);
+                                const borrowerStatus = getBorrowerStatus(loan);
                                 return (
                                     <TableRow key={loan.id}>
                                     <TableCell>{loan.name}</TableCell>
                                     <TableCell>{formatCurrency(fundingAmount)}</TableCell>
                                     <TableCell>{loan.dueDate}</TableCell>
-                                    <TableCell className="text-center"><Badge variant={dynamicStatus.variant}>{dynamicStatus.text}</Badge></TableCell>
+                                    <TableCell className="text-center"><Badge variant={borrowerStatus.variant}>{borrowerStatus.text}</Badge></TableCell>
                                     </TableRow>
                                 )
                                 })

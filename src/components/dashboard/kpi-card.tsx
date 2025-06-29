@@ -26,7 +26,7 @@ export function KpiCard({
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
         <p className={cn('text-xs text-muted-foreground', changeColor)}>
-          {change && `${change} عن الشهر الماضي`}
+          {change}
         </p>
       </CardContent>
     </Card>
