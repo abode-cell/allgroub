@@ -43,7 +43,7 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
-  const { currentUser, users } = useData();
+  const { currentUser, users, investorSharePercentage } = useData();
   const role = currentUser?.role;
 
   const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
@@ -52,13 +52,23 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
   const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
   const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
   
-  const netProfit = 0; // REMOVED mock data, should be calculated from real data
+  const profitableInstallmentLoans = installmentLoans.filter(
+    b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+  );
+  
+  const netProfit = profitableInstallmentLoans.reduce((acc, loan) => {
+    if (!loan.rate || !loan.term) return acc;
+    return acc + (loan.amount * (loan.rate / 100) * loan.term);
+  }, 0);
+
+  const totalInstitutionProfit = netProfit * ((100 - investorSharePercentage) / 100);
+  const totalInvestorsProfit = netProfit * (investorSharePercentage / 100);
+
   const dueDebts = installmentLoans
     .filter(b => b.status === 'متأخر')
-    .reduce((acc, b) => acc + b.amount, 0); // Calculated from data
+    .reduce((acc, b) => acc + b.amount, 0); 
 
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
-  const showProfitChart = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
 
   return (
@@ -102,12 +112,49 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
-        {showProfitChart && (
+        {showSensitiveData && (
           <div className="col-span-12 lg:col-span-4">
-            <ProfitChart />
+            <Card>
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="item-1" className="border-b-0">
+                        <AccordionTrigger className="p-6 hover:no-underline">
+                            <div className="flex w-full items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <TrendingUp className="h-8 w-8 text-primary" />
+                                    <div className="text-right">
+                                        <h3 className="text-lg font-semibold">إجمالي صافي الأرباح (أقساط)</h3>
+                                        <p className="text-2xl font-bold">{formatCurrency(netProfit)}</p>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground">انقر لعرض التفاصيل</p>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-6 pb-6 pt-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>الجهة</TableHead>
+                                        <TableHead className="text-left">الأرباح</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell className="font-medium">ربح المؤسسة</TableCell>
+                                        <TableCell className="text-left font-semibold">{formatCurrency(totalInstitutionProfit)}</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell className="font-medium">ربح المستثمرين</TableCell>
+                                        <TableCell className="text-left font-semibold">{formatCurrency(totalInvestorsProfit)}</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            </Card>
           </div>
         )}
-        <div className={cn("col-span-12", showProfitChart ? "lg:col-span-3" : "lg:col-span-7")}>
+        <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-3" : "lg:col-span-7")}>
           <LoansStatusChart borrowers={installmentLoans} />
         </div>
       </div>
@@ -213,36 +260,48 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
               {showSensitiveData && (
                  <div className="col-span-12 lg:col-span-4">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>تفاصيل صافي الأرباح (المهلة)</CardTitle>
-                            <CardDescription>توزيع الأرباح المتوقعة من القروض النشطة والمسددة.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>الجهة</TableHead>
-                                        <TableHead className="text-left">الأرباح</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell className="font-medium">ربح المؤسسة</TableCell>
-                                        <TableCell className="text-left font-semibold">{formatCurrency(totalInstitutionProfit)}</TableCell>
-                                    </TableRow>
-                                    {investorProfitsArray.map(inv => (
-                                        <TableRow key={inv.name}>
-                                            <TableCell>{inv.name}</TableCell>
-                                            <TableCell className="text-left">{formatCurrency(inv.profit)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
+                        <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="item-1" className="border-b-0">
+                                <AccordionTrigger className="p-6 hover:no-underline">
+                                    <div className="flex w-full items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <TrendingUp className="h-8 w-8 text-primary" />
+                                            <div className="text-right">
+                                                <h3 className="text-lg font-semibold">إجمالي صافي الأرباح (المهلة)</h3>
+                                                <p className="text-2xl font-bold">{formatCurrency(netProfit)}</p>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">انقر لعرض التفاصيل</p>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-6 pb-6 pt-0">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>الجهة</TableHead>
+                                                <TableHead className="text-left">الأرباح</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            <TableRow>
+                                                <TableCell className="font-medium">ربح المؤسسة</TableCell>
+                                                <TableCell className="text-left font-semibold">{formatCurrency(totalInstitutionProfit)}</TableCell>
+                                            </TableRow>
+                                            {investorProfitsArray.map(inv => (
+                                                <TableRow key={inv.name}>
+                                                    <TableCell>{inv.name}</TableCell>
+                                                    <TableCell className="text-left">{formatCurrency(inv.profit)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
                     </Card>
                 </div>
               )}
-              <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-7" : "lg:col-span-7")}>
+              <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-3" : "lg:col-span-7")}>
                 <LoansStatusChart borrowers={gracePeriodLoans} />
               </div>
             </div>
