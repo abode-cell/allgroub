@@ -16,7 +16,7 @@ const formatValue = (value: any): string => {
 
 
 export const exportToPrintableHtml = (title: string, columns: string[], rows: (string | number)[][], user: User) => {
-    const exportDate = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+    const exportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
     const htmlContent = `
         <!DOCTYPE html>
