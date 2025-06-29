@@ -12,7 +12,6 @@ import {
   PiggyBank,
   FileUp,
   KeyRound,
-  Wand2,
   type LucideIcon,
 } from 'lucide-react';
 import type { UserRole, PermissionKey } from '@/lib/types';
@@ -72,12 +71,6 @@ export const allMenuItems: MenuItem[] = [
     icon: ClipboardList,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
     permission: 'manageRequests',
-  },
-  {
-    href: '/summarize',
-    label: 'تحليل AI',
-    icon: Wand2,
-    roles: ['مدير النظام', 'مدير المكتب'],
   },
   {
     href: '/notifications',
