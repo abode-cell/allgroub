@@ -6,7 +6,7 @@ import type { User } from '@/lib/types';
 // Custom Arabic font and logo have been removed to fix export crashes.
 // A standard font will be used as a fallback.
 
-const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; user: User; columns: string[]; rows: (string | number)[][]; filename: string; }) => {
+const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; user: User; columns:string[]; rows: (string | number)[][]; filename: string; }) => {
   const doc = new jsPDF();
   
   // The custom font code has been removed to prevent crashing.
