@@ -2,9 +2,22 @@
 
 import type { User } from './types';
 
-// The logo data is now embedded directly in this file to ensure reliability.
-const logoPngDataUri =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACyUlEQVR4Xu2Zz2sTURDHv0tLS7GgUIqCICheVLwV/wDqQRB8lT2JiAVvRfAb8FAUvSgoeBNsBUEQBME/KCiIghYrUaQ0KbGNtGmamzOZCTvZZjLJJJPkzc3O+zLz/jLv3s3uGKEaH02ghgHAG0DUQNcAQx8GAC+gO0CTQNcAwwCgBaBvgK4B+gY4BmgakO2ApgG6BmgacAwwDNB0QNEG6BqgacAwwBAg6YC2AdoG6BqgacAwQNEGSDugbYCmAZoGDAMETZCsA9oGaBqgacAwQNEGpDvgjB1A/wBdAwwDNA2QdkDagGvAsIDmANdAugakO+CMAUAXQMsAwAAgLIDuAUOAdAekG2AIAHQFsAwAAGgC6B4gZADZDmgboGsApAFZDmgbANACZDuw7YCmAZoGdDugpAFZDjQNoGmApgG6Bmg6IMuApAGaBmi6ANACZDmgrAFpDTgGaBqg6YCkAdIOaBvQdEC2AbIGpB3QNgBpADQFSHbAmgLoGqBpAE0DpB3QdoCmAdIGZDmg6YBkO+DMAWkd0DSApkHSBjgGaBqgacC2A8sOaBqg6YCkAdIOaBvQdEC2AbIGpB3QNgBpADQFSHbAmgLoGqBpAE0DpB3QdoCmAdIGZDmg6YBkO+DMAWkd0DSApkHSBjgGaBqgacC2A8sOaBqg6YCkAdIOaBvQdEC2AbIGpB3QNgBpADQFSHbAmgLoGqBpAE0DpB3QdoCmAdIGZDmg6YBkO+DMAWkd0DSApkHSBjgGaBqgacC2A8sOaBqg6YCkAdIOaBvQdEC2AbIGpB3QNgBpADQFSHbAmgLoGqBpAE0DpB3QdoCmAdIGZDmg6YBkO+DMAWkd0DSApkHSBjgGaBqgacC2A8sOaBqg6YCkAdIOaBvQdEC2AbIGpB3QNgBpAPx9gP4B3oDuAoYA8B4gBgiB8/kBbYJmD3kZPOwAAAAASUVORK5CYII=';
+// The logo SVG is now embedded directly in this file to ensure reliability.
+const logoSvg = `
+<svg
+    width="50"
+    height="50"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    style="color: #0F2C59;"
+>
+    <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    <path d="M12 11L7 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+    <path d="M12 11L17 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+    <path d="M8.5 18H15.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+`;
 
 const formatValue = (value: any): string => {
   if (typeof value === 'number') {
@@ -60,9 +73,6 @@ export const exportToPrintableHtml = (title: string, columns: string[], rows: (s
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                }
-                .header-logo img {
-                    height: 50px;
                 }
                 .header-logo span {
                     font-size: 1.5em;
@@ -157,7 +167,7 @@ export const exportToPrintableHtml = (title: string, columns: string[], rows: (s
             <div class="print-container">
                 <div class="header">
                     <div class="header-logo">
-                        <img src="${logoPngDataUri}" alt="شعار الموقع">
+                        ${logoSvg}
                         <span>مجموعة عال</span>
                     </div>
                     <div class="header-info">
