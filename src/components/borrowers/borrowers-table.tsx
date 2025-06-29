@@ -39,7 +39,6 @@ import {
   SelectValue,
 } from '../ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useAuth } from '@/contexts/auth-context';
 import { useData } from '@/contexts/data-context';
 import type { Borrower, BorrowerPaymentStatus, Payment } from '@/lib/types';
 import {
@@ -142,8 +141,9 @@ export function BorrowersTable({
 }: {
   borrowers: Borrower[];
 }) {
-  const { role } = useAuth();
-  const { investors, updateBorrower, approveBorrower, updateBorrowerPaymentStatus } = useData();
+  const { currentUser, investors, updateBorrower, approveBorrower, updateBorrowerPaymentStatus } = useData();
+  const role = currentUser?.role;
+
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
