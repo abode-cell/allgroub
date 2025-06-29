@@ -1,7 +1,7 @@
 
 'use client';
 
-import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent } from 'lucide-react';
+import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { ProfitChart } from '@/components/dashboard/profit-chart';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
@@ -16,6 +16,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -236,7 +242,7 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
                     </Card>
                 </div>
               )}
-              <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-3" : "lg:col-span-7")}>
+              <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-7" : "lg:col-span-7")}>
                 <LoansStatusChart borrowers={gracePeriodLoans} />
               </div>
             </div>
@@ -245,6 +251,58 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
               <RecentTransactions />
             </div>
         </div>
+    );
+};
+
+const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
+    const idleInvestors = investors.filter(i => i.amount > 0 && i.status === 'نشط');
+    const totalIdleFunds = idleInvestors.reduce((sum, i) => sum + i.amount, 0);
+
+    return (
+        <Card>
+            <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="item-1" className="border-b-0">
+                    <AccordionTrigger className="p-6 hover:no-underline">
+                        <div className="flex w-full items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <Wallet className="h-8 w-8 text-primary" />
+                                <div className="text-right">
+                                    <h3 className="text-lg font-semibold">الأموال الخاملة</h3>
+                                    <p className="text-2xl font-bold">{formatCurrency(totalIdleFunds)}</p>
+                                </div>
+                            </div>
+                             <p className="text-xs text-muted-foreground">انقر لعرض التفاصيل</p>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6 pt-0">
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>اسم المستثمر</TableHead>
+                                    <TableHead className="text-left">المبلغ الخامل</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {idleInvestors.length > 0 ? (
+                                    idleInvestors.map(investor => (
+                                        <TableRow key={investor.id}>
+                                            <TableCell className="font-medium">{investor.name}</TableCell>
+                                            <TableCell className="text-left font-semibold">{formatCurrency(investor.amount)}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="h-24 text-center">
+                                            لا توجد أموال خاملة حاليًا.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
+        </Card>
     );
 };
 
@@ -285,6 +343,7 @@ export default function DashboardPage() {
   
   const totalCapital = displayedInvestors.reduce((acc, inv) => acc + inv.amount + (inv.defaultedFunds || 0), 0);
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
+  const showIdleFundsReport = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
   
   return (
     <div className="flex flex-col flex-1">
@@ -311,6 +370,8 @@ export default function DashboardPage() {
         </header>
 
         {showSensitiveData && <DailySummary />}
+        
+        {showIdleFundsReport && <IdleFundsCard investors={displayedInvestors} />}
 
         <Tabs defaultValue="grace-period" className="w-full">
             <TabsList className="grid w-full grid-cols-2">

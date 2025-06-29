@@ -37,6 +37,7 @@ import {
   Users2,
   Check,
   X,
+  Wallet,
 } from 'lucide-react';
 import {
   Select,
@@ -108,6 +109,7 @@ const assistantPermissionsConfig: {
   { key: 'manageBorrowers', label: 'إدارة القروض', description: 'السماح بإضافة وتعديل القروض.' },
   { key: 'importData', label: 'استيراد البيانات', description: 'السماح باستيراد البيانات من ملفات Excel.' },
   { key: 'viewReports', label: 'عرض التقارير', description: 'السماح بالوصول إلى صفحة التقارير الشاملة.' },
+  { key: 'viewIdleFundsReport', label: 'عرض تقرير الأموال الخاملة', description: 'السماح بالوصول إلى تقرير الأموال الخاملة في الصفحة الرئيسية.' },
   { key: 'manageRequests', label: 'إدارة الطلبات', description: 'السماح بمراجعة طلبات الموظفين والموافقة عليها أو رفضها.' },
   { key: 'useCalculator', label: 'استخدام الحاسبة', description: 'السماح باستخدام حاسبة القروض والأرباح.' },
   { key: 'accessSettings', label: 'الوصول للإعدادات', description: 'السماح بالوصول إلى صفحة الإعدادات الإدارية.' },

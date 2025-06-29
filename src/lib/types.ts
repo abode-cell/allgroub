@@ -10,7 +10,8 @@ export type PermissionKey =
   | 'manageRequests'
   | 'useCalculator'
   | 'accessSettings'
-  | 'manageEmployeePermissions';
+  | 'manageEmployeePermissions'
+  | 'viewIdleFundsReport';
 
 export type Permissions = {
   [key in PermissionKey]?: boolean;
