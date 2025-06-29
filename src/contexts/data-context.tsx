@@ -281,14 +281,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const originalBorrower = prev.borrowers.find(b => b.id === borrowerId);
         if (!originalBorrower) return prev;
 
-        const newState = { ...prev };
         let toastMessage: { title: string, description: string, variant?: "destructive" } | null = null;
         const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-
-        const borrowerIndex = newState.borrowers.findIndex(b => b.id === borrowerId);
-        const updatedBorrower: Borrower = { ...newState.borrowers[borrowerIndex] };
         
-        // Unset paymentStatus if 'none' is selected, otherwise set it
+        // Create new arrays from the start to avoid mutation
+        const newBorrowers = [...prev.borrowers];
+        const newInvestors = [...prev.investors];
+
+        const borrowerIndex = newBorrowers.findIndex(b => b.id === borrowerId);
+        if (borrowerIndex === -1) return prev;
+
+        const updatedBorrower: Borrower = { ...newBorrowers[borrowerIndex] };
+
         if (paymentStatus) {
             updatedBorrower.paymentStatus = paymentStatus;
         } else {
@@ -304,9 +308,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 const totalProfit = originalBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
 
                 originalBorrower.fundedBy.forEach(funder => {
-                    const investorIndex = newState.investors.findIndex(i => i.id === funder.investorId);
+                    const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
                     if (investorIndex > -1) {
-                        const investor = newState.investors[investorIndex];
+                        const investor = newInvestors[investorIndex];
                         const loanShare = funder.amount / originalBorrower.amount;
                         const investorProfitShare = originalBorrower.loanType === 'اقساط'
                             ? totalProfit * (prev.investorSharePercentage / 100) * loanShare
@@ -318,7 +322,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                             description: `أرباح من قرض "${originalBorrower.name}"`,
                         };
                         
-                        newState.investors[investorIndex] = {
+                        newInvestors[investorIndex] = {
                           ...investor,
                           transactionHistory: [...investor.transactionHistory, profitTransaction],
                           amount: investor.amount + principalReturn + investorProfitShare,
@@ -336,10 +340,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           updatedBorrower.status = 'متعثر';
           if (originalBorrower.fundedBy) {
               originalBorrower.fundedBy.forEach(funder => {
-                const investorIndex = newState.investors.findIndex(i => i.id === funder.investorId);
+                const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
                 if (investorIndex > -1) {
-                    const investor = newState.investors[investorIndex];
-                    newState.investors[investorIndex] = { ...investor, defaultedFunds: (investor.defaultedFunds || 0) + funder.amount };
+                    const investor = newInvestors[investorIndex];
+                    newInvestors[investorIndex] = { ...investor, defaultedFunds: (investor.defaultedFunds || 0) + funder.amount };
                     notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.` });
                 }
             });
@@ -347,7 +351,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        newState.borrowers[borrowerIndex] = updatedBorrower;
+        newBorrowers[borrowerIndex] = updatedBorrower;
         
         setTimeout(() => {
           if (toastMessage) {
@@ -357,8 +361,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
           notificationsToQueue.forEach(addNotification);
         }, 0);
-
-        return newState;
+        
+        // Return the new state object with the new arrays
+        return {
+            ...prev,
+            borrowers: newBorrowers,
+            investors: newInvestors,
+        };
     });
   }, [addNotification, toast]);
 
