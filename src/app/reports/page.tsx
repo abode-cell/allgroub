@@ -15,6 +15,10 @@ import {
 import React, { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { exportToPrintableHtml } from '@/lib/html-export';
+
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -196,6 +200,60 @@ export default function ReportsPage() {
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
 
+  const handleExportInstallments = () => {
+    if (!currentUser) return;
+    const title = "تقرير قروض الأقساط";
+    const columns = ["اسم المقترض", "مبلغ القرض", "تاريخ القرض", "تاريخ الاستحقاق", "الحالة", "الممول"];
+    const rows = installmentLoans.map(loan => {
+      const dynamicStatus = getDynamicStatus(loan);
+      return [loan.name, loan.amount, loan.date, loan.dueDate, dynamicStatus.text, getInvestorInfoForLoan(loan) as string];
+    });
+    exportToPrintableHtml(title, columns, rows, currentUser);
+  };
+
+  const handleExportGracePeriod = () => {
+    if (!currentUser) return;
+    const title = "تقرير قروض المهلة";
+    const columns = ["اسم المقترض", "مبلغ القرض", "تاريخ القرض", "تاريخ الاستحقاق", "الحالة", "الممول"];
+    const rows = gracePeriodLoans.map(loan => {
+      const dynamicStatus = getDynamicStatus(loan);
+      return [loan.name, loan.amount, loan.date, loan.dueDate, dynamicStatus.text, getInvestorInfoForLoan(loan) as string];
+    });
+    exportToPrintableHtml(title, columns, rows, currentUser);
+  };
+
+  const handleExportInvestors = () => {
+    if (!currentUser) return;
+    const title = "تقرير المستثمرين";
+    const columns = ["اسم المستثمر", "إجمالي الاستثمار", "الأموال النشطة", "الأموال الخاملة", "الأموال المتعثرة", "الحالة"];
+    const rows = activeInvestors.map(investor => {
+        const totalInvestment = investor.transactionHistory
+            .filter(tx => tx.type === 'إيداع رأس المال')
+            .reduce((acc, tx) => acc + tx.amount, 0);
+        
+        const activeInvestment = displayedBorrowers
+            .filter(b => b.fundedBy?.some(f => f.investorId === investor.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
+            .reduce((total, loan) => {
+                const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+                return total + (funding?.amount || 0);
+            }, 0);
+        
+        const idleFunds = investor.amount;
+        const defaultedFunds = investor.defaultedFunds || 0;
+
+        return [
+            investor.name,
+            totalInvestment,
+            activeInvestment,
+            idleFunds,
+            defaultedFunds,
+            investor.status
+        ];
+    });
+    exportToPrintableHtml(title, columns, rows, currentUser);
+  };
+
+
   if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
@@ -203,13 +261,18 @@ export default function ReportsPage() {
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <header>
             <h1 className="text-3xl font-bold tracking-tight">التقارير الشاملة</h1>
             <p className="text-muted-foreground mt-1">
                 نظرة شاملة على أداء القروض والمستثمرين في النظام.
             </p>
             </header>
+            <div className="flex flex-wrap gap-2">
+                <Button onClick={handleExportInstallments} variant="outline"><Download className="ml-2 h-4 w-4" /> تصدير الأقساط </Button>
+                <Button onClick={handleExportGracePeriod} variant="outline"><Download className="ml-2 h-4 w-4" /> تصدير المهلة </Button>
+                <Button onClick={handleExportInvestors} variant="outline"><Download className="ml-2 h-4 w-4" /> تصدير المستثمرين </Button>
+            </div>
         </div>
 
         <Card>
