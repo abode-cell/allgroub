@@ -339,23 +339,108 @@ export function DataProvider({ children }: { children: ReactNode }) {
 }, [data, addNotification, toast]);
 
   const updateBorrowerPaymentStatus = useCallback((borrowerId: string, paymentStatus?: BorrowerPaymentStatus) => {
-    setData(prev => ({
-        ...prev,
-        borrowers: prev.borrowers.map(b => {
-            if (b.id === borrowerId) {
-                const updatedBorrower = { ...b };
-                if (paymentStatus) {
-                    updatedBorrower.paymentStatus = paymentStatus;
-                } else {
-                    delete (updatedBorrower as Partial<Borrower>).paymentStatus;
-                }
-                return updatedBorrower;
+    setData(prev => {
+        const originalBorrower = prev.borrowers.find(b => b.id === borrowerId);
+        if (!originalBorrower) return prev;
+
+        const newState = { ...prev };
+        let toastMessage: { title: string, description: string, variant?: "destructive" } | null = null;
+        const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+
+        const borrowerIndex = newState.borrowers.findIndex(b => b.id === borrowerId);
+        const updatedBorrower: Borrower = { ...newState.borrowers[borrowerIndex] };
+
+        // 1. Update paymentStatus
+        if (paymentStatus) {
+            updatedBorrower.paymentStatus = paymentStatus;
+        } else {
+            delete (updatedBorrower as Partial<Borrower>).paymentStatus;
+        }
+        
+        // 2. Handle "Paid Off" logic
+        if (paymentStatus === 'تم السداد' && originalBorrower.status !== 'مسدد بالكامل') {
+            updatedBorrower.status = 'مسدد بالكامل';
+
+            if (originalBorrower.fundedBy) {
+                const installmentTotalInterest = (originalBorrower.rate && originalBorrower.term) ? originalBorrower.amount * (originalBorrower.rate / 100) * originalBorrower.term : 0;
+                const graceTotalProfit = originalBorrower.amount * (prev.graceTotalProfitPercentage / 100);
+                const totalProfit = originalBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
+
+                originalBorrower.fundedBy.forEach(funder => {
+                    const investorIndex = newState.investors.findIndex(i => i.id === funder.investorId);
+                    if (investorIndex > -1) {
+                        const investor = newState.investors[investorIndex];
+                        const loanShare = funder.amount / originalBorrower.amount;
+                        const investorProfitShare = originalBorrower.loanType === 'اقساط'
+                            ? totalProfit * (prev.investorSharePercentage / 100) * loanShare
+                            : totalProfit * (prev.graceInvestorSharePercentage / 100) * loanShare;
+                        
+                        const principalReturn = funder.amount;
+                        const profitTransaction: Transaction = {
+                            id: `t-profit-${Date.now()}-${investorIndex}`,
+                            date: new Date().toISOString().split('T')[0],
+                            type: 'إيداع أرباح',
+                            amount: investorProfitShare,
+                            description: `أرباح من قرض "${originalBorrower.name}"`,
+                        };
+                        
+                        newState.investors[investorIndex] = {
+                          ...investor,
+                          transactionHistory: [...investor.transactionHistory, profitTransaction],
+                          amount: investor.amount + principalReturn + investorProfitShare,
+                          fundedLoanIds: investor.fundedLoanIds.filter(id => id !== originalBorrower.id)
+                        };
+
+                        notificationsToQueue.push({
+                            recipientId: funder.investorId,
+                            title: 'أرباح محققة',
+                            description: `تم سداد قرض "${originalBorrower.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.`
+                        });
+                    }
+                });
+                toastMessage = { title: 'تم سداد القرض بالكامل', description: 'تم إعادة الأموال والأرباح للمستثمرين بنجاح.' };
             }
-            return b;
-        })
-    }));
-    toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".` });
-  }, [toast]);
+        }
+        
+        // 3. Handle "Defaulted" logic
+        else if (paymentStatus === 'متعثر' && originalBorrower.status !== 'متعثر') {
+          updatedBorrower.status = 'متعثر';
+          if (originalBorrower.fundedBy) {
+              originalBorrower.fundedBy.forEach(funder => {
+                const investorIndex = newState.investors.findIndex(i => i.id === funder.investorId);
+                if (investorIndex > -1) {
+                    const investor = newState.investors[investorIndex];
+                    newState.investors[investorIndex] = {
+                      ...investor,
+                      defaultedFunds: (investor.defaultedFunds || 0) + funder.amount
+                    };
+
+                    notificationsToQueue.push({
+                        recipientId: funder.investorId,
+                        title: 'تنبيه: تعثر قرض مرتبط',
+                        description: `القرض الخاص بالعميل "${originalBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.`
+                    });
+                }
+            });
+            toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
+          }
+        }
+
+        newState.borrowers[borrowerIndex] = updatedBorrower;
+        
+        // Use a timeout to ensure state update completes before triggering side-effects
+        setTimeout(() => {
+          if (toastMessage) {
+            toast(toastMessage);
+          } else {
+            toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".` });
+          }
+          notificationsToQueue.forEach(addNotification);
+        }, 0);
+
+        return newState;
+    });
+  }, [addNotification, toast]);
 
   const approveBorrower = useCallback((borrowerId: string) => {
     let approvedBorrower: Borrower | null = null;
