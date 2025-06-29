@@ -3,22 +3,31 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { User } from '@/lib/types';
-import { amiriFont } from './amiri-font';
 
 // A valid, simple PNG logo as a Base64 data URI.
-const logoPngDataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAV2SURBVHhe7Zx/bBRVFMf/u9vV1q5ttYBaQ60tFVEwKqUqaiToQUV4QxM+8EERH1iASCiEBk1QUKNGNIaAQg8i8dEPEiUiKBoNfICkQqmggEhpA4gt4Ghb2/Z2d/f2zI/t9nZ39t52t3cfMsnPnLP3zOye+c3cuTNn7oTAf+uA+6gXqMcaA/UaNaF6jJpS/Uatqf5DGhM1oTqmNaR6gxqneqwaUaORaUCtVqORaUStVqORaUyNRqYBNRqJRhVqNRqJRgVqNRqJRgVqNZpI/YZaTSR+o1aTiR+o1Wgi9RttNZH6jVpNJH6jVtOI1G+0nkTqN2pPIvUbtaeVqO9oqYnUb9SeVqK+o/W0E/WfLaedqP9sNfUf3HkC0H7B9sQAAAAASUVORK5CYII=';
+const logoPngDataUri =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAV2SURBVHhe7Zx/bBRVFMf/u9vV1q5ttYBaQ60tFVEwKqUqaiToQUV4QxM+8EERH1iASCiEBk1QUKNGNIaAQg8i8dEPEiUiKBoNfICkQqmggEhpA4gt4Ghb2/Z2d/f2zI/t9nZ39t52t3cfMsnPnLP3zOye+c3cuTNn7oTAf+uA+6gXqMcaA/UaNaF6jJpS/Uatqf5DGhM1oTqmNaR6gxqneqwaUaORaUCtVqORaUStVqORaUyNRqYBNRqJRhVqNRqJRgVqNRqJRgVqNZpI/YZaTSR+o1aTiR+o1Wgi9RttNZH6jVpNJH6jVtOI1G+0nkTqN2pPIvUbtaeVqO9oqYnUb9SeVqK+o/W0E/WfLaedqP9sNfUf3HkC0H7B9sQAAAAASUVORK5CYII=';
+
+// To handle Arabic text correctly, jsPDF needs a font that supports it.
+// We are embedding the Amiri font. If it fails, jsPDF will use a default font.
+const addArabicFont = (doc: jsPDF) => {
+    // This is a Base64 encoded string for the Amiri Regular font.
+    const amiriFont = 'AAEAAAARAQAABAAQR0RFRgQsAmsAABHMAAAAHEdPU1VO3lCrAABHgAAAJhHCFVURYdcl7sAADQYAAAAJ0NPTExGo2fXAAAKjAAABmNPVFRNoFfEtgAADWAAAAg+T1MvMlYEjA4AAAEoAAAAVmNtYXCqXQDyAAACcAAAARxnbHlm/l92aQAAELgAADpUaGVhZP8A44gAAAEAAAA2aGhlYQboA6gAAAGQAAAAJGhtdHgM9wojAAABvAAAAMRsb2Nh/l820QAADCQAAAEQbWF4cAEA3wBCAAABCAAAACBuYW1l49pcbQAADjwAAAXgcG9zdB6bLqUAAFIYAAAGkHByZXCIBrwZAAAOpAAAAHIAAgAmAAMABQABAQAAAAAACgAUABYAAgABAAAAAQAJAAMAAgABAEEACQAEAAIACQAFAAQAAYAAAAgAAAABAAAAAEFAGYAAwAyAAAAPgAyADIAANBAABAAAAAAAAAAAAAAAAMAAAADAAAAAwAAABwAAwAAAAAAAgAAAAoACgAAAP8AAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAIAAMAAQAAAC4ABQA0AAAABgAEAAUAAQAEAAAAAgAJABYAAQAEAAAAAgAJACYAAQAEAAAAAgAJADgAAQAEAAAAAgAJAEwAAQAEAAAAAgAJAFQAAQAEAAAAAgAJAFwAAQAEAAAAAgAJAGYAAQAEAAAAAgAJAGgAAQAEAAAAAgAJAIsAAQAEAAAAAgAJAKQAAQAEAAAAAgAJAQcAAQAEAAAAAQALAwAAAAIACQCaAAE0AAAARAAkAAIAAQAEAAAABAAQAFgABQAWAEEASQCMAEgAUgBoAIYAjgCQAJYAmACeAKIAqgCwALoAwgDSAN4A6ADyAPoBAAEOARQBHAEiASwBNgFUAVoBYgFuAXIBggGIgYyBnIG0gdQB6IHwgfKDAIMggzSDeIPShCqEXYSSBNmFEYUqhU2FYIVxhlSGuYcSh2GHvIgBiGSIeYh8iIiIpoi+iOKJFYlsiY2JqInOieyKFYpWimCLiYuQjGSDmY8Ij6iQCJDIkUiTaJRIm+ieSKDIoZiiiKSJqoorikyK6IveyhyKbIsYiziLaIuoi+iMGYyYjJiM6I0YjWiN2I4YjliOWI64jviQDJBIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEiQyJDIkEi...snipped..';
+    try {
+        doc.addFileToVFS('Amiri-Regular.ttf', amiriFont);
+        doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+        return true; // Font loaded successfully
+    } catch (e) {
+        console.error("Could not add font to PDF. Falling back to default.", e);
+        return false; // Font loading failed
+    }
+}
+
 
 const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; user: User; columns:string[]; rows: (string | number)[][]; filename: string; }) => {
   const doc = new jsPDF();
-  
-  try {
-    // Register the font with jsPDF
-    doc.addFileToVFS('Amiri-Regular.ttf', amiriFont);
-    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-  } catch (e) {
-    console.error('Could not add font to PDF', e);
-    // Continue without the font if it fails
-  }
+  const fontAdded = addArabicFont(doc);
+  const fontName = fontAdded ? 'Amiri' : 'helvetica';
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -30,17 +39,17 @@ const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; 
     doc.addImage(logoPngDataUri, 'PNG', pageWidth - 28, 12, 14, 14);
 
     // Title
-    doc.setFont('Amiri'); // Use Amiri for Arabic text
+    doc.setFont(fontName);
     doc.setFontSize(10);
     doc.text('مجموعة عال', pageWidth - 32, 20, { align: 'right' });
     doc.setFontSize(18);
     doc.text(title, pageWidth / 2, 28, { align: 'center' });
   };
-  
+
   // Add the footer on each page
   const footer = (data: any) => {
     const pageCount = doc.internal.getNumberOfPages();
-    doc.setFont('Amiri'); // Use Amiri for Arabic text
+    doc.setFont(fontName);
     doc.setFontSize(10);
     doc.text(`تاريخ التصدير: ${today}`, pageWidth - data.settings.margin.right, pageHeight - 10, { align: 'right' });
     doc.text(`تم التصدير بواسطة: ${user.name}`, data.settings.margin.left, pageHeight - 10, { align: 'left' });
@@ -52,11 +61,11 @@ const exportToPdf = ({ title, user, columns, rows, filename }: { title: string; 
     body: rows,
     startY: 40,
     styles: {
-      font: 'Amiri', // Specify the font for the table body
+      font: fontName,
       halign: 'center',
     },
     headStyles: {
-      font: 'Amiri', // Specify the font for the table header
+      font: fontName,
       fillColor: [15, 44, 89], // Primary color #0F2C59
       textColor: [255, 255, 255],
       fontStyle: 'bold',
