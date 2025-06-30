@@ -110,7 +110,7 @@ export default function CredentialsPage() {
                           <TableRow>
                               <TableHead>الاسم</TableHead>
                               <TableHead>البريد الإلكتروني</TableHead>
-                              <TableHead>كلمة المرور (مشفرة)</TableHead>
+                              <TableHead>كلمة المرور</TableHead>
                               <TableHead className="text-left">الإجراء</TableHead>
                           </TableRow>
                       </TableHeader>
@@ -119,7 +119,7 @@ export default function CredentialsPage() {
                               <TableRow key={user.id}>
                                   <TableCell className="font-medium">{user.name}</TableCell>
                                   <TableCell>{user.email}</TableCell>
-                                  <TableCell className="font-mono text-muted-foreground tracking-widest">••••••••</TableCell>
+                                  <TableCell className="font-mono text-muted-foreground">{user.password}</TableCell>
                                   <TableCell className="text-left">
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(user)} disabled={user.id === currentUser.id}>
                                       <Edit className="ml-2 h-4 w-4" />
