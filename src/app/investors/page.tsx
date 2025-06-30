@@ -124,7 +124,7 @@ export default function InvestorsPage() {
     setNewInvestor({ name: '', amount: '', email: '', password: '' });
   };
 
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
+  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
   const isAddButtonDisabled = isOfficeManager && !canAddMoreInvestors;
 
   const displayedInvestors =

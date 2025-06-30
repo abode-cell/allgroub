@@ -114,7 +114,7 @@ export default function BorrowersPage() {
   const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
   const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : false;
   const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
-  const showAddButton = role === 'مدير النظام' || role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || isEmployee;
+  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || isEmployee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
