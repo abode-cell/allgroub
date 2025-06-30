@@ -20,6 +20,7 @@ import type {
   Notification,
   BorrowerPaymentStatus,
   PermissionKey,
+  NewUserPayload,
 } from '@/lib/types';
 import {
   borrowersData as initialBorrowersData,
@@ -97,6 +98,8 @@ type DataContextType = {
   approveBorrower: (borrowerId: string) => void;
   rejectBorrower: (borrowerId: string, reason: string) => void;
   addInvestor: (investor: NewInvestorPayload) => void;
+  addEmployee: (payload: NewUserPayload) => Promise<{ success: boolean, message: string }>;
+  addAssistant: (payload: NewUserPayload) => Promise<{ success: boolean, message: string }>;
   updateInvestor: (investor: UpdatableInvestor) => void;
   approveInvestor: (investorId: string) => void;
   rejectInvestor: (investorId: string, reason: string) => void;
@@ -278,81 +281,80 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const updateBorrowerPaymentStatus = useCallback((borrowerId: string, paymentStatus?: BorrowerPaymentStatus) => {
-    const originalState = data;
-    const originalBorrower = originalState.borrowers.find(b => b.id === borrowerId);
-    if (!originalBorrower) return;
-
     let toastMessage: { title: string, description: string, variant?: "destructive" } | null = null;
-    let notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+    const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
 
-    // Create a new state object to modify
-    let newState = JSON.parse(JSON.stringify(originalState));
-    let borrowerIndex = newState.borrowers.findIndex((b: Borrower) => b.id === borrowerId);
-    if (borrowerIndex === -1) return;
-    
-    let updatedBorrower = newState.borrowers[borrowerIndex];
+    setData(prevData => {
+        const newState = JSON.parse(JSON.stringify(prevData));
+        const borrowerIndex = newState.borrowers.findIndex((b: Borrower) => b.id === borrowerId);
+        if (borrowerIndex === -1) return prevData;
 
-    if (paymentStatus) {
-        updatedBorrower.paymentStatus = paymentStatus;
-    } else {
-        delete (updatedBorrower as Partial<Borrower>).paymentStatus;
-    }
-    
-    if (paymentStatus === 'تم السداد' && updatedBorrower.status !== 'مسدد بالكامل') {
-        updatedBorrower.status = 'مسدد بالكامل';
-        if (updatedBorrower.fundedBy) {
-            const installmentTotalInterest = (updatedBorrower.rate && updatedBorrower.term) ? updatedBorrower.amount * (updatedBorrower.rate / 100) * updatedBorrower.term : 0;
-            const graceTotalProfit = updatedBorrower.amount * (newState.graceTotalProfitPercentage / 100);
-            const totalProfit = updatedBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
+        let updatedBorrower = newState.borrowers[borrowerIndex];
 
-            updatedBorrower.fundedBy.forEach((funder: { investorId: string; amount: number; }) => {
-                const investorIndex = newState.investors.findIndex((i: Investor) => i.id === funder.investorId);
-                if (investorIndex > -1) {
-                    const investor = newState.investors[investorIndex];
-                    const loanShare = funder.amount / updatedBorrower.amount;
-                    const investorProfitShare = updatedBorrower.loanType === 'اقساط'
-                        ? totalProfit * (newState.investorSharePercentage / 100) * loanShare
-                        : totalProfit * (newState.graceInvestorSharePercentage / 100) * loanShare;
-                    
-                    const principalReturn = funder.amount;
-                    const profitTransaction: Transaction = {
-                        id: `t-profit-${Date.now()}-${investorIndex}`, date: new Date().toISOString().split('T')[0], type: 'إيداع أرباح', amount: investorProfitShare,
-                        description: `أرباح من قرض "${updatedBorrower.name}"`,
-                    };
-                    
-                    investor.transactionHistory.push(profitTransaction);
-                    investor.amount = investor.amount + principalReturn + investorProfitShare;
-                    investor.fundedLoanIds = investor.fundedLoanIds.filter((id: string) => id !== updatedBorrower.id);
-                    
-                    notificationsToQueue.push({ recipientId: funder.investorId, title: 'أرباح محققة', description: `تم سداد قرض "${updatedBorrower.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.` });
-                }
-            });
-            toastMessage = { title: 'تم سداد القرض بالكامل', description: 'تمت إعادة الأموال والأرباح للمستثمرين بنجاح.' };
+        if (paymentStatus) {
+            updatedBorrower.paymentStatus = paymentStatus;
+        } else {
+            delete (updatedBorrower as Partial<Borrower>).paymentStatus;
         }
-    } else if (paymentStatus === 'متعثر' && updatedBorrower.status !== 'متعثر') {
-        updatedBorrower.status = 'متعثر';
-        if (updatedBorrower.fundedBy) {
-            updatedBorrower.fundedBy.forEach((funder: { investorId: string; amount: number; }) => {
-                const investorIndex = newState.investors.findIndex((i: Investor) => i.id === funder.investorId);
-                if (investorIndex > -1) {
-                    const investor = newState.investors[investorIndex];
-                    investor.defaultedFunds = (investor.defaultedFunds || 0) + funder.amount;
-                    notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${updatedBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.` });
-                }
-            });
-            toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
+
+        if (paymentStatus === 'تم السداد' && updatedBorrower.status !== 'مسدد بالكامل') {
+            updatedBorrower.status = 'مسدد بالكامل';
+            if (updatedBorrower.fundedBy) {
+                const installmentTotalInterest = (updatedBorrower.rate && updatedBorrower.term) ? updatedBorrower.amount * (updatedBorrower.rate / 100) * updatedBorrower.term : 0;
+                const graceTotalProfit = updatedBorrower.amount * (newState.graceTotalProfitPercentage / 100);
+                const totalProfit = updatedBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
+
+                updatedBorrower.fundedBy.forEach((funder: { investorId: string; amount: number; }) => {
+                    const investorIndex = newState.investors.findIndex((i: Investor) => i.id === funder.investorId);
+                    if (investorIndex > -1) {
+                        const investor = newState.investors[investorIndex];
+                        const loanShare = funder.amount / updatedBorrower.amount;
+                        const investorProfitShare = updatedBorrower.loanType === 'اقساط'
+                            ? totalProfit * (newState.investorSharePercentage / 100) * loanShare
+                            : totalProfit * (newState.graceInvestorSharePercentage / 100) * loanShare;
+                        
+                        const principalReturn = funder.amount;
+                        const profitTransaction: Transaction = {
+                            id: `t-profit-${Date.now()}-${investorIndex}`, date: new Date().toISOString().split('T')[0], type: 'إيداع أرباح', amount: investorProfitShare,
+                            description: `أرباح من قرض "${updatedBorrower.name}"`,
+                        };
+                        
+                        investor.transactionHistory.push(profitTransaction);
+                        investor.amount = investor.amount + principalReturn + investorProfitShare;
+                        investor.fundedLoanIds = investor.fundedLoanIds.filter((id: string) => id !== updatedBorrower.id);
+                        
+                        notificationsToQueue.push({ recipientId: funder.investorId, title: 'أرباح محققة', description: `تم سداد قرض "${updatedBorrower.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.` });
+                    }
+                });
+                toastMessage = { title: 'تم سداد القرض بالكامل', description: 'تمت إعادة الأموال والأرباح للمستثمرين بنجاح.' };
+            }
+        } else if (paymentStatus === 'متعثر' && updatedBorrower.status !== 'متعثر') {
+            updatedBorrower.status = 'متعثر';
+            if (updatedBorrower.fundedBy) {
+                updatedBorrower.fundedBy.forEach((funder: { investorId: string; amount: number; }) => {
+                    const investorIndex = newState.investors.findIndex((i: Investor) => i.id === funder.investorId);
+                    if (investorIndex > -1) {
+                        const investor = newState.investors[investorIndex];
+                        investor.defaultedFunds = (investor.defaultedFunds || 0) + funder.amount;
+                        notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${updatedBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.` });
+                    }
+                });
+                toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
+            }
         }
-    }
+        
+        return newState;
+    });
 
-    setData(newState);
-
-    if (toastMessage) {
-        toast(toastMessage);
-    } else {
-        toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".` });
-    }
-    notificationsToQueue.forEach(addNotification);
-  }, [data, addNotification, toast]);
+    setTimeout(() => {
+        if (toastMessage) {
+            toast(toastMessage);
+        } else {
+            toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".` });
+        }
+        notificationsToQueue.forEach(addNotification);
+    }, 0);
+  }, [addNotification, toast]);
 
   const approveBorrower = useCallback((borrowerId: string) => {
     let approvedBorrower: Borrower | null = null;
@@ -543,6 +545,74 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [currentUser, data.users, data.investors, addNotification, toast]);
 
+  const addEmployee = useCallback(async (payload: NewUserPayload): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser || currentUser.role !== 'مدير المكتب') {
+        return { success: false, message: 'ليس لديك الصلاحية لإضافة موظف.' };
+    }
+    const myEmployees = data.users.filter(u => u.managedBy === currentUser.id && u.role === 'موظف');
+    if (myEmployees.length >= (currentUser.employeeLimit ?? 0)) {
+        return { success: false, message: 'لقد وصلت للحد الأقصى لعدد الموظفين.' };
+    }
+    if (data.users.some(u => u.email === payload.email || u.phone === payload.phone)) {
+        return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+    }
+    if (!payload.password || payload.password.length < 6) {
+        return { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
+    }
+    
+    const newId = `user_emp_${Date.now()}`;
+    const newUser: User = {
+        id: newId,
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        password: payload.password,
+        role: 'موظف',
+        status: 'نشط',
+        managedBy: currentUser.id,
+        photoURL: 'https://placehold.co/40x40.png',
+        registrationDate: new Date().toISOString().split('T')[0],
+    };
+    setData(prev => ({...prev, users: [...prev.users, newUser]}));
+    toast({ title: 'نجاح', description: 'تمت إضافة الموظف بنجاح.' });
+    return { success: true, message: 'تمت إضافة الموظف بنجاح.' };
+  }, [currentUser, data.users, toast]);
+
+  const addAssistant = useCallback(async (payload: NewUserPayload): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser || currentUser.role !== 'مدير المكتب') {
+        return { success: false, message: 'ليس لديك الصلاحية لإضافة مساعد.' };
+    }
+    const myAssistants = data.users.filter(u => u.managedBy === currentUser.id && u.role === 'مساعد مدير المكتب');
+    if (myAssistants.length >= (currentUser.assistantLimit ?? 0)) {
+        return { success: false, message: 'لقد وصلت للحد الأقصى لعدد المساعدين.' };
+    }
+    if (data.users.some(u => u.email === payload.email || u.phone === payload.phone)) {
+        return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+    }
+     if (!payload.password || payload.password.length < 6) {
+        return { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
+    }
+
+    const newId = `user_asst_${Date.now()}`;
+    const newUser: User = {
+        id: newId,
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        password: payload.password,
+        role: 'مساعد مدير المكتب',
+        status: 'نشط',
+        managedBy: currentUser.id,
+        photoURL: 'https://placehold.co/40x40.png',
+        registrationDate: new Date().toISOString().split('T')[0],
+        permissions: { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false },
+    };
+    setData(prev => ({...prev, users: [...prev.users, newUser]}));
+    toast({ title: 'نجاح', description: 'تمت إضافة المساعد بنجاح.' });
+    return { success: true, message: 'تمت إضافة المساعد بنجاح.' };
+  }, [currentUser, data.users, toast]);
+
+
   const withdrawFromInvestor = useCallback((investorId, withdrawal) => {
     setData(prev => ({
         ...prev,
@@ -567,54 +637,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateUserStatus = useCallback(
     (userId: string, status: User['status']) => {
-      const originalState = data;
-      const userToUpdate = originalState.users.find((u) => u.id === userId);
-      if (!userToUpdate) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: 'لم يتم العثور على المستخدم.',
-        });
-        return;
-      }
-  
-      let newState = JSON.parse(JSON.stringify(originalState));
-  
-      let user = newState.users.find((u: User) => u.id === userId);
-      user.status = status;
-  
-      const isSuspending = status === 'معلق';
-  
-      if (userToUpdate.role === 'مدير المكتب') {
-        newState.users.forEach((u: User) => {
-          if (u.managedBy === userId) {
-            u.status = status;
-          }
-        });
-  
-        newState.investors.forEach((inv: Investor) => {
-          if (inv.submittedBy === userId) {
-            if (isSuspending && inv.status === 'نشط') {
-              inv.status = 'غير نشط';
-            }
-            if (!isSuspending && inv.status === 'غير نشط') {
-              inv.status = 'نشط';
-            }
-          }
-        });
-      }
+      let toastMessage = `تم تحديث حالة المستخدم.`;
       
-      setData(newState);
+      setData(prevData => {
+          const userToUpdate = prevData.users.find((u) => u.id === userId);
+          if (!userToUpdate) {
+              setTimeout(() => toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' }), 0);
+              return prevData;
+          }
 
-      const cascadeMessage =
-        userToUpdate.role === 'مدير المكتب'
-          ? status === 'معلق'
-            ? 'وتم تعليق الحسابات المرتبطة به.'
-            : 'وتم إعادة تفعيل الحسابات المرتبطة به.'
-          : '';
-      toast({ title: `تم تحديث حالة المستخدم ${cascadeMessage}`.trim() });
+          let newState = JSON.parse(JSON.stringify(prevData));
+          let user = newState.users.find((u: User) => u.id === userId);
+          user.status = status;
+
+          const isSuspending = status === 'معلق';
+          if (userToUpdate.role === 'مدير المكتب') {
+              newState.users.forEach((u: User) => {
+                  if (u.managedBy === userId) u.status = status;
+              });
+              newState.investors.forEach((inv: Investor) => {
+                  if (inv.submittedBy === userId) {
+                      if (isSuspending && inv.status === 'نشط') inv.status = 'غير نشط';
+                      if (!isSuspending && inv.status === 'غير نشط') inv.status = 'نشط';
+                  }
+              });
+              toastMessage = isSuspending ? 'تم تعليق حساب المدير والحسابات المرتبطة به.' : 'تم تفعيل حساب المدير والحسابات المرتبطة به.';
+          }
+          return newState;
+      });
+
+      setTimeout(() => toast({ title: 'تم التحديث', description: toastMessage }), 0);
     },
-    [data, toast]
+    [toast]
   );
   
   const updateUserRole = useCallback((userId: string, role: UserRole) => {
@@ -668,41 +722,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const deleteUser = useCallback((userId: string) => {
-    const originalState = data;
-    const userToDelete = originalState.users.find(u => u.id === userId);
-    
-    if (!userToDelete) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
-        return;
-    }
-
-    let newState = JSON.parse(JSON.stringify(originalState));
-    let idsToDelete = new Set<string>([userId]);
-
-    if (userToDelete.role === 'مدير المكتب') {
+    let toastMessage = 'تم حذف المستخدم بنجاح.';
+    setData(prevData => {
+      const userToDelete = prevData.users.find(u => u.id === userId);
+      if (!userToDelete) {
+        setTimeout(() => toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' }), 0);
+        return prevData;
+      }
+  
+      let newState = JSON.parse(JSON.stringify(prevData));
+      let idsToDelete = new Set<string>([userId]);
+  
+      if (userToDelete.role === 'مدير المكتب') {
         newState.users.forEach((u: User) => {
-            if (u.managedBy === userId) idsToDelete.add(u.id);
+          if (u.managedBy === userId) idsToDelete.add(u.id);
         });
-        newState.investors.forEach((i: Investor) => {
-            if (i.submittedBy === userId) idsToDelete.add(i.id);
-        });
-    }
-
-    if (userToDelete.role === 'مستثمر') {
-        idsToDelete.add(userToDelete.id); // The investor ID is the same as the user ID
-    }
-
-    newState.users = newState.users.filter((u: User) => !idsToDelete.has(u.id));
-    newState.investors = newState.investors.filter((i: Investor) => !idsToDelete.has(i.id));
-    
-    setData(newState);
-
-    const numDeleted = idsToDelete.size;
-    const message = (userToDelete.role === 'مدير المكتب' && numDeleted > 1) 
-        ? `تم حذف المدير و ${numDeleted - 1} من الحسابات المرتبطة به.`
-        : 'تم حذف المستخدم بنجاح.';
-    toast({ variant: 'destructive', title: 'اكتمل الحذف', description: message });
-}, [data, toast]);
+        const managerInvestorIds = new Set(newState.investors.filter((i: Investor) => i.submittedBy === userId).map((i: Investor) => i.id));
+        managerInvestorIds.forEach(id => idsToDelete.add(id));
+      }
+      if (userToDelete.role === 'مستثمر') {
+        idsToDelete.add(userToDelete.id);
+      }
+  
+      newState.users = newState.users.filter((u: User) => !idsToDelete.has(u.id));
+      newState.investors = newState.investors.filter((i: Investor) => !idsToDelete.has(i.id));
+      
+      const numDeleted = idsToDelete.size;
+      toastMessage = (userToDelete.role === 'مدير المكتب' && numDeleted > 1) 
+          ? `تم حذف المدير و ${numDeleted - 1} من الحسابات المرتبطة به.`
+          : 'تم حذف المستخدم بنجاح.';
+  
+      return newState;
+    });
+  
+    setTimeout(() => toast({ variant: 'destructive', title: 'اكتمل الحذف', description: toastMessage }), 0);
+  }, [toast]);
 
 
   const requestCapitalIncrease = useCallback((investorId: string) => {
@@ -749,7 +803,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     registerNewOfficeManager,
     addBorrower, 
     updateBorrower, 
-    addInvestor, 
+    addInvestor,
+    addEmployee,
+    addAssistant,
     updateInvestor, 
     withdrawFromInvestor, 
     approveBorrower, 

@@ -19,6 +19,13 @@ export type Permissions = {
 
 export type BorrowerPaymentStatus = 'تم السداد' | 'مسدد جزئي' | 'تم الإمهال' | 'متعثر';
 
+export type NewUserPayload = {
+  name: string;
+  email: string;
+  phone: string;
+  password?: string;
+};
+
 export type User = {
   id: string;
   name: string;

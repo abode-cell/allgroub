@@ -26,7 +26,6 @@ import {
   Hourglass,
   MoreHorizontal,
   Trash2,
-  UserX,
   Briefcase,
   Building2,
   PiggyBank,
@@ -37,7 +36,7 @@ import {
   Users2,
   Check,
   X,
-  Wallet,
+  PlusCircle,
 } from 'lucide-react';
 import {
   Select,
@@ -46,7 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { User, UserRole, PermissionKey } from '@/lib/types';
+import type { User, UserRole, PermissionKey, NewUserPayload } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +74,17 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -160,15 +170,20 @@ const UserActions = ({ user, onDeleteClick }: { user: User, onDeleteClick: (user
 
 
 export default function UsersPage() {
-  const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission } =
+  const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, addEmployee, addAssistant } =
     useData();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [editableLimits, setEditableLimits] = useState<
     Record<string, { investorLimit: string; employeeLimit: string; assistantLimit: string }>
   >({});
+  
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [roleToAdd, setRoleToAdd] = useState<'موظف' | 'مساعد مدير المكتب' | null>(null);
+  const [newUser, setNewUser] = useState<NewUserPayload>({ name: '', email: '', phone: '', password: '' });
   
   const role = currentUser?.role;
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings);
@@ -237,6 +252,34 @@ export default function UsersPage() {
       });
     }
   };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setNewUser((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleAddNewUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roleToAdd) return;
+    
+    setIsAddUserDialogOpen(false); // Optimistically close
+    const result = roleToAdd === 'موظف' 
+      ? await addEmployee(newUser)
+      : await addAssistant(newUser);
+      
+    if (result.success) {
+      setNewUser({ name: '', email: '', phone: '', password: '' });
+      setRoleToAdd(null);
+    } else {
+      setIsAddUserDialogOpen(true); // Re-open on error
+      toast({
+        variant: 'destructive',
+        title: 'فشل الإنشاء',
+        description: result.message,
+      });
+    }
+  };
+
 
   // Data for System Admin
   const officeManagers = users.filter((u) => u.role === 'مدير المكتب');
@@ -543,6 +586,8 @@ export default function UsersPage() {
 
   const renderOfficeManagerView = () => {
     const canManageAssistants = role === 'مدير المكتب';
+    const canAddAssistant = canManageAssistants && myAssistants.length < (currentUser.assistantLimit ?? 0);
+    const canAddEmployee = role === 'مدير المكتب' && myEmployees.length < (currentUser.employeeLimit ?? 0);
     const canManageEmployees = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageEmployeePermissions);
     
     // Logic to find the correct manager for settings
@@ -553,14 +598,20 @@ export default function UsersPage() {
     <>
       {canManageAssistants && (
         <Card>
-          <CardHeader>
-            <CardTitle className='flex items-center gap-2'>
-              <Users2 className="h-6 w-6 text-primary" />
-              إدارة المساعدين
-            </CardTitle>
-            <CardDescription>
-              عرض وإدارة صلاحيات مساعدي مدير المكتب التابعين لك.
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className='flex items-center gap-2'>
+                <Users2 className="h-6 w-6 text-primary" />
+                إدارة المساعدين ({myAssistants.length} / {currentUser.assistantLimit ?? 0})
+              </CardTitle>
+              <CardDescription>
+                عرض وإدارة صلاحيات مساعدي مدير المكتب التابعين لك.
+              </CardDescription>
+            </div>
+             <Button size="sm" onClick={() => { setRoleToAdd('مساعد مدير المكتب'); setIsAddUserDialogOpen(true); }} disabled={!canAddAssistant}>
+                <PlusCircle className="ml-2 h-4 w-4" />
+                إضافة مساعد
+            </Button>
           </CardHeader>
           <CardContent>
             {myAssistants.length > 0 ? (
@@ -624,14 +675,22 @@ export default function UsersPage() {
 
       {canManageEmployees && (
         <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className='flex items-center gap-2'>
-                <UserCog className="h-6 w-6 text-primary" />
-                إدارة الموظفين
-            </CardTitle>
-            <CardDescription>
-              عرض وإدارة الموظفين المرتبطين بالمكتب.
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className='flex items-center gap-2'>
+                  <UserCog className="h-6 w-6 text-primary" />
+                  إدارة الموظفين ({myEmployees.length} / {managerForSettings?.employeeLimit ?? 0})
+              </CardTitle>
+              <CardDescription>
+                عرض وإدارة الموظفين المرتبطين بالمكتب.
+              </CardDescription>
+            </div>
+            {role === 'مدير المكتب' && (
+                <Button size="sm" onClick={() => { setRoleToAdd('موظف'); setIsAddUserDialogOpen(true); }} disabled={!canAddEmployee}>
+                    <PlusCircle className="ml-2 h-4 w-4" />
+                    إضافة موظف
+                </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-6">
              <Card className="bg-muted/50">
@@ -777,6 +836,45 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+       <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleAddNewUser}>
+            <DialogHeader>
+              <DialogTitle>إضافة {roleToAdd === 'موظف' ? 'موظف' : 'مساعد'} جديد</DialogTitle>
+              <DialogDescription>
+                أدخل بيانات المستخدم الجديد لإنشاء حساب له.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">الاسم الكامل</Label>
+                <Input id="name" value={newUser.name} onChange={handleInputChange} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Input id="email" type="email" value={newUser.email} onChange={handleInputChange} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">رقم الجوال</Label>
+                <Input id="phone" type="tel" value={newUser.phone} onChange={handleInputChange} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">كلمة المرور</Label>
+                <Input id="password" type="password" value={newUser.password} onChange={handleInputChange} required />
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary" onClick={() => setNewUser({ name: '', email: '', phone: '', password: '' })}>
+                  إلغاء
+                </Button>
+              </DialogClose>
+              <Button type="submit">إنشاء الحساب</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
