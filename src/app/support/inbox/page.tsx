@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { arSA } from 'date-fns/locale';
 import { Inbox } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -98,7 +99,7 @@ export default function SupportInboxPage() {
                         <p>
                           <strong>التاريخ:</strong>{' '}
                           {format(new Date(ticket.date), 'PPpp', {
-                            locale: require('date-fns/locale/ar-SA'),
+                            locale: arSA,
                           })}
                         </p>
                       </div>
