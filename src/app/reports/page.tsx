@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import React, { useMemo, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -105,7 +106,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { borrowers, investors, users, currentUser } = useData();
+  const { borrowers, investors, currentUser } = useData();
   const router = useRouter();
 
   const role = currentUser?.role;
@@ -116,29 +117,6 @@ export default function ReportsPage() {
       router.replace('/');
     }
   }, [currentUser, hasAccess, router]);
-
-
-  const displayedInvestors = useMemo(() => {
-    if (!currentUser) return [];
-    if (role === 'مدير المكتب') {
-        return investors.filter(i => i.submittedBy === currentUser.id);
-    }
-    if (role === 'مساعد مدير المكتب' && currentUser.managedBy) {
-        return investors.filter(i => i.submittedBy === currentUser.managedBy || i.submittedBy === currentUser.id);
-    }
-    return investors;
-  }, [investors, currentUser, role]);
-
-  const displayedBorrowers = useMemo(() => {
-    if (!currentUser) return [];
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser.managedBy)) {
-        const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-        const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
-        const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
-        return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
-    }
-    return borrowers;
-  }, [borrowers, users, currentUser, role]);
 
   const getInvestorInfoForLoan = (loan: Borrower): React.ReactNode => {
     if (!loan.fundedBy || loan.fundedBy.length === 0) {
@@ -151,14 +129,14 @@ export default function ReportsPage() {
     return `${loan.fundedBy.length} مستثمرون`;
   };
 
-  const loansForReport = displayedBorrowers.filter(b => 
+  const loansForReport = borrowers.filter(b => 
     b.status === 'متعثر' || 
     b.status === 'معلق' ||
     b.status === 'منتظم' ||
     b.status === 'متأخر'
   );
   
-  const activeInvestors = displayedInvestors.filter(i => i.status === 'نشط' || i.status === 'غير نشط');
+  const activeInvestors = investors.filter(i => i.status === 'نشط' || i.status === 'غير نشط');
 
   const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
   const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
@@ -196,7 +174,7 @@ export default function ReportsPage() {
             .filter(tx => tx.type === 'إيداع رأس المال')
             .reduce((acc, tx) => acc + tx.amount, 0);
         
-        const activeInvestment = displayedBorrowers
+        const activeInvestment = borrowers
             .filter(b => b.fundedBy?.some(f => f.investorId === investor.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
             .reduce((total, loan) => {
                 const funding = loan.fundedBy?.find(f => f.investorId === investor.id);

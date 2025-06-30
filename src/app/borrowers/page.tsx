@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -191,23 +192,12 @@ export default function BorrowersPage() {
     proceedToAddBorrower();
   };
   
-  const displayedBorrowers = useMemo(() => {
-    if (!currentUser) return [];
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.managedBy)) {
-      const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-      const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
-      const relevantIds = [managerId, ...subordinateIds].filter(Boolean);
-      return borrowers.filter(b => b.submittedBy && relevantIds.includes(b.submittedBy));
-    }
-    return borrowers;
-  }, [borrowers, users, currentUser, role]);
-  
   if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 
-  const installmentBorrowers = displayedBorrowers.filter((b) => b.loanType === 'اقساط');
-  const gracePeriodBorrowers = displayedBorrowers.filter((b) => b.loanType === 'مهلة');
+  const installmentBorrowers = borrowers.filter((b) => b.loanType === 'اقساط');
+  const gracePeriodBorrowers = borrowers.filter((b) => b.loanType === 'مهلة');
 
   const getDialogTitle = () => {
     if (isEmployee || isAssistant) {

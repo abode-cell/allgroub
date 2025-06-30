@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useActionState } from 'react';
+import React, { useActionState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { onSummarize, type FormState } from './actions';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,23 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { useData } from '@/contexts/data-context';
+import { useRouter } from 'next/navigation';
+import { Skeleton } from '@/components/ui/skeleton';
+
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+            <div>
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+        </div>
+        <Skeleton className="h-96 w-full" />
+    </div>
+);
+
 
 const initialState: FormState = {
   message: '',
@@ -36,6 +54,21 @@ function SubmitButton() {
 
 export default function SummarizePage() {
   const [state, formAction] = useActionState(onSummarize, initialState);
+  const { currentUser } = useData();
+  const router = useRouter();
+
+  const role = currentUser?.role;
+  const hasAccess = role === 'مدير المكتب' || role === 'مساعد مدير المكتب';
+
+  useEffect(() => {
+    if (currentUser && !hasAccess) {
+      router.replace('/');
+    }
+  }, [currentUser, hasAccess, router]);
+
+  if (!currentUser || !hasAccess) {
+    return <PageSkeleton />;
+  }
 
   return (
     <div className="flex flex-col flex-1">

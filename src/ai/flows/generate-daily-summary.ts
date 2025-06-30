@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to generate a daily summary for the dashboard.
@@ -11,6 +12,9 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateDailySummaryInputSchema = z.object({
+  userName: z.string().optional().describe('The name of the user requesting the summary.'),
+  userRole: z.string().optional().describe('The role of the user.'),
+  
   // Financial fields for Office Manager
   newBorrowersCount: z.number().optional().describe('The number of new borrowers added today.'),
   newInvestorsCount: z.number().optional().describe('The number of new investors added today.'),
@@ -41,17 +45,18 @@ const prompt = ai.definePrompt({
   model: 'googleai/gemini-2.0-flash',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
-  prompt: `أنت مساعد ذكاء اصطناعي. مهمتك هي إنشاء ملخص يومي واضح ومختصر جدًا باللغة العربية لمدير المنصة.
+  prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
+مهمتك هي إنشاء ملخص يومي واضح ومختصر جدًا باللغة العربية.
 يجب أن لا يتجاوز الملخص جملة إلى جملتين. ركز فقط على الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
 
 {{#if totalUsersCount}}
-أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا.
+أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا عن صحة المنصة.
 بيانات النظام:
 - إجمالي المستخدمين: {{{totalUsersCount}}}
 - إجمالي مدراء المكاتب: {{{newOfficeManagersCount}}}
 - الحسابات التي تنتظر التفعيل: {{{pendingActivationsCount}}}
 {{else}}
-أنت تتحدث إلى مدير مكتب. قدم ملخصًا ماليًا.
+أنت تتحدث إلى مدير مكتب. قدم ملخصًا ماليًا لأنشطة مكتبه.
 بيانات اليوم:
 - المقترضون الجدد: {{{newBorrowersCount}}}
 - المستثمرون الجدد: {{{newInvestorsCount}}}

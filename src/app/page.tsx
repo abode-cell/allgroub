@@ -447,21 +447,21 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
 
 
 const SystemAdminDashboard = () => {
-    const { users, updateUserStatus, investors } = useData();
+    const { users, allUsers, investors } = useData();
 
     const pendingManagers = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق');
     const activeManagersCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'نشط').length;
     
     const totalCapital = useMemo(() => {
-        // For admin, total capital is across all investors in the system
-        const allInvestors = investors;
-        return allInvestors.reduce((total, investor) => {
+        return investors.reduce((total, investor) => {
             const capitalDeposits = investor.transactionHistory
                 .filter(tx => tx.type === 'إيداع رأس المال')
                 .reduce((sum, tx) => sum + tx.amount, 0);
             return total + capitalDeposits;
         }, 0);
     }, [investors]);
+    
+    const totalUsersCount = allUsers.length;
 
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -485,7 +485,7 @@ const SystemAdminDashboard = () => {
                 />
                 <KpiCard
                     title="إجمالي المستخدمين"
-                    value={String(users.length)}
+                    value={String(totalUsersCount)}
                     change=""
                     icon={<Users className="size-6 text-muted-foreground" />}
                 />
@@ -531,7 +531,7 @@ const SystemAdminDashboard = () => {
                                         <TableCell>{manager.email}</TableCell>
                                         <TableCell>{manager.registrationDate ? new Date(manager.registrationDate).toLocaleDateString('ar-SA') : 'غير محدد'}</TableCell>
                                         <TableCell className="text-left">
-                                            <Button size="sm" onClick={() => updateUserStatus(manager.id, 'نشط')}>
+                                            <Button size="sm" onClick={() => {}}>
                                                 <CheckCircle className="ml-2 h-4 w-4" />
                                                 تفعيل الحساب
                                             </Button>
@@ -555,43 +555,9 @@ const SystemAdminDashboard = () => {
 }
 
 export default function DashboardPage() {
-  const { borrowers, investors, users, currentUser } = useData();
+  const { borrowers, investors, currentUser } = useData();
   
   const role = currentUser?.role;
-
-  const displayedInvestors = useMemo(() => {
-    if (!currentUser) return [];
-    if (role === 'مدير النظام') {
-        return investors;
-    }
-    if (role === 'موظف') {
-        return investors.filter(i => i.submittedBy === currentUser.id);
-    }
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser.managedBy)) {
-        const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-        const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
-        const relevantIds = [managerId, ...subordinateIds, currentUser.id].filter(Boolean);
-        return investors.filter(i => i.submittedBy && Array.from(new Set(relevantIds)).includes(i.submittedBy));
-    }
-    return [];
-  }, [investors, users, currentUser, role]);
-
-  const displayedBorrowers = useMemo(() => {
-    if (!currentUser) return [];
-    if (role === 'مدير النظام') {
-        return borrowers;
-    }
-     if (role === 'موظف') {
-        return borrowers.filter(b => b.submittedBy === currentUser.id);
-    }
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser.managedBy)) {
-        const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-        const subordinateIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
-        const relevantIds = [managerId, ...subordinateIds, currentUser.id].filter(Boolean);
-        return borrowers.filter(b => b.submittedBy && Array.from(new Set(relevantIds)).includes(b.submittedBy));
-    }
-    return [];
-  }, [borrowers, users, currentUser, role]);
 
   if (!currentUser) {
       return <PageSkeleton />;
@@ -606,13 +572,13 @@ export default function DashboardPage() {
   }
   
   const totalCapital = useMemo(() => {
-    return displayedInvestors.reduce((total, investor) => {
+    return investors.reduce((total, investor) => {
         const capitalDeposits = investor.transactionHistory
             .filter(tx => tx.type === 'إيداع رأس المال')
             .reduce((sum, tx) => sum + tx.amount, 0);
         return total + capitalDeposits;
     }, 0);
-  }, [displayedInvestors]);
+  }, [investors]);
 
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
   const showIdleFundsReport = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
@@ -641,9 +607,9 @@ export default function DashboardPage() {
           )}
         </header>
 
-        {showSensitiveData && <DailySummary borrowers={displayedBorrowers} investors={displayedInvestors} />}
+        {showSensitiveData && <DailySummary borrowers={borrowers} investors={investors} />}
         
-        {showIdleFundsReport && <IdleFundsCard investors={displayedInvestors} />}
+        {showIdleFundsReport && <IdleFundsCard investors={investors} />}
 
         <Tabs defaultValue="grace-period" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -651,10 +617,10 @@ export default function DashboardPage() {
                 <TabsTrigger value="grace-period">قروض المهلة</TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-6">
-                <InstallmentsDashboard borrowers={displayedBorrowers} />
+                <InstallmentsDashboard borrowers={borrowers} />
             </TabsContent>
             <TabsContent value="grace-period" className="mt-6">
-                <GracePeriodDashboard borrowers={displayedBorrowers} investors={displayedInvestors} />
+                <GracePeriodDashboard borrowers={borrowers} investors={investors} />
             </TabsContent>
         </Tabs>
 

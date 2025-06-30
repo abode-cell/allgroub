@@ -1,3 +1,4 @@
+
 import {
   LayoutDashboard,
   Landmark,
@@ -85,6 +86,12 @@ export const allMenuItems: MenuItem[] = [
     icon: Calculator,
     roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
     permission: 'useCalculator',
+  },
+  {
+    href: '/summarize',
+    label: 'تلخيص المستندات',
+    icon: Sparkles,
+    roles: ['مدير المكتب', 'مساعد مدير المكتب'],
   },
   {
     href: '/ai-support',

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -126,13 +127,6 @@ export default function InvestorsPage() {
 
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
   const isAddButtonDisabled = isOfficeManager && !canAddMoreInvestors;
-
-  const displayedInvestors =
-    role === 'مستثمر'
-      ? investors.filter((i) => i.id === currentUser?.id)
-      : role === 'مدير المكتب' || (isAssistant && currentUser?.managedBy)
-      ? investors.filter((i) => i.submittedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) || i.submittedBy === currentUser?.id)
-      : investors;
       
   if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
@@ -290,7 +284,7 @@ export default function InvestorsPage() {
             </Dialog>
           )}
         </div>
-        <InvestorsTable investors={displayedInvestors} hideFunds={hideInvestorFunds} />
+        <InvestorsTable investors={investors} hideFunds={hideInvestorFunds} />
       </main>
     </div>
   );

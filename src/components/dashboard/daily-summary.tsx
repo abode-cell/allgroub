@@ -1,3 +1,4 @@
+
 'use client';
 
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
@@ -24,6 +25,7 @@ export function DailySummary({ borrowers, investors, users }: DailySummaryProps)
   const role = currentUser?.role;
 
   const fetchSummary = useCallback(() => {
+    if (!currentUser) return;
     startTransition(async () => {
       setError('');
       try {
@@ -33,6 +35,8 @@ export function DailySummary({ borrowers, investors, users }: DailySummaryProps)
            const pendingActivationsCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق').length;
            
             const result = await generateDailySummary({
+              userName: currentUser.name,
+              userRole: currentUser.role,
               totalUsersCount,
               newOfficeManagersCount,
               pendingActivationsCount
@@ -57,6 +61,8 @@ export function DailySummary({ borrowers, investors, users }: DailySummaryProps)
             const pendingRequestsCount = borrowers.filter(b => b.status === 'معلق').length + investors.filter(i => i.status === 'معلق').length;
             
             const result = await generateDailySummary({
+              userName: currentUser.name,
+              userRole: currentUser.role,
               newBorrowersCount,
               newInvestorsCount,
               totalLoansGranted,
@@ -72,7 +78,7 @@ export function DailySummary({ borrowers, investors, users }: DailySummaryProps)
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
     });
-  }, [borrowers, investors, users, role]);
+  }, [borrowers, investors, users, role, currentUser]);
 
   useEffect(() => {
     // Determine which data is relevant for the current role and trigger fetch

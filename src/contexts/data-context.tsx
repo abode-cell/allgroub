@@ -65,6 +65,7 @@ type DataContextType = {
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
+  allUsers: User[];
   supportTickets: SupportTicket[];
   notifications: Notification[];
   salaryRepaymentPercentage: number;
@@ -206,6 +207,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!userId) return undefined;
     return data.users.find(u => u.id === userId);
   }, [data.users, userId]);
+
+  const filteredData = useMemo(() => {
+    const { users: allUsers, borrowers: allBorrowers, investors: allInvestors } = data;
+
+    if (!currentUser) {
+      return { users: [], borrowers: [], investors: [] };
+    }
+    const { role, id, managedBy } = currentUser;
+
+    if (role === 'مدير النظام') {
+      return { users: allUsers, borrowers: allBorrowers, investors: allInvestors };
+    }
+
+    if (role === 'مستثمر') {
+      const myLoans = allBorrowers.filter(b => b.fundedBy?.some(f => f.investorId === id));
+      const myInvestorProfile = allInvestors.filter(i => i.id === id);
+      return { users: [currentUser], borrowers: myLoans, investors: myInvestorProfile };
+    }
+
+    // Office Manager, Assistant, Employee
+    const managerId = role === 'مدير المكتب' ? id : managedBy;
+    const relevantUserIds = new Set(allUsers.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    
+    // Add current user to relevant users in case they are not in the manager's hierarchy (e.g., an employee viewing their own data)
+    relevantUserIds.add(id);
+
+    const displayedUsers = allUsers.filter(u => relevantUserIds.has(u.id));
+    const displayedBorrowers = allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
+    const displayedInvestors = allInvestors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+    
+    return {
+      users: displayedUsers,
+      borrowers: displayedBorrowers,
+      investors: displayedInvestors,
+    };
+  }, [currentUser, data]);
   
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
     const newNotification: Notification = {
@@ -881,9 +918,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value = {
     currentUser, 
-    borrowers: data.borrowers, 
-    investors: data.investors, 
-    users: data.users, 
+    borrowers: filteredData.borrowers, 
+    investors: filteredData.investors, 
+    users: filteredData.users,
+    allUsers: data.users,
     supportTickets: data.supportTickets, 
     notifications: data.notifications, 
     salaryRepaymentPercentage: data.salaryRepaymentPercentage, 
