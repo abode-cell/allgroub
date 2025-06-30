@@ -1,0 +1,56 @@
+'use server';
+/**
+ * @fileOverview An AI support assistant to help diagnose and solve application problems.
+ *
+ * - getAiSupport - A function that provides a diagnosis and solution for a described problem.
+ * - AiSupportInput - The input type for the getAiSupport function.
+ * - AiSupportOutput - The return type for the getAiSupport function.
+ */
+
+import {ai} from '@/ai/genkit';
+import {z} from 'genkit';
+
+const AiSupportInputSchema = z.object({
+  problemDescription: z
+    .string()
+    .describe('A detailed description of the problem the user is facing with the web application.'),
+});
+export type AiSupportInput = z.infer<typeof AiSupportInputSchema>;
+
+const AiSupportOutputSchema = z.object({
+  solution: z.string().describe("A detailed, step-by-step solution written in Arabic. It should explain the likely cause and provide a clear fix, including code snippets if necessary. The tone should be helpful and professional, like an expert software engineer partner."),
+});
+export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
+
+export async function getAiSupport(
+  input: AiSupportInput
+): Promise<AiSupportOutput> {
+  return aiSupportFlow(input);
+}
+
+const prompt = ai.definePrompt({
+  name: 'aiSupportPrompt',
+  model: 'googleai/gemini-2.0-flash',
+  input: {schema: AiSupportInputSchema},
+  output: {schema: AiSupportOutputSchema},
+  prompt: `أنت مهندس برمجيات خبير متخصص في Next.js, React, Tailwind CSS, و Genkit. وظيفتك هي أن تكون مساعد دعم فني لمسؤول النظام.
+مهمتك هي تحليل وصف المشكلة التي يقدمها المستخدم وتقديم حل واضح وقابل للتنفيذ باللغة العربية.
+يجب أن يشرح حلك السبب المحتمل للمشكلة، وأن يقدم تعليمات خطوة بخطوة أو أمثلة برمجية لإصلاحها.
+حافظ على نبرة متعاونة واحترافية. لا تضف أي تحيات أو عبارات ختامية، فقط قدم الحل مباشرة.
+
+وصف المشكلة:
+{{{problemDescription}}}
+`,
+});
+
+const aiSupportFlow = ai.defineFlow(
+  {
+    name: 'aiSupportFlow',
+    inputSchema: AiSupportInputSchema,
+    outputSchema: AiSupportOutputSchema,
+  },
+  async input => {
+    const {output} = await prompt(input);
+    return output!;
+  }
+);

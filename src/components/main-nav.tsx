@@ -12,6 +12,7 @@ import {
   PiggyBank,
   FileUp,
   KeyRound,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import type { UserRole, PermissionKey } from '@/lib/types';
@@ -49,8 +50,7 @@ export const allMenuItems: MenuItem[] = [
     href: '/import',
     label: 'استيراد',
     icon: FileUp,
-    roles: ['مدير المكتب', 'مساعد مدير المكتب'],
-    permission: 'importData',
+    roles: [],
   },
    {
     href: '/my-requests',
@@ -82,8 +82,13 @@ export const allMenuItems: MenuItem[] = [
     href: '/calculator',
     label: 'الحاسبة',
     icon: Calculator,
-    roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
-    permission: 'useCalculator',
+    roles: [],
+  },
+  {
+    href: '/ai-support',
+    label: 'مساعد الدعم الفني',
+    icon: Sparkles,
+    roles: ['مدير النظام'],
   },
   {
     href: '/support',
