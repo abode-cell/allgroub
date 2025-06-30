@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,8 @@ type ExcelRow = {
 };
 
 export default function ImportPage() {
-  const { addBorrower, currentUser } = useData();
+  const { addBorrower } = useDataActions();
+  const { currentUser } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
 

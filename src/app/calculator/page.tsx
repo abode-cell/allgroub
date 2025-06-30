@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -29,18 +29,19 @@ export default function CalculatorPage() {
   const router = useRouter();
   const { 
     currentUser,
-    users,
     salaryRepaymentPercentage, 
-    updateSalaryRepaymentPercentage,
     baseInterestRate,
-    updateBaseInterestRate,
     investorSharePercentage,
-    updateInvestorSharePercentage,
     graceTotalProfitPercentage,
-    updateGraceTotalProfitPercentage,
     graceInvestorSharePercentage,
+  } = useDataState();
+  const {
+    updateSalaryRepaymentPercentage,
+    updateBaseInterestRate,
+    updateInvestorSharePercentage,
+    updateGraceTotalProfitPercentage,
     updateGraceInvestorSharePercentage,
-  } = useData();
+  } = useDataActions();
 
   const role = currentUser?.role;
   const hasAccess = role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);

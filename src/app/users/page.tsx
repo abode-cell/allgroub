@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import {
@@ -129,7 +129,8 @@ const assistantPermissionsConfig: {
 ];
 
 const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void }) => {
-  const { updateUserStatus, currentUser } = useData();
+  const { updateUserStatus } = useDataActions();
+  const { currentUser } = useDataState();
   const isCurrentUser = user.id === currentUser?.id;
 
   if (isCurrentUser) {
@@ -176,8 +177,9 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
 
 
 export default function UsersPage() {
-  const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, addEmployee, addAssistant, updateUserCredentials } =
-    useData();
+  const { currentUser, users, investors } = useDataState();
+  const { updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, addEmployee, addAssistant, updateUserCredentials } =
+    useDataActions();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -336,8 +338,15 @@ export default function UsersPage() {
   ), [users]);
 
   // Data for Office Manager/Assistant
-  const myEmployees = useMemo(() => users.filter((u) => u.managedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) && u.role === 'موظف'), [users, role, currentUser]);
-  const myAssistants = useMemo(() => users.filter((u) => u.managedBy === currentUser?.id && u.role === 'مساعد مدير المكتب'), [users, currentUser]);
+  const myEmployees = useMemo(() => {
+    if (!currentUser) return [];
+    return users.filter((u) => u.managedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) && u.role === 'موظف');
+  }, [users, role, currentUser]);
+  
+  const myAssistants = useMemo(() => {
+    if (!currentUser) return [];
+    return users.filter((u) => u.managedBy === currentUser.id && u.role === 'مساعد مدير المكتب');
+  }, [users, currentUser]);
 
 
   if (!currentUser || !canViewPage) {

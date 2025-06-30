@@ -4,7 +4,7 @@
 import { CircleDollarSign, TrendingUp, ShieldX, Wallet, Briefcase } from 'lucide-react';
 import { KpiCard } from './kpi-card';
 import { ProfitChart } from './profit-chart';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { useMemo } from 'react';
@@ -17,7 +17,7 @@ const formatCurrency = (value: number) =>
 
 
 export function InvestorDashboard() {
-  const { currentUser, investors, borrowers, graceTotalProfitPercentage, investorSharePercentage, graceInvestorSharePercentage } = useData();
+  const { currentUser, investors, borrowers, graceTotalProfitPercentage, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
 
   // Fetch data for the logged-in investor
   const investor = useMemo(() => investors.find(i => i.id === currentUser?.id), [investors, currentUser]);

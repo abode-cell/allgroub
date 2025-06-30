@@ -5,7 +5,7 @@ import { AppHeader } from './app-header';
 import { Skeleton } from './ui/skeleton';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 
 function AppSkeleton() {
   return (
@@ -45,7 +45,7 @@ function AppSkeleton() {
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
     const { userId, loading: authLoading } = useAuth();
-    const { currentUser } = useData();
+    const { currentUser } = useDataState();
     const router = useRouter();
     const pathname = usePathname();
 
@@ -78,7 +78,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
       }
     }, [currentUser, pathname, router]);
 
-    // We are loading if auth is loading OR if auth is done but we haven't found the currentUser object yet from useData
+    // We are loading if auth is loading OR if auth is done but we haven't found the currentUser object yet from useDataState
     if (authLoading || !currentUser) {
         return <AppSkeleton />;
     }

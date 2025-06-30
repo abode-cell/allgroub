@@ -1,6 +1,6 @@
 'use client';
 
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import {
@@ -35,7 +35,7 @@ const PageSkeleton = () => (
 );
 
 export default function SupportInboxPage() {
-  const { currentUser, supportTickets } = useData();
+  const { currentUser, supportTickets } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;

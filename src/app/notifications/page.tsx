@@ -1,6 +1,6 @@
 'use client';
 
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import {
   Card,
   CardContent,
@@ -25,7 +25,8 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function NotificationsPage() {
-  const { currentUser, notifications, clearUserNotifications } = useData();
+  const { currentUser, notifications } = useDataState();
+  const { clearUserNotifications } = useDataActions();
 
   if (!currentUser) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;

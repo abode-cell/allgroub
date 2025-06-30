@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { Borrower } from '@/lib/types';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Accordion,
@@ -106,7 +106,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { borrowers, investors, currentUser } = useData();
+  const { borrowers, investors, currentUser } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;

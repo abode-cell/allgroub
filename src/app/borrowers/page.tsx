@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import type { Borrower } from '@/lib/types';
 import {
   DropdownMenu,
@@ -72,7 +72,8 @@ const formatCurrency = (value: number) =>
 
 
 export default function BorrowersPage() {
-  const { borrowers, investors, addBorrower, users, baseInterestRate, currentUser } = useData();
+  const { addBorrower } = useDataActions();
+  const { borrowers: allBorrowers, investors: allInvestors, users, baseInterestRate, currentUser } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -84,6 +85,25 @@ export default function BorrowersPage() {
       router.replace('/');
     }
   }, [currentUser, hasAccess, router]);
+
+  const borrowers = useMemo(() => {
+    if (!currentUser || !allBorrowers) return [];
+    if (role === 'مدير النظام') return [];
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+    return allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
+  }, [currentUser, allBorrowers, users, role]);
+
+  const investors = useMemo(() => {
+    if (!currentUser || !allInvestors) return [];
+    if (role === 'مدير النظام') return [];
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+    return allInvestors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+  }, [currentUser, allInvestors, users, role]);
+
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);

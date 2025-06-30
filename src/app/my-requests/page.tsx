@@ -1,11 +1,11 @@
 'use client';
 
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { Borrower, Investor } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -45,7 +45,7 @@ const getStatusText = (status: Borrower['status'] | Investor['status']) => {
 }
 
 export default function MyRequestsPage() {
-  const { borrowers, investors, currentUser } = useData();
+  const { borrowers, investors, currentUser } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;
@@ -57,13 +57,19 @@ export default function MyRequestsPage() {
     }
   }, [currentUser, isEmployee, router]);
 
+  const myBorrowerRequests = useMemo(() => {
+    if (!currentUser) return [];
+    return borrowers.filter(b => b.submittedBy === currentUser?.id);
+  }, [borrowers, currentUser]);
+
+  const myInvestorRequests = useMemo(() => {
+    if (!currentUser) return [];
+    return investors.filter(i => i.submittedBy === currentUser?.id);
+  }, [investors, currentUser]);
+  
   if (!currentUser || !isEmployee) {
     return <PageSkeleton />;
   }
-  
-  // Use logged-in employee's ID
-  const myBorrowerRequests = borrowers.filter(b => b.submittedBy === currentUser?.id);
-  const myInvestorRequests = investors.filter(i => i.submittedBy === currentUser?.id);
 
   return (
     <div className="flex flex-col flex-1">

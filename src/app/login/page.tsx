@@ -10,12 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const { users, supportEmail, supportPhone } = useData();
+  const { users, supportEmail, supportPhone } = useDataState();
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +31,7 @@ export default function LoginPage() {
     }
     setError('');
     setIsLoading(true);
+    // On the login page, we need to pass all users to the signIn function.
     const result = await signIn({ identifier, password }, users, { email: supportEmail, phone: supportPhone });
     if (result.success) {
       router.replace('/');

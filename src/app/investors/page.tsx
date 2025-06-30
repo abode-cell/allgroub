@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { InvestorsTable } from '@/components/investors/investors-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import type { Investor } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -43,7 +43,8 @@ const PageSkeleton = () => (
 );
 
 export default function InvestorsPage() {
-  const { investors, addInvestor, users, currentUser } = useData();
+  const { addInvestor } = useDataActions();
+  const { investors: allInvestors, users, currentUser } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -55,6 +56,18 @@ export default function InvestorsPage() {
       router.replace('/');
     }
   }, [currentUser, hasAccess, router]);
+
+  const investors = useMemo(() => {
+    if (!currentUser || !allInvestors) return [];
+    if (role === 'مدير النظام') return [];
+    if (role === 'مستثمر') {
+      return allInvestors.filter(i => i.id === currentUser.id);
+    }
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+    return allInvestors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+  }, [currentUser, allInvestors, users, role]);
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

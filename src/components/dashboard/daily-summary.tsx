@@ -8,13 +8,13 @@ import { Skeleton } from '../ui/skeleton';
 import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 
 export function DailySummary() {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const { currentUser, borrowers, investors, users } = useData();
+  const { currentUser, borrowers, investors, users } = useDataState();
   const role = currentUser?.role;
 
   const fetchSummary = useCallback(() => {

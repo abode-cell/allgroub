@@ -15,7 +15,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { useMemo } from 'react';
 
 const chartConfig = {
@@ -26,7 +26,7 @@ const chartConfig = {
 };
 
 export function ProfitChart() {
-  const { borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useData();
+  const { borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
 
   const chartData = useMemo(() => {
     const monthlyProfits: { [key: string]: number } = {};

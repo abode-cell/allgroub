@@ -7,7 +7,7 @@ import { ProfitChart } from '@/components/dashboard/profit-chart';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Borrower, Investor } from '@/lib/types';
 import { DailySummary } from '@/components/dashboard/daily-summary';
@@ -44,7 +44,7 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
-  const { currentUser, investorSharePercentage } = useData();
+  const { currentUser, investorSharePercentage } = useDataState();
   const role = currentUser?.role;
 
   const {
@@ -233,7 +233,7 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
 
 
 const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[], investors: Investor[] }) => {
-    const { currentUser, graceTotalProfitPercentage, graceInvestorSharePercentage } = useData();
+    const { currentUser, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
     const role = currentUser?.role;
 
     const {
@@ -499,10 +499,11 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
 
 
 const SystemAdminDashboard = () => {
-    const { users: allUsers, investors, updateUserStatus } = useData();
+    const { users, investors } = useDataState();
+    const { updateUserStatus } = useDataActions();
 
     const { pendingManagers, activeManagersCount, totalCapital, totalUsersCount } = useMemo(() => {
-        const officeManagers = allUsers.filter(u => u.role === 'مدير المكتب');
+        const officeManagers = users.filter(u => u.role === 'مدير المكتب');
         const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
         const activeManagersCount = officeManagers.length - pendingManagers.length;
         
@@ -513,9 +514,9 @@ const SystemAdminDashboard = () => {
             return total + capitalDeposits;
         }, 0);
         
-        const totalUsersCount = allUsers.length;
+        const totalUsersCount = users.length;
         return { pendingManagers, activeManagersCount, totalCapital, totalUsersCount };
-    }, [allUsers, investors]);
+    }, [users, investors]);
     
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -609,9 +610,33 @@ const SystemAdminDashboard = () => {
 }
 
 export default function DashboardPage() {
-  const { borrowers, investors, currentUser } = useData();
-  
+  const { currentUser, users, borrowers, investors } = useDataState();
   const role = currentUser?.role;
+
+  // Memoized filtering of data based on current user
+  const filteredBorrowers = useMemo(() => {
+    if (!currentUser || !borrowers) return [];
+    if (role === 'مدير النظام') return []; // Admins see data in their own dashboard
+    if (role === 'مستثمر') {
+      return borrowers.filter(b => b.fundedBy?.some(f => f.investorId === currentUser.id));
+    }
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+    return borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
+  }, [currentUser, borrowers, users, role]);
+
+  const filteredInvestors = useMemo(() => {
+    if (!currentUser || !investors) return [];
+    if (role === 'مدير النظام') return [];
+    if (role === 'مستثمر') {
+      return investors.filter(i => i.id === currentUser.id);
+    }
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+    return investors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+  }, [currentUser, investors, users, role]);
 
   if (!currentUser) {
       return <PageSkeleton />;
@@ -626,16 +651,16 @@ export default function DashboardPage() {
   }
   
   const totalCapital = useMemo(() => {
-    return investors.reduce((total, investor) => {
+    return filteredInvestors.reduce((total, investor) => {
         const capitalDeposits = investor.transactionHistory
             .filter(tx => tx.type === 'إيداع رأس المال')
             .reduce((sum, tx) => sum + tx.amount, 0);
         return total + capitalDeposits;
     }, 0);
-  }, [investors]);
+  }, [filteredInvestors]);
 
-  const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
-  const showIdleFundsReport = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
+  const showSensitiveData = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
+  const showIdleFundsReport = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
   
   return (
     <div className="flex flex-col flex-1">
@@ -663,7 +688,7 @@ export default function DashboardPage() {
 
         {showSensitiveData && <DailySummary />}
         
-        {showIdleFundsReport && <IdleFundsCard investors={investors} />}
+        {showIdleFundsReport && <IdleFundsCard investors={filteredInvestors} />}
 
         <Tabs defaultValue="grace-period" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -671,10 +696,10 @@ export default function DashboardPage() {
                 <TabsTrigger value="grace-period">قروض المهلة</TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-6">
-                <InstallmentsDashboard borrowers={borrowers} />
+                <InstallmentsDashboard borrowers={filteredBorrowers} />
             </TabsContent>
             <TabsContent value="grace-period" className="mt-6">
-                <GracePeriodDashboard borrowers={borrowers} investors={investors} />
+                <GracePeriodDashboard borrowers={filteredBorrowers} investors={filteredInvestors} />
             </TabsContent>
         </Tabs>
 

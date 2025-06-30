@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useData } from '@/contexts/data-context';
+import { useDataActions } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { registerNewOfficeManager } = useData();
+  const { registerNewOfficeManager } = useDataActions();
   const { toast } = useToast();
   
   const [name, setName] = useState('');

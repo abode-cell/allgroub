@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -54,7 +54,7 @@ function SubmitButton() {
 
 export default function SummarizePage() {
   const [state, formAction] = useActionState(onSummarize, initialState);
-  const { currentUser } = useData();
+  const { currentUser } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;

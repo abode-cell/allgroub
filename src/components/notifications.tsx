@@ -6,10 +6,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 
 export function Notifications() {
-  const { currentUser, notifications, markUserNotificationsAsRead } = useData();
+  const { currentUser, notifications } = useDataState();
+  const { markUserNotificationsAsRead } = useDataActions();
 
   if (!currentUser) return null;
 

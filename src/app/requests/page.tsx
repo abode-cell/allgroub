@@ -1,6 +1,6 @@
 'use client';
 
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -60,13 +60,15 @@ export default function RequestsPage() {
   const { 
     borrowers, 
     investors, 
+    users,
+    currentUser,
+  } = useDataState();
+  const {
     approveBorrower, 
     approveInvestor,
     rejectBorrower,
     rejectInvestor,
-    users,
-    currentUser,
-  } = useData();
+  } = useDataActions();
 
   const role = currentUser?.role;
   const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);

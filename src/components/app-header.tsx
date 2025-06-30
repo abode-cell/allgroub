@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Button } from './ui/button';
 import { Notifications } from './notifications';
 import { LogOut, Menu, User } from 'lucide-react';
@@ -68,7 +68,7 @@ function NavLinks({ menuItems }: { menuItems: MenuItem[] }) {
 
 export function AppHeader() {
   const { signOutUser } = useAuth();
-  const { currentUser } = useData();
+  const { currentUser } = useDataState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const role = currentUser?.role;
 

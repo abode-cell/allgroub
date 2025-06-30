@@ -12,7 +12,7 @@ import { UserCog, Scale, ChevronLeft, Contact, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
@@ -29,7 +29,7 @@ const PageSkeleton = () => (
 
 
 export default function SettingsPage() {
-  const { currentUser } = useData();
+  const { currentUser } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;

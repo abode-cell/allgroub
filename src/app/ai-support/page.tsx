@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Loader2, Sparkles, Bot } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -52,7 +52,7 @@ function SubmitButton() {
 
 export default function AiSupportPage() {
   const [state, formAction] = useActionState(onDiagnose, initialState);
-  const { currentUser } = useData();
+  const { currentUser } = useDataState();
   const router = useRouter();
   
   const role = currentUser?.role;

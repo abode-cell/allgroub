@@ -1,6 +1,6 @@
 'use client';
 
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -26,7 +26,7 @@ const PageSkeleton = () => (
 
 
 export default function PoliciesPage() {
-  const { currentUser } = useData();
+  const { currentUser } = useDataState();
   const router = useRouter();
   const { toast } = useToast();
 
