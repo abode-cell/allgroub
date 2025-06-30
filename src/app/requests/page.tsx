@@ -69,7 +69,7 @@ export default function RequestsPage() {
   } = useData();
 
   const role = currentUser?.role;
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
+  const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
 
   useEffect(() => {
     if (currentUser && !hasAccess) {
@@ -130,12 +130,6 @@ export default function RequestsPage() {
 
     if (!currentUser) return { borrowerRequests: [], investorRequests: [] };
 
-    if (role === 'مدير النظام') {
-      return { 
-        borrowerRequests: allBorrowerRequests,
-        investorRequests: allInvestorRequests
-      };
-    }
     if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests)) {
       const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
       const employeeIds = users.filter(u => u.managedBy === managerId).map(u => u.id);

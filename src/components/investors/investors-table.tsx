@@ -149,7 +149,7 @@ export function InvestorsTable({
   }
 
   const canEdit = role === 'مدير المكتب';
-  const canApprove = role === 'مدير النظام' || role === 'مدير المكتب';
+  const canApprove = role === 'مدير المكتب';
   const canWithdraw = role === 'مدير المكتب' || role === 'مستثمر';
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
       

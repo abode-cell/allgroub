@@ -167,7 +167,7 @@ export function BorrowersTable({
     setIsScheduleDialogOpen(true);
   };
 
-  const canApprove = role === 'مدير النظام' || role === 'مدير المكتب';
+  const canApprove = role === 'مدير المكتب';
   const isEmployee = role === 'موظف';
   const canEdit = role === 'مدير المكتب';
 
