@@ -98,10 +98,4 @@ export const allMenuItems: MenuItem[] = [
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
     permission: 'accessSettings',
   },
-  {
-    href: '/credentials',
-    label: 'بيانات الدخول',
-    icon: KeyRound,
-    roles: ['مدير النظام'],
-  },
 ];

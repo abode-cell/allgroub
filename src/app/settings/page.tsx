@@ -8,7 +8,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserCog, Scale, ChevronLeft, Contact } from 'lucide-react';
+import { UserCog, Scale, ChevronLeft, Contact, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
@@ -99,23 +99,42 @@ export default function SettingsPage() {
           </Card>
 
           {role === 'مدير النظام' && (
-             <Card>
-                <CardHeader>
-                <Contact className="h-8 w-8 text-primary mb-2" />
-                <CardTitle>إعدادات الدعم الفني</CardTitle>
-                <CardDescription>
-                    تحديث معلومات التواصل التي تظهر للمستخدمين في صفحة الدعم.
-                </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button asChild>
-                        <Link href="/settings/support">
-                            تعديل معلومات الدعم
-                            <ChevronLeft className="mr-2 h-4 w-4" />
-                        </Link>
-                    </Button>
-                </CardContent>
-            </Card>
+             <>
+                <Card>
+                    <CardHeader>
+                    <KeyRound className="h-8 w-8 text-primary mb-2" />
+                    <CardTitle>بيانات دخول المستخدمين</CardTitle>
+                    <CardDescription>
+                        عرض وتعديل بيانات الدخول لجميع المستخدمين في النظام.
+                    </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild>
+                            <Link href="/credentials">
+                                إدارة بيانات الدخول
+                                <ChevronLeft className="mr-2 h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                    <Contact className="h-8 w-8 text-primary mb-2" />
+                    <CardTitle>إعدادات الدعم الفني</CardTitle>
+                    <CardDescription>
+                        تحديث معلومات التواصل التي تظهر للمستخدمين في صفحة الدعم.
+                    </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild>
+                            <Link href="/settings/support">
+                                تعديل معلومات الدعم
+                                <ChevronLeft className="mr-2 h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </>
           )}
 
         </div>

@@ -37,6 +37,8 @@ import {
   Check,
   X,
   PlusCircle,
+  Edit,
+  Loader2,
 } from 'lucide-react';
 import {
   Select,
@@ -126,7 +128,7 @@ const assistantPermissionsConfig: {
   { key: 'manageEmployeePermissions', label: 'إدارة صلاحيات الموظفين', description: 'تمكين المساعد من تفعيل أو تعطيل صلاحيات الموظفين.' },
 ];
 
-const UserActions = ({ user, onDeleteClick }: { user: User, onDeleteClick: (user: User) => void }) => {
+const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void }) => {
   const { updateUserStatus, currentUser } = useData();
   const isCurrentUser = user.id === currentUser?.id;
 
@@ -155,6 +157,10 @@ const UserActions = ({ user, onDeleteClick }: { user: User, onDeleteClick: (user
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+                 <DropdownMenuItem onSelect={() => onEditClick(user)}>
+                    <Edit className="ml-2 h-4 w-4" />
+                    <span>تعديل بيانات الدخول</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                     className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                     onClick={() => onDeleteClick(user)}
@@ -170,7 +176,7 @@ const UserActions = ({ user, onDeleteClick }: { user: User, onDeleteClick: (user
 
 
 export default function UsersPage() {
-  const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, addEmployee, addAssistant } =
+  const { currentUser, users, investors, updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, addEmployee, addAssistant, updateUserCredentials } =
     useData();
   const router = useRouter();
   const { toast } = useToast();
@@ -184,6 +190,11 @@ export default function UsersPage() {
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [roleToAdd, setRoleToAdd] = useState<'موظف' | 'مساعد مدير المكتب' | null>(null);
   const [newUser, setNewUser] = useState<NewUserPayload>({ name: '', email: '', phone: '', password: '' });
+  
+  const [isEditCredsDialogOpen, setIsEditCredsDialogOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const [editCredsForm, setEditCredsForm] = useState({ email: '', password: '' });
+  const [isCredsSubmitting, setIsCredsSubmitting] = useState(false);
   
   const role = currentUser?.role;
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings);
@@ -201,6 +212,43 @@ export default function UsersPage() {
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
     setIsDeleteDialogOpen(true);
+  };
+  
+  const handleEditCredsClick = (user: User) => {
+    setUserToEdit(user);
+    setEditCredsForm({ email: user.email, password: '' });
+    setIsEditCredsDialogOpen(true);
+  };
+
+  const handleCredsFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setEditCredsForm(prev => ({ ...prev, [id]: value }));
+  };
+  
+  const handleSaveCredentials = async () => {
+    if (!userToEdit) return;
+    setIsCredsSubmitting(true);
+    
+    const updates: { email?: string, password?: string } = {};
+    if (editCredsForm.email !== userToEdit.email) {
+      updates.email = editCredsForm.email;
+    }
+    if (editCredsForm.password) {
+      updates.password = editCredsForm.password;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const result = await updateUserCredentials(userToEdit.id, updates);
+      if (result.success) {
+        setIsEditCredsDialogOpen(false);
+        setUserToEdit(null);
+      } else {
+        toast({ variant: 'destructive', title: 'خطأ', description: result.message });
+      }
+    } else {
+      setIsEditCredsDialogOpen(false); // Close if no changes were made
+    }
+    setIsCredsSubmitting(false);
   };
 
   const handleConfirmDelete = () => {
@@ -350,7 +398,7 @@ export default function UsersPage() {
                             )}
                             {manager.status}
                           </Badge>
-                          <UserActions user={manager} onDeleteClick={handleDeleteClick} />
+                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                         </div>
                       </div>
                     </AccordionPrimitive.Header>
@@ -573,7 +621,7 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-left">
-                     <UserActions user={user} onDeleteClick={handleDeleteClick} />
+                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -634,7 +682,7 @@ export default function UsersPage() {
                               )}
                               {assistant.status}
                             </Badge>
-                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} />
+                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                           </div>
                         </div>
                       </AccordionPrimitive.Header>
@@ -771,7 +819,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-left">
-                         <UserActions user={employee} onDeleteClick={handleDeleteClick} />
+                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                       </TableCell>
                     </TableRow>
                   ))
@@ -873,6 +921,50 @@ export default function UsersPage() {
               <Button type="submit">إنشاء الحساب</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isEditCredsDialogOpen} onOpenChange={setIsEditCredsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>تعديل بيانات دخول {userToEdit?.name}</DialogTitle>
+            <DialogDescription>
+              قم بتحديث البريد الإلكتروني أو كلمة المرور. اترك حقل كلمة المرور فارغًا لإبقائها كما هي.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-edit">البريد الإلكتروني</Label>
+              <Input
+                id="email"
+                type="email"
+                value={editCredsForm.email}
+                onChange={handleCredsFormChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password-edit">كلمة المرور الجديدة</Label>
+              <Input
+                id="password"
+                type="password"
+                value={editCredsForm.password}
+                onChange={handleCredsFormChange}
+                placeholder="اتركه فارغًا لعدم التغيير"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">
+                إلغاء
+              </Button>
+            </DialogClose>
+            <Button type="button" onClick={handleSaveCredentials} disabled={isCredsSubmitting}>
+              {isCredsSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+              حفظ التغييرات
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

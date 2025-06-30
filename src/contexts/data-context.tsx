@@ -51,7 +51,7 @@ type NewInvestorPayload = Omit<
   | 'fundedLoanIds'
   | 'rejectionReason'
   | 'submittedBy'
-> & { email?: string; password?: string };
+> & { email: string; password: string };
 
 type SignUpCredentials = {
   name: User['name'];
@@ -108,6 +108,7 @@ type DataContextType = {
     withdrawal: Omit<Transaction, 'id'>
   ) => void;
   updateUserIdentity: (updates: Partial<User>) => Promise<{ success: boolean; message: string }>;
+  updateUserCredentials: (userId: string, updates: { email?: string; password?: string }) => Promise<{ success: boolean; message: string }>;
   updateUserStatus: (userId: string, status: User['status']) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
   updateUserLimits: (
@@ -634,6 +635,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({ title: 'نجاح', description: "تم تحديث معلوماتك بنجاح." });
     return { success: true, message: "تم تحديث معلوماتك بنجاح." };
   }, [currentUser, toast]);
+  
+  const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string }) => {
+    let success = false;
+    let message = 'لم يتم العثور على المستخدم.';
+
+    setData(prev => {
+        const userExists = prev.users.some(u => u.id === userId);
+        if (!userExists) {
+            return prev;
+        }
+
+        if (updates.email) {
+            const emailInUse = prev.users.some(u => u.email === updates.email && u.id !== userId);
+            if (emailInUse) {
+                message = 'هذا البريد الإلكتروني مستخدم بالفعل.';
+                return prev;
+            }
+        }
+        if (updates.password && updates.password.length < 6) {
+            message = 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.';
+            return prev;
+        }
+
+        const newUsers = prev.users.map(u => {
+            if (u.id === userId) {
+                return { ...u, ...updates };
+            }
+            return u;
+        });
+
+        success = true;
+        message = 'تم تحديث بيانات الدخول بنجاح.';
+        return { ...prev, users: newUsers };
+    });
+
+    setTimeout(() => {
+        if(success) toast({ title: 'نجاح', description: message });
+    }, 0);
+
+    return { success, message };
+  }, [toast]);
 
   const updateUserStatus = useCallback(
     (userId: string, status: User['status']) => {
@@ -813,6 +855,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     rejectBorrower, 
     rejectInvestor, 
     updateUserIdentity, 
+    updateUserCredentials,
     updateUserStatus, 
     updateUserRole, 
     updateUserLimits, 
