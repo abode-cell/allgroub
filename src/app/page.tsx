@@ -1,7 +1,7 @@
 
 'use client';
 
-import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet } from 'lucide-react';
+import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { ProfitChart } from '@/components/dashboard/profit-chart';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
@@ -22,6 +22,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -444,6 +445,115 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
     );
 };
 
+
+const SystemAdminDashboard = () => {
+    const { users, updateUserStatus } = useData();
+
+    const pendingManagers = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق');
+    const activeManagersCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'نشط').length;
+    
+    const totalCapital = useMemo(() => {
+        // For admin, total capital is across all investors in the system
+        const allInvestors = useData().investors;
+        return allInvestors.reduce((total, investor) => {
+            const capitalDeposits = investor.transactionHistory
+                .filter(tx => tx.type === 'إيداع رأس المال')
+                .reduce((sum, tx) => sum + tx.amount, 0);
+            return total + capitalDeposits;
+        }, 0);
+    }, []);
+
+    return (
+        <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+             <header className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                    لوحة تحكم مدير النظام
+                    </h1>
+                    <p className="text-muted-foreground mt-1">
+                    نظرة عامة على صحة المنصة والمستخدمين.
+                    </p>
+                </div>
+            </header>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <KpiCard
+                    title="إجمالي رأس المال"
+                    value={formatCurrency(totalCapital)}
+                    change="في جميع المحافظ"
+                    icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
+                />
+                <KpiCard
+                    title="إجمالي المستخدمين"
+                    value={String(users.length)}
+                    change=""
+                    icon={<Users className="size-6 text-muted-foreground" />}
+                />
+                <KpiCard
+                    title="مدراء المكاتب النشطون"
+                    value={String(activeManagersCount)}
+                    change=""
+                    icon={<UserCheck className="size-6 text-muted-foreground" />}
+                />
+                 <KpiCard
+                    title="طلبات التفعيل المعلقة"
+                    value={String(pendingManagers.length)}
+                    change=""
+                    icon={<UserCog className="size-6 text-muted-foreground" />}
+                    changeColor={pendingManagers.length > 0 ? 'text-red-500' : ''}
+                />
+            </div>
+            
+            <DailySummary users={users} />
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle>طلبات تفعيل مدراء المكاتب</CardTitle>
+                    <CardDescription>
+                       مراجعة وتفعيل الحسابات الجديدة لمدراء المكاتب.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>الاسم</TableHead>
+                                <TableHead>البريد الإلكتروني</TableHead>
+                                <TableHead>تاريخ التسجيل</TableHead>
+                                <TableHead className="text-left">الإجراء</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {pendingManagers.length > 0 ? (
+                                pendingManagers.map(manager => (
+                                    <TableRow key={manager.id}>
+                                        <TableCell className="font-medium">{manager.name}</TableCell>
+                                        <TableCell>{manager.email}</TableCell>
+                                        <TableCell>{manager.registrationDate ? new Date(manager.registrationDate).toLocaleDateString('ar-SA') : 'غير محدد'}</TableCell>
+                                        <TableCell className="text-left">
+                                            <Button size="sm" onClick={() => updateUserStatus(manager.id, 'نشط')}>
+                                                <CheckCircle className="ml-2 h-4 w-4" />
+                                                تفعيل الحساب
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        لا توجد طلبات تفعيل معلقة.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+        </div>
+    );
+}
+
 export default function DashboardPage() {
   const { borrowers, investors, users, currentUser } = useData();
   
@@ -485,6 +595,10 @@ export default function DashboardPage() {
 
   if (!currentUser) {
       return <PageSkeleton />;
+  }
+
+  if (role === 'مدير النظام') {
+    return <SystemAdminDashboard />;
   }
 
   if (role === 'مستثمر') {

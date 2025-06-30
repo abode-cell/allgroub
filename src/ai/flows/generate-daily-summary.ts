@@ -11,11 +11,17 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateDailySummaryInputSchema = z.object({
-  newBorrowersCount: z.number().describe('The number of new borrowers added today.'),
-  newInvestorsCount: z.number().describe('The number of new investors added today.'),
-  totalLoansGranted: z.number().describe('The total amount of new loans granted today.'),
-  totalNewInvestments: z.number().describe('The total amount of new investments received today.'),
-  pendingRequestsCount: z.number().describe('The number of pending requests that need review.'),
+  // Financial fields for Office Manager
+  newBorrowersCount: z.number().optional().describe('The number of new borrowers added today.'),
+  newInvestorsCount: z.number().optional().describe('The number of new investors added today.'),
+  totalLoansGranted: z.number().optional().describe('The total amount of new loans granted today.'),
+  totalNewInvestments: z.number().optional().describe('The total amount of new investments received today.'),
+  pendingRequestsCount: z.number().optional().describe('The number of pending requests that need review.'),
+  
+  // System fields for System Admin
+  totalUsersCount: z.number().optional().describe('The total number of users in the system.'),
+  newOfficeManagersCount: z.number().optional().describe('The number of new office managers who registered.'),
+  pendingActivationsCount: z.number().optional().describe('The number of office managers pending activation.'),
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
@@ -35,15 +41,25 @@ const prompt = ai.definePrompt({
   model: 'googleai/gemini-2.0-flash',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
-  prompt: `أنت مساعد ذكاء اصطناعي متخصص في التحليل المالي. مهمتك هي إنشاء ملخص يومي واضح ومختصر جدًا باللغة العربية لمدير المنصة.
+  prompt: `أنت مساعد ذكاء اصطناعي. مهمتك هي إنشاء ملخص يومي واضح ومختصر جدًا باللغة العربية لمدير المنصة.
 يجب أن لا يتجاوز الملخص جملة إلى جملتين. ركز فقط على الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
 
+{{#if totalUsersCount}}
+أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا.
+بيانات النظام:
+- إجمالي المستخدمين: {{{totalUsersCount}}}
+- إجمالي مدراء المكاتب: {{{newOfficeManagersCount}}}
+- الحسابات التي تنتظر التفعيل: {{{pendingActivationsCount}}}
+{{else}}
+أنت تتحدث إلى مدير مكتب. قدم ملخصًا ماليًا.
 بيانات اليوم:
 - المقترضون الجدد: {{{newBorrowersCount}}}
 - المستثمرون الجدد: {{{newInvestorsCount}}}
 - إجمالي القروض الجديدة: {{{totalLoansGranted}}} ريال
 - إجمالي الاستثمارات الجديدة: {{{totalNewInvestments}}} ريال
-- الطلبات المعلقة: {{{pendingRequestsCount}}}`,
+- الطلبات المعلقة: {{{pendingRequestsCount}}}
+{{/if}}
+`,
 });
 
 const generateDailySummaryFlow = ai.defineFlow(

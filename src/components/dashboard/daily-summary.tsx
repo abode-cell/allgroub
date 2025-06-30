@@ -7,59 +7,80 @@ import { Skeleton } from '../ui/skeleton';
 import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import type { Borrower, Investor } from '@/lib/types';
+import type { Borrower, Investor, User } from '@/lib/types';
+import { useData } from '@/contexts/data-context';
 
-export function DailySummary({ borrowers, investors }: { borrowers: Borrower[]; investors: Investor[] }) {
+type DailySummaryProps = {
+  borrowers?: Borrower[];
+  investors?: Investor[];
+  users?: User[];
+};
+
+export function DailySummary({ borrowers, investors, users }: DailySummaryProps) {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
+  const { currentUser } = useData();
+  const role = currentUser?.role;
 
   const fetchSummary = useCallback(() => {
     startTransition(async () => {
       setError('');
       try {
-        // For this mock app, "daily" will mean "all time" stats from our data file
-        const newBorrowersCount = borrowers.filter(b => b.status !== 'معلق').length;
-        const newInvestorsCount = investors.filter(i => i.status === 'نشط').length;
-        const totalLoansGranted = borrowers.filter(b => b.status !== 'معلق').reduce((acc, b) => acc + b.amount, 0);
-        
-        // The AI prompt asks for "new investments", which is best represented by the total capital deposited.
-        const totalNewInvestments = investors
-          .filter(i => i.status === 'نشط')
-          .reduce((total, investor) => {
-            const capitalDeposits = investor.transactionHistory
-              .filter(tx => tx.type === 'إيداع رأس المال')
-              .reduce((sum, tx) => sum + tx.amount, 0);
-            return total + capitalDeposits;
-          }, 0);
+        if (role === 'مدير النظام' && users) {
+           const totalUsersCount = users.length;
+           const newOfficeManagersCount = users.filter(u => u.role === 'مدير المكتب').length;
+           const pendingActivationsCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق').length;
+           
+            const result = await generateDailySummary({
+              totalUsersCount,
+              newOfficeManagersCount,
+              pendingActivationsCount
+            });
+            if (result.summary) setSummary(result.summary);
+            else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
 
-        const pendingRequestsCount = borrowers.filter(b => b.status === 'معلق').length + investors.filter(i => i.status === 'معلق').length;
-        
-        const result = await generateDailySummary({
-          newBorrowersCount,
-          newInvestorsCount,
-          totalLoansGranted,
-          totalNewInvestments,
-          pendingRequestsCount
-        });
+        } else if (borrowers && investors) {
+            const newBorrowersCount = borrowers.filter(b => b.status !== 'معلق').length;
+            const newInvestorsCount = investors.filter(i => i.status === 'نشط').length;
+            const totalLoansGranted = borrowers.filter(b => b.status !== 'معلق').reduce((acc, b) => acc + b.amount, 0);
+            
+            const totalNewInvestments = investors
+              .filter(i => i.status === 'نشط')
+              .reduce((total, investor) => {
+                const capitalDeposits = investor.transactionHistory
+                  .filter(tx => tx.type === 'إيداع رأس المال')
+                  .reduce((sum, tx) => sum + tx.amount, 0);
+                return total + capitalDeposits;
+              }, 0);
 
-        if (result.summary) {
-          setSummary(result.summary);
-        } else {
-          setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
+            const pendingRequestsCount = borrowers.filter(b => b.status === 'معلق').length + investors.filter(i => i.status === 'معلق').length;
+            
+            const result = await generateDailySummary({
+              newBorrowersCount,
+              newInvestorsCount,
+              totalLoansGranted,
+              totalNewInvestments,
+              pendingRequestsCount
+            });
+            if (result.summary) setSummary(result.summary);
+            else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
         }
+
       } catch (e) {
         console.error(e);
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
     });
-  }, [borrowers, investors]);
+  }, [borrowers, investors, users, role]);
 
   useEffect(() => {
-    if (borrowers && investors) {
+    // Determine which data is relevant for the current role and trigger fetch
+    const isReadyForFetch = (role === 'مدير النظام' && users) || (role !== 'مدير النظام' && borrowers && investors);
+    if (isReadyForFetch) {
         fetchSummary();
     }
-  }, [fetchSummary, borrowers, investors]);
+  }, [fetchSummary, borrowers, investors, users, role]);
 
   return (
     <Card>
