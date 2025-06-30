@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import type { Borrower, BorrowerPaymentStatus, Payment } from '@/lib/types';
 import {
   Tooltip,
@@ -91,7 +91,8 @@ export function BorrowersTable({
 }: {
   borrowers: Borrower[];
 }) {
-  const { currentUser, investors, updateBorrower, approveBorrower, updateBorrowerPaymentStatus } = useData();
+  const { currentUser, investors } = useDataState();
+  const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus } = useDataActions();
   const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);

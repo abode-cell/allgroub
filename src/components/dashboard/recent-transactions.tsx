@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useData } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number) =>
@@ -30,7 +30,7 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } 
 };
 
 export function RecentTransactions() {
-  const { investors, borrowers } = useData();
+  const { investors, borrowers } = useDataState();
 
   const investorTransactions = investors.flatMap(investor => 
     investor.transactionHistory.map(tx => ({

@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useData } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Textarea } from '../ui/textarea';
 import type { Investor, Transaction, TransactionType, WithdrawalMethod } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
@@ -77,7 +77,8 @@ export function InvestorsTable({
   investors,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { currentUser, borrowers, updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease } = useData();
+  const { currentUser, borrowers } = useDataState();
+  const { updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease } = useDataActions();
   const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
