@@ -24,14 +24,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
+    // This effect runs once on the client when the component mounts.
     try {
-      // Force sign out by clearing the stored user ID.
-      localStorage.removeItem('loggedInUserId');
-      setUserId(null);
+      const storedUserId = localStorage.getItem('loggedInUserId');
+      if (storedUserId) {
+        setUserId(storedUserId);
+      }
     } catch (error) {
-        console.error("Could not access localStorage:", error);
+      console.error("Could not access localStorage:", error);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   }, []);
 
