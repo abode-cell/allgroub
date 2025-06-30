@@ -491,7 +491,15 @@ export default function DashboardPage() {
     return <InvestorDashboard />;
   }
   
-  const totalCapital = displayedInvestors.reduce((acc, inv) => acc + inv.amount + (inv.defaultedFunds || 0), 0);
+  const totalCapital = useMemo(() => {
+    return displayedInvestors.reduce((total, investor) => {
+        const capitalDeposits = investor.transactionHistory
+            .filter(tx => tx.type === 'إيداع رأس المال')
+            .reduce((sum, tx) => sum + tx.amount, 0);
+        return total + capitalDeposits;
+    }, 0);
+  }, [displayedInvestors]);
+
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
   const showIdleFundsReport = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
   
@@ -519,7 +527,7 @@ export default function DashboardPage() {
           )}
         </header>
 
-        {showSensitiveData && <DailySummary />}
+        {showSensitiveData && <DailySummary borrowers={displayedBorrowers} investors={displayedInvestors} />}
         
         {showIdleFundsReport && <IdleFundsCard investors={displayedInvestors} />}
 

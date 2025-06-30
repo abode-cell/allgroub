@@ -1,21 +1,20 @@
 'use client';
 
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
-import { useData } from '@/contexts/data-context';
-import { useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import type { Borrower, Investor } from '@/lib/types';
 
-export function DailySummary() {
-  const { borrowers, investors } = useData();
+export function DailySummary({ borrowers, investors }: { borrowers: Borrower[]; investors: Investor[] }) {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  const fetchSummary = () => {
+  const fetchSummary = useCallback(() => {
     startTransition(async () => {
       setError('');
       try {
@@ -23,7 +22,17 @@ export function DailySummary() {
         const newBorrowersCount = borrowers.filter(b => b.status !== 'معلق').length;
         const newInvestorsCount = investors.filter(i => i.status === 'نشط').length;
         const totalLoansGranted = borrowers.filter(b => b.status !== 'معلق').reduce((acc, b) => acc + b.amount, 0);
-        const totalNewInvestments = investors.filter(i => i.status === 'نشط').reduce((acc, i) => acc + i.amount, 0);
+        
+        // The AI prompt asks for "new investments", which is best represented by the total capital deposited.
+        const totalNewInvestments = investors
+          .filter(i => i.status === 'نشط')
+          .reduce((total, investor) => {
+            const capitalDeposits = investor.transactionHistory
+              .filter(tx => tx.type === 'إيداع رأس المال')
+              .reduce((sum, tx) => sum + tx.amount, 0);
+            return total + capitalDeposits;
+          }, 0);
+
         const pendingRequestsCount = borrowers.filter(b => b.status === 'معلق').length + investors.filter(i => i.status === 'معلق').length;
         
         const result = await generateDailySummary({
@@ -44,11 +53,13 @@ export function DailySummary() {
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
     });
-  };
+  }, [borrowers, investors]);
 
   useEffect(() => {
-    fetchSummary();
-  }, []); // Run only on initial mount
+    if (borrowers && investors) {
+        fetchSummary();
+    }
+  }, [fetchSummary, borrowers, investors]);
 
   return (
     <Card>
@@ -68,7 +79,7 @@ export function DailySummary() {
         </Button>
       </CardHeader>
       <CardContent>
-        {isPending ? (
+        {isPending && !summary ? (
           <div className="space-y-2">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-5/6" />
