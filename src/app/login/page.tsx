@@ -15,7 +15,7 @@ import { useData } from '@/contexts/data-context';
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const { users } = useData();
+  const { users, supportEmail, supportPhone } = useData();
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -31,7 +31,7 @@ export default function LoginPage() {
     }
     setError('');
     setIsLoading(true);
-    const result = await signIn({ identifier, password }, users);
+    const result = await signIn({ identifier, password }, users, { email: supportEmail, phone: supportPhone });
     if (result.success) {
       router.replace('/');
     } else {

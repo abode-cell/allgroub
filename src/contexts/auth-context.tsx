@@ -12,7 +12,11 @@ type SignInCredentials = {
 type AuthContextType = {
   userId: string | null;
   loading: boolean;
-  signIn: (credentials: SignInCredentials, allUsers: User[]) => Promise<{ success: boolean; message: string }>;
+  signIn: (
+    credentials: SignInCredentials,
+    allUsers: User[],
+    supportInfo: { email: string; phone: string }
+  ) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
 };
 
@@ -37,30 +41,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signIn = async (credentials: SignInCredentials, allUsers: User[]) => {
+  const signIn = async (
+    credentials: SignInCredentials,
+    allUsers: User[],
+    supportInfo: { email: string; phone: string }
+  ) => {
     const { identifier, password } = credentials;
-    const userToSignIn = allUsers.find(u => (u.email === identifier || u.phone === identifier));
+    const userToSignIn = allUsers.find(u => u.email === identifier || u.phone === identifier);
 
     if (!userToSignIn) {
-        return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
+      return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
     }
 
     if (userToSignIn.status === 'معلق') {
-        return { success: false, message: 'حسابك معلق وفي انتظار موافقة المدير.' };
+      if (userToSignIn.role === 'مدير المكتب') {
+        return {
+          success: false,
+          message: `حسابك معلق. لمراجعة حالة حسابك، يرجى التواصل مع الدعم الفني على: ${supportInfo.email} أو ${supportInfo.phone}`
+        };
+      }
+      return { success: false, message: 'حسابك معلق وفي انتظار موافقة المدير.' };
     }
-    
+
     if (userToSignIn.password !== password) {
-        return { success: false, message: 'كلمة المرور غير صحيحة.' };
+      return { success: false, message: 'كلمة المرور غير صحيحة.' };
     }
 
     setUserId(userToSignIn.id);
     try {
-        localStorage.setItem('loggedInUserId', userToSignIn.id);
+      localStorage.setItem('loggedInUserId', userToSignIn.id);
     } catch (error) {
-        console.error("Could not access localStorage:", error);
+      console.error("Could not access localStorage:", error);
     }
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
-};
+  };
 
   const signOutUser = () => {
     setUserId(null);
