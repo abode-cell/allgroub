@@ -162,6 +162,46 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
       <div>
         <RecentTransactions />
       </div>
+
+      {showSensitiveData && (
+        <Card>
+            <CardHeader>
+                <CardTitle>تفصيل أرباح المؤسسة (الأقساط)</CardTitle>
+                <CardDescription>عرض تفصيلي لربح المؤسسة من كل قرض أقساط.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Accordion type="single" collapsible className="w-full">
+                    {profitableInstallmentLoans.map(loan => {
+                        if (!loan.rate || !loan.term) return null;
+                        const totalInterest = (loan.amount * (loan.rate / 100) * loan.term);
+                        const institutionProfit = totalInterest * ((100 - investorSharePercentage) / 100);
+                        const investorProfit = totalInterest - institutionProfit;
+
+                        return (
+                            <AccordionItem value={loan.id} key={loan.id}>
+                                <AccordionTrigger>
+                                    <div className="flex justify-between w-full pr-4 items-center">
+                                        <span className="font-medium">{loan.name}</span>
+                                        <span className="font-bold text-primary">{formatCurrency(institutionProfit)}</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-2 bg-muted/30 p-4">
+                                    <div className="flex justify-between"><span>أصل القرض:</span> <span className="font-semibold">{formatCurrency(loan.amount)}</span></div>
+                                    <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(totalInterest)}</span></div>
+                                    <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(investorProfit)}</span></div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                    }).filter(Boolean)}
+                    {profitableInstallmentLoans.length === 0 && (
+                        <div className="text-center text-muted-foreground py-8">
+                            <p>لا توجد قروض أقساط مربحة لعرض تفاصيلها.</p>
+                        </div>
+                    )}
+                </Accordion>
+            </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
@@ -309,6 +349,45 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
             <div>
               <RecentTransactions />
             </div>
+
+            {showSensitiveData && (
+              <Card>
+                  <CardHeader>
+                      <CardTitle>تفصيل أرباح المؤسسة (المهلة)</CardTitle>
+                      <CardDescription>عرض تفصيلي لربح المؤسسة من كل قرض مهلة.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <Accordion type="single" collapsible className="w-full">
+                          {profitableLoans.map(loan => {
+                              const loanTotalProfit = loan.amount * (graceTotalProfitPercentage / 100);
+                              const loanInvestorShareAmount = loanTotalProfit * (graceInvestorSharePercentage / 100);
+                              const institutionProfit = loanTotalProfit - loanInvestorShareAmount;
+
+                              return (
+                                  <AccordionItem value={loan.id} key={loan.id}>
+                                      <AccordionTrigger>
+                                          <div className="flex justify-between w-full pr-4 items-center">
+                                              <span className="font-medium">{loan.name}</span>
+                                              <span className="font-bold text-primary">{formatCurrency(institutionProfit)}</span>
+                                          </div>
+                                      </AccordionTrigger>
+                                      <AccordionContent className="space-y-2 bg-muted/30 p-4">
+                                          <div className="flex justify-between"><span>أصل القرض:</span> <span className="font-semibold">{formatCurrency(loan.amount)}</span></div>
+                                          <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(loanTotalProfit)}</span></div>
+                                          <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(loanInvestorShareAmount)}</span></div>
+                                      </AccordionContent>
+                                  </AccordionItem>
+                              )
+                          })}
+                          {profitableLoans.length === 0 && (
+                              <div className="text-center text-muted-foreground py-8">
+                                  <p>لا توجد قروض مهلة مربحة لعرض تفاصيلها.</p>
+                              </div>
+                          )}
+                      </Accordion>
+                  </CardContent>
+              </Card>
+            )}
         </div>
     );
 };
