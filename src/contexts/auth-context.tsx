@@ -25,11 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   useEffect(() => {
     try {
-      // We check for the user ID, but we don't assume the user exists until DataProvider loads the full data.
-      const loggedInUserId = localStorage.getItem('loggedInUserId');
-      if (loggedInUserId) {
-        setUserId(loggedInUserId);
-      }
+      // Force sign out by clearing the stored user ID.
+      localStorage.removeItem('loggedInUserId');
+      setUserId(null);
     } catch (error) {
         console.error("Could not access localStorage:", error);
     } finally {
@@ -37,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signIn = async (credentials: SignInCredentials, allUsers: User[]): Promise<{ success: boolean; message: string }> => {
+  const signIn = async (credentials: SignInCredentials, allUsers: User[]) => {
     const { identifier, password } = credentials;
     const userToSignIn = allUsers.find(u => (u.email === identifier || u.phone === identifier));
 
