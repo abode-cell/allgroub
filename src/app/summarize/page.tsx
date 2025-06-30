@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import React, { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { onSummarize, type FormState } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +35,7 @@ function SubmitButton() {
 }
 
 export default function SummarizePage() {
-  const [state, formAction] = useFormState(onSummarize, initialState);
+  const [state, formAction] = useActionState(onSummarize, initialState);
 
   return (
     <div className="flex flex-col flex-1">

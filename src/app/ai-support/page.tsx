@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import React, { useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { onDiagnose, type FormState } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -51,7 +51,7 @@ function SubmitButton() {
 }
 
 export default function AiSupportPage() {
-  const [state, formAction] = useFormState(onDiagnose, initialState);
+  const [state, formAction] = useActionState(onDiagnose, initialState);
   const { currentUser } = useData();
   const router = useRouter();
   
