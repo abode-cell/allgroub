@@ -230,10 +230,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [users, userId]);
 
   const filteredUsers = useMemo(() => {
-    if (!currentUser) return [];
+    // If no one is logged in (e.g., on the login page), return ALL users so they can be found.
+    if (!currentUser) return users;
+
+    // If the logged-in user is System Admin, return all users.
     if (currentUser.role === 'مدير النظام') {
       return users;
     }
+    
+    // Otherwise, filter users based on the manager's scope.
     const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
     const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
     relevantUserIds.add(currentUser.id);
@@ -857,3 +862,5 @@ export function useData() {
   }
   return context;
 }
+
+    
