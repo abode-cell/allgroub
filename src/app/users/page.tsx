@@ -167,7 +167,7 @@ export default function UsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [editableLimits, setEditableLimits] = useState<
-    Record<string, { investorLimit: string; employeeLimit: string }>
+    Record<string, { investorLimit: string; employeeLimit: string; assistantLimit: string }>
   >({});
   
   const role = currentUser?.role;
@@ -206,6 +206,7 @@ export default function UsersPage() {
           [manager.id]: {
             investorLimit: String(manager.investorLimit ?? 10),
             employeeLimit: String(manager.employeeLimit ?? 5),
+            assistantLimit: String(manager.assistantLimit ?? 2),
           },
         }));
       }
@@ -214,13 +215,13 @@ export default function UsersPage() {
 
   const handleLimitsChange = (
     managerId: string,
-    field: 'investorLimit' | 'employeeLimit',
+    field: 'investorLimit' | 'employeeLimit' | 'assistantLimit',
     value: string
   ) => {
     setEditableLimits((prev) => ({
       ...prev,
       [managerId]: {
-        ...(prev[managerId] || { investorLimit: '0', employeeLimit: '0' }),
+        ...(prev[managerId] || { investorLimit: '0', employeeLimit: '0', assistantLimit: '0' }),
         [field]: value,
       },
     }));
@@ -232,6 +233,7 @@ export default function UsersPage() {
       updateUserLimits(managerId, {
         investorLimit: Number(limits.investorLimit) || 0,
         employeeLimit: Number(limits.employeeLimit) || 0,
+        assistantLimit: Number(limits.assistantLimit) || 0,
       });
     }
   };
@@ -323,7 +325,7 @@ export default function UsersPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="space-y-4 rounded-lg border p-3 shadow-sm bg-background">
-                                        <div className="grid gap-4 md:grid-cols-2 items-end">
+                                        <div className="grid gap-4 md:grid-cols-3 items-end">
                                             <div className="space-y-2">
                                                 <Label htmlFor={`investor-limit-${manager.id}`}>حد المستثمرين</Label>
                                                 <Input id={`investor-limit-${manager.id}`} type="number" value={editableLimits[manager.id]?.investorLimit ?? ''}
@@ -336,6 +338,13 @@ export default function UsersPage() {
                                                 <Input id={`employee-limit-${manager.id}`} type="number" value={editableLimits[manager.id]?.employeeLimit ?? ''}
                                                 onChange={(e) => handleLimitsChange(manager.id, 'employeeLimit', e.target.value)}
                                                 placeholder={String(manager.employeeLimit ?? 5)}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`assistant-limit-${manager.id}`}>حد المساعدين</Label>
+                                                <Input id={`assistant-limit-${manager.id}`} type="number" value={editableLimits[manager.id]?.assistantLimit ?? ''}
+                                                onChange={(e) => handleLimitsChange(manager.id, 'assistantLimit', e.target.value)}
+                                                placeholder={String(manager.assistantLimit ?? 2)}
                                                 />
                                             </div>
                                         </div>

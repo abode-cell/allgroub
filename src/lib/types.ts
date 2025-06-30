@@ -32,6 +32,7 @@ export type User = {
   registrationDate?: string;
   investorLimit?: number;
   employeeLimit?: number;
+  assistantLimit?: number;
   allowEmployeeSubmissions?: boolean;
   hideEmployeeInvestorFunds?: boolean;
   permissions?: Permissions;
