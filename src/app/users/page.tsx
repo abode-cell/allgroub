@@ -350,10 +350,10 @@ export default function UsersPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Briefcase className="h-6 w-6 text-primary" />
-            مدراء المكاتب
+            إدارة حسابات المكاتب
           </CardTitle>
           <CardDescription>
-            اضغط على اسم المدير لعرض الموظفين والمساعدين والمستثمرين المرتبطين به.
+            مراجعة وتفعيل وإدارة حسابات العملاء (مدراء المكاتب) المسجلين في المنصة.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -849,7 +849,7 @@ export default function UsersPage() {
             </h1>
             <p className="text-muted-foreground mt-1">
               {role === 'مدير النظام'
-                ? 'عرض وإدارة مدراء المكاتب والمستخدمين الآخرين في النظام.'
+                ? 'عرض وإدارة حسابات العملاء والمستخدمين الآخرين في النظام.'
                 : 'عرض وإدارة المساعدين والموظفين المرتبطين بحسابك وصلاحياتهم.'}
             </p>
           </header>
