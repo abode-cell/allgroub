@@ -447,21 +447,21 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
 
 
 const SystemAdminDashboard = () => {
-    const { users, updateUserStatus } = useData();
+    const { users, updateUserStatus, investors } = useData();
 
     const pendingManagers = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق');
     const activeManagersCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'نشط').length;
     
     const totalCapital = useMemo(() => {
         // For admin, total capital is across all investors in the system
-        const allInvestors = useData().investors;
+        const allInvestors = investors;
         return allInvestors.reduce((total, investor) => {
             const capitalDeposits = investor.transactionHistory
                 .filter(tx => tx.type === 'إيداع رأس المال')
                 .reduce((sum, tx) => sum + tx.amount, 0);
             return total + capitalDeposits;
         }, 0);
-    }, []);
+    }, [investors]);
 
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
