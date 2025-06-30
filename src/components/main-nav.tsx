@@ -63,14 +63,14 @@ export const allMenuItems: MenuItem[] = [
     href: '/reports',
     label: 'التقارير',
     icon: FileText,
-    roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
+    roles: ['مدير المكتب', 'مساعد مدير المكتب'],
     permission: 'viewReports',
   },
   {
     href: '/requests',
     label: 'الطلبات',
     icon: ClipboardList,
-    roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
+    roles: ['مدير المكتب', 'مساعد مدير المكتب'],
     permission: 'manageRequests',
   },
   {

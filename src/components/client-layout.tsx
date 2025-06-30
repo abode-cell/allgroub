@@ -68,6 +68,8 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
           '/import',
           '/my-requests',
           '/calculator',
+          '/reports',
+          '/requests',
         ];
   
         if (isSystemAdmin && adminRestrictedPages.some(p => pathname.startsWith(p))) {
