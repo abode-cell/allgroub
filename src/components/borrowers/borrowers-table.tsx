@@ -167,10 +167,9 @@ export function BorrowersTable({
     setIsScheduleDialogOpen(true);
   };
 
-  const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف';
   const canApprove = role === 'مدير النظام' || role === 'مدير المكتب';
   const isEmployee = role === 'موظف';
-  const canEdit = role === 'مدير النظام' || role === 'مدير المكتب';
+  const canEdit = role === 'مدير المكتب';
 
   return (
     <>
@@ -187,9 +186,7 @@ export function BorrowersTable({
                 <TableHead className="text-center">حالة السداد</TableHead>
                 <TableHead>تاريخ الاستحقاق</TableHead>
                 <TableHead className="text-center">حالة الاستحقاق</TableHead>
-                {canPerformActions && (
                 <TableHead className="text-left">الإجراءات</TableHead>
-                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -269,7 +266,6 @@ export function BorrowersTable({
                     <TableCell className="text-center">
                       <BorrowerStatusBadge borrower={borrower} />
                     </TableCell>
-                    {canPerformActions && (
                     <TableCell className="text-left">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -306,7 +302,6 @@ export function BorrowersTable({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
-                    )}
                   </TableRow>
                 )
               })

@@ -42,7 +42,7 @@ export default function CalculatorPage() {
   } = useData();
 
   const role = currentUser?.role;
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);
+  const hasAccess = role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);
 
   useEffect(() => {
     if (currentUser && !hasAccess) {

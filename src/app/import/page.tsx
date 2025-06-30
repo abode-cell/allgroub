@@ -43,7 +43,7 @@ export default function ImportPage() {
   const router = useRouter();
 
   const role = currentUser?.role;
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.importData);
+  const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.importData);
 
   useEffect(() => {
     if (currentUser && !hasAccess) {

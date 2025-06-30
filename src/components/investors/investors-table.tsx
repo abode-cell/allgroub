@@ -148,8 +148,10 @@ export function InvestorsTable({
     setSelectedInvestor(null);
   }
 
-  const canPerformActions = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'مستثمر';
-  const canEdit = role === 'مدير النظام' || role === 'مدير المكتب';
+  const canEdit = role === 'مدير المكتب';
+  const canApprove = role === 'مدير النظام' || role === 'مدير المكتب';
+  const canWithdraw = role === 'مدير المكتب' || role === 'مستثمر';
+  const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
       
   return (
     <>
@@ -192,7 +194,7 @@ export function InvestorsTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {canPerformActions && investor.status === 'معلق' && (
+                          {canApprove && investor.status === 'معلق' && (
                             <DropdownMenuItem
                               onSelect={() => handleApproveClick(investor)}
                             >
@@ -213,7 +215,7 @@ export function InvestorsTable({
                                 تعديل
                               </DropdownMenuItem>
                           )}
-                          {canPerformActions && (
+                          {canWithdraw && (
                               <DropdownMenuItem
                                 onSelect={() => handleWithdrawClick(investor)}
                                 disabled={investor.status === 'معلق' || investor.amount <= 0}
@@ -221,7 +223,7 @@ export function InvestorsTable({
                                 سحب الأموال
                               </DropdownMenuItem>
                           )}
-                          {investor.amount <= 0 && investor.status === 'نشط' && canPerformActions && (
+                          {investor.amount <= 0 && investor.status === 'نشط' && canRequestIncrease && (
                               <DropdownMenuItem onSelect={() => requestCapitalIncrease(investor.id)}>
                                   <TrendingUp className="ml-2 h-4 w-4" />
                                   طلب زيادة رأس المال

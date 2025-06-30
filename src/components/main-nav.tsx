@@ -49,7 +49,7 @@ export const allMenuItems: MenuItem[] = [
     href: '/import',
     label: 'استيراد',
     icon: FileUp,
-    roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
+    roles: ['مدير المكتب', 'مساعد مدير المكتب'],
     permission: 'importData',
   },
    {
@@ -82,7 +82,7 @@ export const allMenuItems: MenuItem[] = [
     href: '/calculator',
     label: 'الحاسبة',
     icon: Calculator,
-    roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
+    roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
     permission: 'useCalculator',
   },
   {
