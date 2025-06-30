@@ -10,10 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { useData } from '@/contexts/data-context';
 
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const { users } = useData();
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +31,7 @@ export default function LoginPage() {
     }
     setError('');
     setIsLoading(true);
-    const result = await signIn({ identifier, password });
+    const result = await signIn({ identifier, password }, users);
     if (result.success) {
       router.replace('/');
     } else {

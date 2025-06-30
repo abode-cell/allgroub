@@ -281,80 +281,72 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!originalBorrower) return;
 
     let toastMessage: { title: string, description: string, variant?: "destructive" } | null = null;
-    const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+    let notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
 
-    setData(prev => {
-        const newBorrowers = [...prev.borrowers];
-        const newInvestors = [...prev.investors];
+    // Create a new copy of the state to modify
+    let newState = { ...data };
+    let borrowerIndex = newState.borrowers.findIndex(b => b.id === borrowerId);
+    if (borrowerIndex === -1) return;
+    
+    // Create a deep copy of the borrower to modify
+    let updatedBorrower = JSON.parse(JSON.stringify(newState.borrowers[borrowerIndex]));
 
-        const borrowerIndex = newBorrowers.findIndex(b => b.id === borrowerId);
-        // This check is redundant due to the check outside, but good for safety
-        if (borrowerIndex === -1) return prev;
+    if (paymentStatus) {
+        updatedBorrower.paymentStatus = paymentStatus;
+    } else {
+        delete (updatedBorrower as Partial<Borrower>).paymentStatus;
+    }
+    
+    if (paymentStatus === 'تم السداد' && updatedBorrower.status !== 'مسدد بالكامل') {
+        updatedBorrower.status = 'مسدد بالكامل';
+        if (updatedBorrower.fundedBy) {
+            const installmentTotalInterest = (updatedBorrower.rate && updatedBorrower.term) ? updatedBorrower.amount * (updatedBorrower.rate / 100) * updatedBorrower.term : 0;
+            const graceTotalProfit = updatedBorrower.amount * (newState.graceTotalProfitPercentage / 100);
+            const totalProfit = updatedBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
 
-        const updatedBorrower = { ...newBorrowers[borrowerIndex] };
+            updatedBorrower.fundedBy.forEach((funder: { investorId: string; amount: number; }) => {
+                const investorIndex = newState.investors.findIndex(i => i.id === funder.investorId);
+                if (investorIndex > -1) {
+                    const investor = JSON.parse(JSON.stringify(newState.investors[investorIndex]));
+                    const loanShare = funder.amount / updatedBorrower.amount;
+                    const investorProfitShare = updatedBorrower.loanType === 'اقساط'
+                        ? totalProfit * (newState.investorSharePercentage / 100) * loanShare
+                        : totalProfit * (newState.graceInvestorSharePercentage / 100) * loanShare;
+                    
+                    const principalReturn = funder.amount;
+                    const profitTransaction: Transaction = {
+                        id: `t-profit-${Date.now()}-${investorIndex}`, date: new Date().toISOString().split('T')[0], type: 'إيداع أرباح', amount: investorProfitShare,
+                        description: `أرباح من قرض "${updatedBorrower.name}"`,
+                    };
+                    
+                    investor.transactionHistory.push(profitTransaction);
+                    investor.amount = investor.amount + principalReturn + investorProfitShare;
+                    investor.fundedLoanIds = investor.fundedLoanIds.filter((id: string) => id !== updatedBorrower.id);
+                    newState.investors[investorIndex] = investor;
 
-        if (paymentStatus) {
-            updatedBorrower.paymentStatus = paymentStatus;
-        } else {
-            delete (updatedBorrower as Partial<Borrower>).paymentStatus;
+                    notificationsToQueue.push({ recipientId: funder.investorId, title: 'أرباح محققة', description: `تم سداد قرض "${updatedBorrower.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.` });
+                }
+            });
+            toastMessage = { title: 'تم سداد القرض بالكامل', description: 'تمت إعادة الأموال والأرباح للمستثمرين بنجاح.' };
         }
-
-        if (paymentStatus === 'تم السداد' && updatedBorrower.status !== 'مسدد بالكامل') {
-            updatedBorrower.status = 'مسدد بالكامل';
-            if (updatedBorrower.fundedBy) {
-                const installmentTotalInterest = (updatedBorrower.rate && updatedBorrower.term) ? updatedBorrower.amount * (updatedBorrower.rate / 100) * updatedBorrower.term : 0;
-                const graceTotalProfit = updatedBorrower.amount * (prev.graceTotalProfitPercentage / 100);
-                const totalProfit = updatedBorrower.loanType === 'اقساط' ? installmentTotalInterest : graceTotalProfit;
-
-                updatedBorrower.fundedBy.forEach(funder => {
-                    const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
-                    if (investorIndex > -1) {
-                        const investor = { ...newInvestors[investorIndex] };
-                        const loanShare = funder.amount / updatedBorrower.amount;
-                        const investorProfitShare = updatedBorrower.loanType === 'اقساط'
-                            ? totalProfit * (prev.investorSharePercentage / 100) * loanShare
-                            : totalProfit * (prev.graceInvestorSharePercentage / 100) * loanShare;
-                        
-                        const principalReturn = funder.amount;
-                        const profitTransaction: Transaction = {
-                            id: `t-profit-${Date.now()}-${investorIndex}`, date: new Date().toISOString().split('T')[0], type: 'إيداع أرباح', amount: investorProfitShare,
-                            description: `أرباح من قرض "${updatedBorrower.name}"`,
-                        };
-                        
-                        investor.transactionHistory = [...investor.transactionHistory, profitTransaction];
-                        investor.amount = investor.amount + principalReturn + investorProfitShare;
-                        investor.fundedLoanIds = investor.fundedLoanIds.filter(id => id !== updatedBorrower.id);
-                        newInvestors[investorIndex] = investor;
-
-                        notificationsToQueue.push({ recipientId: funder.investorId, title: 'أرباح محققة', description: `تم سداد قرض "${updatedBorrower.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.` });
-                    }
-                });
-                toastMessage = { title: 'تم سداد القرض بالكامل', description: 'تمت إعادة الأموال والأرباح للمستثمرين بنجاح.' };
-            }
-        } else if (paymentStatus === 'متعثر' && updatedBorrower.status !== 'متعثر') {
-            updatedBorrower.status = 'متعثر';
-            if (updatedBorrower.fundedBy) {
-                updatedBorrower.fundedBy.forEach(funder => {
-                    const investorIndex = newInvestors.findIndex(i => i.id === funder.investorId);
-                    if (investorIndex > -1) {
-                        const investor = { ...newInvestors[investorIndex] };
-                        investor.defaultedFunds = (investor.defaultedFunds || 0) + funder.amount;
-                        newInvestors[investorIndex] = investor;
-                        notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${updatedBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.` });
-                    }
-                });
-                toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
-            }
+    } else if (paymentStatus === 'متعثر' && updatedBorrower.status !== 'متعثر') {
+        updatedBorrower.status = 'متعثر';
+        if (updatedBorrower.fundedBy) {
+            updatedBorrower.fundedBy.forEach((funder: { investorId: string; amount: number; }) => {
+                const investorIndex = newState.investors.findIndex(i => i.id === funder.investorId);
+                if (investorIndex > -1) {
+                    const investor = JSON.parse(JSON.stringify(newState.investors[investorIndex]));
+                    investor.defaultedFunds = (investor.defaultedFunds || 0) + funder.amount;
+                    newState.investors[investorIndex] = investor;
+                    notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${updatedBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.` });
+                }
+            });
+            toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
         }
+    }
 
-        newBorrowers[borrowerIndex] = updatedBorrower;
-        
-        return {
-            ...prev,
-            borrowers: newBorrowers,
-            investors: newInvestors,
-        };
-    });
+    newState.borrowers[borrowerIndex] = updatedBorrower;
+    setData(newState);
 
     if (toastMessage) {
         toast(toastMessage);
@@ -362,7 +354,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".` });
     }
     notificationsToQueue.forEach(addNotification);
-}, [data.borrowers, addNotification, toast]);
+}, [data, addNotification, toast]);
 
   const approveBorrower = useCallback((borrowerId: string) => {
     let approvedBorrower: Borrower | null = null;
@@ -582,40 +574,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
     }
 
-    setData(prev => {
-        const isSuspending = status === 'معلق';
+    const isSuspending = status === 'معلق';
+    let newUsers = data.users.map(u => u.id === userId ? { ...u, status } : u);
+    let newInvestors = [...data.investors];
 
-        const newUsers = prev.users.map(u => {
-            if (u.id === userId) {
-                return { ...u, status };
-            }
-            if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userId) {
+    if (userToUpdate.role === 'مدير المكتب') {
+        newUsers = newUsers.map(u => {
+            if (u.managedBy === userId) {
                 return { ...u, status };
             }
             return u;
         });
 
-        let newInvestors = [...prev.investors];
-        if (userToUpdate.role === 'مدير المكتب') {
-            newInvestors = prev.investors.map(inv => {
-                if (inv.submittedBy === userId) {
-                    if (isSuspending && inv.status === 'نشط') {
-                        return { ...inv, status: 'غير نشط' };
-                    }
-                    if (!isSuspending && inv.status === 'غير نشط') {
-                        return { ...inv, status: 'نشط' };
-                    }
+        newInvestors = newInvestors.map(inv => {
+            if (inv.submittedBy === userId) {
+                if (isSuspending && inv.status === 'نشط') {
+                    return { ...inv, status: 'غير نشط' };
                 }
-                return inv;
-            });
-        }
-        
-        return { ...prev, users: newUsers, investors: newInvestors };
-    });
+                if (!isSuspending && inv.status === 'غير نشط') {
+                    return { ...inv, status: 'نشط' };
+                }
+            }
+            return inv;
+        });
+    }
 
-    const cascadeMessage = userToUpdate.role === 'مدير المكتب' 
-      ? (status === 'معلق' ? 'وتم تعليق الحسابات المرتبطة به.' : 'وتم إعادة تفعيل الحسابات المرتبطة به.')
-      : '';
+    setData(prev => ({ ...prev, users: newUsers, investors: newInvestors }));
+
+    const cascadeMessage = userToUpdate.role === 'مدير المكتب'
+        ? (status === 'معلق' ? 'وتم تعليق الحسابات المرتبطة به.' : 'وتم إعادة تفعيل الحسابات المرتبطة به.')
+        : '';
     toast({ title: `تم تحديث حالة المستخدم ${cascadeMessage}`.trim() });
   }, [data.users, data.investors, toast]);
 
@@ -696,14 +684,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         investorsToDeleteIds.add(userToDelete.id);
     }
     
-    setData(prev => {
-        const newUsers = prev.users.filter(u => !idsToDelete.has(u.id));
-        const newInvestors = prev.investors.filter(inv => !investorsToDeleteIds.has(inv.id));
-        
-        // TODO: Handle loans funded by deleted investors. For now, we'll leave them.
-        
-        return { ...prev, users: newUsers, investors: newInvestors };
-    });
+    const newUsers = data.users.filter(u => !idsToDelete.has(u.id));
+    const newInvestors = data.investors.filter(inv => !investorsToDeleteIds.has(inv.id));
+    
+    setData(prev => ({ ...prev, users: newUsers, investors: newInvestors }));
 
     const numDeleted = idsToDelete.size;
     const message = numDeleted > 1 ? `تم حذف المستخدم و ${numDeleted - 1} من الحسابات المرتبطة به.` : 'تم حذف المستخدم بنجاح.';

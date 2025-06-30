@@ -1,7 +1,6 @@
 'use client';
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { User } from '@/lib/types';
-import { usersData } from '@/lib/data';
 
 // This is a mock implementation and does not connect to any backend service.
 
@@ -13,7 +12,7 @@ type SignInCredentials = {
 type AuthContextType = {
   userId: string | null;
   loading: boolean;
-  signIn: (credentials: SignInCredentials) => Promise<{ success: boolean; message: string }>;
+  signIn: (credentials: SignInCredentials, allUsers: User[]) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
 };
 
@@ -26,12 +25,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   useEffect(() => {
     try {
+      // We check for the user ID, but we don't assume the user exists until DataProvider loads the full data.
       const loggedInUserId = localStorage.getItem('loggedInUserId');
       if (loggedInUserId) {
-        const loggedInUser = usersData.find(u => u.id === loggedInUserId);
-        if (loggedInUser) {
-          setUserId(loggedInUser.id);
-        }
+        setUserId(loggedInUserId);
       }
     } catch (error) {
         console.error("Could not access localStorage:", error);
@@ -40,21 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signIn = async (credentials: SignInCredentials): Promise<{ success: boolean; message: string }> => {
+  const signIn = async (credentials: SignInCredentials, allUsers: User[]): Promise<{ success: boolean; message: string }> => {
     const { identifier, password } = credentials;
-    const userToSignIn = usersData.find(u => (u.email === identifier || u.phone === identifier));
+    const userToSignIn = allUsers.find(u => (u.email === identifier || u.phone === identifier));
 
     if (!userToSignIn) {
-        return { success: false, message: 'البريد الإلكتروني/رقم الجوال أو كلمة المرور غير صحيحة.' };
+        return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
     }
 
     if (userToSignIn.status === 'معلق') {
         return { success: false, message: 'حسابك معلق وفي انتظار موافقة المدير.' };
     }
     
-    // In a real app, you would hash and compare passwords. Here we do a simple string comparison.
     if (userToSignIn.password !== password) {
-        return { success: false, message: 'البريد الإلكتروني/رقم الجوال أو كلمة المرور غير صحيحة.' };
+        return { success: false, message: 'كلمة المرور غير صحيحة.' };
     }
 
     setUserId(userToSignIn.id);
