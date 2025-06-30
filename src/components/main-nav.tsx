@@ -50,7 +50,8 @@ export const allMenuItems: MenuItem[] = [
     href: '/import',
     label: 'استيراد',
     icon: FileUp,
-    roles: [],
+    roles: ['مدير المكتب', 'مساعد مدير المكتب'],
+    permission: 'importData',
   },
    {
     href: '/my-requests',
@@ -82,7 +83,8 @@ export const allMenuItems: MenuItem[] = [
     href: '/calculator',
     label: 'الحاسبة',
     icon: Calculator,
-    roles: [],
+    roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
+    permission: 'useCalculator',
   },
   {
     href: '/ai-support',

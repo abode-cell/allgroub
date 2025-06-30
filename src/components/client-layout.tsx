@@ -47,6 +47,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
     const { userId, loading: authLoading } = useAuth();
     const { currentUser } = useData();
     const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         // Redirect to login if auth is done and there's no user.
@@ -54,6 +55,26 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
             router.replace('/login');
         }
     }, [userId, authLoading, router]);
+    
+    useEffect(() => {
+      if (currentUser) {
+        const role = currentUser.role;
+        const isSystemAdmin = role === 'مدير النظام';
+  
+        // Pages not accessible to System Admin
+        const adminRestrictedPages = [
+          '/borrowers',
+          '/investors',
+          '/import',
+          '/my-requests',
+          '/calculator',
+        ];
+  
+        if (isSystemAdmin && adminRestrictedPages.some(p => pathname.startsWith(p))) {
+          router.replace('/');
+        }
+      }
+    }, [currentUser, pathname, router]);
 
     // We are loading if auth is loading OR if auth is done but we haven't found the currentUser object yet from useData
     if (authLoading || !currentUser) {
