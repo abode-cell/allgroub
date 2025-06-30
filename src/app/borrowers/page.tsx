@@ -196,8 +196,8 @@ export default function BorrowersPage() {
     return <PageSkeleton />;
   }
 
-  const installmentBorrowers = borrowers.filter((b) => b.loanType === 'اقساط');
-  const gracePeriodBorrowers = borrowers.filter((b) => b.loanType === 'مهلة');
+  const installmentBorrowers = useMemo(() => borrowers.filter((b) => b.loanType === 'اقساط'), [borrowers]);
+  const gracePeriodBorrowers = useMemo(() => borrowers.filter((b) => b.loanType === 'مهلة'), [borrowers]);
 
   const getDialogTitle = () => {
     if (isEmployee || isAssistant) {

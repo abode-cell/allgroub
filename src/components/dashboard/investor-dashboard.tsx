@@ -1,3 +1,4 @@
+
 'use client';
 
 import { CircleDollarSign, TrendingUp, ShieldX, Wallet, Briefcase } from 'lucide-react';
@@ -6,6 +7,7 @@ import { ProfitChart } from './profit-chart';
 import { useData } from '@/contexts/data-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { useMemo } from 'react';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -18,7 +20,7 @@ export function InvestorDashboard() {
   const { currentUser, investors, borrowers } = useData();
 
   // Fetch data for the logged-in investor
-  const investor = investors.find(i => i.id === currentUser?.id);
+  const investor = useMemo(() => investors.find(i => i.id === currentUser?.id), [investors, currentUser]);
 
   if (!investor) {
     return (
@@ -34,20 +36,33 @@ export function InvestorDashboard() {
     );
   }
 
-  const totalInvestment = investor.transactionHistory
-    .filter(tx => tx.type === 'إيداع رأس المال')
-    .reduce((acc, tx) => acc + tx.amount, 0);
-  const defaultedFunds = investor.defaultedFunds || 0;
-  
-  const activeInvestment = borrowers
-    .filter(b => investor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
-    .reduce((total, loan) => {
-      const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
-      return total + (funding?.amount || 0);
-    }, 0);
+  const {
+    totalInvestment,
+    defaultedFunds,
+    activeInvestment,
+    idleFunds,
+    dueProfits,
+  } = useMemo(() => {
+      if (!investor) {
+          return { totalInvestment: 0, defaultedFunds: 0, activeInvestment: 0, idleFunds: 0, dueProfits: 0 };
+      }
+      const totalInvestment = investor.transactionHistory
+        .filter(tx => tx.type === 'إيداع رأس المال')
+        .reduce((acc, tx) => acc + tx.amount, 0);
+      const defaultedFunds = investor.defaultedFunds || 0;
+      
+      const activeInvestment = borrowers
+        .filter(b => investor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
+        .reduce((total, loan) => {
+          const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+          return total + (funding?.amount || 0);
+        }, 0);
 
-  const idleFunds = investor.amount; // `amount` is now purely liquid funds
-  const dueProfits = 0; // Simulated - consider calculating this from real data
+      const idleFunds = investor.amount;
+      const dueProfits = 0; // Simulated
+      
+      return { totalInvestment, defaultedFunds, activeInvestment, idleFunds, dueProfits };
+  }, [investor, borrowers]);
 
   return (
     <div className="flex flex-col flex-1">

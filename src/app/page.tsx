@@ -44,30 +44,54 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
-  const { currentUser, users, investorSharePercentage } = useData();
+  const { currentUser, investorSharePercentage } = useData();
   const role = currentUser?.role;
 
-  const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
-  const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
-  const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
-  const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
-  const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
-  
-  const profitableInstallmentLoans = installmentLoans.filter(
-    b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
-  );
-  
-  const netProfit = profitableInstallmentLoans.reduce((acc, loan) => {
-    if (!loan.rate || !loan.term) return acc;
-    return acc + (loan.amount * (loan.rate / 100) * loan.term);
-  }, 0);
+  const {
+    installmentLoans,
+    installmentLoansGranted,
+    installmentDefaultedFunds,
+    installmentDefaultRate,
+    netProfit,
+    totalInstitutionProfit,
+    totalInvestorsProfit,
+    dueDebts,
+    profitableInstallmentLoans,
+  } = useMemo(() => {
+    const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
+    const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
+    const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
+    const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
+    const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
+    
+    const profitableInstallmentLoans = installmentLoans.filter(
+      b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+    );
+    
+    const netProfit = profitableInstallmentLoans.reduce((acc, loan) => {
+      if (!loan.rate || !loan.term) return acc;
+      return acc + (loan.amount * (loan.rate / 100) * loan.term);
+    }, 0);
 
-  const totalInstitutionProfit = netProfit * ((100 - investorSharePercentage) / 100);
-  const totalInvestorsProfit = netProfit * (investorSharePercentage / 100);
+    const totalInstitutionProfit = netProfit * ((100 - investorSharePercentage) / 100);
+    const totalInvestorsProfit = netProfit * (investorSharePercentage / 100);
 
-  const dueDebts = installmentLoans
-    .filter(b => b.status === 'متأخر')
-    .reduce((acc, b) => acc + b.amount, 0); 
+    const dueDebts = installmentLoans
+      .filter(b => b.status === 'متأخر')
+      .reduce((acc, b) => acc + b.amount, 0); 
+
+    return {
+      installmentLoans,
+      installmentLoansGranted,
+      installmentDefaultedFunds,
+      installmentDefaultRate,
+      netProfit,
+      totalInstitutionProfit,
+      totalInvestorsProfit,
+      dueDebts,
+      profitableInstallmentLoans,
+    };
+  }, [borrowers, investorSharePercentage]);
 
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
@@ -209,52 +233,77 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
 
 
 const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[], investors: Investor[] }) => {
-    const { currentUser, users, graceTotalProfitPercentage, graceInvestorSharePercentage } = useData();
+    const { currentUser, graceTotalProfitPercentage, graceInvestorSharePercentage } = useData();
     const role = currentUser?.role;
 
-    const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
-    const profitableLoans = gracePeriodLoans.filter(
-      b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
-    );
+    const {
+        gracePeriodLoans,
+        profitableLoans,
+        gracePeriodLoansGranted,
+        gracePeriodDefaultedFunds,
+        gracePeriodDefaultRate,
+        totalDiscounts,
+        dueDebts,
+        totalInstitutionProfit,
+        investorProfitsArray,
+        netProfit,
+    } = useMemo(() => {
+        const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
+        const profitableLoans = gracePeriodLoans.filter(
+          b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+        );
 
-    const gracePeriodLoansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
-    const gracePeriodDefaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
-    const gracePeriodDefaultRate = gracePeriodLoansGranted > 0 ? (gracePeriodDefaultedFunds / gracePeriodLoansGranted) * 100 : 0;
-    const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
-    const dueDebts = gracePeriodLoans.filter(b => b.status === 'متأخر').reduce((acc, b) => acc + b.amount, 0);
+        const gracePeriodLoansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
+        const gracePeriodDefaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
+        const gracePeriodDefaultRate = gracePeriodLoansGranted > 0 ? (gracePeriodDefaultedFunds / gracePeriodLoansGranted) * 100 : 0;
+        const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
+        const dueDebts = gracePeriodLoans.filter(b => b.status === 'متأخر').reduce((acc, b) => acc + b.amount, 0);
+        
+        let totalInstitutionProfit = 0;
+        const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
+
+        profitableLoans.forEach(loan => {
+            const loanTotalProfit = loan.amount * (graceTotalProfitPercentage / 100);
+            const loanInvestorShareAmount = loanTotalProfit * (graceInvestorSharePercentage / 100);
+            const loanInstitutionShareAmount = loanTotalProfit - loanInvestorShareAmount;
+
+            totalInstitutionProfit += loanInstitutionShareAmount;
+
+            if (loan.fundedBy && loan.fundedBy.length > 0) {
+                loan.fundedBy.forEach(funder => {
+                    const funderShareRatio = funder.amount / loan.amount;
+                    const funderProfit = loanInvestorShareAmount * funderShareRatio;
+
+                    if (!investorProfits[funder.investorId]) {
+                        const investorDetails = investors.find(i => i.id === funder.investorId);
+                        investorProfits[funder.investorId] = {
+                            name: investorDetails ? investorDetails.name : 'مستثمر غير معروف',
+                            profit: 0
+                        };
+                    }
+                    investorProfits[funder.investorId].profit += funderProfit;
+                });
+            }
+        });
+
+        const investorProfitsArray = Object.values(investorProfits);
+        const netProfit = totalInstitutionProfit + investorProfitsArray.reduce((acc, inv) => acc + inv.profit, 0);
+        
+        return {
+            gracePeriodLoans,
+            profitableLoans,
+            gracePeriodLoansGranted,
+            gracePeriodDefaultedFunds,
+            gracePeriodDefaultRate,
+            totalDiscounts,
+            dueDebts,
+            totalInstitutionProfit,
+            investorProfitsArray,
+            netProfit,
+        };
+    }, [borrowers, investors, graceTotalProfitPercentage, graceInvestorSharePercentage]);
     
     const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
-
-    let totalInstitutionProfit = 0;
-    const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
-
-    profitableLoans.forEach(loan => {
-        const loanTotalProfit = loan.amount * (graceTotalProfitPercentage / 100);
-        const loanInvestorShareAmount = loanTotalProfit * (graceInvestorSharePercentage / 100);
-        const loanInstitutionShareAmount = loanTotalProfit - loanInvestorShareAmount;
-
-        totalInstitutionProfit += loanInstitutionShareAmount;
-
-        if (loan.fundedBy && loan.fundedBy.length > 0) {
-            loan.fundedBy.forEach(funder => {
-                const funderShareRatio = funder.amount / loan.amount;
-                const funderProfit = loanInvestorShareAmount * funderShareRatio;
-
-                if (!investorProfits[funder.investorId]) {
-                    const investorDetails = investors.find(i => i.id === funder.investorId);
-                    investorProfits[funder.investorId] = {
-                        name: investorDetails ? investorDetails.name : 'مستثمر غير معروف',
-                        profit: 0
-                    };
-                }
-                investorProfits[funder.investorId].profit += funderProfit;
-            });
-        }
-    });
-
-    const investorProfitsArray = Object.values(investorProfits);
-    const netProfit = totalInstitutionProfit + investorProfitsArray.reduce((acc, inv) => acc + inv.profit, 0);
-
 
     return (
         <div className="space-y-6">
@@ -394,8 +443,11 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
 };
 
 const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
-    const idleInvestors = investors.filter(i => i.amount > 0 && i.status === 'نشط');
-    const totalIdleFunds = idleInvestors.reduce((sum, i) => sum + i.amount, 0);
+    const { idleInvestors, totalIdleFunds } = useMemo(() => {
+        const idleInvestors = investors.filter(i => i.amount > 0 && i.status === 'نشط');
+        const totalIdleFunds = idleInvestors.reduce((sum, i) => sum + i.amount, 0);
+        return { idleInvestors, totalIdleFunds };
+    }, [investors]);
 
     return (
         <Card>
@@ -447,22 +499,23 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
 
 
 const SystemAdminDashboard = () => {
-    const { users, allUsers, investors } = useData();
+    const { users, allUsers, investors, updateUserStatus } = useData();
 
-    const pendingManagers = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق');
-    const activeManagersCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'نشط').length;
-    
-    const totalCapital = useMemo(() => {
-        return investors.reduce((total, investor) => {
+    const { pendingManagers, activeManagersCount, totalCapital, totalUsersCount } = useMemo(() => {
+        const pendingManagers = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق');
+        const activeManagersCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'نشط').length;
+        
+        const totalCapital = investors.reduce((total, investor) => {
             const capitalDeposits = investor.transactionHistory
                 .filter(tx => tx.type === 'إيداع رأس المال')
                 .reduce((sum, tx) => sum + tx.amount, 0);
             return total + capitalDeposits;
         }, 0);
-    }, [investors]);
+        
+        const totalUsersCount = allUsers.length;
+        return { pendingManagers, activeManagersCount, totalCapital, totalUsersCount };
+    }, [users, allUsers, investors]);
     
-    const totalUsersCount = allUsers.length;
-
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
              <header className="flex flex-wrap items-center justify-between gap-4">
@@ -531,7 +584,7 @@ const SystemAdminDashboard = () => {
                                         <TableCell>{manager.email}</TableCell>
                                         <TableCell>{manager.registrationDate ? new Date(manager.registrationDate).toLocaleDateString('ar-SA') : 'غير محدد'}</TableCell>
                                         <TableCell className="text-left">
-                                            <Button size="sm" onClick={() => {}}>
+                                            <Button size="sm" onClick={() => updateUserStatus(manager.id, 'نشط')}>
                                                 <CheckCircle className="ml-2 h-4 w-4" />
                                                 تفعيل الحساب
                                             </Button>

@@ -3,7 +3,7 @@
 
 import { useData } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -330,14 +330,14 @@ export default function UsersPage() {
 
 
   // Data for System Admin
-  const officeManagers = users.filter((u) => u.role === 'مدير المكتب');
-  const otherUsers = users.filter(
+  const officeManagers = useMemo(() => users.filter((u) => u.role === 'مدير المكتب'), [users]);
+  const otherUsers = useMemo(() => users.filter(
     (u) => u.role !== 'مدير المكتب' && u.role !== 'موظف' && u.role !== 'مساعد مدير المكتب'
-  );
+  ), [users]);
 
   // Data for Office Manager/Assistant
-  const myEmployees = users.filter((u) => u.managedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) && u.role === 'موظف');
-  const myAssistants = users.filter((u) => u.managedBy === currentUser?.id && u.role === 'مساعد مدير المكتب');
+  const myEmployees = useMemo(() => users.filter((u) => u.managedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) && u.role === 'موظف'), [users, role, currentUser]);
+  const myAssistants = useMemo(() => users.filter((u) => u.managedBy === currentUser?.id && u.role === 'مساعد مدير المكتب'), [users, currentUser]);
 
 
   if (!currentUser || !canViewPage) {

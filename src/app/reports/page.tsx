@@ -13,7 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -129,17 +129,17 @@ export default function ReportsPage() {
     return `${loan.fundedBy.length} مستثمرون`;
   };
 
-  const loansForReport = borrowers.filter(b => 
+  const loansForReport = useMemo(() => borrowers.filter(b => 
     b.status === 'متعثر' || 
     b.status === 'معلق' ||
     b.status === 'منتظم' ||
     b.status === 'متأخر'
-  );
+  ), [borrowers]);
   
-  const activeInvestors = investors.filter(i => i.status === 'نشط' || i.status === 'غير نشط');
+  const activeInvestors = useMemo(() => investors.filter(i => i.status === 'نشط' || i.status === 'غير نشط'), [investors]);
 
-  const installmentLoans = loansForReport.filter(b => b.loanType === 'اقساط');
-  const gracePeriodLoans = loansForReport.filter(b => b.loanType === 'مهلة');
+  const installmentLoans = useMemo(() => loansForReport.filter(b => b.loanType === 'اقساط'), [loansForReport]);
+  const gracePeriodLoans = useMemo(() => loansForReport.filter(b => b.loanType === 'مهلة'), [loansForReport]);
 
   const handleExportInstallments = () => {
     if (!currentUser) return;

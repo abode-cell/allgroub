@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -90,7 +91,7 @@ export default function CalculatorPage() {
   }, [graceInvestorSharePercentage]);
 
 
-  const calculateInstallments = () => {
+  const installmentResults = useMemo(() => {
     const principal = parseFloat(loanAmount);
     const annualRate = parseFloat(localBaseInterestRate || '0') / 100;
     const termInYears = parseFloat(loanTerm);
@@ -121,9 +122,9 @@ export default function CalculatorPage() {
       institutionProfit: isFinite(institutionProfit) ? institutionProfit : 0,
       investorProfit: isFinite(investorProfit) ? investorProfit : 0,
     };
-  };
+  }, [loanAmount, localBaseInterestRate, loanTerm, localInvestorSharePercentage]);
 
-  const calculateGracePeriod = () => {
+  const gracePeriodResults = useMemo(() => {
     const principal = parseFloat(graceLoanAmount);
      if (isNaN(principal) || principal <= 0) {
       return { institutionProfit: 0, investorProfit: 0, totalProfit: 0 };
@@ -137,9 +138,9 @@ export default function CalculatorPage() {
     const institutionProfit = totalProfit - investorProfit;
 
     return { institutionProfit, investorProfit, totalProfit };
-  }
+  }, [graceLoanAmount, localGraceTotalProfitPercentage, localGraceInvestorSharePercentage]);
   
-   const calculateBySalary = () => {
+   const bySalaryResults = useMemo(() => {
         const monthlySalary = parseFloat(salary);
         
         if (isNaN(monthlySalary) || monthlySalary <= 0) {
@@ -159,11 +160,7 @@ export default function CalculatorPage() {
             totalRepayment: isFinite(maxRepayment) ? maxRepayment : 0,
             profit: isFinite(profit) ? profit : 0,
         };
-    };
-
-  const installmentResults = calculateInstallments();
-  const gracePeriodResults = calculateGracePeriod();
-  const bySalaryResults = calculateBySalary();
+    }, [salary, localSalaryRepaymentPercentage, localGraceTotalProfitPercentage]);
   
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', {
