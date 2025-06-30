@@ -36,14 +36,14 @@ export const allMenuItems: MenuItem[] = [
     href: '/investors',
     label: 'المستثمرون',
     icon: PiggyBank,
-    roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
+    roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
     permission: 'manageInvestors',
   },
   {
     href: '/borrowers',
     label: 'القروض',
     icon: Landmark,
-    roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
+    roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
     permission: 'manageBorrowers',
   },
   {

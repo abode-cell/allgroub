@@ -47,7 +47,7 @@ export default function InvestorsPage() {
   const router = useRouter();
   
   const role = currentUser?.role;
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
+  const hasAccess = role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
 
   useEffect(() => {
     if (currentUser && !hasAccess) {

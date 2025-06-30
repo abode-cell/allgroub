@@ -76,7 +76,7 @@ export default function BorrowersPage() {
   const router = useRouter();
 
   const role = currentUser?.role;
-  const hasAccess = role === 'مدير النظام' || role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers);
+  const hasAccess = role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers);
   
   useEffect(() => {
     if (currentUser && !hasAccess) {
