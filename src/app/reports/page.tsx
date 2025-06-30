@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { exportToPrintableHtml } from '@/lib/html-export';
 import { getBorrowerStatus } from '@/lib/utils';
+import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 
 
 const PageSkeleton = () => (
@@ -76,7 +77,6 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
         <TableBody>
           {loans.length > 0 ? (
             loans.map((loan) => {
-              const borrowerStatus = getBorrowerStatus(loan);
               return (
                 <TableRow key={loan.id}>
                   <TableCell className="font-medium">{loan.name}</TableCell>
@@ -84,9 +84,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
                   <TableCell>{loan.date}</TableCell>
                   <TableCell>{loan.dueDate}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant={borrowerStatus.variant}>
-                      {borrowerStatus.text}
-                    </Badge>
+                    <BorrowerStatusBadge borrower={loan} />
                   </TableCell>
                   <TableCell className="text-center">
                     {getInvestorInfoForLoan(loan)}
@@ -343,13 +341,12 @@ export default function ReportsPage() {
                             {installmentLoansFunded.length > 0 ? (
                                 installmentLoansFunded.map(loan => {
                                 const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
-                                const borrowerStatus = getBorrowerStatus(loan);
                                 return (
                                     <TableRow key={loan.id}>
                                     <TableCell>{loan.name}</TableCell>
                                     <TableCell>{formatCurrency(fundingAmount)}</TableCell>
                                     <TableCell>{loan.dueDate}</TableCell>
-                                    <TableCell className="text-center"><Badge variant={borrowerStatus.variant}>{borrowerStatus.text}</Badge></TableCell>
+                                    <TableCell className="text-center"><BorrowerStatusBadge borrower={loan} /></TableCell>
                                     </TableRow>
                                 )
                                 })
@@ -377,13 +374,12 @@ export default function ReportsPage() {
                             {gracePeriodLoansFunded.length > 0 ? (
                                 gracePeriodLoansFunded.map(loan => {
                                 const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
-                                const borrowerStatus = getBorrowerStatus(loan);
                                 return (
                                     <TableRow key={loan.id}>
                                     <TableCell>{loan.name}</TableCell>
                                     <TableCell>{formatCurrency(fundingAmount)}</TableCell>
                                     <TableCell>{loan.dueDate}</TableCell>
-                                    <TableCell className="text-center"><Badge variant={borrowerStatus.variant}>{borrowerStatus.text}</Badge></TableCell>
+                                    <TableCell className="text-center"><BorrowerStatusBadge borrower={loan} /></TableCell>
                                     </TableRow>
                                 )
                                 })

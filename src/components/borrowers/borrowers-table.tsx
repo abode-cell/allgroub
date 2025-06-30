@@ -48,8 +48,9 @@ import {
   TooltipTrigger,
 } from '../ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { cn, getBorrowerStatus } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { CheckCircle, Users } from 'lucide-react';
+import { BorrowerStatusBadge } from '../borrower-status-badge';
 
 const paymentStatusVariant: {
   [key in BorrowerPaymentStatus]: 'success' | 'default' | 'secondary' | 'destructive';
@@ -197,7 +198,6 @@ export function BorrowersTable({
                   const fundedByOneInvestor = borrower.fundedBy && borrower.fundedBy.length === 1;
                   const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
-                  const borrowerStatus = getBorrowerStatus(borrower);
 
                   return (
                   <TableRow key={borrower.id}>
@@ -267,9 +267,7 @@ export function BorrowersTable({
                     </TableCell>
                     <TableCell>{borrower.dueDate}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={borrowerStatus.variant}>
-                          {borrowerStatus.text}
-                      </Badge>
+                      <BorrowerStatusBadge borrower={borrower} />
                     </TableCell>
                     {canPerformActions && (
                     <TableCell className="text-left">
@@ -571,8 +569,7 @@ export function BorrowersTable({
           {selectedBorrower && (() => {
             const totalFunded = selectedBorrower.fundedBy?.reduce((sum, funder) => sum + funder.amount, 0) || 0;
             const isPartiallyFunded = totalFunded < selectedBorrower.amount;
-            const borrowerStatus = getBorrowerStatus(selectedBorrower);
-
+            
             return (
               <div className="grid gap-4 py-4 text-sm">
                 {isPartiallyFunded && (
@@ -604,7 +601,7 @@ export function BorrowersTable({
                     <div>
                         <span className='text-muted-foreground'>الحالة:</span>
                         <span className='font-bold float-left'>
-                            <Badge variant={borrowerStatus.variant}>{borrowerStatus.text}</Badge>
+                           <BorrowerStatusBadge borrower={selectedBorrower} />
                         </span>
                     </div>
                 </div>
