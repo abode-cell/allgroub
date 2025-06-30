@@ -167,8 +167,9 @@ export default function ReportsPage() {
     if (!currentUser) return;
     const title = "تقرير قروض الأقساط";
     const columns = ["اسم المقترض", "مبلغ القرض", "تاريخ القرض", "تاريخ الاستحقاق", "الحالة", "الممول"];
+    const today = new Date();
     const rows = installmentLoans.map(loan => {
-      const borrowerStatus = getBorrowerStatus(loan);
+      const borrowerStatus = getBorrowerStatus(loan, today);
       return [loan.name, loan.amount, loan.date, loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
     exportToPrintableHtml(title, columns, rows, currentUser);
@@ -178,8 +179,9 @@ export default function ReportsPage() {
     if (!currentUser) return;
     const title = "تقرير قروض المهلة";
     const columns = ["اسم المقترض", "مبلغ القرض", "تاريخ القرض", "تاريخ الاستحقاق", "الحالة", "الممول"];
+    const today = new Date();
     const rows = gracePeriodLoans.map(loan => {
-      const borrowerStatus = getBorrowerStatus(loan);
+      const borrowerStatus = getBorrowerStatus(loan, today);
       return [loan.name, loan.amount, loan.date, loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
     exportToPrintableHtml(title, columns, rows, currentUser);

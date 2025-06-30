@@ -8,8 +8,8 @@ export const BorrowerStatusBadge = ({ borrower }: { borrower: Borrower }) => {
   const [status, setStatus] = useState<BorrowerStatusDetails | null>(null);
 
   useEffect(() => {
-    // getBorrowerStatus uses new Date(), so it must run on the client after hydration.
-    setStatus(getBorrowerStatus(borrower));
+    // getBorrowerStatus now requires the current date, so we pass it from the client.
+    setStatus(getBorrowerStatus(borrower, new Date()));
   }, [borrower]);
 
   if (!status) {

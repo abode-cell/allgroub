@@ -11,7 +11,7 @@ export type BorrowerStatusDetails = {
   variant: 'success' | 'default' | 'secondary' | 'destructive' | 'outline';
 };
 
-export const getBorrowerStatus = (borrower: Borrower): BorrowerStatusDetails => {
+export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStatusDetails => {
   // Terminal statuses set by user actions take priority
   if (borrower.status === 'مسدد بالكامل') return { text: 'مسدد بالكامل', variant: 'success' };
   if (borrower.status === 'متعثر') return { text: 'متعثر', variant: 'destructive' };
@@ -25,12 +25,12 @@ export const getBorrowerStatus = (borrower: Borrower): BorrowerStatusDetails => 
   if (borrower.paymentStatus === 'متعثر') return { text: 'متعثر', variant: 'destructive' };
 
   // Automated statuses based on dates for ongoing loans
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayDate = new Date(today); // Create a copy to avoid side effects
+  todayDate.setHours(0, 0, 0, 0);
   const dueDate = new Date(borrower.dueDate);
   dueDate.setHours(0, 0, 0, 0);
   
-  if (today > dueDate) {
+  if (todayDate > dueDate) {
       return { text: 'متأخر السداد', variant: 'destructive' };
   }
   
@@ -48,7 +48,7 @@ export const getBorrowerStatus = (borrower: Borrower): BorrowerStatusDetails => 
       return { text: 'منتظم', variant: 'default' }; // Fallback for invalid dates
   }
 
-  const elapsedDuration = today.getTime() - startDate.getTime();
+  const elapsedDuration = todayDate.getTime() - startDate.getTime();
   // Ensure progress is clamped between 0% and 100%
   const progress = Math.max(0, Math.min(1, elapsedDuration / totalDuration));
   const progressPercentage = Math.round(progress * 100);
