@@ -65,7 +65,6 @@ type DataContextType = {
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
-  allUsers: User[];
   supportTickets: SupportTicket[];
   notifications: Notification[];
   salaryRepaymentPercentage: number;
@@ -160,7 +159,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const item = window.localStorage.getItem(APP_DATA_KEY);
       if (item) {
-        // Basic validation to prevent app crash on corrupted data
         const parsed = JSON.parse(item);
         if (parsed.users && parsed.borrowers && parsed.investors) {
           return parsed;
@@ -208,41 +206,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return data.users.find(u => u.id === userId);
   }, [data.users, userId]);
 
-  const filteredData = useMemo(() => {
-    const { users: allUsers, borrowers: allBorrowers, investors: allInvestors } = data;
-
-    if (!currentUser) {
-      return { users: [], borrowers: [], investors: [] };
+  const filteredUsers = useMemo(() => {
+    if (!currentUser) return [];
+    if (currentUser.role === 'مدير النظام') {
+      return data.users;
     }
-    const { role, id, managedBy } = currentUser;
+    const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const relevantUserIds = new Set(data.users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+    return data.users.filter(u => relevantUserIds.has(u.id));
+  }, [currentUser, data.users]);
 
-    if (role === 'مدير النظام') {
-      return { users: allUsers, borrowers: allBorrowers, investors: allInvestors };
-    }
+  const filteredBorrowers = useMemo(() => {
+    if (!currentUser) return [];
+    const { role, id } = currentUser;
 
     if (role === 'مستثمر') {
-      const myLoans = allBorrowers.filter(b => b.fundedBy?.some(f => f.investorId === id));
-      const myInvestorProfile = allInvestors.filter(i => i.id === id);
-      return { users: [currentUser], borrowers: myLoans, investors: myInvestorProfile };
+      return data.borrowers.filter(b => b.fundedBy?.some(f => f.investorId === id));
     }
-
-    // Office Manager, Assistant, Employee
-    const managerId = role === 'مدير المكتب' ? id : managedBy;
-    const relevantUserIds = new Set(allUsers.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
     
-    // Add current user to relevant users in case they are not in the manager's hierarchy (e.g., an employee viewing their own data)
+    // For Office Manager, Assistant, Employee
+    const managerId = role === 'مدير المكتب' ? id : currentUser.managedBy;
+    const relevantUserIds = new Set(data.users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
     relevantUserIds.add(id);
+    return data.borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
 
-    const displayedUsers = allUsers.filter(u => relevantUserIds.has(u.id));
-    const displayedBorrowers = allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
-    const displayedInvestors = allInvestors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+  }, [currentUser, data.borrowers, data.users]);
+
+  const filteredInvestors = useMemo(() => {
+    if (!currentUser) return [];
+    const { role, id } = currentUser;
+
+    if (role === 'مستثمر') {
+      return data.investors.filter(i => i.id === id);
+    }
     
-    return {
-      users: displayedUsers,
-      borrowers: displayedBorrowers,
-      investors: displayedInvestors,
-    };
-  }, [currentUser, data]);
+    // For Office Manager, Assistant, Employee
+    const managerId = role === 'مدير المكتب' ? id : currentUser.managedBy;
+    const relevantUserIds = new Set(data.users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(id);
+    return data.investors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+  }, [currentUser, data.investors, data.users]);
   
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
     const newNotification: Notification = {
@@ -899,7 +903,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const investor = data.investors.find(i => i.id === investorId);
     if (!investor) return;
     
-    // Only notify System Admins
     const systemAdmins = data.users.filter(u => u.role === 'مدير النظام');
     systemAdmins.forEach(admin => {
         addNotification({ recipientId: admin.id, title: 'طلب زيادة رأس المال', description: `المستثمر "${investor.name}" يرغب بزيادة رأس ماله للاستمرار بالاستثمار.` });
@@ -918,10 +921,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value = {
     currentUser, 
-    borrowers: filteredData.borrowers, 
-    investors: filteredData.investors, 
-    users: filteredData.users,
-    allUsers: data.users,
+    borrowers: filteredBorrowers, 
+    investors: filteredInvestors, 
+    users: filteredUsers,
     supportTickets: data.supportTickets, 
     notifications: data.notifications, 
     salaryRepaymentPercentage: data.salaryRepaymentPercentage, 

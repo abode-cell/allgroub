@@ -8,20 +8,13 @@ import { Skeleton } from '../ui/skeleton';
 import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import type { Borrower, Investor, User } from '@/lib/types';
 import { useData } from '@/contexts/data-context';
 
-type DailySummaryProps = {
-  borrowers?: Borrower[];
-  investors?: Investor[];
-  users?: User[];
-};
-
-export function DailySummary({ borrowers, investors, users }: DailySummaryProps) {
+export function DailySummary() {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const { currentUser } = useData();
+  const { currentUser, borrowers, investors, users } = useData();
   const role = currentUser?.role;
 
   const fetchSummary = useCallback(() => {
@@ -29,7 +22,7 @@ export function DailySummary({ borrowers, investors, users }: DailySummaryProps)
     startTransition(async () => {
       setError('');
       try {
-        if (role === 'مدير النظام' && users) {
+        if (role === 'مدير النظام') {
            const totalUsersCount = users.length;
            const newOfficeManagersCount = users.filter(u => u.role === 'مدير المكتب').length;
            const pendingActivationsCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق').length;
@@ -44,7 +37,7 @@ export function DailySummary({ borrowers, investors, users }: DailySummaryProps)
             if (result.summary) setSummary(result.summary);
             else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
 
-        } else if (borrowers && investors) {
+        } else {
             const newBorrowersCount = borrowers.filter(b => b.status !== 'معلق').length;
             const newInvestorsCount = investors.filter(i => i.status === 'نشط').length;
             const totalLoansGranted = borrowers.filter(b => b.status !== 'معلق').reduce((acc, b) => acc + b.amount, 0);
@@ -81,12 +74,8 @@ export function DailySummary({ borrowers, investors, users }: DailySummaryProps)
   }, [borrowers, investors, users, role, currentUser]);
 
   useEffect(() => {
-    // Determine which data is relevant for the current role and trigger fetch
-    const isReadyForFetch = (role === 'مدير النظام' && users) || (role !== 'مدير النظام' && borrowers && investors);
-    if (isReadyForFetch) {
-        fetchSummary();
-    }
-  }, [fetchSummary, borrowers, investors, users, role]);
+    fetchSummary();
+  }, [fetchSummary]);
 
   return (
     <Card>

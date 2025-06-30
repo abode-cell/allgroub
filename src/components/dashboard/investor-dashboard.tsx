@@ -17,10 +17,60 @@ const formatCurrency = (value: number) =>
 
 
 export function InvestorDashboard() {
-  const { currentUser, investors, borrowers } = useData();
+  const { currentUser, investors, borrowers, graceTotalProfitPercentage, investorSharePercentage, graceInvestorSharePercentage } = useData();
 
   // Fetch data for the logged-in investor
   const investor = useMemo(() => investors.find(i => i.id === currentUser?.id), [investors, currentUser]);
+
+  const {
+    totalInvestment,
+    defaultedFunds,
+    activeInvestment,
+    idleFunds,
+    totalProfits,
+  } = useMemo(() => {
+      if (!investor) {
+          return { totalInvestment: 0, defaultedFunds: 0, activeInvestment: 0, idleFunds: 0, totalProfits: 0 };
+      }
+      const totalInvestment = investor.transactionHistory
+        .filter(tx => tx.type === 'إيداع رأس المال')
+        .reduce((acc, tx) => acc + tx.amount, 0);
+
+      const defaultedFunds = investor.defaultedFunds || 0;
+      
+      const myFundedLoans = borrowers.filter(b => investor.fundedLoanIds.includes(b.id));
+
+      const activeInvestment = myFundedLoans
+        .filter(b => (b.status === 'منتظم' || b.status === 'متأخر'))
+        .reduce((total, loan) => {
+          const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+          return total + (funding?.amount || 0);
+        }, 0);
+
+      const idleFunds = investor.amount;
+      
+      const totalProfits = myFundedLoans
+        .filter(b => (b.status !== 'معلق' && b.status !== 'مرفوض'))
+        .reduce((sum, loan) => {
+          const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
+          if (!fundingDetails) return sum;
+
+          let loanTotalProfit = 0;
+          if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
+              const totalInterest = loan.amount * (loan.rate / 100) * loan.term;
+              loanTotalProfit = totalInterest * (investorSharePercentage / 100);
+          } else if (loan.loanType === 'مهلة') {
+              const totalProfit = loan.amount * (graceTotalProfitPercentage / 100);
+              loanTotalProfit = totalProfit * (graceInvestorSharePercentage / 100);
+          }
+
+          const myShareOfLoan = fundingDetails.amount / loan.amount;
+          return sum + (loanTotalProfit * myShareOfLoan);
+        }, 0);
+      
+      return { totalInvestment, defaultedFunds, activeInvestment, idleFunds, totalProfits };
+  }, [investor, borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+
 
   if (!investor) {
     return (
@@ -35,34 +85,6 @@ export function InvestorDashboard() {
       </div>
     );
   }
-
-  const {
-    totalInvestment,
-    defaultedFunds,
-    activeInvestment,
-    idleFunds,
-    dueProfits,
-  } = useMemo(() => {
-      if (!investor) {
-          return { totalInvestment: 0, defaultedFunds: 0, activeInvestment: 0, idleFunds: 0, dueProfits: 0 };
-      }
-      const totalInvestment = investor.transactionHistory
-        .filter(tx => tx.type === 'إيداع رأس المال')
-        .reduce((acc, tx) => acc + tx.amount, 0);
-      const defaultedFunds = investor.defaultedFunds || 0;
-      
-      const activeInvestment = borrowers
-        .filter(b => investor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
-        .reduce((total, loan) => {
-          const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
-          return total + (funding?.amount || 0);
-        }, 0);
-
-      const idleFunds = investor.amount;
-      const dueProfits = 0; // Simulated
-      
-      return { totalInvestment, defaultedFunds, activeInvestment, idleFunds, dueProfits };
-  }, [investor, borrowers]);
 
   return (
     <div className="flex flex-col flex-1">
@@ -97,9 +119,9 @@ export function InvestorDashboard() {
             icon={<Wallet className="size-6 text-muted-foreground" />}
           />
            <KpiCard
-            title="الأرباح المستحقة"
-            value={formatCurrency(dueProfits)}
-            change=""
+            title="إجمالي الأرباح"
+            value={formatCurrency(totalProfits)}
+            change="متوقع"
             icon={<TrendingUp className="size-6 text-muted-foreground" />}
             changeColor="text-green-500"
           />

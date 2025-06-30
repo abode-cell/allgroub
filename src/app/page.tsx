@@ -499,11 +499,12 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
 
 
 const SystemAdminDashboard = () => {
-    const { users, allUsers, investors, updateUserStatus } = useData();
+    const { users: allUsers, investors, updateUserStatus } = useData();
 
     const { pendingManagers, activeManagersCount, totalCapital, totalUsersCount } = useMemo(() => {
-        const pendingManagers = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق');
-        const activeManagersCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'نشط').length;
+        const officeManagers = allUsers.filter(u => u.role === 'مدير المكتب');
+        const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
+        const activeManagersCount = officeManagers.length - pendingManagers.length;
         
         const totalCapital = investors.reduce((total, investor) => {
             const capitalDeposits = investor.transactionHistory
@@ -514,7 +515,7 @@ const SystemAdminDashboard = () => {
         
         const totalUsersCount = allUsers.length;
         return { pendingManagers, activeManagersCount, totalCapital, totalUsersCount };
-    }, [users, allUsers, investors]);
+    }, [allUsers, investors]);
     
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -557,7 +558,7 @@ const SystemAdminDashboard = () => {
                 />
             </div>
             
-            <DailySummary users={users} />
+            <DailySummary />
             
             <Card>
                 <CardHeader>
@@ -660,7 +661,7 @@ export default function DashboardPage() {
           )}
         </header>
 
-        {showSensitiveData && <DailySummary borrowers={borrowers} investors={investors} />}
+        {showSensitiveData && <DailySummary />}
         
         {showIdleFundsReport && <IdleFundsCard investors={investors} />}
 
