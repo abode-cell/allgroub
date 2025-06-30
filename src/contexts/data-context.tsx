@@ -265,9 +265,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
             hideEmployeeInvestorFunds: false, permissions: {},
         };
         
+        // Notify all system admins about the new registration
+        const systemAdmins = prev.users.filter(u => u.role === 'مدير النظام');
+        const newNotifications = systemAdmins.map(admin => ({
+            id: `notif_signup_${Date.now()}_${admin.id}`,
+            recipientId: admin.id,
+            title: 'تسجيل مدير مكتب جديد',
+            description: `المستخدم "${credentials.name}" سجل كمدير مكتب وينتظر التفعيل.`,
+            date: new Date().toISOString(),
+            isRead: false,
+        }));
+        
         success = true;
         message = 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.';
-        return { ...prev, users: [...prev.users, newManager] };
+        return { ...prev, users: [...prev.users, newManager], notifications: [...prev.notifications, ...newNotifications] };
     });
 
     return { success, message };
@@ -725,6 +736,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
           let user = newState.users.find((u: User) => u.id === userId);
           user.status = status;
 
+          // Notify the Office Manager when their account is activated
+          if (status === 'نشط' && userToUpdate.status === 'معلق' && userToUpdate.role === 'مدير المكتب') {
+            const newNotification: Notification = {
+                id: `notif_activated_${Date.now()}_${userId}`,
+                recipientId: userId,
+                title: 'تم تفعيل حسابك!',
+                description: `مرحباً ${userToUpdate.name}، تم تفعيل حسابك كمدير مكتب. يمكنك الآن تسجيل الدخول وبدء استخدام المنصة.`,
+                date: new Date().toISOString(),
+                isRead: false,
+            };
+            newState.notifications.push(newNotification);
+          }
+
           const isSuspending = status === 'معلق';
           if (userToUpdate.role === 'مدير المكتب') {
               newState.users.forEach((u: User) => {
@@ -838,9 +862,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const investor = data.investors.find(i => i.id === investorId);
     if (!investor) return;
     
-    const managers = data.users.filter(u => u.role === 'مدير النظام' || u.role === 'مدير المكتب');
-    managers.forEach(manager => {
-        addNotification({ recipientId: manager.id, title: 'طلب زيادة رأس المال', description: `المستثمر "${investor.name}" يرغب بزيادة رأس ماله للاستمرار بالاستثمار.` });
+    // Only notify System Admins
+    const systemAdmins = data.users.filter(u => u.role === 'مدير النظام');
+    systemAdmins.forEach(admin => {
+        addNotification({ recipientId: admin.id, title: 'طلب زيادة رأس المال', description: `المستثمر "${investor.name}" يرغب بزيادة رأس ماله للاستمرار بالاستثمار.` });
     });
     
     toast({ title: 'تم إرسال طلبك', description: 'تم إعلام الإدارة برغبتك في زيادة رأس المال.' });
