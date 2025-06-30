@@ -261,7 +261,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const managerId = `user_${Date.now()}`;
         const newManager: User = {
             id: managerId, name: credentials.name, email: credentials.email, phone: credentials.phone, password: credentials.password, role: 'مدير المكتب', status: 'معلق',
-            photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString().split('T')[0], investorLimit: 3, employeeLimit: 1, assistantLimit: 1, allowEmployeeSubmissions: true,
+            photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString(), investorLimit: 3, employeeLimit: 1, assistantLimit: 1, allowEmployeeSubmissions: true,
             hideEmployeeInvestorFunds: false, permissions: {},
         };
         
@@ -325,10 +325,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 const newTransactions: Transaction[] = [];
 
                 if (update.principal > 0) {
-                  newTransactions.push({ id: `t-principal-ret-${Date.now()}-${inv.id}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: update.principal, description: `استعادة رأس مال من قرض "${updatedBorrower.name}"` });
+                  newTransactions.push({ id: `t-principal-ret-${Date.now()}-${inv.id}`, date: new Date().toISOString(), type: 'إيداع رأس المال', amount: update.principal, description: `استعادة رأس مال من قرض "${updatedBorrower.name}"` });
                 }
                  if (update.profit > 0) {
-                  newTransactions.push({ id: `t-profit-ret-${Date.now()}-${inv.id}`, date: new Date().toISOString().split('T')[0], type: 'إيداع أرباح', amount: update.profit, description: `أرباح من قرض "${updatedBorrower.name}"` });
+                  newTransactions.push({ id: `t-profit-ret-${Date.now()}-${inv.id}`, date: new Date().toISOString(), type: 'إيداع أرباح', amount: update.profit, description: `أرباح من قرض "${updatedBorrower.name}"` });
                 }
                 
                 return {
@@ -463,7 +463,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
         
         const newEntry: Borrower = {
-            ...borrower, id: newId, date: new Date().toISOString().split('T')[0],
+            ...borrower, id: newId, date: new Date().toISOString(),
             submittedBy: currentUser.id, fundedBy: fundedByDetails,
         };
         
@@ -549,11 +549,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const newId = `user_inv_${Date.now()}`;
         const newInvestorUser: User = {
-            id: newId, name: investorPayload.name, email: investorPayload.email, phone: '', password: investorPayload.password, role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString().split('T')[0], managedBy: managerId,
+            id: newId, name: investorPayload.name, email: investorPayload.email, phone: '', password: investorPayload.password, role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString(), managedBy: managerId,
         };
         const newInvestorEntry: Investor = {
-            id: newId, name: investorPayload.name, amount: investorPayload.amount, status: 'نشط', date: new Date().toISOString().split('T')[0],
-            transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
+            id: newId, name: investorPayload.name, amount: investorPayload.amount, status: 'نشط', date: new Date().toISOString(),
+            transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString(), type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
             defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
         };
         
@@ -561,8 +561,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         toast({ title: 'تمت إضافة المستثمر والمستخدم المرتبط به بنجاح.' });
     } else {
         const newEntry: Investor = {
-            ...investorPayload, id: `inv_${Date.now()}`, date: new Date().toISOString().split('T')[0],
-            transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
+            ...investorPayload, id: `inv_${Date.now()}`, date: new Date().toISOString(),
+            transactionHistory: [{ id: `t_${Date.now()}`, date: new Date().toISOString(), type: 'إيداع رأس المال', amount: investorPayload.amount, description: 'إيداع تأسيسي للحساب' }],
             defaultedFunds: 0, fundedLoanIds: [], submittedBy: currentUser.id,
         };
         
@@ -601,7 +601,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: 'نشط',
         managedBy: currentUser.id,
         photoURL: 'https://placehold.co/40x40.png',
-        registrationDate: new Date().toISOString().split('T')[0],
+        registrationDate: new Date().toISOString(),
     };
     setData(prev => ({...prev, users: [...prev.users, newUser]}));
     toast({ title: 'نجاح', description: 'تمت إضافة الموظف بنجاح.' });
@@ -634,7 +634,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: 'نشط',
         managedBy: currentUser.id,
         photoURL: 'https://placehold.co/40x40.png',
-        registrationDate: new Date().toISOString().split('T')[0],
+        registrationDate: new Date().toISOString(),
         permissions: { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false },
     };
     setData(prev => ({...prev, users: [...prev.users, newUser]}));

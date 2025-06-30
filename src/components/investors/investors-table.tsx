@@ -139,7 +139,7 @@ export function InvestorsTable({
       amount: Number(withdrawal.amount),
       description: withdrawal.description,
       type: withdrawal.type,
-      date: format(withdrawal.date, 'yyyy-MM-dd'),
+      date: withdrawal.date.toISOString(),
       withdrawalMethod: withdrawal.withdrawalMethod,
     });
 
@@ -172,7 +172,7 @@ export function InvestorsTable({
                   <TableRow key={investor.id}>
                     <TableCell className="font-medium">{investor.name}</TableCell>
                     <TableCell>{hideFunds ? '*****' : formatCurrency(investor.amount)}</TableCell>
-                    <TableCell>{investor.date}</TableCell>
+                    <TableCell>{new Date(investor.date).toLocaleDateString('ar-SA')}</TableCell>
                     <TableCell className="text-destructive font-medium text-center">
                       {hideFunds ? '*****' : formatCurrency(investor.defaultedFunds || 0)}
                     </TableCell>
@@ -369,7 +369,7 @@ export function InvestorsTable({
                                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                                         .map(tx => (
                                             <TableRow key={tx.id}>
-                                                <TableCell className="text-xs">{tx.date}</TableCell>
+                                                <TableCell className="text-xs">{new Date(tx.date).toLocaleDateString('ar-SA')}</TableCell>
                                                 <TableCell className="text-center"><Badge variant={transactionTypeVariant[tx.type] || 'outline'}>{tx.type}</Badge></TableCell>
                                                 <TableCell className="text-xs">{tx.description}</TableCell>
                                                 <TableCell className="text-xs text-center">{tx.withdrawalMethod || '-'}</TableCell>

@@ -81,7 +81,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
                 <TableRow key={loan.id}>
                   <TableCell className="font-medium">{loan.name}</TableCell>
                   <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                  <TableCell>{loan.date}</TableCell>
+                  <TableCell>{new Date(loan.date).toLocaleDateString('ar-SA')}</TableCell>
                   <TableCell>{loan.dueDate}</TableCell>
                   <TableCell className="text-center">
                     <BorrowerStatusBadge borrower={loan} />
@@ -170,7 +170,7 @@ export default function ReportsPage() {
     const today = new Date();
     const rows = installmentLoans.map(loan => {
       const borrowerStatus = getBorrowerStatus(loan, today);
-      return [loan.name, loan.amount, loan.date, loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
+      return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
     exportToPrintableHtml(title, columns, rows, currentUser);
   };
@@ -182,7 +182,7 @@ export default function ReportsPage() {
     const today = new Date();
     const rows = gracePeriodLoans.map(loan => {
       const borrowerStatus = getBorrowerStatus(loan, today);
-      return [loan.name, loan.amount, loan.date, loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
+      return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
     exportToPrintableHtml(title, columns, rows, currentUser);
   };

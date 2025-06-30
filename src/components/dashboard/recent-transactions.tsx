@@ -96,7 +96,7 @@ export function RecentTransactions() {
                     {transaction.isDeposit ? '+' : (transaction.type.includes('سحب') ? '-' : '')}
                     {formatCurrency(transaction.amount)}
                   </TableCell>
-                  <TableCell>{transaction.date}</TableCell>
+                  <TableCell>{new Date(transaction.date).toLocaleDateString('ar-SA')}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant={statusVariant[transaction.status] || 'default'}>
                       {transaction.status}

@@ -119,7 +119,7 @@ export function InvestorDashboard() {
                                         .filter(tx => tx.type.includes('سحب'))
                                         .slice(0, 5).map(w => (
                                         <TableRow key={w.id}>
-                                            <TableCell>{w.date}</TableCell>
+                                            <TableCell>{new Date(w.date).toLocaleDateString('ar-SA')}</TableCell>
                                             <TableCell>{formatCurrency(w.amount)}</TableCell>
                                             <TableCell className="text-center">{w.description}</TableCell>
                                         </TableRow>

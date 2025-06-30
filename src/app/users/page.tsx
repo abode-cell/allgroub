@@ -404,7 +404,7 @@ export default function UsersPage() {
                     </AccordionPrimitive.Header>
                     <AccordionContent className="bg-muted/30 p-4 border-l-4 border-primary space-y-6">
                         <p className="text-xs text-muted-foreground">
-                            تاريخ التسجيل: {manager.registrationDate || 'غير محدد'}
+                            تاريخ التسجيل: {manager.registrationDate ? new Date(manager.registrationDate).toLocaleDateString('ar-SA') : 'غير محدد'}
                         </p>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <Card>
