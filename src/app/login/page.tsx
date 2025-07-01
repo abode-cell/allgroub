@@ -35,7 +35,7 @@ export default function LoginPage() {
     // On the login page, we need to pass all users to the signIn function.
     const result = await signIn({ identifier, password }, users, { email: supportEmail, phone: supportPhone });
     if (result.success) {
-      router.replace('/');
+      router.replace('/dashboard');
     } else {
       setError(result.message);
       setIsLoading(false);
