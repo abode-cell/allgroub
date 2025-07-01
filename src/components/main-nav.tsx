@@ -88,12 +88,6 @@ export const allMenuItems: MenuItem[] = [
     permission: 'useCalculator',
   },
   {
-    href: '/summarize',
-    label: 'تلخيص المستندات',
-    icon: Sparkles,
-    roles: ['مدير المكتب', 'مساعد مدير المكتب'],
-  },
-  {
     href: '/ai-support',
     label: 'مساعد الدعم الفني',
     icon: Sparkles,
