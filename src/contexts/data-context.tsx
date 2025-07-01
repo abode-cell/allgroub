@@ -1273,16 +1273,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setUsers((prevUsers) =>
         prevUsers.map((u) => {
           if (u.id === userId) return { ...u, status };
+          // Cascade suspension/activation to managed users
           if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userId)
             return { ...u, status };
           return u;
         })
       );
 
+      // Cascade status to investors managed by the Office Manager
       if (userToUpdate.role === 'مدير المكتب') {
         setInvestors((prevInvestors) =>
           prevInvestors.map((inv) => {
-            if (inv.submittedBy === userId) {
+            const investorUser = users.find(u => u.id === inv.id);
+            if (investorUser?.managedBy === userId) {
               if (isSuspending && inv.status === 'نشط')
                 return { ...inv, status: 'غير نشط' };
               if (!isSuspending && inv.status === 'غير نشط')
@@ -1306,9 +1309,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
 
       toastMessage =
-        userToUpdate.role === 'مدير المكتب' && isSuspending
-          ? 'تم تعليق حساب المدير والحسابات المرتبطة به.'
-          : 'تم تفعيل حساب المدير والحسابات المرتبطة به.';
+        userToUpdate.role === 'مدير المكتب'
+          ? isSuspending
+            ? 'تم تعليق حساب المدير والحسابات المرتبطة به.'
+            : 'تم تفعيل حساب المدير والحسابات المرتبطة به.'
+          : 'تم تحديث حالة المستخدم بنجاح.';
       toast({ title: 'تم التحديث', description: toastMessage });
     },
     [users, addNotification, toast]

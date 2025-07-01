@@ -49,6 +49,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
 
 
 type InvestorsTableProps = {
@@ -82,6 +83,7 @@ export function InvestorsTable({
 }: InvestorsTableProps) {
   const { currentUser, borrowers, users, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
   const { updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease, markInvestorAsNotified } = useDataActions();
+  const { toast } = useToast();
   const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -188,6 +190,19 @@ export function InvestorsTable({
     e.preventDefault();
     if (!selectedInvestor || !withdrawal.amount || !withdrawal.description || !withdrawal.date) return;
     
+    const maxAmount = withdrawal.withdrawalSource === 'installment'
+      ? selectedInvestor.installmentCapital
+      : selectedInvestor.gracePeriodCapital;
+
+    if (Number(withdrawal.amount) > maxAmount) {
+        toast({
+            variant: 'destructive',
+            title: 'مبلغ غير صالح',
+            description: `المبلغ المطلوب للسحب (${formatCurrency(Number(withdrawal.amount))}) يتجاوز الرصيد المتاح (${formatCurrency(maxAmount)}) في هذه المحفظة.`,
+        });
+        return;
+    }
+
     withdrawFromInvestor(selectedInvestor.id, {
       amount: Number(withdrawal.amount),
       description: withdrawal.description,
