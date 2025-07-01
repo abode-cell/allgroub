@@ -54,6 +54,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (userToSignIn.status === 'معلق') {
+      // Check for expired trial first for office managers
+      if (userToSignIn.role === 'مدير المكتب' && userToSignIn.trialEndsAt) {
+          const trialEndDate = new Date(userToSignIn.trialEndsAt);
+          if (new Date() > trialEndDate) {
+              return {
+                  success: false,
+                  message: `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني على: ${supportInfo.email} أو ${supportInfo.phone}`
+              };
+          }
+      }
+
       if (userToSignIn.role === 'مدير المكتب') {
         return {
           success: false,

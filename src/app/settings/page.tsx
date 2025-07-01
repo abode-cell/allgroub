@@ -82,10 +82,9 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <Scale className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>إعدادات سياسات التعثر</CardTitle>
+              <CardTitle>إعدادات السياسات</CardTitle>
               <CardDescription>
-                تحديد سياسات التعامل مع القروض المتعثرة، نسب الخصم، والمدد
-                الزمنية.
+                تحديد سياسات القروض المتعثرة، ومدة الفترة التجريبية للحسابات الجديدة.
               </CardDescription>
             </CardHeader>
             <CardContent>

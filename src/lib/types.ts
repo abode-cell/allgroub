@@ -1,4 +1,3 @@
-
 'use client';
 
 export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف' | 'مستثمر';
@@ -39,6 +38,12 @@ export type User = {
   password?: string;
   managedBy?: string;
   registrationDate?: string;
+  
+  // Trial Period Fields
+  trialEndsAt?: string; // For Office Managers on trial
+  defaultTrialPeriodDays?: number; // For System Admin to configure
+
+  // Office Manager Specific Fields
   investorLimit?: number;
   employeeLimit?: number;
   assistantLimit?: number;

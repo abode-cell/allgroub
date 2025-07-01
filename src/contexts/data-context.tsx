@@ -62,6 +62,7 @@ type DataActions = {
   updateSalaryRepaymentPercentage: (percentage: number) => void;
   updateGraceTotalProfitPercentage: (percentage: number) => void;
   updateGraceInvestorSharePercentage: (percentage: number) => void;
+  updateTrialPeriod: (days: number) => void;
   addSupportTicket: (
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
   ) => void;
@@ -185,6 +186,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [cronJobRan, setCronJobRan] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -308,6 +310,86 @@ export function DataProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // Effect to simulate cron job for trial management
+  useEffect(() => {
+    if (!isInitialLoad && !cronJobRan) {
+      const today = new Date();
+      let usersModified = false;
+      const notificationsToAdd: Notification[] = [];
+      const systemAdmin = users.find((u) => u.role === 'مدير النظام');
+
+      const updatedUsers = users.map((user) => {
+        if (
+          user.role === 'مدير المكتب' &&
+          user.trialEndsAt &&
+          user.status === 'نشط'
+        ) {
+          const trialEndDate = new Date(user.trialEndsAt);
+
+          // Suspension logic
+          if (today > trialEndDate) {
+            usersModified = true;
+            if (systemAdmin) {
+              notificationsToAdd.push({
+                id: `admin-trial-expired-${user.id}`,
+                recipientId: systemAdmin.id,
+                title: 'انتهاء تجربة مستخدم',
+                description: `انتهت الفترة التجريبية للمستخدم "${user.name}" وتم تعليق حسابه.`,
+                date: today.toISOString(),
+                isRead: false,
+              });
+            }
+            notificationsToAdd.push({
+              id: `user-trial-expired-${user.id}`,
+              recipientId: user.id,
+              title: 'انتهت الفترة التجريبية',
+              description:
+                'انتهت فترة التجربة الخاصة بك. تم تعليق حسابك تلقائياً.',
+              date: today.toISOString(),
+              isRead: false,
+            });
+            return { ...user, status: 'معلق' };
+          }
+
+          // Reminder logic
+          const timeDiff = trialEndDate.getTime() - today.getTime();
+          const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+          if (daysLeft > 0 && daysLeft <= 3) {
+            const reminderId = `trial-reminder-${user.id}-${daysLeft}`;
+            const alreadySent = notifications.some((n) => n.id === reminderId);
+            if (!alreadySent) {
+              notificationsToAdd.push({
+                id: reminderId,
+                recipientId: user.id,
+                title: 'تذكير بقرب انتهاء الفترة التجريبية',
+                description: `ستنتهي الفترة التجريبية لحسابك خلال ${daysLeft} يوم/أيام.`,
+                date: today.toISOString(),
+                isRead: false,
+              });
+            }
+          }
+        }
+        return user;
+      });
+
+      if (usersModified) {
+        setUsers(updatedUsers);
+      }
+
+      if (notificationsToAdd.length > 0) {
+        setNotifications((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const uniqueNewNotifications = notificationsToAdd.filter(
+            (n) => !existingIds.has(n.id)
+          );
+          return [...uniqueNewNotifications, ...prev];
+        });
+      }
+      setCronJobRan(true); // Run only once per session
+    }
+  }, [isInitialLoad, cronJobRan, users, notifications, addNotification]);
+
   const clearUserNotifications = useCallback(
     (userId: string) => {
       setNotifications((prev) => prev.filter((n) => n.recipientId !== userId));
@@ -323,6 +405,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
       )
     );
   }, []);
+
+  const updateTrialPeriod = useCallback(
+    (days: number) => {
+      const admin = users.find((u) => u.role === 'مدير النظام');
+      if (!admin) {
+        toast({
+          variant: 'destructive',
+          title: 'خطأ',
+          description: 'لم يتم العثور على حساب مدير النظام.',
+        });
+        return;
+      }
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === admin.id ? { ...u, defaultTrialPeriodDays: days } : u
+        )
+      );
+      toast({
+        title: 'تم التحديث',
+        description: `تم تحديث الفترة التجريبية إلى ${days} يوم.`,
+      });
+    },
+    [users, toast]
+  );
 
   const updateSalaryRepaymentPercentage = useCallback(
     (percentage: number) => {
@@ -401,6 +508,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      const systemAdmin = users.find((u) => u.role === 'مدير النظام');
+      const trialDays = systemAdmin?.defaultTrialPeriodDays ?? 14;
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
       const managerId = `user_${Date.now()}`;
       const newManager: User = {
         id: managerId,
@@ -412,6 +524,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: 'معلق',
         photoURL: 'https://placehold.co/40x40.png',
         registrationDate: new Date().toISOString(),
+        trialEndsAt: trialEndsAt.toISOString(),
         investorLimit: 3,
         employeeLimit: 1,
         assistantLimit: 1,
@@ -423,14 +536,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       setUsers((prev) => [...prev, newManager]);
 
-      const systemAdmins = users.filter((u) => u.role === 'مدير النظام');
-      systemAdmins.forEach((admin) => {
+      if (systemAdmin) {
         addNotification({
-          recipientId: admin.id,
+          recipientId: systemAdmin.id,
           title: 'تسجيل مدير مكتب جديد',
           description: `المستخدم "${credentials.name}" سجل كمدير مكتب وينتظر التفعيل.`,
         });
-      });
+      }
 
       return {
         success: true,
@@ -1405,6 +1517,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateSalaryRepaymentPercentage,
       updateGraceTotalProfitPercentage,
       updateGraceInvestorSharePercentage,
+      updateTrialPeriod,
       addSupportTicket,
       registerNewOfficeManager,
       addBorrower,
@@ -1440,6 +1553,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateSalaryRepaymentPercentage,
       updateGraceTotalProfitPercentage,
       updateGraceInvestorSharePercentage,
+      updateTrialPeriod,
       addSupportTicket,
       registerNewOfficeManager,
       addBorrower,
