@@ -47,7 +47,7 @@ export function InvestorDashboard() {
           return total + (funding?.amount || 0);
         }, 0);
 
-      const idleFunds = investor.amount;
+      const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
       
       const totalProfits = myFundedLoans
         .filter(b => (b.status !== 'معلق' && b.status !== 'مرفوض'))

@@ -10,13 +10,13 @@ export const usersData: User[] = [
   { id: 'inv-4', name: 'محفظة الأصول الجديدة', email: 'assets@example.com', role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000007', managedBy: '2', registrationDate: '2024-03-15T10:00:00.000Z', permissions: {} },
 ];
 
-// Note: Investor `amount` represents available (liquid) capital.
-// The initial capital is depleted as they fund loans.
 export const investorsData: Investor[] = [
   {
     id: 'inv-1',
     name: 'صندوق الاستثمار الأول',
-    amount: 350000, // Initial 500k, funded 150k for bor-1
+    investmentType: 'اقساط',
+    installmentCapital: 350000, // Initial 500k, funded 150k for bor-1
+    gracePeriodCapital: 0,
     date: '2023-01-15T14:00:00.000Z',
     status: 'نشط',
     transactionHistory: [
@@ -29,7 +29,9 @@ export const investorsData: Investor[] = [
   {
     id: 'inv-2',
     name: 'مجموعة الاستثمار الذهبي',
-    amount: 450000, // Initial 750k, withdrew 25k, funded 200k for bor-2, funded 75k for bor-3 (now defaulted)
+    investmentType: 'مهلة',
+    installmentCapital: 0, 
+    gracePeriodCapital: 450000, // Initial 750k, withdrew 25k, funded 200k for bor-2 (now أقساط), funded 75k for bor-3 (now defaulted)
     date: '2023-03-20T12:00:00.000Z',
     status: 'نشط',
     transactionHistory: [
@@ -37,14 +39,16 @@ export const investorsData: Investor[] = [
         { id: 't-2-2', date: '2024-05-10T13:00:00.000Z', type: 'سحب أرباح', amount: 25000, description: 'توزيعات أرباح الربع الأول', withdrawalMethod: 'بنكي' },
         { id: 't-2-3', date: '2024-06-01T10:00:00.000Z', type: 'إيداع أرباح', amount: 15000, description: 'أرباح محققة من قرض مكتمل' },
     ],
-    fundedLoanIds: ['bor-2'], // bor-3 is defaulted, so it's not an "active" funded loan
-    defaultedFunds: 75000, // from bor-3
+    fundedLoanIds: [],
+    defaultedFunds: 75000,
     isNotified: false,
   },
    {
     id: 'inv-3',
     name: 'شركة رؤى المستقبل',
-    amount: 200000,
+    investmentType: 'مهلة',
+    installmentCapital: 0,
+    gracePeriodCapital: 200000,
     date: '2024-02-10T11:30:00.000Z',
     status: 'معلق',
     transactionHistory: [
@@ -58,7 +62,9 @@ export const investorsData: Investor[] = [
   {
     id: '4', // Corresponds to user 'خالد المستثمر'
     name: 'خالد المستثمر',
-    amount: 0,
+    investmentType: 'اقساط',
+    installmentCapital: 800000,
+    gracePeriodCapital: 0,
     date: '2023-02-05T10:05:00.000Z',
     status: 'نشط',
     transactionHistory: [
@@ -71,7 +77,9 @@ export const investorsData: Investor[] = [
    {
     id: 'inv-4',
     name: 'محفظة الأصول الجديدة',
-    amount: 1000000,
+    investmentType: 'اقساط',
+    installmentCapital: 1000000,
+    gracePeriodCapital: 0,
     date: '2024-03-15T10:00:00.000Z',
     status: 'نشط',
     transactionHistory: [
@@ -111,7 +119,7 @@ export const borrowersData: Borrower[] = [
     loanType: 'اقساط',
     status: 'متأخر',
     dueDate: '2030-04-10',
-    fundedBy: [{ investorId: 'inv-2', amount: 200000 }],
+    fundedBy: [{ investorId: 'inv-4', amount: 200000 }],
     paymentStatus: 'تم الإمهال',
     isNotified: true,
   },

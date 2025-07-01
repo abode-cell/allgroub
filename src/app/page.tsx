@@ -444,8 +444,8 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
 
 const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
     const { idleInvestors, totalIdleFunds } = useMemo(() => {
-        const idleInvestors = investors.filter(i => i.amount > 0 && i.status === 'نشط');
-        const totalIdleFunds = idleInvestors.reduce((sum, i) => sum + i.amount, 0);
+        const idleInvestors = investors.filter(i => (i.installmentCapital > 0 || i.gracePeriodCapital > 0) && i.status === 'نشط');
+        const totalIdleFunds = idleInvestors.reduce((sum, i) => sum + i.installmentCapital + i.gracePeriodCapital, 0);
         return { idleInvestors, totalIdleFunds };
     }, [investors]);
 
@@ -470,6 +470,7 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>اسم المستثمر</TableHead>
+                                    <TableHead>نوع الاستثمار</TableHead>
                                     <TableHead className="text-left">المبلغ الخامل</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -478,12 +479,13 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
                                     idleInvestors.map(investor => (
                                         <TableRow key={investor.id}>
                                             <TableCell className="font-medium">{investor.name}</TableCell>
-                                            <TableCell className="text-left font-semibold">{formatCurrency(investor.amount)}</TableCell>
+                                            <TableCell><Badge variant="outline">{investor.investmentType}</Badge></TableCell>
+                                            <TableCell className="text-left font-semibold">{formatCurrency(investor.installmentCapital + investor.gracePeriodCapital)}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={2} className="h-24 text-center">
+                                        <TableCell colSpan={3} className="h-24 text-center">
                                             لا توجد أموال خاملة حاليًا.
                                         </TableCell>
                                     </TableRow>
@@ -502,20 +504,17 @@ const SystemAdminDashboard = () => {
     const { users, investors } = useDataState();
     const { updateUserStatus } = useDataActions();
 
-    const { pendingManagers, activeManagersCount, totalCapital, totalUsersCount } = useMemo(() => {
+    const { pendingManagers, activeManagersCount, totalCapital, installmentCapital, graceCapital, totalUsersCount } = useMemo(() => {
         const officeManagers = users.filter(u => u.role === 'مدير المكتب');
         const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
         const activeManagersCount = officeManagers.length - pendingManagers.length;
         
-        const totalCapital = investors.reduce((total, investor) => {
-            const capitalDeposits = investor.transactionHistory
-                .filter(tx => tx.type === 'إيداع رأس المال')
-                .reduce((sum, tx) => sum + tx.amount, 0);
-            return total + capitalDeposits;
-        }, 0);
+        const totalCapital = investors.reduce((total, investor) => total + investor.installmentCapital + investor.gracePeriodCapital, 0);
+        const installmentCapital = investors.reduce((total, investor) => total + investor.installmentCapital, 0);
+        const graceCapital = investors.reduce((total, investor) => total + investor.gracePeriodCapital, 0);
         
         const totalUsersCount = users.length;
-        return { pendingManagers, activeManagersCount, totalCapital, totalUsersCount };
+        return { pendingManagers, activeManagersCount, totalCapital, installmentCapital, graceCapital, totalUsersCount };
     }, [users, investors]);
     
     return (
@@ -531,11 +530,23 @@ const SystemAdminDashboard = () => {
                 </div>
             </header>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <KpiCard
                     title="إجمالي رأس المال"
                     value={formatCurrency(totalCapital)}
                     change="في جميع المحافظ"
+                    icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
+                />
+                 <KpiCard
+                    title="رأس مال الأقساط"
+                    value={formatCurrency(installmentCapital)}
+                    change="مخصص لتمويل الأقساط"
+                    icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
+                />
+                 <KpiCard
+                    title="رأس مال المهلة"
+                    value={formatCurrency(graceCapital)}
+                    change="مخصص لتمويل المهلة"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                 <KpiCard
@@ -650,13 +661,11 @@ export default function DashboardPage() {
     return <InvestorDashboard />;
   }
   
-  const totalCapital = useMemo(() => {
-    return filteredInvestors.reduce((total, investor) => {
-        const capitalDeposits = investor.transactionHistory
-            .filter(tx => tx.type === 'إيداع رأس المال')
-            .reduce((sum, tx) => sum + tx.amount, 0);
-        return total + capitalDeposits;
-    }, 0);
+  const { totalCapital, installmentCapital, graceCapital } = useMemo(() => {
+    const total = filteredInvestors.reduce((acc, inv) => acc + inv.installmentCapital + inv.gracePeriodCapital, 0);
+    const installment = filteredInvestors.reduce((acc, inv) => acc + inv.installmentCapital, 0);
+    const grace = filteredInvestors.reduce((acc, inv) => acc + inv.gracePeriodCapital, 0);
+    return { totalCapital: total, installmentCapital: installment, graceCapital: grace };
   }, [filteredInvestors]);
 
   const showSensitiveData = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
@@ -674,17 +683,30 @@ export default function DashboardPage() {
               نظرة عامة على أداء منصتك المالية.
             </p>
           </div>
-          {showSensitiveData && (
-            <div className="min-w-[250px]">
+        </header>
+
+        {showSensitiveData && (
+             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <KpiCard
                     title="إجمالي رأس المال"
                     value={formatCurrency(totalCapital)}
-                    change=""
+                    change="في جميع المحافظ"
+                    icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
+                />
+                 <KpiCard
+                    title="رأس مال الأقساط"
+                    value={formatCurrency(installmentCapital)}
+                    change="متاح لتمويل الأقساط"
+                    icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
+                />
+                 <KpiCard
+                    title="رأس مال المهلة"
+                    value={formatCurrency(graceCapital)}
+                    change="متاح لتمويل المهلة"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
             </div>
-          )}
-        </header>
+        )}
 
         {showSensitiveData && <DailySummary />}
         

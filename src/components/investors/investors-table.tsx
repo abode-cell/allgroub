@@ -139,7 +139,7 @@ export function InvestorsTable({
         }, 0);
 
     setSelectedInvestor(investor);
-    const defaultMessage = `مرحباً ${investor.name},\n\nهذا ملخص لأداء استثماراتك معنا:\n- إجمالي الأرباح المتوقعة: ${formatCurrency(totalProfits)}\n- إجمالي الأموال المتعثرة: ${formatCurrency(investor.defaultedFunds || 0)}\n- الرصيد الخامل المتاح: ${formatCurrency(investor.amount)}\n\nنشكركم على ثقتكم،\nإدارة الموقع`;
+    const defaultMessage = `مرحباً ${investor.name},\n\nهذا ملخص لأداء استثماراتك معنا:\n- إجمالي الأرباح المتوقعة: ${formatCurrency(totalProfits)}\n- إجمالي الأموال المتعثرة: ${formatCurrency(investor.defaultedFunds || 0)}\n- الرصيد الخامل المتاح: ${formatCurrency(investor.investmentType === 'اقساط' ? investor.installmentCapital : investor.gracePeriodCapital)}\n\nنشكركم على ثقتكم،\nإدارة الموقع`;
     setSmsMessage(defaultMessage);
     setIsSmsDialogOpen(true);
   };
@@ -219,10 +219,12 @@ export function InvestorsTable({
             </TableHeader>
             <TableBody>
               {investors.length > 0 ? (
-                investors.map((investor) => (
+                investors.map((investor) => {
+                  const availableCapital = investor.investmentType === 'اقساط' ? investor.installmentCapital : investor.gracePeriodCapital;
+                  return (
                   <TableRow key={investor.id}>
                     <TableCell className="font-medium">{investor.name}</TableCell>
-                    <TableCell>{hideFunds ? '*****' : formatCurrency(investor.amount)}</TableCell>
+                    <TableCell>{hideFunds ? '*****' : formatCurrency(availableCapital)}</TableCell>
                     <TableCell>{new Date(investor.date).toLocaleDateString('ar-SA')}</TableCell>
                     <TableCell className="text-destructive font-medium text-center">
                       {hideFunds ? '*****' : formatCurrency(investor.defaultedFunds || 0)}
@@ -285,12 +287,12 @@ export function InvestorsTable({
                           {canWithdraw && (
                               <DropdownMenuItem
                                 onSelect={() => handleWithdrawClick(investor)}
-                                disabled={investor.status === 'معلق' || investor.amount <= 0}
+                                disabled={investor.status === 'معلق' || availableCapital <= 0}
                               >
                                 سحب الأموال
                               </DropdownMenuItem>
                           )}
-                          {investor.amount <= 0 && investor.status === 'نشط' && canRequestIncrease && (
+                          {availableCapital <= 0 && investor.status === 'نشط' && canRequestIncrease && (
                               <DropdownMenuItem onSelect={() => requestCapitalIncrease(investor.id)}>
                                   <TrendingUp className="ml-2 h-4 w-4" />
                                   طلب زيادة رأس المال
@@ -300,7 +302,7 @@ export function InvestorsTable({
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))
+                )})
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
@@ -341,18 +343,23 @@ export function InvestorsTable({
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="amount" className="text-right">
-                  المبلغ
+                  الرصيد
                 </Label>
                 <Input
                   id="amount"
                   type="number"
-                  value={selectedInvestor.amount}
-                  onChange={(e) =>
-                    setSelectedInvestor({
-                      ...selectedInvestor,
-                      amount: Number(e.target.value),
-                    })
-                  }
+                  value={selectedInvestor.investmentType === 'اقساط' ? selectedInvestor.installmentCapital : selectedInvestor.gracePeriodCapital}
+                  onChange={(e) => {
+                      const newCapital = Number(e.target.value);
+                      setSelectedInvestor(prev => {
+                        if (!prev) return null;
+                        if (prev.investmentType === 'اقساط') {
+                            return { ...prev, installmentCapital: newCapital };
+                        } else {
+                            return { ...prev, gracePeriodCapital: newCapital };
+                        }
+                      });
+                  }}
                   className="col-span-3"
                 />
               </div>
@@ -388,7 +395,7 @@ export function InvestorsTable({
                   return total + (funding?.amount || 0);
               }, 0);
             
-            const idleFunds = selectedInvestor.amount;
+            const idleFunds = selectedInvestor.installmentCapital + selectedInvestor.gracePeriodCapital;
             const defaultedFunds = selectedInvestor.defaultedFunds || 0;
             const totalCapital = selectedInvestor.transactionHistory
               .filter(tx => tx.type === 'إيداع رأس المال')

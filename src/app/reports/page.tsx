@@ -197,7 +197,7 @@ export default function ReportsPage() {
   const handleExportInvestors = () => {
     if (!currentUser) return;
     const title = "تقرير المستثمرين";
-    const columns = ["اسم المستثمر", "إجمالي الاستثمار", "الأموال النشطة", "الأموال الخاملة", "الأموال المتعثرة", "الحالة"];
+    const columns = ["اسم المستثمر", "نوع الاستثمار", "إجمالي الاستثمار", "الأموال النشطة", "الأموال الخاملة", "الأموال المتعثرة", "الحالة"];
     const rows = activeInvestors.map(investor => {
         const totalInvestment = investor.transactionHistory
             .filter(tx => tx.type === 'إيداع رأس المال')
@@ -210,11 +210,12 @@ export default function ReportsPage() {
                 return total + (funding?.amount || 0);
             }, 0);
         
-        const idleFunds = investor.amount;
+        const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
         const defaultedFunds = investor.defaultedFunds || 0;
 
         return [
             investor.name,
+            investor.investmentType,
             totalInvestment,
             activeInvestment,
             idleFunds,
@@ -241,7 +242,7 @@ export default function ReportsPage() {
             const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
             return total + (funding?.amount || 0);
         }, 0);
-    const idleFunds = investor.amount;
+    const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
     const defaultedFunds = investor.defaultedFunds || 0;
 
     const title = `تقرير المستثمر: ${investor.name}`;
@@ -402,7 +403,7 @@ export default function ReportsPage() {
                         const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
                         return total + (funding?.amount || 0);
                     }, 0);
-                const idleFunds = investor.amount;
+                const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
                 const defaultedFunds = investor.defaultedFunds || 0;
 
                 return (

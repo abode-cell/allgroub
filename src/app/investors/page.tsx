@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle } from 'lucide-react';
 import { useDataState, useDataActions } from '@/contexts/data-context';
-import type { Investor } from '@/lib/types';
+import type { Investor, NewInvestorPayload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Tooltip,
@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -71,12 +73,22 @@ export default function InvestorsPage() {
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newInvestor, setNewInvestor] = useState({
+  const [newInvestor, setNewInvestor] = useState<{
+    name: string;
+    capital: string;
+    email: string;
+    password: string;
+    investmentType: 'اقساط' | 'مهلة';
+  }>({
     name: '',
-    amount: '',
+    capital: '',
     email: '',
     password: '',
+    investmentType: 'اقساط',
   });
+  
+  const installmentInvestors = useMemo(() => investors.filter(i => i.investmentType === 'اقساط'), [investors]);
+  const gracePeriodInvestors = useMemo(() => investors.filter(i => i.investmentType === 'مهلة'), [investors]);
 
   const isEmployee = role === 'موظف';
   const isOfficeManager = role === 'مدير المكتب';
@@ -102,7 +114,7 @@ export default function InvestorsPage() {
 
   const handleAddInvestor = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newInvestor.name || !newInvestor.amount) {
+    if (!newInvestor.name || !newInvestor.capital) {
       return;
     }
 
@@ -127,15 +139,18 @@ export default function InvestorsPage() {
 
     const status: Investor['status'] = ((isEmployee || isAssistant) && !isDirectAdditionEnabled) ? 'معلق' : 'نشط';
 
-    addInvestor({
+    const payload: NewInvestorPayload = {
       name: newInvestor.name,
-      amount: Number(newInvestor.amount),
+      capital: Number(newInvestor.capital),
       status: status,
       email: newInvestor.email,
       password: newInvestor.password,
-    });
+      investmentType: newInvestor.investmentType,
+    };
+    
+    addInvestor(payload);
     setIsAddDialogOpen(false);
-    setNewInvestor({ name: '', amount: '', email: '', password: '' });
+    setNewInvestor({ name: '', capital: '', email: '', password: '', investmentType: 'اقساط' });
   };
 
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
@@ -237,16 +252,33 @@ export default function InvestorsPage() {
                         required
                       />
                     </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right">نوع الاستثمار</Label>
+                        <RadioGroup
+                          value={newInvestor.investmentType}
+                          onValueChange={(value: 'اقساط' | 'مهلة') => setNewInvestor(p => ({...p, investmentType: value}))}
+                          className="col-span-3 flex gap-4 rtl:space-x-reverse"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="اقساط" id="inv-r1" />
+                            <Label htmlFor="inv-r1">أقساط</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="مهلة" id="inv-r2" />
+                            <Label htmlFor="inv-r2">مهلة</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="amount" className="text-right">
-                        المبلغ
+                      <Label htmlFor="capital" className="text-right">
+                        رأس المال
                       </Label>
                       <Input
-                        id="amount"
+                        id="capital"
                         type="number"
                         placeholder="مبلغ الاستثمار"
                         className="col-span-3"
-                        value={newInvestor.amount}
+                        value={newInvestor.capital}
                         onChange={handleInputChange}
                         required
                       />
@@ -297,7 +329,22 @@ export default function InvestorsPage() {
             </Dialog>
           )}
         </div>
-        <InvestorsTable investors={investors} hideFunds={hideInvestorFunds} />
+        <Tabs defaultValue="installments" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="installments">
+                  مستثمرو الأقساط ({installmentInvestors.length})
+                </TabsTrigger>
+                <TabsTrigger value="grace-period">
+                  مستثمرو المهلة ({gracePeriodInvestors.length})
+                </TabsTrigger>
+            </TabsList>
+            <TabsContent value="installments" className="mt-4">
+                <InvestorsTable investors={installmentInvestors} hideFunds={hideInvestorFunds} />
+            </TabsContent>
+            <TabsContent value="grace-period" className="mt-4">
+                <InvestorsTable investors={gracePeriodInvestors} hideFunds={hideInvestorFunds} />
+            </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

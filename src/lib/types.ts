@@ -12,7 +12,8 @@ export type PermissionKey =
   | 'useCalculator'
   | 'accessSettings'
   | 'manageEmployeePermissions'
-  | 'viewIdleFundsReport';
+  | 'viewIdleFundsReport'
+  | 'allowEmployeeLoanEdits';
 
 export type Permissions = {
   [key in PermissionKey]?: boolean;
@@ -89,7 +90,9 @@ export type Transaction = {
 export type Investor = {
   id:string;
   name: string;
-  amount: number;
+  investmentType: 'اقساط' | 'مهلة';
+  installmentCapital: number;
+  gracePeriodCapital: number;
   date: string;
   status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض';
   transactionHistory: Transaction[];
@@ -130,14 +133,11 @@ export type UpdatableInvestor = Omit<
   | 'isNotified'
 >;
 
-export type NewInvestorPayload = Omit<
-  Investor,
-  | 'id'
-  | 'date'
-  | 'transactionHistory'
-  | 'defaultedFunds'
-  | 'fundedLoanIds'
-  | 'rejectionReason'
-  | 'submittedBy'
-  | 'isNotified'
-> & { email: string; password: string };
+export type NewInvestorPayload = {
+    name: string;
+    status: Investor['status'];
+    investmentType: Investor['investmentType'];
+    capital: number;
+    email: string;
+    password: string;
+};

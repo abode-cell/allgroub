@@ -149,6 +149,7 @@ export default function BorrowersPage() {
   };
   
   const handleLoanTypeChange = (value: 'اقساط' | 'مهلة') => {
+    setSelectedInvestors([]); // Reset selected investors on loan type change
     setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '', discount: '' }));
   };
 
@@ -202,7 +203,7 @@ export default function BorrowersPage() {
     const loanAmount = Number(newBorrower.amount);
     const totalAvailableFromSelected = investors
       .filter(inv => selectedInvestors.includes(inv.id))
-      .reduce((sum, inv) => sum + inv.amount, 0);
+      .reduce((sum, inv) => sum + (inv.investmentType === 'اقساط' ? inv.installmentCapital : inv.gracePeriodCapital), 0);
 
     if (totalAvailableFromSelected < loanAmount) {
       setNewBorrower(prev => ({...prev, amount: String(totalAvailableFromSelected)}));
@@ -243,6 +244,14 @@ export default function BorrowersPage() {
     }
     return 'حفظ';
   };
+  
+  const availableInvestorsForDropdown = useMemo(() => {
+    return investors.filter(i => 
+        i.status === 'نشط' && 
+        i.investmentType === newBorrower.loanType &&
+        (i.investmentType === 'اقساط' ? i.installmentCapital > 0 : i.gracePeriodCapital > 0)
+    );
+  }, [investors, newBorrower.loanType]);
 
   return (
     <div className="flex flex-col flex-1">
@@ -436,9 +445,9 @@ export default function BorrowersPage() {
                                     </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent className="w-64" align='end'>
-                                    <DropdownMenuLabel>المستثمرون المتاحون</DropdownMenuLabel>
+                                    <DropdownMenuLabel>المستثمرون المتاحون ({newBorrower.loanType})</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    {investors.filter(i => i.status === 'نشط' && i.amount > 0).map((investor) => (
+                                    {availableInvestorsForDropdown.map((investor) => (
                                         <DropdownMenuCheckboxItem
                                         key={investor.id}
                                         checked={selectedInvestors.includes(investor.id)}
@@ -454,7 +463,7 @@ export default function BorrowersPage() {
                                             <div className='flex justify-between w-full'>
                                                 <span>{investor.name}</span>
                                                 {!hideInvestorFunds && (
-                                                  <span className='text-muted-foreground text-xs'>{formatCurrency(investor.amount)}</span>
+                                                  <span className='text-muted-foreground text-xs'>{formatCurrency(investor.investmentType === 'اقساط' ? investor.installmentCapital : investor.gracePeriodCapital)}</span>
                                                 )}
                                             </div>
                                         </DropdownMenuCheckboxItem>
