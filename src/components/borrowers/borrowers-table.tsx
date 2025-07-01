@@ -157,14 +157,8 @@ export function BorrowersTable({
 
   const handleSaveChanges = () => {
     if (!selectedBorrower) return;
-
-    const borrowerToUpdate = { ...selectedBorrower };
-    if (borrowerToUpdate.loanType === 'مهلة') {
-      borrowerToUpdate.rate = 0;
-      borrowerToUpdate.term = 0;
-    }
     
-    updateBorrower(borrowerToUpdate);
+    updateBorrower(selectedBorrower);
     setIsEditDialogOpen(false);
     setSelectedBorrower(null);
   };
@@ -442,12 +436,26 @@ export function BorrowersTable({
                     <Label className="text-right">نوع التمويل</Label>
                     <RadioGroup
                         value={selectedBorrower.loanType}
-                        onValueChange={(value) =>
-                            setSelectedBorrower({
-                            ...selectedBorrower,
-                            loanType: value as 'اقساط' | 'مهلة',
-                            })
-                        }
+                        onValueChange={(value) => {
+                          const newType = value as 'اقساط' | 'مهلة';
+                          setSelectedBorrower(prev => {
+                              if (!prev) return null;
+                              if (newType === 'اقساط') {
+                                  return {
+                                      ...prev,
+                                      loanType: newType,
+                                      discount: 0,
+                                  };
+                              } else {
+                                  return {
+                                      ...prev,
+                                      loanType: newType,
+                                      rate: 0,
+                                      term: 0,
+                                  };
+                              }
+                          });
+                        }}
                         className="col-span-3 flex gap-4 rtl:space-x-reverse"
                         >
                         <div className="flex items-center space-x-2">
