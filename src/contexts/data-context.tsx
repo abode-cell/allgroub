@@ -193,8 +193,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (item) {
           const parsed = JSON.parse(item);
           if (parsed.users && parsed.borrowers && parsed.investors) {
+            
+            // --- DATA MIGRATION LOGIC for investors ---
+            const migratedInvestors = parsed.investors.map((inv: any) => {
+              if (inv.amount !== undefined && inv.installmentCapital === undefined) {
+                const newInv = { ...inv };
+                if (newInv.investmentType === 'اقساط') {
+                  newInv.installmentCapital = newInv.amount;
+                  newInv.gracePeriodCapital = 0;
+                } else {
+                  newInv.installmentCapital = 0;
+                  newInv.gracePeriodCapital = newInv.amount;
+                }
+                delete newInv.amount; // Remove the old field to prevent re-migration
+                return newInv;
+              }
+              return inv;
+            });
+            // --- END MIGRATION LOGIC ---
+
             setBorrowers(parsed.borrowers);
-            setInvestors(parsed.investors);
+            setInvestors(migratedInvestors); // Use the migrated data
             setUsers(parsed.users);
             setSupportTickets(
               parsed.supportTickets || initialData.supportTickets
@@ -1072,6 +1091,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               id: `t_${Date.now()}`,
             };
             const updatedInvestor = { ...i };
+            // Simple logic: withdraw from the pool that matches the investor's primary type.
             if (updatedInvestor.investmentType === 'اقساط') {
                 updatedInvestor.installmentCapital -= newTransaction.amount;
             } else {
