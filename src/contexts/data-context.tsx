@@ -93,9 +93,9 @@ type DataActions = {
   updateInvestor: (investor: UpdatableInvestor) => void;
   approveInvestor: (investorId: string) => void;
   rejectInvestor: (investorId: string, reason: string) => void;
-  withdrawFromInvestor: (
+  addInvestorTransaction: (
     investorId: string,
-    withdrawal: Omit<Transaction, 'id'>
+    transaction: Omit<Transaction, 'id'>
   ) => void;
   updateUserIdentity: (
     updates: Partial<User>
@@ -554,12 +554,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateBorrower = useCallback(
     (updatedBorrower: Borrower) => {
+        const originalBorrower = borrowers.find(b => b.id === updatedBorrower.id);
+        if (!originalBorrower) return;
+
+        // Prevent changing amount of an active loan, this logic is critical for data integrity
+        if (originalBorrower.status !== 'معلق' && updatedBorrower.amount !== originalBorrower.amount) {
+            toast({
+                variant: 'destructive',
+                title: 'خطأ',
+                description: 'لا يمكن تغيير مبلغ قرض نشط.',
+            });
+            return;
+        }
+
+        if (updatedBorrower.loanType !== originalBorrower.loanType) {
+            if (updatedBorrower.loanType === 'اقساط') {
+                updatedBorrower.discount = 0;
+            } else {
+                updatedBorrower.rate = 0;
+                updatedBorrower.term = 0;
+            }
+        }
+
       setBorrowers((prev) =>
         prev.map((b) => (b.id === updatedBorrower.id ? updatedBorrower : b))
       );
       toast({ title: 'تم تحديث القرض' });
     },
-    [toast]
+    [toast, borrowers]
   );
 
   const updateBorrowerPaymentStatus = useCallback(
@@ -1168,37 +1190,54 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [userId, users, toast]
   );
 
-  const withdrawFromInvestor = useCallback(
-    (investorId, withdrawal) => {
+  const addInvestorTransaction = useCallback(
+    (investorId, transaction) => {
       setInvestors((prev) =>
         prev.map((i) => {
           if (i.id === investorId) {
             const newTransaction: Transaction = {
-              ...withdrawal,
+              ...transaction,
               id: `t_${Date.now()}`,
             };
+
             const updatedInvestor = { ...i };
-            
-            if (withdrawal.withdrawalSource === 'installment') {
-                updatedInvestor.installmentCapital -= newTransaction.amount;
-            } else if (withdrawal.withdrawalSource === 'grace') {
-                updatedInvestor.gracePeriodCapital -= newTransaction.amount;
+            const amount = newTransaction.amount;
+            const capitalSource = newTransaction.capitalSource;
+
+            if (newTransaction.type.includes('إيداع')) {
+                if(capitalSource === 'installment') updatedInvestor.installmentCapital += amount;
+                else if (capitalSource === 'grace') updatedInvestor.gracePeriodCapital += amount;
+            } else if (newTransaction.type.includes('سحب')) {
+                if (capitalSource === 'installment') {
+                    if (updatedInvestor.installmentCapital < amount) {
+                        toast({ variant: 'destructive', title: 'رصيد غير كافي', description: 'المبلغ المطلوب للسحب يتجاوز الرصيد المتاح في محفظة الأقساط.' });
+                        return i; // Return original investor object on error
+                    }
+                    updatedInvestor.installmentCapital -= amount;
+                } else if (capitalSource === 'grace') {
+                     if (updatedInvestor.gracePeriodCapital < amount) {
+                        toast({ variant: 'destructive', title: 'رصيد غير كافي', description: 'المبلغ المطلوب للسحب يتجاوز الرصيد المتاح في محفظة المهلة.' });
+                        return i; // Return original investor object on error
+                    }
+                    updatedInvestor.gracePeriodCapital -= amount;
+                }
             }
 
             updatedInvestor.transactionHistory = [...updatedInvestor.transactionHistory, newTransaction];
+            
+            const notificationTitle = newTransaction.type.includes('إيداع') ? 'عملية إيداع ناجحة' : 'عملية سحب ناجحة';
+            addNotification({
+              recipientId: investorId,
+              title: notificationTitle,
+              description: `تمت عملية "${newTransaction.type}" بمبلغ ${formatCurrency(amount)} بنجاح.`,
+            });
+            toast({ title: 'تمت العملية بنجاح' });
+            
             return updatedInvestor;
           }
           return i;
         })
       );
-      addNotification({
-        recipientId: investorId,
-        title: 'عملية سحب ناجحة',
-        description: `تم سحب مبلغ ${formatCurrency(
-          withdrawal.amount
-        )} من حسابك.`,
-      });
-      toast({ title: 'تمت عملية السحب بنجاح' });
     },
     [addNotification, toast]
   );
@@ -1560,7 +1599,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateInvestor,
       approveInvestor,
       rejectInvestor,
-      withdrawFromInvestor,
+      addInvestorTransaction,
       updateUserIdentity,
       updateUserCredentials,
       updateUserStatus,
@@ -1596,7 +1635,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateInvestor,
       approveInvestor,
       rejectInvestor,
-      withdrawFromInvestor,
+      addInvestorTransaction,
       updateUserIdentity,
       updateUserCredentials,
       updateUserStatus,

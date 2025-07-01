@@ -90,7 +90,7 @@ export type Transaction = {
   amount: number;
   description: string;
   withdrawalMethod?: WithdrawalMethod;
-  withdrawalSource?: 'installment' | 'grace'; // To specify which capital pool was used
+  capitalSource?: 'installment' | 'grace'; // To specify which capital pool was used
 };
 
 export type Investor = {

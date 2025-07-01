@@ -11,8 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText } from 'lucide-react';
+import { Card, CardContent, CardDescription } from '@/components/ui/card';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -82,33 +82,33 @@ export function InvestorsTable({
   hideFunds = false,
 }: InvestorsTableProps) {
   const { currentUser, borrowers, users, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
-  const { updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease, markInvestorAsNotified } = useDataActions();
+  const { updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified } = useDataActions();
   const { toast } = useToast();
   const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
+  const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
   const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
 
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(
     null
   );
   const [smsMessage, setSmsMessage] = useState('');
-  const [withdrawal, setWithdrawal] = useState<{
+  const [transactionDetails, setTransactionDetails] = useState<{
     amount: string;
     description: string;
     type: TransactionType;
     date: Date | undefined;
-    withdrawalMethod: WithdrawalMethod;
-    withdrawalSource: 'installment' | 'grace';
+    withdrawalMethod?: WithdrawalMethod;
+    capitalSource: 'installment' | 'grace';
   }>({
     amount: '',
     description: '',
-    type: 'سحب أرباح',
+    type: 'إيداع رأس المال',
     date: new Date(),
     withdrawalMethod: 'بنكي',
-    withdrawalSource: 'installment',
+    capitalSource: 'installment',
   });
 
   const handleEditClick = (investor: Investor) => {
@@ -176,52 +176,40 @@ export function InvestorsTable({
     setIsDetailsDialogOpen(true);
   };
 
-  const handleWithdrawClick = (investor: Investor) => {
+  const handleAddTransactionClick = (investor: Investor) => {
     setSelectedInvestor(investor);
-    setIsWithdrawDialogOpen(true);
+    setIsTransactionDialogOpen(true);
   };
 
-  const handleWithdrawalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleTransactionDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
-    setWithdrawal(prev => ({...prev, [id]: value}));
+    setTransactionDetails(prev => ({...prev, [id]: value}));
   }
 
-  const handleConfirmWithdrawal = (e: React.FormEvent) => {
+  const handleConfirmTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedInvestor || !withdrawal.amount || !withdrawal.description || !withdrawal.date) return;
+    if (!selectedInvestor || !transactionDetails.amount || !transactionDetails.description || !transactionDetails.date) return;
     
-    const maxAmount = withdrawal.withdrawalSource === 'installment'
-      ? selectedInvestor.installmentCapital
-      : selectedInvestor.gracePeriodCapital;
-
-    if (Number(withdrawal.amount) > maxAmount) {
-        toast({
-            variant: 'destructive',
-            title: 'مبلغ غير صالح',
-            description: `المبلغ المطلوب للسحب (${formatCurrency(Number(withdrawal.amount))}) يتجاوز الرصيد المتاح (${formatCurrency(maxAmount)}) في هذه المحفظة.`,
-        });
-        return;
-    }
-
-    withdrawFromInvestor(selectedInvestor.id, {
-      amount: Number(withdrawal.amount),
-      description: withdrawal.description,
-      type: withdrawal.type,
-      date: withdrawal.date.toISOString(),
-      withdrawalMethod: withdrawal.withdrawalMethod,
-      withdrawalSource: withdrawal.withdrawalSource,
+    addInvestorTransaction(selectedInvestor.id, {
+      amount: Number(transactionDetails.amount),
+      description: transactionDetails.description,
+      type: transactionDetails.type,
+      date: transactionDetails.date.toISOString(),
+      withdrawalMethod: transactionDetails.withdrawalMethod,
+      capitalSource: transactionDetails.capitalSource,
     });
 
-    setIsWithdrawDialogOpen(false);
-    setWithdrawal({ amount: '', description: '', type: 'سحب أرباح', date: new Date(), withdrawalMethod: 'بنكي', withdrawalSource: 'installment' });
+    setIsTransactionDialogOpen(false);
+    setTransactionDetails({ amount: '', description: '', type: 'إيداع رأس المال', date: new Date(), withdrawalMethod: 'بنكي', capitalSource: 'installment' });
     setSelectedInvestor(null);
   }
 
   const canEdit = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
   const canApprove = role === 'مدير المكتب';
-  const canWithdraw = role === 'مدير المكتب' || role === 'مستثمر';
+  const canAddTransaction = role === 'مدير المكتب' || role === 'مستثمر';
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
   const canSendSms = role === 'مدير المكتب' || role === 'مساعد مدير المكتب' || role === 'موظف';
+  const isWithdrawal = transactionDetails.type.includes('سحب');
 
   return (
     <>
@@ -305,12 +293,13 @@ export function InvestorsTable({
                                 تعديل
                               </DropdownMenuItem>
                           )}
-                          {canWithdraw && (
+                          {canAddTransaction && (
                               <DropdownMenuItem
-                                onSelect={() => handleWithdrawClick(investor)}
-                                disabled={investor.status === 'معلق' || availableCapital <= 0}
+                                onSelect={() => handleAddTransactionClick(investor)}
+                                disabled={investor.status === 'معلق'}
                               >
-                                سحب الأموال
+                                <PlusCircle className="ml-2 h-4 w-4" />
+                                إضافة عملية مالية
                               </DropdownMenuItem>
                           )}
                           {availableCapital <= 0 && investor.status === 'نشط' && canRequestIncrease && (
@@ -342,6 +331,8 @@ export function InvestorsTable({
             <DialogTitle>تعديل المستثمر</DialogTitle>
             <DialogDescription>
               قم بتحديث تفاصيل المستثمر هنا. انقر على حفظ عند الانتهاء.
+              <br/>
+              <strong className="text-destructive text-xs">ملاحظة: لا يمكن تعديل رأس المال من هنا. لإضافة أو سحب أموال، استخدم خيار "إضافة عملية مالية" للحفاظ على سجل دقيق.</strong>
             </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (
@@ -359,30 +350,6 @@ export function InvestorsTable({
                       name: e.target.value,
                     })
                   }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="installmentCapital" className="text-right">
-                  رصيد الأقساط
-                </Label>
-                <Input
-                  id="installmentCapital"
-                  type="number"
-                  value={selectedInvestor.installmentCapital}
-                  onChange={(e) => setSelectedInvestor(prev => prev ? { ...prev, installmentCapital: Number(e.target.value) } : null)}
-                  className="col-span-3"
-                />
-              </div>
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="gracePeriodCapital" className="text-right">
-                  رصيد المهلة
-                </Label>
-                <Input
-                  id="gracePeriodCapital"
-                  type="number"
-                  value={selectedInvestor.gracePeriodCapital}
-                  onChange={(e) => setSelectedInvestor(prev => prev ? { ...prev, gracePeriodCapital: Number(e.target.value) } : null)}
                   className="col-span-3"
                 />
               </div>
@@ -536,109 +503,114 @@ export function InvestorsTable({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
+      <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <form onSubmit={handleConfirmWithdrawal}>
+          <form onSubmit={handleConfirmTransaction}>
             <DialogHeader>
-              <DialogTitle>سحب أموال لـ {selectedInvestor?.name}</DialogTitle>
+              <DialogTitle>عملية مالية جديدة لـ {selectedInvestor?.name}</DialogTitle>
               <DialogDescription>
-                أدخل المبلغ والسبب ونوع العملية لإتمام السحب.
+                سجل عملية إيداع أو سحب جديدة. سيتم توثيق هذه العملية في سجل المستثمر.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+               <div className="space-y-2">
+                <Label htmlFor="type">نوع العملية</Label>
+                <Select
+                    value={transactionDetails.type}
+                    onValueChange={(value: TransactionType) => setTransactionDetails(prev => ({...prev, type: value}))}
+                >
+                    <SelectTrigger id="type">
+                        <SelectValue placeholder="اختر نوع العملية" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="إيداع رأس المال">إيداع رأس المال</SelectItem>
+                        <SelectItem value="إيداع أرباح">إيداع أرباح</SelectItem>
+                        <SelectItem value="سحب أرباح">سحب أرباح</SelectItem>
+                        <SelectItem value="سحب من رأس المال">سحب من رأس المال</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="date">تاريخ السحب</Label>
+                <Label htmlFor="date">تاريخ العملية</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant={'outline'}
                       className={cn(
                         'w-full justify-start text-left font-normal',
-                        !withdrawal.date && 'text-muted-foreground'
+                        !transactionDetails.date && 'text-muted-foreground'
                       )}
                     >
                       <CalendarIcon className="ml-2 h-4 w-4" />
-                      {withdrawal.date ? format(withdrawal.date, 'PPP') : <span>اختر تاريخ</span>}
+                      {transactionDetails.date ? format(transactionDetails.date, 'PPP') : <span>اختر تاريخ</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
-                      selected={withdrawal.date}
-                      onSelect={(date) => setWithdrawal(prev => ({ ...prev, date }))}
+                      selected={transactionDetails.date}
+                      onSelect={(date) => setTransactionDetails(prev => ({ ...prev, date }))}
                       initialFocus
                     />
                   </PopoverContent>
                 </Popover>
               </div>
-               <div className="space-y-2">
-                <Label htmlFor="withdrawalMethod">طريقة السحب</Label>
-                <RadioGroup
-                    id="withdrawalMethod"
-                    value={withdrawal.withdrawalMethod}
-                    onValueChange={(value: WithdrawalMethod) => setWithdrawal(prev => ({...prev, withdrawalMethod: value}))}
-                    className="flex gap-4"
-                >
-                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                        <RadioGroupItem value="بنكي" id="bank" />
-                        <Label htmlFor="bank">بنكي</Label>
-                    </div>
-                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                        <RadioGroupItem value="نقدي" id="cash" />
-                        <Label htmlFor="cash">نقدي</Label>
-                    </div>
-                </RadioGroup>
-              </div>
+               {isWithdrawal && (
+                <div className="space-y-2">
+                    <Label htmlFor="withdrawalMethod">طريقة السحب</Label>
+                    <RadioGroup
+                        id="withdrawalMethod"
+                        value={transactionDetails.withdrawalMethod}
+                        onValueChange={(value: WithdrawalMethod) => setTransactionDetails(prev => ({...prev, withdrawalMethod: value}))}
+                        className="flex gap-4"
+                    >
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                            <RadioGroupItem value="بنكي" id="bank" />
+                            <Label htmlFor="bank">بنكي</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                            <RadioGroupItem value="نقدي" id="cash" />
+                            <Label htmlFor="cash">نقدي</Label>
+                        </div>
+                    </RadioGroup>
+                </div>
+               )}
               <div className="space-y-2">
                 <Label htmlFor="amount">المبلغ</Label>
                 <Input
                   id="amount"
                   type="number"
-                  placeholder="أدخل مبلغ السحب"
-                  value={withdrawal.amount}
-                  onChange={handleWithdrawalChange}
+                  placeholder="أدخل المبلغ"
+                  value={transactionDetails.amount}
+                  onChange={handleTransactionDetailsChange}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label>مصدر السحب</Label>
+                <Label>محفظة العملية</Label>
                 <RadioGroup
-                    value={withdrawal.withdrawalSource}
-                    onValueChange={(value: 'installment' | 'grace') => setWithdrawal(prev => ({...prev, withdrawalSource: value}))}
+                    value={transactionDetails.capitalSource}
+                    onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
                     className="flex gap-4"
                 >
                     <div className="flex items-center space-x-2 rtl:space-x-reverse">
                         <RadioGroupItem value="installment" id="source-install" />
-                        <Label htmlFor="source-install">من رصيد الأقساط</Label>
+                        <Label htmlFor="source-install">محفظة الأقساط</Label>
                     </div>
                     <div className="flex items-center space-x-2 rtl:space-x-reverse">
                         <RadioGroupItem value="grace" id="source-grace" />
-                        <Label htmlFor="source-grace">من رصيد المهلة</Label>
+                        <Label htmlFor="source-grace">محفظة المهلة</Label>
                     </div>
                 </RadioGroup>
-              </div>
-               <div className="space-y-2">
-                <Label htmlFor="type">نوع السحب</Label>
-                <Select
-                    value={withdrawal.type}
-                    onValueChange={(value: TransactionType) => setWithdrawal(prev => ({...prev, type: value}))}
-                >
-                    <SelectTrigger id="type">
-                        <SelectValue placeholder="اختر نوع السحب" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="سحب أرباح">سحب أرباح</SelectItem>
-                        <SelectItem value="سحب من رأس المال">سحب من رأس المال</SelectItem>
-                    </SelectContent>
-                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">الوصف (السبب)</Label>
                 <Textarea
                   id="description"
-                  placeholder="أدخل سبب السحب"
-                  value={withdrawal.description}
-                  onChange={handleWithdrawalChange}
+                  placeholder="أدخل سبب العملية"
+                  value={transactionDetails.description}
+                  onChange={handleTransactionDetailsChange}
                   required
                 />
               </div>
@@ -649,7 +621,7 @@ export function InvestorsTable({
                   إلغاء
                 </Button>
               </DialogClose>
-              <Button type="submit">تأكيد السحب</Button>
+              <Button type="submit">تأكيد العملية</Button>
             </DialogFooter>
           </form>
         </DialogContent>
