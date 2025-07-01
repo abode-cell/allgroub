@@ -215,15 +215,19 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
 
 function calculateSystemAdminMetrics(users: User[], investors: Investor[]) {
     const officeManagers = users.filter(u => u.role === 'مدير المكتب');
+    const officeManagerIds = new Set(officeManagers.map(m => m.id));
+
     const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
     const activeManagersCount = officeManagers.length - pendingManagers.length;
     
-    // If there are no office managers, there can be no investors with capital.
-    const hasOfficeManagers = officeManagers.length > 0;
+    // Find investors that are managed by any office manager
+    const relevantInvestorUsers = users.filter(u => u.role === 'مستثمر' && u.managedBy && officeManagerIds.has(u.managedBy));
+    const relevantInvestorIds = new Set(relevantInvestorUsers.map(u => u.id));
+    const relevantInvestors = investors.filter(i => relevantInvestorIds.has(i.id));
 
-    const totalCapital = hasOfficeManagers ? investors.reduce((total, investor) => total + investor.installmentCapital + investor.gracePeriodCapital, 0) : 0;
-    const installmentCapital = hasOfficeManagers ? investors.reduce((total, investor) => total + investor.installmentCapital, 0) : 0;
-    const graceCapital = hasOfficeManagers ? investors.reduce((total, investor) => total + investor.gracePeriodCapital, 0) : 0;
+    const totalCapital = relevantInvestors.reduce((total, investor) => total + investor.installmentCapital + investor.gracePeriodCapital, 0);
+    const installmentCapital = relevantInvestors.reduce((total, investor) => total + investor.installmentCapital, 0);
+    const graceCapital = relevantInvestors.reduce((total, investor) => total + investor.gracePeriodCapital, 0);
     
     const totalUsersCount = users.length;
     return { 
