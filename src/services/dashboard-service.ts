@@ -1,0 +1,276 @@
+/**
+ * @fileOverview Service for calculating all dashboard metrics.
+ * This moves the business logic from the component to a dedicated, testable service.
+ */
+
+import type { Borrower, Investor, User } from '@/lib/types';
+
+interface CalculationInput {
+    borrowers: Borrower[];
+    investors: Investor[];
+    users: User[];
+    currentUser: User;
+    config: {
+        investorSharePercentage: number;
+        graceTotalProfitPercentage: number;
+        graceInvestorSharePercentage: number;
+    };
+}
+
+// Helper to filter data based on user role
+function getFilteredData(input: CalculationInput) {
+    const { currentUser, borrowers, investors, users } = input;
+    const { role } = currentUser;
+
+    if (role === 'مدير النظام' || role === 'مستثمر') {
+        return { filteredBorrowers: [], filteredInvestors: [] };
+    }
+
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+
+    const filteredBorrowers = borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
+    const filteredInvestors = investors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+    
+    return { filteredBorrowers, filteredInvestors };
+}
+
+function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor[], config: CalculationInput['config']) {
+    const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
+    const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
+    const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
+    const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
+    const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
+    
+    const profitableInstallmentLoans = installmentLoans.filter(
+        b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+    );
+    
+    let totalInstitutionProfit = 0;
+    let totalInvestorsProfit = 0;
+    const investorProfits: { [investorId: string]: { id: string; name: string, profit: number } } = {};
+
+    profitableInstallmentLoans.forEach(loan => {
+        if (!loan.rate || !loan.term || !loan.fundedBy) return;
+        
+        loan.fundedBy.forEach(funder => {
+            const investorDetails = investors.find(i => i.id === funder.investorId);
+            if (!investorDetails) return;
+
+            const profitShare = investorDetails.installmentProfitShare ?? config.investorSharePercentage;
+            const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
+            
+            const investorPortion = interestOnFundedAmount * (profitShare / 100);
+            const institutionPortion = interestOnFundedAmount - investorPortion;
+            
+            totalInvestorsProfit += investorPortion;
+            totalInstitutionProfit += institutionPortion;
+
+            if (!investorProfits[funder.investorId]) {
+                investorProfits[funder.investorId] = { id: investorDetails.id, name: investorDetails.name, profit: 0 };
+            }
+            investorProfits[funder.investorId].profit += investorPortion;
+        });
+    });
+
+    const netProfit = totalInstitutionProfit + totalInvestorsProfit;
+
+    const investorProfitsArray = Object.values(investorProfits);
+
+    const dueDebts = installmentLoans
+        .filter(b => b.status === 'متأخر')
+        .reduce((acc, b) => acc + b.amount, 0);
+    
+    const profitableInstallmentLoansForAccordion = profitableInstallmentLoans.map(loan => {
+        if (!loan.rate || !loan.term || !loan.fundedBy) return null;
+        
+        let totalInstitutionProfitOnLoan = 0;
+        let totalInvestorProfitOnLoan = 0;
+
+        loan.fundedBy.forEach(funder => {
+            const investorDetails = investors.find(i => i.id === funder.investorId);
+            if (!investorDetails) return;
+            const profitShare = investorDetails.installmentProfitShare ?? config.investorSharePercentage;
+            const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
+            const investorPortion = interestOnFundedAmount * (profitShare / 100);
+            const institutionPortion = interestOnFundedAmount - investorPortion;
+            totalInstitutionProfitOnLoan += institutionPortion;
+            totalInvestorProfitOnLoan += investorPortion;
+        });
+
+        const totalInterest = totalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
+        
+        return {
+            id: loan.id,
+            name: loan.name,
+            amount: loan.amount,
+            institutionProfit: totalInstitutionProfitOnLoan,
+            investorProfit: totalInvestorProfitOnLoan,
+            totalInterest: totalInterest,
+        }
+    }).filter((loan): loan is NonNullable<typeof loan> => loan !== null);
+
+    return {
+      loans: installmentLoans,
+      loansGranted: installmentLoansGranted,
+      defaultedFunds: installmentDefaultedFunds,
+      defaultRate: installmentDefaultRate,
+      netProfit,
+      totalInstitutionProfit,
+      totalInvestorsProfit,
+      investorProfitsArray,
+      dueDebts,
+      profitableLoansForAccordion: profitableInstallmentLoansForAccordion,
+    };
+}
+
+function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[], config: CalculationInput['config']) {
+    const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
+    const profitableLoans = gracePeriodLoans.filter(
+      b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+    );
+
+    const loansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
+    const defaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
+    const defaultRate = loansGranted > 0 ? (defaultedFunds / loansGranted) * 100 : 0;
+    const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
+    const dueDebts = gracePeriodLoans.filter(b => b.status === 'متأخر').reduce((acc, b) => acc + b.amount, 0);
+    
+    let totalInstitutionProfit = 0;
+    let totalInvestorsProfit = 0;
+    const investorProfits: { [investorId: string]: { id: string; name: string, profit: number } } = {};
+
+    profitableLoans.forEach(loan => {
+        if (!loan.fundedBy) return;
+
+        loan.fundedBy.forEach(funder => {
+            const investorDetails = investors.find(i => i.id === funder.investorId);
+            if (!investorDetails) return;
+
+            const totalProfitOnFundedAmount = funder.amount * (config.graceTotalProfitPercentage / 100);
+            const investorProfitShare = investorDetails.gracePeriodProfitShare ?? config.graceInvestorSharePercentage;
+            const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
+            const institutionPortion = totalProfitOnFundedAmount - investorPortion;
+            
+            totalInstitutionProfit += institutionPortion;
+            totalInvestorsProfit += investorPortion;
+
+            if (!investorProfits[funder.investorId]) {
+                investorProfits[funder.investorId] = { id: investorDetails.id, name: investorDetails.name, profit: 0 };
+            }
+            investorProfits[funder.investorId].profit += investorPortion;
+        });
+    });
+    
+    const netProfit = totalInstitutionProfit + totalInvestorsProfit;
+    const investorProfitsArray = Object.values(investorProfits);
+
+     const profitableLoansForAccordion = profitableLoans.map(loan => {
+        if (!loan.fundedBy) return null;
+        
+        let totalInstitutionProfitOnLoan = 0;
+        let totalInvestorProfitOnLoan = 0;
+        
+        loan.fundedBy.forEach(funder => {
+            const investorDetails = investors.find(i => i.id === funder.investorId);
+            if (!investorDetails) return;
+            const totalProfitOnFundedAmount = funder.amount * (config.graceTotalProfitPercentage / 100);
+            const investorProfitShare = investorDetails.gracePeriodProfitShare ?? config.graceInvestorSharePercentage;
+            const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
+            const institutionPortion = totalProfitOnFundedAmount - investorPortion;
+            totalInstitutionProfitOnLoan += institutionPortion;
+            totalInvestorProfitOnLoan += investorPortion;
+        });
+
+        const totalProfit = totalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
+        
+        return {
+            id: loan.id,
+            name: loan.name,
+            amount: loan.amount,
+            institutionProfit: totalInstitutionProfitOnLoan,
+            investorProfit: totalInvestorProfitOnLoan,
+            totalInterest: totalProfit,
+        }
+    }).filter((loan): loan is NonNullable<typeof loan> => loan !== null);
+
+    return {
+        loans: gracePeriodLoans,
+        loansGranted: loansGranted,
+        defaultedFunds: defaultedFunds,
+        defaultRate: defaultRate,
+        totalDiscounts,
+        dueDebts,
+        netProfit,
+        totalInstitutionProfit,
+        totalInvestorsProfit,
+        investorProfitsArray,
+        profitableLoansForAccordion,
+    };
+}
+
+function calculateSystemAdminMetrics(users: User[], investors: Investor[]) {
+    const officeManagers = users.filter(u => u.role === 'مدير المكتب');
+    const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
+    const activeManagersCount = officeManagers.length - pendingManagers.length;
+    
+    const totalCapital = investors.reduce((total, investor) => total + investor.installmentCapital + investor.gracePeriodCapital, 0);
+    const installmentCapital = investors.reduce((total, investor) => total + investor.installmentCapital, 0);
+    const graceCapital = investors.reduce((total, investor) => total + investor.gracePeriodCapital, 0);
+    
+    const totalUsersCount = users.length;
+    return { 
+        pendingManagers, 
+        activeManagersCount, 
+        totalCapital, 
+        installmentCapital, 
+        graceCapital, 
+        totalUsersCount,
+        pendingManagersCount: pendingManagers.length
+    };
+}
+
+function calculateIdleFundsMetrics(investors: Investor[]) {
+    const idleInvestors = investors.filter(i => (i.installmentCapital > 0 || i.gracePeriodCapital > 0) && i.status === 'نشط');
+    const totalIdleFunds = idleInvestors.reduce((sum, i) => sum + i.installmentCapital + i.gracePeriodCapital, 0);
+    return { idleInvestors, totalIdleFunds };
+}
+
+export function calculateAllDashboardMetrics(input: CalculationInput) {
+    const { currentUser, users, investors, borrowers, config } = input;
+    const { role } = currentUser;
+
+    if (role === 'مدير النظام') {
+        const adminMetrics = calculateSystemAdminMetrics(users, investors);
+        return {
+            role: 'مدير النظام' as const,
+            admin: adminMetrics,
+        };
+    }
+    
+    if (role === 'مستثمر') {
+        // Investor dashboard logic is self-contained and simple, can remain in component for now.
+        return {
+            role: 'مستثمر' as const,
+        };
+    }
+
+    // For Office Manager, Assistant, Employee
+    const { filteredBorrowers, filteredInvestors } = getFilteredData(input);
+    const totalCapital = filteredInvestors.reduce((acc, inv) => acc + inv.installmentCapital + inv.gracePeriodCapital, 0);
+    const installmentCapital = filteredInvestors.reduce((acc, inv) => acc + inv.installmentCapital, 0);
+    const graceCapital = filteredInvestors.reduce((acc, inv) => acc + inv.gracePeriodCapital, 0);
+
+    return {
+        role: role,
+        capital: {
+            total: totalCapital,
+            installments: installmentCapital,
+            grace: graceCapital
+        },
+        installments: calculateInstallmentsMetrics(filteredBorrowers, filteredInvestors, config),
+        gracePeriod: calculateGracePeriodMetrics(filteredBorrowers, filteredInvestors, config),
+        idleFunds: calculateIdleFundsMetrics(filteredInvestors),
+    };
+}

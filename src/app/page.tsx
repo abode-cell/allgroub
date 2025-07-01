@@ -1,9 +1,7 @@
-
 'use client';
 
 import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/kpi-card';
-import { ProfitChart } from '@/components/dashboard/profit-chart';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
@@ -14,7 +12,7 @@ import { DailySummary } from '@/components/dashboard/daily-summary';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useMemo } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Accordion,
@@ -23,6 +21,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
+import { calculateDashboardMetrics, type DashboardMetricsOutput } from '@/ai/flows/calculate-dashboard-metrics';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -31,6 +30,13 @@ const PageSkeleton = () => (
                 <Skeleton className="h-8 w-64" />
                 <Skeleton className="h-4 w-80 mt-2" />
             </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
         </div>
         <Skeleton className="h-96 w-full" />
     </div>
@@ -43,121 +49,41 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[], investors: Investor[] }) => {
-  const { currentUser, investorSharePercentage } = useDataState();
-  const role = currentUser?.role;
-
-  const {
-    installmentLoans,
-    installmentLoansGranted,
-    installmentDefaultedFunds,
-    installmentDefaultRate,
-    netProfit,
-    totalInstitutionProfit,
-    totalInvestorsProfit,
-    investorProfitsArray,
-    dueDebts,
-    profitableInstallmentLoans,
-  } = useMemo(() => {
-      const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
-      const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
-      const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
-      const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
-      const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
-      
-      const profitableInstallmentLoans = installmentLoans.filter(
-        b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
-      );
-      
-      let totalInstitutionProfit = 0;
-      let totalInvestorsProfit = 0;
-      const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
-
-      profitableInstallmentLoans.forEach(loan => {
-          if (!loan.rate || !loan.term || !loan.fundedBy) return;
-          
-          loan.fundedBy.forEach(funder => {
-              const investorDetails = investors.find(i => i.id === funder.investorId);
-              if (!investorDetails) return;
-
-              const profitShare = investorDetails.installmentProfitShare ?? investorSharePercentage;
-              const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
-              
-              const investorPortion = interestOnFundedAmount * (profitShare / 100);
-              const institutionPortion = interestOnFundedAmount - investorPortion;
-              
-              totalInvestorsProfit += investorPortion;
-              totalInstitutionProfit += institutionPortion;
-
-              if (!investorProfits[funder.investorId]) {
-                  investorProfits[funder.investorId] = { name: investorDetails.name, profit: 0 };
-              }
-              investorProfits[funder.investorId].profit += investorPortion;
-          });
-      });
-
-      const netProfit = totalInstitutionProfit + totalInvestorsProfit;
-
-      const investorProfitsArray = Object.entries(investorProfits).map(([id, data]) => ({
-        id,
-        ...data
-      }));
-
-      const dueDebts = installmentLoans
-        .filter(b => b.status === 'متأخر')
-        .reduce((acc, b) => acc + b.amount, 0); 
-
-      return {
-        installmentLoans,
-        installmentLoansGranted,
-        installmentDefaultedFunds,
-        installmentDefaultRate,
-        netProfit,
-        totalInstitutionProfit,
-        totalInvestorsProfit,
-        investorProfitsArray,
-        dueDebts,
-        profitableInstallmentLoans,
-      };
-    }, [borrowers, investors, investorSharePercentage]);
-
-  const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
-
-
+const InstallmentsDashboard = ({ metrics, showSensitiveData }: { metrics: DashboardMetricsOutput['installments'], showSensitiveData: boolean }) => {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           title="القروض الممنوحة (أقساط)"
-          value={formatCurrency(installmentLoansGranted)}
+          value={formatCurrency(metrics.loansGranted)}
           change=""
           icon={<Landmark className="size-6 text-muted-foreground" />}
         />
         {showSensitiveData && (
              <KpiCard
                 title="صافي الربح"
-                value={formatCurrency(netProfit)}
+                value={formatCurrency(metrics.netProfit)}
                 change=""
                 icon={<TrendingUp className="size-6 text-muted-foreground" />}
             />
         )}
         <KpiCard
           title="الديون المستحقة"
-          value={formatCurrency(dueDebts)}
+          value={formatCurrency(metrics.dueDebts)}
           change=""
           icon={<Users className="size-6 text-muted-foreground" />}
           changeColor="text-red-500"
         />
         <KpiCard
           title="الأموال المتعثرة (أقساط)"
-          value={formatCurrency(installmentDefaultedFunds)}
+          value={formatCurrency(metrics.defaultedFunds)}
           change=""
           icon={<ShieldX className="size-6 text-muted-foreground" />}
           changeColor="text-red-500"
         />
         <KpiCard
           title="نسبة التعثر (أقساط)"
-          value={`${installmentDefaultRate.toFixed(1)}%`}
+          value={`${metrics.defaultRate.toFixed(1)}%`}
           change=""
           icon={<ShieldAlert className="size-6 text-muted-foreground" />}
           changeColor="text-red-500"
@@ -176,7 +102,7 @@ const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[]
                                     <TrendingUp className="h-8 w-8 text-primary" />
                                     <div className="text-right">
                                         <h3 className="text-lg font-semibold">إجمالي صافي الأرباح (أقساط)</h3>
-                                        <p className="text-2xl font-bold">{formatCurrency(netProfit)}</p>
+                                        <p className="text-2xl font-bold">{formatCurrency(metrics.netProfit)}</p>
                                     </div>
                                 </div>
                                 <p className="text-xs text-muted-foreground">انقر لعرض التفاصيل</p>
@@ -193,9 +119,9 @@ const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[]
                                 <TableBody>
                                     <TableRow>
                                         <TableCell className="font-medium">ربح المؤسسة</TableCell>
-                                        <TableCell className="text-left font-semibold">{formatCurrency(totalInstitutionProfit)}</TableCell>
+                                        <TableCell className="text-left font-semibold">{formatCurrency(metrics.totalInstitutionProfit)}</TableCell>
                                     </TableRow>
-                                    {investorProfitsArray.map(inv => (
+                                    {metrics.investorProfitsArray.map(inv => (
                                         <TableRow key={inv.id}>
                                             <TableCell>{inv.name}</TableCell>
                                             <TableCell className="text-left font-semibold">{formatCurrency(inv.profit)}</TableCell>
@@ -203,7 +129,7 @@ const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[]
                                     ))}
                                     <TableRow className="border-t-2 border-dashed bg-muted/50">
                                         <TableCell className="font-bold">إجمالي أرباح المستثمرين</TableCell>
-                                        <TableCell className="text-left font-bold">{formatCurrency(totalInvestorsProfit)}</TableCell>
+                                        <TableCell className="text-left font-bold">{formatCurrency(metrics.totalInvestorsProfit)}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
@@ -214,7 +140,7 @@ const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[]
           </div>
         )}
         <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-3" : "lg:col-span-7")}>
-          <LoansStatusChart borrowers={installmentLoans} />
+          <LoansStatusChart borrowers={metrics.loans} />
         </div>
       </div>
 
@@ -230,42 +156,22 @@ const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[]
             </CardHeader>
             <CardContent>
                 <Accordion type="single" collapsible className="w-full">
-                    {profitableInstallmentLoans.map(loan => {
-                        if (!loan.rate || !loan.term || !loan.fundedBy) return null;
-                        
-                        let totalInstitutionProfitOnLoan = 0;
-                        let totalInvestorProfitOnLoan = 0;
-
-                        loan.fundedBy.forEach(funder => {
-                            const investorDetails = investors.find(i => i.id === funder.investorId);
-                            if (!investorDetails) return;
-                            const profitShare = investorDetails.installmentProfitShare ?? investorSharePercentage;
-                            const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
-                            const investorPortion = interestOnFundedAmount * (profitShare / 100);
-                            const institutionPortion = interestOnFundedAmount - investorPortion;
-                            totalInstitutionProfitOnLoan += institutionPortion;
-                            totalInvestorProfitOnLoan += investorPortion;
-                        });
-
-                        const totalInterest = totalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
-
-                        return (
-                            <AccordionItem value={loan.id} key={loan.id}>
-                                <AccordionTrigger>
-                                    <div className="flex justify-between w-full pr-4 items-center">
-                                        <span className="font-medium">{loan.name}</span>
-                                        <span className="font-bold text-primary">{formatCurrency(totalInstitutionProfitOnLoan)}</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-2 bg-muted/30 p-4">
-                                    <div className="flex justify-between"><span>أصل القرض:</span> <span className="font-semibold">{formatCurrency(loan.amount)}</span></div>
-                                    <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(totalInterest)}</span></div>
-                                    <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(totalInvestorProfitOnLoan)}</span></div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        )
-                    }).filter(Boolean)}
-                    {profitableInstallmentLoans.length === 0 && (
+                    {metrics.profitableLoansForAccordion.map(loan => (
+                      <AccordionItem value={loan.id} key={loan.id}>
+                          <AccordionTrigger>
+                              <div className="flex justify-between w-full pr-4 items-center">
+                                  <span className="font-medium">{loan.name}</span>
+                                  <span className="font-bold text-primary">{formatCurrency(loan.institutionProfit)}</span>
+                              </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="space-y-2 bg-muted/30 p-4">
+                              <div className="flex justify-between"><span>أصل القرض:</span> <span className="font-semibold">{formatCurrency(loan.amount)}</span></div>
+                              <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(loan.totalInterest)}</span></div>
+                              <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(loan.investorProfit)}</span></div>
+                          </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                    {metrics.profitableLoansForAccordion.length === 0 && (
                         <div className="text-center text-muted-foreground py-8">
                             <p>لا توجد قروض أقساط مربحة لعرض تفاصيلها.</p>
                         </div>
@@ -279,114 +185,43 @@ const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[]
 };
 
 
-const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[], investors: Investor[] }) => {
-    const { currentUser, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
-    const role = currentUser?.role;
-
-    const {
-        gracePeriodLoans,
-        gracePeriodLoansGranted,
-        gracePeriodDefaultedFunds,
-        gracePeriodDefaultRate,
-        totalDiscounts,
-        dueDebts,
-        totalInstitutionProfit,
-        investorProfitsArray,
-        netProfit,
-        profitableLoans,
-    } = useMemo(() => {
-        const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
-        const profitableLoans = gracePeriodLoans.filter(
-          b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
-        );
-
-        const gracePeriodLoansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
-        const gracePeriodDefaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
-        const gracePeriodDefaultRate = gracePeriodLoansGranted > 0 ? (gracePeriodDefaultedFunds / gracePeriodLoansGranted) * 100 : 0;
-        const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
-        const dueDebts = gracePeriodLoans.filter(b => b.status === 'متأخر').reduce((acc, b) => acc + b.amount, 0);
-        
-        let totalInstitutionProfit = 0;
-        const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
-
-        profitableLoans.forEach(loan => {
-            if (!loan.fundedBy) return;
-
-            loan.fundedBy.forEach(funder => {
-                const investorDetails = investors.find(i => i.id === funder.investorId);
-                if (!investorDetails) return;
-
-                const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
-                const investorProfitShare = investorDetails.gracePeriodProfitShare ?? graceInvestorSharePercentage;
-                const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
-                const institutionPortion = totalProfitOnFundedAmount - investorPortion;
-                
-                totalInstitutionProfit += institutionPortion;
-
-                if (!investorProfits[funder.investorId]) {
-                    investorProfits[funder.investorId] = { name: investorDetails.name, profit: 0 };
-                }
-                investorProfits[funder.investorId].profit += investorPortion;
-            });
-        });
-        
-        const totalInvestorsProfit = Object.values(investorProfits).reduce((sum, inv) => sum + inv.profit, 0);
-        const netProfit = totalInstitutionProfit + totalInvestorsProfit;
-        const investorProfitsArray = Object.values(investorProfits);
-        
-        return {
-            gracePeriodLoans,
-            profitableLoans,
-            gracePeriodLoansGranted,
-            gracePeriodDefaultedFunds,
-            gracePeriodDefaultRate,
-            totalDiscounts,
-            dueDebts,
-            totalInstitutionProfit,
-            totalInvestorsProfit,
-            investorProfitsArray,
-            netProfit,
-        };
-    }, [borrowers, investors, graceTotalProfitPercentage, graceInvestorSharePercentage]);
-    
-    const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
-
+const GracePeriodDashboard = ({ metrics, showSensitiveData, config }: { metrics: DashboardMetricsOutput['gracePeriod'], showSensitiveData: boolean, config: any }) => {
     return (
         <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 <KpiCard
                     title="التمويل الممنوح (مهلة)"
-                    value={formatCurrency(gracePeriodLoansGranted)}
+                    value={formatCurrency(metrics.loansGranted)}
                     change=""
                     icon={<Landmark className="size-6 text-muted-foreground" />}
                 />
                  {showSensitiveData && (
                     <KpiCard
                         title="صافي الأرباح"
-                        value={formatCurrency(netProfit)}
-                        change={`${graceTotalProfitPercentage.toFixed(1)}% من الأصل`}
+                        value={formatCurrency(metrics.netProfit)}
+                        change={`${config.graceTotalProfitPercentage.toFixed(1)}% من الأصل`}
                         icon={<TrendingUp className="size-6 text-muted-foreground" />}
                         changeColor='text-green-500'
                     />
                  )}
                  <KpiCard
                     title="الديون المستحقة"
-                    value={formatCurrency(dueDebts)}
+                    value={formatCurrency(metrics.dueDebts)}
                     change=""
                     icon={<Users className="size-6 text-muted-foreground" />}
                     changeColor="text-red-500"
                  />
                  <KpiCard
                     title="إجمالي الخصومات"
-                    value={formatCurrency(totalDiscounts)}
+                    value={formatCurrency(metrics.totalDiscounts)}
                     change="على قروض المهلة"
                     icon={<BadgePercent className="size-6 text-muted-foreground" />}
                     changeColor="text-blue-500"
                  />
                  <KpiCard
                     title="الأموال المتعثرة (مهلة)"
-                    value={formatCurrency(gracePeriodDefaultedFunds)}
-                    change={`${gracePeriodDefaultRate.toFixed(1)}% نسبة التعثر`}
+                    value={formatCurrency(metrics.defaultedFunds)}
+                    change={`${metrics.defaultRate.toFixed(1)}% نسبة التعثر`}
                     icon={<ShieldX className="size-6 text-muted-foreground" />}
                     changeColor="text-red-500"
                 />
@@ -404,7 +239,7 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
                                             <TrendingUp className="h-8 w-8 text-primary" />
                                             <div className="text-right">
                                                 <h3 className="text-lg font-semibold">إجمالي صافي الأرباح (المهلة)</h3>
-                                                <p className="text-2xl font-bold">{formatCurrency(netProfit)}</p>
+                                                <p className="text-2xl font-bold">{formatCurrency(metrics.netProfit)}</p>
                                             </div>
                                         </div>
                                         <p className="text-xs text-muted-foreground">انقر لعرض التفاصيل</p>
@@ -421,10 +256,10 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
                                         <TableBody>
                                             <TableRow>
                                                 <TableCell className="font-medium">ربح المؤسسة</TableCell>
-                                                <TableCell className="text-left font-semibold">{formatCurrency(totalInstitutionProfit)}</TableCell>
+                                                <TableCell className="text-left font-semibold">{formatCurrency(metrics.totalInstitutionProfit)}</TableCell>
                                             </TableRow>
-                                            {investorProfitsArray.map(inv => (
-                                                <TableRow key={inv.name}>
+                                            {metrics.investorProfitsArray.map(inv => (
+                                                <TableRow key={inv.id}>
                                                     <TableCell>{inv.name}</TableCell>
                                                     <TableCell className="text-left">{formatCurrency(inv.profit)}</TableCell>
                                                 </TableRow>
@@ -438,7 +273,7 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
                 </div>
               )}
               <div className={cn("col-span-12", showSensitiveData ? "lg:col-span-3" : "lg:col-span-7")}>
-                <LoansStatusChart borrowers={gracePeriodLoans} />
+                <LoansStatusChart borrowers={metrics.loans} />
               </div>
             </div>
 
@@ -454,44 +289,22 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
                   </CardHeader>
                   <CardContent>
                       <Accordion type="single" collapsible className="w-full">
-                          {profitableLoans.map(loan => {
-                              if (!loan.fundedBy) return null;
-                              
-                              let totalInstitutionProfitOnLoan = 0;
-                              let totalInvestorProfitOnLoan = 0;
-                              
-                              loan.fundedBy.forEach(funder => {
-                                const investorDetails = investors.find(i => i.id === funder.investorId);
-                                if (!investorDetails) return;
-                                
-                                const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
-                                const investorProfitShare = investorDetails.gracePeriodProfitShare ?? graceInvestorSharePercentage;
-                                const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
-                                const institutionPortion = totalProfitOnFundedAmount - investorPortion;
-                                
-                                totalInstitutionProfitOnLoan += institutionPortion;
-                                totalInvestorProfitOnLoan += investorPortion;
-                              });
-
-                              const totalProfit = totalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
-                              
-                              return (
-                                  <AccordionItem value={loan.id} key={loan.id}>
-                                      <AccordionTrigger>
-                                          <div className="flex justify-between w-full pr-4 items-center">
-                                              <span className="font-medium">{loan.name}</span>
-                                              <span className="font-bold text-primary">{formatCurrency(totalInstitutionProfitOnLoan)}</span>
-                                          </div>
-                                      </AccordionTrigger>
-                                      <AccordionContent className="space-y-2 bg-muted/30 p-4">
-                                          <div className="flex justify-between"><span>أصل القرض:</span> <span className="font-semibold">{formatCurrency(loan.amount)}</span></div>
-                                          <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(totalProfit)}</span></div>
-                                          <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(totalInvestorProfitOnLoan)}</span></div>
-                                      </AccordionContent>
-                                  </AccordionItem>
-                              )
-                          })}
-                          {profitableLoans.length === 0 && (
+                          {metrics.profitableLoansForAccordion.map(loan => (
+                              <AccordionItem value={loan.id} key={loan.id}>
+                                  <AccordionTrigger>
+                                      <div className="flex justify-between w-full pr-4 items-center">
+                                          <span className="font-medium">{loan.name}</span>
+                                          <span className="font-bold text-primary">{formatCurrency(loan.institutionProfit)}</span>
+                                      </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent className="space-y-2 bg-muted/30 p-4">
+                                      <div className="flex justify-between"><span>أصل القرض:</span> <span className="font-semibold">{formatCurrency(loan.amount)}</span></div>
+                                      <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(loan.totalInterest)}</span></div>
+                                      <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(loan.investorProfit)}</span></div>
+                                  </AccordionContent>
+                              </AccordionItem>
+                          ))}
+                          {metrics.profitableLoansForAccordion.length === 0 && (
                               <div className="text-center text-muted-foreground py-8">
                                   <p>لا توجد قروض مهلة مربحة لعرض تفاصيلها.</p>
                               </div>
@@ -504,13 +317,7 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
     );
 };
 
-const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
-    const { idleInvestors, totalIdleFunds } = useMemo(() => {
-        const idleInvestors = investors.filter(i => (i.installmentCapital > 0 || i.gracePeriodCapital > 0) && i.status === 'نشط');
-        const totalIdleFunds = idleInvestors.reduce((sum, i) => sum + i.installmentCapital + i.gracePeriodCapital, 0);
-        return { idleInvestors, totalIdleFunds };
-    }, [investors]);
-
+const IdleFundsCard = ({ metrics }: { metrics: DashboardMetricsOutput['idleFunds'] }) => {
     return (
         <Card>
             <Accordion type="single" collapsible className="w-full">
@@ -521,7 +328,7 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
                                 <Wallet className="h-8 w-8 text-primary" />
                                 <div className="text-right">
                                     <h3 className="text-lg font-semibold">الأموال الخاملة</h3>
-                                    <p className="text-2xl font-bold">{formatCurrency(totalIdleFunds)}</p>
+                                    <p className="text-2xl font-bold">{formatCurrency(metrics.totalIdleFunds)}</p>
                                 </div>
                             </div>
                              <p className="text-xs text-muted-foreground">انقر لعرض التفاصيل</p>
@@ -537,8 +344,8 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {idleInvestors.length > 0 ? (
-                                    idleInvestors.map(investor => (
+                                {metrics.idleInvestors.length > 0 ? (
+                                    metrics.idleInvestors.map(investor => (
                                         <TableRow key={investor.id}>
                                             <TableCell className="font-medium">{investor.name}</TableCell>
                                             <TableCell><Badge variant="outline">{investor.investmentType}</Badge></TableCell>
@@ -562,22 +369,8 @@ const IdleFundsCard = ({ investors }: { investors: Investor[] }) => {
 };
 
 
-const SystemAdminDashboard = () => {
-    const { users, investors } = useDataState();
+const SystemAdminDashboard = ({ metrics }: { metrics: DashboardMetricsOutput['admin'] }) => {
     const { updateUserStatus } = useDataActions();
-
-    const { pendingManagers, activeManagersCount, totalCapital, installmentCapital, graceCapital, totalUsersCount } = useMemo(() => {
-        const officeManagers = users.filter(u => u.role === 'مدير المكتب');
-        const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
-        const activeManagersCount = officeManagers.length - pendingManagers.length;
-        
-        const totalCapital = investors.reduce((total, investor) => total + investor.installmentCapital + investor.gracePeriodCapital, 0);
-        const installmentCapital = investors.reduce((total, investor) => total + investor.installmentCapital, 0);
-        const graceCapital = investors.reduce((total, investor) => total + investor.gracePeriodCapital, 0);
-        
-        const totalUsersCount = users.length;
-        return { pendingManagers, activeManagersCount, totalCapital, installmentCapital, graceCapital, totalUsersCount };
-    }, [users, investors]);
     
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -595,40 +388,40 @@ const SystemAdminDashboard = () => {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <KpiCard
                     title="إجمالي رأس المال"
-                    value={formatCurrency(totalCapital)}
+                    value={formatCurrency(metrics.totalCapital)}
                     change="في جميع المحافظ"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال الأقساط"
-                    value={formatCurrency(installmentCapital)}
+                    value={formatCurrency(metrics.installmentCapital)}
                     change="مخصص لتمويل الأقساط"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال المهلة"
-                    value={formatCurrency(graceCapital)}
+                    value={formatCurrency(metrics.graceCapital)}
                     change="مخصص لتمويل المهلة"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                 <KpiCard
                     title="إجمالي المستخدمين"
-                    value={String(totalUsersCount)}
+                    value={String(metrics.totalUsersCount)}
                     change=""
                     icon={<Users className="size-6 text-muted-foreground" />}
                 />
                 <KpiCard
                     title="مدراء المكاتب النشطون"
-                    value={String(activeManagersCount)}
+                    value={String(metrics.activeManagersCount)}
                     change=""
                     icon={<UserCheck className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="طلبات التفعيل المعلقة"
-                    value={String(pendingManagers.length)}
+                    value={String(metrics.pendingManagersCount)}
                     change=""
                     icon={<UserCog className="size-6 text-muted-foreground" />}
-                    changeColor={pendingManagers.length > 0 ? 'text-red-500' : ''}
+                    changeColor={metrics.pendingManagersCount > 0 ? 'text-red-500' : ''}
                 />
             </div>
             
@@ -652,8 +445,8 @@ const SystemAdminDashboard = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {pendingManagers.length > 0 ? (
-                                pendingManagers.map(manager => (
+                            {metrics.pendingManagers.length > 0 ? (
+                                metrics.pendingManagers.map(manager => (
                                     <TableRow key={manager.id}>
                                         <TableCell className="font-medium">{manager.name}</TableCell>
                                         <TableCell>{manager.email}</TableCell>
@@ -683,55 +476,48 @@ const SystemAdminDashboard = () => {
 }
 
 export default function DashboardPage() {
-  const { currentUser, users, borrowers, investors } = useDataState();
-  const role = currentUser?.role;
+  const { currentUser, users, borrowers, investors, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
+  const [isPending, startTransition] = useTransition();
+  const [metrics, setMetrics] = useState<DashboardMetricsOutput | null>(null);
 
-  // Memoized filtering of data based on current user
-  const filteredBorrowers = useMemo(() => {
-    if (!currentUser || !borrowers) return [];
-    if (role === 'مدير النظام') return []; // Admins see data in their own dashboard
-    if (role === 'مستثمر') {
-      return borrowers.filter(b => b.fundedBy?.some(f => f.investorId === currentUser.id));
+  useEffect(() => {
+    if (currentUser) {
+      startTransition(async () => {
+        try {
+          const result = await calculateDashboardMetrics({
+            borrowers,
+            investors,
+            users,
+            currentUser,
+            config: {
+              investorSharePercentage,
+              graceTotalProfitPercentage,
+              graceInvestorSharePercentage,
+            }
+          });
+          setMetrics(result);
+        } catch (error) {
+          console.error("Failed to calculate dashboard metrics:", error);
+          setMetrics(null); 
+        }
+      });
     }
-    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
-    relevantUserIds.add(currentUser.id);
-    return borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
-  }, [currentUser, borrowers, users, role]);
+  }, [borrowers, investors, users, currentUser, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
-  const filteredInvestors = useMemo(() => {
-    if (!currentUser || !investors) return [];
-    if (role === 'مدير النظام') return [];
-    if (role === 'مستثمر') {
-      return investors.filter(i => i.id === currentUser.id);
-    }
-    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
-    relevantUserIds.add(currentUser.id);
-    return investors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
-  }, [currentUser, investors, users, role]);
-
-  if (!currentUser) {
+  if (!currentUser || isPending || !metrics) {
       return <PageSkeleton />;
   }
 
-  if (role === 'مدير النظام') {
-    return <SystemAdminDashboard />;
+  if (metrics.role === 'مدير النظام') {
+    return <SystemAdminDashboard metrics={metrics.admin} />;
   }
 
-  if (role === 'مستثمر') {
+  if (metrics.role === 'مستثمر') {
     return <InvestorDashboard />;
   }
   
-  const { totalCapital, installmentCapital, graceCapital } = useMemo(() => {
-    const total = filteredInvestors.reduce((acc, inv) => acc + inv.installmentCapital + inv.gracePeriodCapital, 0);
-    const installment = filteredInvestors.reduce((acc, inv) => acc + inv.installmentCapital, 0);
-    const grace = filteredInvestors.reduce((acc, inv) => acc + inv.gracePeriodCapital, 0);
-    return { totalCapital: total, installmentCapital: installment, graceCapital: grace };
-  }, [filteredInvestors]);
-
-  const showSensitiveData = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
-  const showIdleFundsReport = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
+  const showSensitiveData = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
+  const showIdleFundsReport = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
   
   return (
     <div className="flex flex-col flex-1">
@@ -751,19 +537,19 @@ export default function DashboardPage() {
              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <KpiCard
                     title="إجمالي رأس المال"
-                    value={formatCurrency(totalCapital)}
+                    value={formatCurrency(metrics.capital.total)}
                     change="في جميع المحافظ"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال الأقساط"
-                    value={formatCurrency(installmentCapital)}
+                    value={formatCurrency(metrics.capital.installments)}
                     change="متاح لتمويل الأقساط"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال المهلة"
-                    value={formatCurrency(graceCapital)}
+                    value={formatCurrency(metrics.capital.grace)}
                     change="متاح لتمويل المهلة"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
@@ -772,7 +558,7 @@ export default function DashboardPage() {
 
         {showSensitiveData && <DailySummary />}
         
-        {showIdleFundsReport && <IdleFundsCard investors={filteredInvestors} />}
+        {showIdleFundsReport && <IdleFundsCard metrics={metrics.idleFunds} />}
 
         <Tabs defaultValue="grace-period" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -780,10 +566,14 @@ export default function DashboardPage() {
                 <TabsTrigger value="grace-period">قروض المهلة</TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-6">
-                <InstallmentsDashboard borrowers={filteredBorrowers} investors={filteredInvestors} />
+                <InstallmentsDashboard metrics={metrics.installments} showSensitiveData={showSensitiveData} />
             </TabsContent>
             <TabsContent value="grace-period" className="mt-6">
-                <GracePeriodDashboard borrowers={filteredBorrowers} investors={filteredInvestors} />
+                <GracePeriodDashboard 
+                  metrics={metrics.gracePeriod} 
+                  showSensitiveData={showSensitiveData} 
+                  config={{ graceTotalProfitPercentage }} 
+                />
             </TabsContent>
         </Tabs>
 
