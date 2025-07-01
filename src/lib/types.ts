@@ -33,7 +33,7 @@ export type User = {
   email: string;
   photoURL?: string;
   role: UserRole;
-  status: 'نشط' | 'معلق';
+  status: 'نشط' | 'معلق' | 'مرفوض';
   phone?: string;
   password?: string;
   managedBy?: string;

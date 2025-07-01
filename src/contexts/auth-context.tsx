@@ -73,6 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { success: false, message: 'حسابك معلق وفي انتظار موافقة المدير.' };
     }
+    
+    if (userToSignIn.status === 'مرفوض') {
+       return { success: false, message: 'تم رفض طلب انضمام هذا الحساب. يرجى التواصل مع مديرك.' };
+    }
 
     if (userToSignIn.password !== password) {
       return { success: false, message: 'كلمة المرور غير صحيحة.' };

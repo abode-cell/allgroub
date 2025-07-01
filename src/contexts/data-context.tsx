@@ -916,6 +916,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return newInvestors;
       });
 
+      // Also update the user status
+      setUsers((prevUsers) =>
+        prevUsers.map((u) => (u.id === investorId ? { ...u, status: 'نشط' } : u))
+      );
+
       if (approvedInvestor && approvedInvestor.submittedBy) {
         addNotification({
           recipientId: approvedInvestor.submittedBy,
@@ -941,6 +946,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
         return newInvestors;
       });
+
+      // Also update the user status
+      setUsers((prevUsers) =>
+        prevUsers.map((u) => (u.id === investorId ? { ...u, status: 'مرفوض' } : u))
+      );
 
       if (rejectedInvestor && rejectedInvestor.submittedBy) {
         addNotification({
@@ -1305,35 +1315,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateUserRole = useCallback(
-    (userId: string, role: UserRole) => {
+    (userIdToChange: string, newRole: UserRole) => {
+      const userToChange = users.find((u) => u.id === userIdToChange);
+      if (!userToChange) {
+        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
+        return;
+      }
+
+      // Prevent changing the role of a manager who manages other users.
+      if (userToChange.role === 'مدير المكتب') {
+        const managedUsersCount = users.filter(u => u.managedBy === userIdToChange).length;
+        if (managedUsersCount > 0) {
+          toast({
+            variant: 'destructive',
+            title: 'لا يمكن تغيير الدور',
+            description: `لا يمكن تغيير دور هذا المدير لأنه يدير ${managedUsersCount} مستخدمًا. يرجى حذف المستخدمين المرتبطين به أولاً.`,
+          });
+          return;
+        }
+      }
+
+      // Prevent changing role to/from investor to maintain data integrity.
+      if (userToChange.role === 'مستثمر' || newRole === 'مستثمر') {
+        toast({
+          variant: 'destructive',
+          title: 'لا يمكن تغيير الدور',
+          description: 'لا يمكن تغيير دور المستخدم من وإلى "مستثمر" مباشرة. يرجى حذف وإعادة إنشاء المستخدم بالدور الصحيح.',
+        });
+        return;
+      }
+
       setUsers((prev) =>
         prev.map((u) => {
-          if (u.id === userId) {
-            const updatedUser = { ...u, role };
-            if (role === 'مستثمر' || role === 'مدير النظام') {
-              delete updatedUser.managedBy;
+          if (u.id === userIdToChange) {
+            const updatedUser: User = { ...u, role: newRole };
+            
+            // Clean up fields that don't apply to the new role
+            if (newRole === 'مدير المكتب') {
+                updatedUser.investorLimit = updatedUser.investorLimit ?? 10;
+                updatedUser.employeeLimit = updatedUser.employeeLimit ?? 5;
+                updatedUser.assistantLimit = updatedUser.assistantLimit ?? 1;
+                updatedUser.allowEmployeeSubmissions = updatedUser.allowEmployeeSubmissions ?? true;
+                updatedUser.hideEmployeeInvestorFunds = updatedUser.hideEmployeeInvestorFunds ?? false;
+                updatedUser.allowEmployeeLoanEdits = updatedUser.allowEmployeeLoanEdits ?? false;
+                delete updatedUser.managedBy;
+            } else {
+                delete updatedUser.investorLimit;
+                delete updatedUser.employeeLimit;
+                delete updatedUser.assistantLimit;
+                delete updatedUser.allowEmployeeSubmissions;
+                delete updatedUser.hideEmployeeInvestorFunds;
+                delete updatedUser.allowEmployeeLoanEdits;
+            }
+            
+            if (newRole === 'مساعد مدير المكتب') {
+              updatedUser.permissions = updatedUser.permissions || {};
+            } else {
               delete updatedUser.permissions;
             }
-            if (role !== 'مدير المكتب') {
-              delete updatedUser.investorLimit;
-              delete updatedUser.employeeLimit;
-              delete updatedUser.assistantLimit;
-              delete updatedUser.allowEmployeeSubmissions;
-              delete updatedUser.hideEmployeeInvestorFunds;
+
+            if (newRole !== 'موظف' && newRole !== 'مساعد مدير المكتب' && newRole !== 'مدير المكتب') {
+                delete updatedUser.managedBy;
             }
-            if (role !== 'مساعد مدير المكتب') {
-              if (updatedUser.permissions) delete updatedUser.permissions;
-            } else {
-              updatedUser.permissions = {};
-            }
+
             return updatedUser;
           }
           return u;
         })
       );
-      toast({ title: 'تم تحديث دور المستخدم' });
+      toast({ title: 'تم تحديث دور المستخدم بنجاح' });
     },
-    [toast]
+    [users, toast]
   );
 
   const updateUserLimits = useCallback(
