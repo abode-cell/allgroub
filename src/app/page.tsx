@@ -5,9 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataState } from '@/contexts/data-context';
-import { Mail, Phone, Rocket, TrendingUp, Handshake, CheckCircle } from 'lucide-react';
-import Image from 'next/image';
-
+import { Mail, Phone, Rocket, TrendingUp, Handshake } from 'lucide-react';
 
 const Logo = () => (
     <div className="flex items-center gap-3">
@@ -120,78 +118,102 @@ export default function LandingPage() {
                 
                 {/* For Managers Section */}
                 <section id="for-managers" className="w-full py-12 md:py-24 bg-muted/50">
-                    <div className="container grid items-center justify-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-16">
-                        <div className="space-y-4">
+                    <div className="container px-4 md:px-6">
+                        <div className="flex flex-col items-center justify-center space-y-4 text-center">
                             <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">للمكتب: تحكم كامل ورؤية واضحة</div>
                             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">إدارة مالية دقيقة ومؤتمتة</h2>
-                            <p className="text-muted-foreground md:text-lg">
-                                ودّع الجداول المعقدة والمتابعة اليدوية. منصتنا تمنحك القوة لإدارة عملياتك المالية بدقة وسهولة.
+                            <p className="max-w-[900px] text-muted-foreground md:text-lg/relaxed">
+                                ودّع الجداول المعقدة والمتابعة اليدوية. منصتنا تمنحك القوة لإدارة عملياتك المالية بدقة وسهولة، مما يتيح لك التركيز على نمو أعمالك.
                             </p>
-                             <ul className="grid gap-4 text-lg">
-                                <li className="flex items-start gap-3">
-                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-accent" />
-                                    <span>إدارة مركزية لجميع المستثمرين والقروض في مكان واحد.</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-accent" />
-                                    <span>حسابات آلية ودقيقة لتوزيع الأرباح بينك وبين المستثمرين.</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-accent" />
-                                    <span>تقارير شاملة تساعدك على اتخاذ قرارات أفضل.</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-accent" />
-                                    <span>واجهة احترافية لإدارة موظفيك وصلاحياتهم.</span>
-                                </li>
-                            </ul>
                         </div>
-                        <Image 
-                            src="https://placehold.co/600x400.png"
-                            width={600}
-                            height={400}
-                            alt="Dashboard for office managers"
-                            data-ai-hint="dashboard financial"
-                            className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center sm:w-full"
-                        />
+                        <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 mt-12">
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">إدارة مركزية</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    أضف جميع المستثمرين والقروض في مكان واحد. تتبع كل عملية تمويل، وحدد حالة كل قرض، وتابع الأرصدة المتاحة بسهولة.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">حسابات آلية للأرباح</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    تقوم المنصة تلقائيًا بحساب وتوزيع الأرباح بينك وبين كل مستثمر بناءً على حصته من التمويل والنسب المتفق عليها.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">تقارير شاملة</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    احصل على تقارير مفصلة عن أداء القروض، وحالة المستثمرين، والأموال المتعثرة لاتخاذ قرارات مدروسة ومبنية على بيانات دقيقة.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">إدارة فريق العمل</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    أضف موظفيك ومساعديك، وتحكم في صلاحياتهم بدقة. يمكنك منحهم صلاحيات محددة مثل إضافة القروض أو إدارة المستثمرين.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">مرونة في التمويل</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    مول قرضًا واحدًا من عدة مستثمرين، أو وزع استثمارات مستثمر واحد على عدة قروض مختلفة. المنصة تدعم جميع السيناريوهات.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">شفافية وأمان</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    عندما تدعو مستثمرك للمنصة، فإنك تبني جسرًا من الثقة من خلال الشفافية المطلقة في عرض تفاصيل الاستثمارات والأرباح.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
                 {/* For Investors Section */}
                  <section id="for-investors" className="w-full py-12 md:py-24">
-                    <div className="container grid items-center justify-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-16">
-                         <Image 
-                            src="https://placehold.co/600x400.png"
-                            width={600}
-                            height={400}
-                            alt="Portfolio for investors"
-                            data-ai-hint="investor portfolio"
-                            className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center sm:w-full lg:order-last"
-                        />
-                        <div className="space-y-4">
+                    <div className="container px-4 md:px-6">
+                        <div className="flex flex-col items-center justify-center space-y-4 text-center">
                             <div className="inline-block rounded-lg bg-accent px-3 py-1 text-sm text-accent-foreground">للمستثمر: شفافية مطلقة وثقة تامة</div>
                              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">بناء الثقة من خلال الشفافية</h2>
-                             <p className="text-muted-foreground md:text-lg">
-                                عندما تدعو مستثمريك للمنصة، فإنك تمنحهم نافذة شفافة على استثماراتهم، مما يعزز الثقة ويبني علاقات طويلة الأمد.
+                             <p className="max-w-[900px] text-muted-foreground md:text-lg/relaxed">
+                                عندما يدعوك مدير مكتبك للمنصة، فإنه يمنحك نافذة شفافة ومباشرة على استثماراتك، مما يعزز الثقة ويبني علاقات عمل طويلة الأمد ومبنية على الوضوح.
                             </p>
-                             <ul className="grid gap-4 text-lg">
-                                <li className="flex items-start gap-3">
-                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                                    <span>لوحة تحكم خاصة لكل مستثمر لعرض أداء استثماراته.</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                                    <span>متابعة حية للأموال المستثمرة، الخاملة، والأرباح المتوقعة.</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                                    <span>سجل واضح لجميع العمليات المالية من سحب وإيداع.</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                                    <span>تجربة آمنة واحترافية تليق باستثماراتهم.</span>
-                                </li>
-                            </ul>
+                        </div>
+                         <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 mt-12">
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">لوحة تحكم خاصة</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    ادخل إلى حسابك الخاص وشاهد نظرة شاملة وفورية على إجمالي استثماراتك، الأموال النشطة، والأموال الخاملة المتاحة للاستثمار.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">متابعة حية للأرباح</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    تعرف على أرباحك المتوقعة من كل استثمار، وتابع نمو محفظتك الاستثمارية من خلال رسوم بيانية وتقارير مبسطة.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">سجل عمليات واضح</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    اطلع على سجل كامل لجميع عملياتك المالية من إيداع رأس المال، سحب الأرباح، أو إعادة استثمارها. كل شيء موثق بدقة.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">تفاصيل القروض الممولة</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    شاهد تفاصيل القروض التي تم تمويلها بأموالك، وحالة كل قرض، مما يمنحك صورة كاملة عن كيفية توظيف استثماراتك.
+                                </p>
+                            </div>
+                             <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">تنبيهات فورية</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    احصل على إشعارات فورية عند تمويل قرض جديد بأموالك، أو عند تحقيق أرباح من استثماراتك المكتملة.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold">تجربة آمنة واحترافية</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    نظام آمن ومصمم باحترافية يمنحك الثقة في إدارة ومتابعة استثماراتك مع المكتب الذي تتعامل معه.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </section>
