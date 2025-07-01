@@ -26,28 +26,39 @@ const chartConfig = {
 };
 
 export function ProfitChart() {
-  const { borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
+  const { currentUser, borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
 
   const chartData = useMemo(() => {
+    if (!currentUser || currentUser.role !== 'مستثمر') return [];
+    
     const monthlyProfits: { [key: string]: number } = {};
 
-    const profitableLoans = borrowers.filter(
-      b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+    const myFundedLoans = borrowers.filter(b => 
+      b.fundedBy?.some(f => f.investorId === currentUser.id) &&
+      (b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل')
     );
 
-    profitableLoans.forEach(loan => {
-      // For simplicity, we'll assume the profit is realized at the loan start date.
-      // A more complex model would distribute it over the loan term.
+    myFundedLoans.forEach(loan => {
       const date = new Date(loan.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
+      const fundingDetails = loan.fundedBy?.find(f => f.investorId === currentUser.id);
+      if (!fundingDetails) return;
+      
       let profit = 0;
+      let loanTotalInvestorProfit = 0;
+
       if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
         const totalInterest = loan.amount * (loan.rate / 100) * loan.term;
-        profit = totalInterest * ((100 - investorSharePercentage) / 100);
+        loanTotalInvestorProfit = totalInterest * (investorSharePercentage / 100);
       } else if (loan.loanType === 'مهلة') {
         const totalProfit = loan.amount * (graceTotalProfitPercentage / 100);
-        profit = totalProfit * ((100 - graceInvestorSharePercentage) / 100);
+        loanTotalInvestorProfit = totalProfit * (graceInvestorSharePercentage / 100);
+      }
+      
+      if (loanTotalInvestorProfit > 0) {
+        const investorShareOfLoan = fundingDetails.amount / loan.amount;
+        profit = loanTotalInvestorProfit * investorShareOfLoan;
       }
       
       if (profit > 0) {
@@ -56,7 +67,6 @@ export function ProfitChart() {
     });
 
     const sortedMonths = Object.keys(monthlyProfits).sort();
-    // Get last 6 months of data
     const lastSixMonths = sortedMonths.slice(-6);
 
     return lastSixMonths.map(monthKey => ({
@@ -64,14 +74,14 @@ export function ProfitChart() {
       profit: monthlyProfits[monthKey],
     }));
 
-  }, [borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+  }, [currentUser, borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>أرباح المؤسسة الشهرية</CardTitle>
+        <CardTitle>أرباحك الشهرية</CardTitle>
         <CardDescription>
-          أرباح المؤسسة الصافية على مدى الأشهر القليلة الماضية.
+          الأرباح الشهرية المتوقعة من استثماراتك النشطة.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -124,7 +134,7 @@ export function ProfitChart() {
           يتم تحديث البيانات بشكل دوري.
         </div>
         <div className="leading-none text-muted-foreground">
-          عرض تفصيلي لأرباح المؤسسة الشهرية
+          عرض تفصيلي لأرباحك الشهرية المتوقعة.
         </div>
       </CardFooter>
     </Card>
