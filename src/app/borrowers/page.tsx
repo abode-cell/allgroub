@@ -109,6 +109,7 @@ export default function BorrowersPage() {
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
   const [newBorrower, setNewBorrower] = useState<{
     name: string;
+    phone: string;
     amount: string;
     rate: string;
     term: string;
@@ -118,6 +119,7 @@ export default function BorrowersPage() {
     discount: string;
   }>({
     name: '',
+    phone: '',
     amount: '',
     rate: '',
     term: '',
@@ -167,7 +169,7 @@ export default function BorrowersPage() {
 
     // Reset all dialogs and forms
     setIsAddDialogOpen(false);
-    setNewBorrower({ name: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
+    setNewBorrower({ name: '', phone: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
     setSelectedInvestors([]);
     setIsInsufficientFundsDialogOpen(false);
   };
@@ -178,7 +180,7 @@ export default function BorrowersPage() {
     const rateForValidation = (isEmployee || isAssistant) && isInstallments ? baseInterestRate : newBorrower.rate;
     const isPendingRequest = ((isEmployee || isAssistant) && !isDirectAdditionEnabled);
 
-    if (!newBorrower.name || !newBorrower.amount || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
+    if (!newBorrower.name || !newBorrower.amount || !newBorrower.phone || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
       return;
     }
     
@@ -278,6 +280,20 @@ export default function BorrowersPage() {
                       placeholder="اسم المقترض"
                       className="col-span-3"
                       value={newBorrower.name}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="phone" className="text-right">
+                      رقم الجوال
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="05xxxxxxxx"
+                      className="col-span-3"
+                      value={newBorrower.phone}
                       onChange={handleInputChange}
                       required
                     />

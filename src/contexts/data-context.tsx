@@ -21,6 +21,8 @@ import type {
   BorrowerPaymentStatus,
   PermissionKey,
   NewUserPayload,
+  TransactionType,
+  WithdrawalMethod,
 } from '@/lib/types';
 import {
   borrowersData as initialBorrowersData,
@@ -40,6 +42,7 @@ type UpdatableInvestor = Omit<
   | 'transactionHistory'
   | 'rejectionReason'
   | 'submittedBy'
+  | 'isNotified'
 >;
 
 type NewInvestorPayload = Omit<
@@ -51,6 +54,7 @@ type NewInvestorPayload = Omit<
   | 'fundedLoanIds'
   | 'rejectionReason'
   | 'submittedBy'
+  | 'isNotified'
 > & { email: string; password: string };
 
 type SignUpCredentials = {
@@ -94,7 +98,7 @@ type DataActions = {
   addBorrower: (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus' | 'isNotified'
     >,
     investorIds: string[]
   ) => void;
@@ -148,6 +152,8 @@ type DataActions = {
   deleteUser: (userId: string) => void;
   clearUserNotifications: (userId: string) => void;
   markUserNotificationsAsRead: (userId: string) => void;
+  markBorrowerAsNotified: (borrowerId: string, message: string) => void;
+  markInvestorAsNotified: (investorId: string, message: string) => void;
 };
 
 const DataStateContext = createContext<DataState | undefined>(undefined);
@@ -753,6 +759,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         date: new Date().toISOString(),
         submittedBy: loggedInUser.id,
         fundedBy: fundedByDetails,
+        isNotified: false,
       };
 
       setBorrowers((prev) => [...prev, newEntry]);
@@ -917,6 +924,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           defaultedFunds: 0,
           fundedLoanIds: [],
           submittedBy: loggedInUser.id,
+          isNotified: false,
         };
 
         setUsers((prev) => [...prev, newInvestorUser]);
@@ -941,6 +949,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           defaultedFunds: 0,
           fundedLoanIds: [],
           submittedBy: loggedInUser.id,
+          isNotified: false,
         };
 
         setInvestors((prev) => [...prev, newEntry]);
@@ -1362,6 +1371,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [toast]
   );
+  
+  const markBorrowerAsNotified = useCallback((borrowerId: string, message: string) => {
+      setBorrowers(prev => prev.map(b => b.id === borrowerId ? { ...b, isNotified: true } : b));
+      // In a real app, an SMS API would be called here with the message.
+      toast({ title: "تم إرسال الرسالة بنجاح", description: "تم تحديث حالة تبليغ العميل." });
+  }, [toast]);
+
+  const markInvestorAsNotified = useCallback((investorId: string, message: string) => {
+      setInvestors(prev => prev.map(i => i.id === investorId ? { ...i, isNotified: true } : i));
+      // In a real app, an SMS API would be called here with the message.
+      toast({ title: "تم إرسال الرسالة بنجاح", description: "تم تحديث حالة تبليغ المستثمر." });
+  }, [toast]);
 
   const actions = useMemo(
     () => ({
@@ -1396,6 +1417,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteUser,
       clearUserNotifications,
       markUserNotificationsAsRead,
+      markBorrowerAsNotified,
+      markInvestorAsNotified,
     }),
     [
       updateSupportInfo,
@@ -1429,6 +1452,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteUser,
       clearUserNotifications,
       markUserNotificationsAsRead,
+      markBorrowerAsNotified,
+      markInvestorAsNotified,
     ]
   );
 

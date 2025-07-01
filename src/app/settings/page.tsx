@@ -120,6 +120,23 @@ export default function SettingsPage() {
                 <Card>
                     <CardHeader>
                     <Contact className="h-8 w-8 text-primary mb-2" />
+                    <CardTitle>بيانات اتصال العملاء</CardTitle>
+                    <CardDescription>
+                        عرض قائمة بأسماء وأرقام جوالات جميع عملاء القروض.
+                    </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild>
+                            <Link href="/settings/contacts">
+                                عرض بيانات الاتصال
+                                <ChevronLeft className="mr-2 h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                    <Contact className="h-8 w-8 text-primary mb-2" />
                     <CardTitle>إعدادات الدعم الفني</CardTitle>
                     <CardDescription>
                         تحديث معلومات التواصل التي تظهر للمستخدمين في صفحة الدعم.

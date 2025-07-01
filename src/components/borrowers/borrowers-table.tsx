@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, Info, AlertCircle } from 'lucide-react';
+import { MoreHorizontal, Info, AlertCircle, MessageSquareText, MessageSquareCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -51,6 +51,7 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { cn } from '@/lib/utils';
 import { CheckCircle, Users } from 'lucide-react';
 import { BorrowerStatusBadge } from '../borrower-status-badge';
+import { Textarea } from '../ui/textarea';
 
 const paymentStatusVariant: {
   [key in BorrowerPaymentStatus]: 'success' | 'default' | 'secondary' | 'destructive';
@@ -92,15 +93,19 @@ export function BorrowersTable({
   borrowers: Borrower[];
 }) {
   const { currentUser, investors } = useDataState();
-  const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus } = useDataActions();
+  const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified } = useDataActions();
   const role = currentUser?.role;
+  const canSendSms = role === 'مدير المكتب' || role === 'مساعد مدير المكتب' || role === 'موظف';
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
+
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
     null
   );
+  const [smsMessage, setSmsMessage] = useState('');
   const [paymentSchedule, setPaymentSchedule] = useState<Payment[]>([]);
   const isGracePeriodTable = borrowers[0]?.loanType === 'مهلة';
 
@@ -112,6 +117,21 @@ export function BorrowersTable({
   const handleViewDetailsClick = (borrower: Borrower) => {
     setSelectedBorrower(borrower);
     setIsDetailsDialogOpen(true);
+  };
+
+  const handleSendSmsClick = (borrower: Borrower) => {
+    setSelectedBorrower(borrower);
+    const defaultMessage = `مرحباً ${borrower.name},\n\nنود إعلامكم بتفاصيل قرضكم البالغ ${formatCurrency(borrower.amount)}.\n\nطرق السداد المتاحة هي:\n- تحويل بنكي إلى حساب المؤسسة.\n- زيارة المكتب والدفع بشكل مباشر.\n\nنشكر لكم تعاونكم،\nإدارة الموقع`;
+    setSmsMessage(defaultMessage);
+    setIsSmsDialogOpen(true);
+  };
+
+  const handleConfirmSms = () => {
+    if (!selectedBorrower || !smsMessage) return;
+    markBorrowerAsNotified(selectedBorrower.id, smsMessage);
+    setIsSmsDialogOpen(false);
+    setSmsMessage('');
+    setSelectedBorrower(null);
   };
 
   const handleSaveChanges = () => {
@@ -267,7 +287,19 @@ export function BorrowersTable({
                     <TableCell className="text-center">
                       <BorrowerStatusBadge borrower={borrower} />
                     </TableCell>
-                    <TableCell className="text-left">
+                    <TableCell className="text-left flex items-center justify-start">
+                       {borrower.isNotified && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <MessageSquareCheck className="h-5 w-5 text-green-600" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>تم تبليغ العميل</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -280,6 +312,12 @@ export function BorrowersTable({
                               <Info className="ml-2 h-4 w-4" />
                               عرض التفاصيل
                           </DropdownMenuItem>
+                          {canSendSms && (
+                            <DropdownMenuItem onSelect={() => handleSendSmsClick(borrower)} disabled={borrower.isNotified}>
+                                <MessageSquareText className="ml-2 h-4 w-4" />
+                                إرسال رسالة نصية
+                            </DropdownMenuItem>
+                          )}
                           {canApprove && borrower.status === 'معلق' && (
                             <DropdownMenuItem
                               onSelect={() => handleApproveClick(borrower)}
@@ -329,11 +367,11 @@ export function BorrowersTable({
           {selectedBorrower && (
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
+                <Label htmlFor="name-edit" className="text-right">
                   الاسم
                 </Label>
                 <Input
-                  id="name"
+                  id="name-edit"
                   value={selectedBorrower.name}
                   onChange={(e) =>
                     setSelectedBorrower({
@@ -344,12 +382,28 @@ export function BorrowersTable({
                   className="col-span-3"
                 />
               </div>
+               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="phone-edit" className="text-right">
+                  الجوال
+                </Label>
+                <Input
+                  id="phone-edit"
+                  value={selectedBorrower.phone}
+                  onChange={(e) =>
+                    setSelectedBorrower({
+                      ...selectedBorrower,
+                      phone: e.target.value,
+                    })
+                  }
+                  className="col-span-3"
+                />
+              </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
+                <Label htmlFor="amount-edit" className="text-right">
                   المبلغ
                 </Label>
                 <Input
-                  id="amount"
+                  id="amount-edit"
                   type="number"
                   value={selectedBorrower.amount}
                    readOnly={selectedBorrower.status !== 'معلق'}
@@ -388,11 +442,11 @@ export function BorrowersTable({
                {selectedBorrower.loanType === 'اقساط' && (
                  <>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="rate" className="text-right">
+                    <Label htmlFor="rate-edit" className="text-right">
                       الفائدة
                     </Label>
                     <Input
-                      id="rate"
+                      id="rate-edit"
                       type="number"
                       step="0.1"
                       value={selectedBorrower.rate}
@@ -406,11 +460,11 @@ export function BorrowersTable({
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="term" className="text-right">
+                    <Label htmlFor="term-edit" className="text-right">
                       المدة (سنوات)
                     </Label>
                     <Input
-                      id="term"
+                      id="term-edit"
                       type="number"
                       value={selectedBorrower.term}
                       onChange={(e) =>
@@ -426,11 +480,11 @@ export function BorrowersTable({
                )}
                {selectedBorrower.loanType === 'مهلة' && (
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="discount" className="text-right">
+                    <Label htmlFor="discount-edit" className="text-right">
                       الخصم
                     </Label>
                     <Input
-                      id="discount"
+                      id="discount-edit"
                       type="number"
                       value={selectedBorrower.discount || ''}
                       onChange={(e) =>
@@ -444,11 +498,11 @@ export function BorrowersTable({
                   </div>
                )}
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="dueDate" className="text-right">
+                <Label htmlFor="dueDate-edit" className="text-right">
                   تاريخ الاستحقاق
                 </Label>
                 <Input
-                  id="dueDate"
+                  id="dueDate-edit"
                   type="date"
                   value={selectedBorrower.dueDate}
                   onChange={(e) =>
@@ -461,7 +515,7 @@ export function BorrowersTable({
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">
+                <Label htmlFor="status-edit" className="text-right">
                   الحالة
                 </Label>
                 <Select
@@ -474,7 +528,7 @@ export function BorrowersTable({
                   }
                   disabled={isEmployee && selectedBorrower.status === 'معلق'}
                 >
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger id="status-edit" className="col-span-3">
                     <SelectValue placeholder="اختر الحالة" />
                   </SelectTrigger>
                   <SelectContent>
@@ -582,6 +636,10 @@ export function BorrowersTable({
                         <span className='text-muted-foreground'>اسم المقترض:</span>
                         <span className='font-bold float-left'>{selectedBorrower.name}</span>
                     </div>
+                     <div>
+                        <span className='text-muted-foreground'>رقم الجوال:</span>
+                        <span className='font-bold float-left'>{selectedBorrower.phone}</span>
+                    </div>
                     <div>
                         <span className='text-muted-foreground'>مبلغ القرض:</span>
                         <span className='font-bold float-left'>{formatCurrency(selectedBorrower.amount)}</span>
@@ -663,6 +721,32 @@ export function BorrowersTable({
                 إغلاق
               </Button>
             </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isSmsDialogOpen} onOpenChange={setIsSmsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إرسال رسالة إلى {selectedBorrower?.name}</DialogTitle>
+            <DialogDescription>
+              قم بتحرير محتوى الرسالة أدناه. سيتم إرسالها إلى الرقم {selectedBorrower?.phone}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="sms-message">محتوى الرسالة</Label>
+            <Textarea
+              id="sms-message"
+              value={smsMessage}
+              onChange={(e) => setSmsMessage(e.target.value)}
+              className="min-h-48 mt-2"
+              dir="rtl"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary">إلغاء</Button>
+            </DialogClose>
+            <Button onClick={handleConfirmSms}>إرسال</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

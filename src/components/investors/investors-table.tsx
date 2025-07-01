@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, MessageSquareCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -46,6 +46,7 @@ import { Calendar } from '../ui/calendar';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
 type InvestorsTableProps = {
@@ -77,15 +78,17 @@ export function InvestorsTable({
   investors,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { currentUser, borrowers } = useDataState();
-  const { updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease } = useDataActions();
+  const { currentUser, borrowers, users, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
+  const { updateInvestor, withdrawFromInvestor, approveInvestor, requestCapitalIncrease, markInvestorAsNotified } = useDataActions();
   const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
+  const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
 
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(null);
+  const [smsMessage, setSmsMessage] = useState('');
   const [withdrawal, setWithdrawal] = useState<{
     amount: string;
     description: string;
@@ -104,11 +107,54 @@ export function InvestorsTable({
     setSelectedInvestor({ ...investor });
     setIsEditDialogOpen(true);
   };
+  
+  const handleSendSmsClick = (investor: Investor) => {
+    const investorUser = users.find(u => u.id === investor.id);
+    if (!investorUser || !investorUser.phone) {
+        // In a real app, you might show a toast error.
+        console.error("Investor phone number not found.");
+        return;
+    }
+    
+    // Calculate financial details for the message
+    const myFundedLoans = borrowers.filter(b => investor.fundedLoanIds.includes(b.id));
+    const totalProfits = myFundedLoans
+        .filter(b => (b.status !== 'معلق' && b.status !== 'مرفوض'))
+        .reduce((sum, loan) => {
+          const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
+          if (!fundingDetails) return sum;
+
+          let loanTotalProfit = 0;
+          if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
+              const totalInterest = loan.amount * (loan.rate / 100) * loan.term;
+              loanTotalProfit = totalInterest * (investorSharePercentage / 100);
+          } else if (loan.loanType === 'مهلة') {
+              const totalProfit = loan.amount * (graceTotalProfitPercentage / 100);
+              loanTotalProfit = totalProfit * (graceInvestorSharePercentage / 100);
+          }
+
+          const myShareOfLoan = fundingDetails.amount / loan.amount;
+          return sum + (loanTotalProfit * myShareOfLoan);
+        }, 0);
+
+    setSelectedInvestor(investor);
+    const defaultMessage = `مرحباً ${investor.name},\n\nهذا ملخص لأداء استثماراتك معنا:\n- إجمالي الأرباح المتوقعة: ${formatCurrency(totalProfits)}\n- إجمالي الأموال المتعثرة: ${formatCurrency(investor.defaultedFunds || 0)}\n- الرصيد الخامل المتاح: ${formatCurrency(investor.amount)}\n\nنشكركم على ثقتكم،\nإدارة الموقع`;
+    setSmsMessage(defaultMessage);
+    setIsSmsDialogOpen(true);
+  };
+
+  const handleConfirmSms = () => {
+    if (!selectedInvestor || !smsMessage) return;
+    markInvestorAsNotified(selectedInvestor.id, smsMessage);
+    setIsSmsDialogOpen(false);
+    setSmsMessage('');
+    setSelectedInvestor(null);
+  };
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    const { defaultedFunds, transactionHistory, ...updatableInvestor } = selectedInvestor;
-    updateInvestor(updatableInvestor);
+    const { defaultedFunds, transactionHistory, isNotified, ...updatableInvestor } = selectedInvestor;
+    updateInvestor(updatableInvestor as UpdatableInvestor);
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);
   };
@@ -153,7 +199,8 @@ export function InvestorsTable({
   const canApprove = role === 'مدير المكتب';
   const canWithdraw = role === 'مدير المكتب' || role === 'مستثمر';
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
-      
+  const canSendSms = role === 'مدير المكتب' || role === 'مساعد مدير المكتب' || role === 'موظف';
+
   return (
     <>
       <Card>
@@ -186,7 +233,19 @@ export function InvestorsTable({
                         {investor.status === 'معلق' ? 'طلب معلق' : investor.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-left">
+                    <TableCell className="text-left flex items-center justify-start">
+                        {investor.isNotified && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                <TooltipTrigger>
+                                    <MessageSquareCheck className="h-5 w-5 text-green-600" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>تم تبليغ المستثمر</p>
+                                </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -203,11 +262,17 @@ export function InvestorsTable({
                               الموافقة على الطلب
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem
+                           <DropdownMenuItem
                             onSelect={() => handleViewDetailsClick(investor)}
                           >
                             عرض التفاصيل
                           </DropdownMenuItem>
+                           {canSendSms && (
+                            <DropdownMenuItem onSelect={() => handleSendSmsClick(investor)} disabled={investor.isNotified}>
+                                <MessageSquareText className="ml-2 h-4 w-4" />
+                                إرسال رسالة نصية
+                            </DropdownMenuItem>
+                           )}
                           {canEdit && (
                               <DropdownMenuItem
                                 onSelect={() => handleEditClick(investor)}
@@ -505,6 +570,32 @@ export function InvestorsTable({
               <Button type="submit">تأكيد السحب</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isSmsDialogOpen} onOpenChange={setIsSmsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إرسال رسالة إلى {selectedInvestor?.name}</DialogTitle>
+            <DialogDescription>
+              قم بتحرير محتوى الرسالة أدناه. سيتم إرسالها إلى رقم جوال المستثمر المسجل.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="sms-message-investor">محتوى الرسالة</Label>
+            <Textarea
+              id="sms-message-investor"
+              value={smsMessage}
+              onChange={(e) => setSmsMessage(e.target.value)}
+              className="min-h-48 mt-2"
+              dir="rtl"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary">إلغاء</Button>
+            </DialogClose>
+            <Button onClick={handleConfirmSms}>إرسال</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

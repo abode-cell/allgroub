@@ -24,6 +24,7 @@ export const investorsData: Investor[] = [
     ],
     fundedLoanIds: ['bor-1'],
     defaultedFunds: 0,
+    isNotified: false,
   },
   {
     id: 'inv-2',
@@ -38,6 +39,7 @@ export const investorsData: Investor[] = [
     ],
     fundedLoanIds: ['bor-2'], // bor-3 is defaulted, so it's not an "active" funded loan
     defaultedFunds: 75000, // from bor-3
+    isNotified: false,
   },
    {
     id: 'inv-3',
@@ -50,7 +52,8 @@ export const investorsData: Investor[] = [
     ],
     fundedLoanIds: [],
     defaultedFunds: 0,
-    submittedBy: '3'
+    submittedBy: '3',
+    isNotified: false,
   },
   {
     id: '4', // Corresponds to user 'خالد المستثمر'
@@ -63,6 +66,7 @@ export const investorsData: Investor[] = [
     ],
     fundedLoanIds: [],
     defaultedFunds: 0,
+    isNotified: false,
   },
    {
     id: 'inv-4',
@@ -75,7 +79,8 @@ export const investorsData: Investor[] = [
     ],
     fundedLoanIds: [],
     defaultedFunds: 0,
-    submittedBy: '2'
+    submittedBy: '2',
+    isNotified: false,
   }
 ];
 
@@ -83,6 +88,7 @@ export const borrowersData: Borrower[] = [
   {
     id: 'bor-1',
     name: 'شركة المشاريع الحديثة',
+    phone: '0512345671',
     amount: 150000,
     rate: 5.5,
     term: 5,
@@ -92,10 +98,12 @@ export const borrowersData: Borrower[] = [
     dueDate: '2028-02-01',
     fundedBy: [{ investorId: 'inv-1', amount: 150000 }],
     paymentStatus: 'مسدد جزئي',
+    isNotified: false,
   },
   {
     id: 'bor-2',
     name: 'مؤسسة البناء المتكامل',
+    phone: '0512345672',
     amount: 200000,
     rate: 6,
     term: 7,
@@ -105,10 +113,12 @@ export const borrowersData: Borrower[] = [
     dueDate: '2030-04-10',
     fundedBy: [{ investorId: 'inv-2', amount: 200000 }],
     paymentStatus: 'تم الإمهال',
+    isNotified: true,
   },
   {
     id: 'bor-3',
     name: 'متجر التجزئة السريع',
+    phone: '0512345673',
     amount: 75000,
     rate: 0,
     term: 0,
@@ -118,10 +128,12 @@ export const borrowersData: Borrower[] = [
     dueDate: '2024-05-15',
     fundedBy: [{ investorId: 'inv-2', amount: 75000 }],
     discount: 0,
+    isNotified: true,
   },
   {
     id: 'bor-4',
     name: 'شركة التقنية المبتكرة',
+    phone: '0512345674',
     amount: 300000,
     rate: 4.8,
     term: 10,
@@ -130,6 +142,7 @@ export const borrowersData: Borrower[] = [
     status: 'معلق',
     dueDate: '2034-01-20',
     submittedBy: '3',
+    isNotified: false,
   },
 ];
 

@@ -48,6 +48,7 @@ export type User = {
 export type Borrower = {
   id: string;
   name: string;
+  phone: string;
   amount: number;
   rate: number;
   term: number; // in years
@@ -60,6 +61,7 @@ export type Borrower = {
   rejectionReason?: string;
   fundedBy?: { investorId: string; amount: number }[];
   paymentStatus?: BorrowerPaymentStatus;
+  isNotified?: boolean;
 };
 
 export type Payment = {
@@ -93,6 +95,7 @@ export type Investor = {
   defaultedFunds: number;
   submittedBy?: string;
   rejectionReason?: string;
+  isNotified?: boolean;
 };
 
 export type Notification = {
