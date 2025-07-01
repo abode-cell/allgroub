@@ -25,6 +25,7 @@ import type {
   TransactionType,
   WithdrawalMethod,
   UpdatableInvestor,
+  NewInvestorPayload,
 } from '@/lib/types';
 import {
   borrowersData as initialBorrowersData,
@@ -37,15 +38,6 @@ import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
-
-type SignUpCredentials = {
-  name: User['name'];
-  email: User['email'];
-  phone: User['phone'];
-  password?: string;
-};
-
-// --- New Context Structure ---
 
 type DataState = {
   currentUser: User | undefined;
@@ -74,7 +66,7 @@ type DataActions = {
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
   ) => void;
   registerNewOfficeManager: (
-    credentials: SignUpCredentials
+    credentials: Omit<User, 'id' | 'role' | 'status'>
   ) => Promise<{ success: boolean; message: string }>;
   addBorrower: (
     borrower: Omit<
@@ -141,8 +133,6 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-// --- End of New Structure ---
-
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -167,7 +157,6 @@ const initialData = {
 };
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  // State is now split into multiple pieces for performance.
   const [borrowers, setBorrowers] = useState<Borrower[]>(initialData.borrowers);
   const [investors, setInvestors] = useState<Investor[]>(initialData.investors);
   const [users, setUsers] = useState<User[]>(initialData.users);
@@ -197,7 +186,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Load from localStorage only on initial mount.
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -243,9 +231,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save to localStorage whenever any piece of state changes.
   useEffect(() => {
-    if (isInitialLoad) return; // Don't save on the first render
+    if (isInitialLoad) return; 
     if (typeof window !== 'undefined') {
       try {
         const appData = {
@@ -385,7 +372,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(
     async (
-      credentials: SignUpCredentials
+      credentials: Omit<User, 'id' | 'role' | 'status'>
     ): Promise<{ success: boolean; message: string }> => {
       const existingUser = users.find(
         (u) => u.email === credentials.email || u.phone === credentials.phone
@@ -538,18 +525,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
                       amount: update.profit,
                       description: `أرباح من قرض "${updatedBorrower.name}"`,
                     });
+                  
+                  const updatedInv = {...inv};
+                  if (updatedBorrower.loanType === 'اقساط') {
+                    updatedInv.installmentCapital += update.amountToAdd;
+                  } else {
+                    updatedInv.gracePeriodCapital += update.amountToAdd;
+                  }
+                  
+                  updatedInv.fundedLoanIds = inv.fundedLoanIds.filter(id => id !== borrowerId);
+                  updatedInv.transactionHistory = [...inv.transactionHistory, ...newTransactions];
 
-                  return {
-                    ...inv,
-                    amount: inv.amount + update.amountToAdd,
-                    fundedLoanIds: inv.fundedLoanIds.filter(
-                      (id) => id !== borrowerId
-                    ),
-                    transactionHistory: [
-                      ...inv.transactionHistory,
-                      ...newTransactions,
-                    ],
-                  };
+                  return updatedInv;
                 }
                 return inv;
               })
@@ -721,15 +708,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (isPending) return prevInvestors;
         return prevInvestors.map((inv) => {
           if (investorIds.includes(inv.id) && remainingAmountToFund > 0) {
-            const contribution = Math.min(inv.amount, remainingAmountToFund);
+            const availableCapital = borrower.loanType === 'اقساط' ? inv.installmentCapital : inv.gracePeriodCapital;
+            const contribution = Math.min(availableCapital, remainingAmountToFund);
             if (contribution > 0) {
               remainingAmountToFund -= contribution;
               fundedByDetails.push({ investorId: inv.id, amount: contribution });
-              return {
-                ...inv,
-                amount: inv.amount - contribution,
-                fundedLoanIds: [...inv.fundedLoanIds, newId],
-              };
+
+              const updatedInv = {...inv};
+              if (borrower.loanType === 'اقساط') {
+                updatedInv.installmentCapital -= contribution;
+              } else {
+                updatedInv.gracePeriodCapital -= contribution;
+              }
+              updatedInv.fundedLoanIds = [...inv.fundedLoanIds, newId];
+
+              return updatedInv;
             }
           }
           return inv;
@@ -892,7 +885,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newInvestorEntry: Investor = {
           id: newId,
           name: investorPayload.name,
-          amount: investorPayload.amount,
+          investmentType: investorPayload.investmentType,
+          installmentCapital: investorPayload.investmentType === 'اقساط' ? investorPayload.capital : 0,
+          gracePeriodCapital: investorPayload.investmentType === 'مهلة' ? investorPayload.capital : 0,
           status: 'نشط',
           date: new Date().toISOString(),
           transactionHistory: [
@@ -900,7 +895,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               id: `t_${Date.now()}`,
               date: new Date().toISOString(),
               type: 'إيداع رأس المال',
-              amount: investorPayload.amount,
+              amount: investorPayload.capital,
               description: 'إيداع تأسيسي للحساب',
             },
           ],
@@ -917,15 +912,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
       } else {
         const newEntry: Investor = {
-          ...investorPayload,
           id: `inv_${Date.now()}`,
+          name: investorPayload.name,
+          status: investorPayload.status,
+          investmentType: investorPayload.investmentType,
+          installmentCapital: investorPayload.investmentType === 'اقساط' ? investorPayload.capital : 0,
+          gracePeriodCapital: investorPayload.investmentType === 'مهلة' ? investorPayload.capital : 0,
           date: new Date().toISOString(),
           transactionHistory: [
             {
               id: `t_${Date.now()}`,
               date: new Date().toISOString(),
               type: 'إيداع رأس المال',
-              amount: investorPayload.amount,
+              amount: investorPayload.capital,
               description: 'إيداع تأسيسي للحساب',
             },
           ],
@@ -1072,11 +1071,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ...withdrawal,
               id: `t_${Date.now()}`,
             };
-            return {
-              ...i,
-              amount: i.amount - newTransaction.amount,
-              transactionHistory: [...i.transactionHistory, newTransaction],
-            };
+            const updatedInvestor = { ...i };
+            if (updatedInvestor.investmentType === 'اقساط') {
+                updatedInvestor.installmentCapital -= newTransaction.amount;
+            } else {
+                updatedInvestor.gracePeriodCapital -= newTransaction.amount;
+            }
+            updatedInvestor.transactionHistory = [...updatedInvestor.transactionHistory, newTransaction];
+            return updatedInvestor;
           }
           return i;
         })
@@ -1357,13 +1359,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const markBorrowerAsNotified = useCallback((borrowerId: string, message: string) => {
       setBorrowers(prev => prev.map(b => b.id === borrowerId ? { ...b, isNotified: true } : b));
-      // In a real app, an SMS API would be called here with the message.
       toast({ title: "تم إرسال الرسالة بنجاح", description: "تم تحديث حالة تبليغ العميل." });
   }, [toast]);
 
   const markInvestorAsNotified = useCallback((investorId: string, message: string) => {
       setInvestors(prev => prev.map(i => i.id === investorId ? { ...i, isNotified: true } : i));
-      // In a real app, an SMS API would be called here with the message.
       toast({ title: "تم إرسال الرسالة بنجاح", description: "تم تحديث حالة تبليغ المستثمر." });
   }, [toast]);
 
