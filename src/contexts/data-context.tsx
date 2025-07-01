@@ -313,83 +313,86 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Effect to simulate cron job for trial management
   useEffect(() => {
-    if (!isInitialLoad && !cronJobRan) {
-      const today = new Date();
-      let usersModified = false;
-      const notificationsToAdd: Notification[] = [];
-      const systemAdmin = users.find((u) => u.role === 'مدير النظام');
+    if (isInitialLoad || cronJobRan) return;
 
-      const updatedUsers = users.map((user) => {
-        if (
-          user.role === 'مدير المكتب' &&
-          user.trialEndsAt &&
-          user.status === 'نشط'
-        ) {
-          const trialEndDate = new Date(user.trialEndsAt);
+    const today = new Date();
+    let usersModified = false;
+    const notificationsToAdd: Notification[] = [];
+    const systemAdmin = users.find((u) => u.role === 'مدير النظام');
 
-          // Suspension logic
-          if (today > trialEndDate) {
-            usersModified = true;
-            if (systemAdmin) {
-              notificationsToAdd.push({
-                id: `admin-trial-expired-${user.id}`,
-                recipientId: systemAdmin.id,
-                title: 'انتهاء تجربة مستخدم',
-                description: `انتهت الفترة التجريبية للمستخدم "${user.name}" وتم تعليق حسابه.`,
-                date: today.toISOString(),
-                isRead: false,
-              });
-            }
+    const updatedUsers = users.map((user) => {
+      if (
+        user.role === 'مدير المكتب' &&
+        user.trialEndsAt &&
+        user.status === 'نشط'
+      ) {
+        const trialEndDate = new Date(user.trialEndsAt);
+        const alreadySuspendedId = `trial-suspended-${user.id}`;
+        const alreadySuspended = notifications.some(n => n.id === alreadySuspendedId);
+
+        // Suspension logic
+        if (today > trialEndDate && !alreadySuspended) {
+          usersModified = true;
+          if (systemAdmin) {
             notificationsToAdd.push({
-              id: `user-trial-expired-${user.id}`,
-              recipientId: user.id,
-              title: 'انتهت الفترة التجريبية',
-              description:
-                'انتهت فترة التجربة الخاصة بك. تم تعليق حسابك تلقائياً.',
+              id: `admin-trial-expired-${user.id}`,
+              recipientId: systemAdmin.id,
+              title: 'انتهاء تجربة مستخدم',
+              description: `انتهت الفترة التجريبية للمستخدم "${user.name}" وتم تعليق حسابه.`,
               date: today.toISOString(),
               isRead: false,
             });
-            return { ...user, status: 'معلق' };
           }
+          notificationsToAdd.push({
+            id: alreadySuspendedId,
+            recipientId: user.id,
+            title: 'انتهت الفترة التجريبية',
+            description:
+              'انتهت فترة التجربة الخاصة بك. تم تعليق حسابك تلقائياً.',
+            date: today.toISOString(),
+            isRead: false,
+          });
+          return { ...user, status: 'معلق' };
+        }
 
-          // Reminder logic
-          const timeDiff = trialEndDate.getTime() - today.getTime();
-          const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        // Reminder logic
+        const timeDiff = trialEndDate.getTime() - today.getTime();
+        const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
-          if (daysLeft > 0 && daysLeft <= 3) {
-            const reminderId = `trial-reminder-${user.id}-${daysLeft}`;
-            const alreadySent = notifications.some((n) => n.id === reminderId);
-            if (!alreadySent) {
-              notificationsToAdd.push({
-                id: reminderId,
-                recipientId: user.id,
-                title: 'تذكير بقرب انتهاء الفترة التجريبية',
-                description: `ستنتهي الفترة التجريبية لحسابك خلال ${daysLeft} يوم/أيام.`,
-                date: today.toISOString(),
-                isRead: false,
-              });
-            }
+        if (daysLeft > 0 && daysLeft <= 3) {
+          const reminderId = `trial-reminder-${user.id}-${daysLeft}`;
+          const alreadySent = notifications.some((n) => n.id === reminderId);
+          if (!alreadySent) {
+            notificationsToAdd.push({
+              id: reminderId,
+              recipientId: user.id,
+              title: 'تذكير بقرب انتهاء الفترة التجريبية',
+              description: `ستنتهي الفترة التجريبية لحسابك خلال ${daysLeft} يوم/أيام.`,
+              date: today.toISOString(),
+              isRead: false,
+            });
           }
         }
-        return user;
-      });
-
-      if (usersModified) {
-        setUsers(updatedUsers);
       }
+      return user;
+    });
 
-      if (notificationsToAdd.length > 0) {
-        setNotifications((prev) => {
-          const existingIds = new Set(prev.map((p) => p.id));
-          const uniqueNewNotifications = notificationsToAdd.filter(
-            (n) => !existingIds.has(n.id)
-          );
-          return [...uniqueNewNotifications, ...prev];
-        });
-      }
-      setCronJobRan(true); // Run only once per session
+    if (usersModified) {
+      setUsers(updatedUsers);
     }
-  }, [isInitialLoad, cronJobRan, users, notifications, addNotification]);
+
+    if (notificationsToAdd.length > 0) {
+      setNotifications((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const uniqueNewNotifications = notificationsToAdd.filter(
+          (n) => !existingIds.has(n.id)
+        );
+        return [...uniqueNewNotifications, ...prev];
+      });
+    }
+    setCronJobRan(true); // Run only once per session
+  }, [isInitialLoad, cronJobRan, users, notifications]);
+
 
   const clearUserNotifications = useCallback(
     (userId: string) => {
@@ -1296,64 +1299,56 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateUserStatus = useCallback(
-    (userId: string, status: User['status']) => {
-      let toastMessage = `تم تحديث حالة المستخدم.`;
-      const userToUpdate = users.find((u) => u.id === userId);
+    (userIdToUpdate: string, status: User['status']) => {
+      const userToUpdate = users.find((u) => u.id === userIdToUpdate);
       if (!userToUpdate) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: 'لم يتم العثور على المستخدم.',
-        });
+        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
         return;
       }
 
-      const isSuspending = status === 'معلق';
-
       setUsers((prevUsers) =>
         prevUsers.map((u) => {
-          if (u.id === userId) return { ...u, status };
+          if (u.id === userIdToUpdate) {
+            const updatedUser: User = { ...u, status };
+            // If activating, and the user had a trial, clear the trial date to make activation permanent
+            if (status === 'نشط' && updatedUser.trialEndsAt) {
+              delete updatedUser.trialEndsAt;
+            }
+            return updatedUser;
+          }
           // Cascade suspension/activation to managed users
-          if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userId)
+          if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userIdToUpdate) {
             return { ...u, status };
+          }
           return u;
         })
       );
-
-      // Cascade status to investors managed by the Office Manager
+      
+      const isSuspending = status === 'معلق';
       if (userToUpdate.role === 'مدير المكتب') {
         setInvestors((prevInvestors) =>
           prevInvestors.map((inv) => {
             const investorUser = users.find(u => u.id === inv.id);
-            if (investorUser?.managedBy === userId) {
-              if (isSuspending && inv.status === 'نشط')
-                return { ...inv, status: 'غير نشط' };
-              if (!isSuspending && inv.status === 'غير نشط')
-                return { ...inv, status: 'نشط' };
+            if (investorUser?.managedBy === userIdToUpdate) {
+              if (isSuspending && inv.status === 'نشط') return { ...inv, status: 'غير نشط' };
+              if (!isSuspending && inv.status === 'غير نشط') return { ...inv, status: 'نشط' };
             }
             return inv;
           })
         );
       }
 
-      if (
-        status === 'نشط' &&
-        userToUpdate.status === 'معلق' &&
-        userToUpdate.role === 'مدير المكتب'
-      ) {
+      if (status === 'نشط' && userToUpdate.status === 'معلق') {
         addNotification({
-          recipientId: userId,
+          recipientId: userIdToUpdate,
           title: 'تم تفعيل حسابك!',
-          description: `مرحباً ${userToUpdate.name}، تم تفعيل حسابك كمدير مكتب. يمكنك الآن تسجيل الدخول.`,
+          description: `مرحباً ${userToUpdate.name}، تم تفعيل حسابك. يمكنك الآن تسجيل الدخول.`,
         });
       }
 
-      toastMessage =
-        userToUpdate.role === 'مدير المكتب'
-          ? isSuspending
-            ? 'تم تعليق حساب المدير والحسابات المرتبطة به.'
-            : 'تم تفعيل حساب المدير والحسابات المرتبطة به.'
-          : 'تم تحديث حالة المستخدم بنجاح.';
+      const toastMessage = userToUpdate.role === 'مدير المكتب' && status === 'معلق'
+        ? 'تم تعليق حساب المدير والحسابات المرتبطة به.'
+        : 'تم تحديث حالة المستخدم بنجاح.';
       toast({ title: 'تم التحديث', description: toastMessage });
     },
     [users, addNotification, toast]

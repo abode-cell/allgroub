@@ -8,7 +8,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserCog, Scale, ChevronLeft, Contact, KeyRound } from 'lucide-react';
+import { UserCog, Scale, ChevronLeft, Contact, KeyRound, Hourglass } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
@@ -145,6 +145,23 @@ export default function SettingsPage() {
                         <Button asChild>
                             <Link href="/settings/support">
                                 تعديل معلومات الدعم
+                                <ChevronLeft className="mr-2 h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                    <Hourglass className="h-8 w-8 text-primary mb-2" />
+                    <CardTitle>إدارة الفترات التجريبية</CardTitle>
+                    <CardDescription>
+                        التحكم في مدة الفترة التجريبية ومتابعة الحسابات التجريبية وتفعيلها.
+                    </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild>
+                            <Link href="/settings/trial-periods">
+                                إدارة الفترات التجريبية
                                 <ChevronLeft className="mr-2 h-4 w-4" />
                             </Link>
                         </Button>

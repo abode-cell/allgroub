@@ -26,12 +26,10 @@ const PageSkeleton = () => (
 
 
 export default function PoliciesPage() {
-  const { currentUser, users } = useDataState();
-  const { updateTrialPeriod } = useDataActions();
+  const { currentUser } = useDataState();
   const router = useRouter();
   const { toast } = useToast();
   
-  const systemAdmin = users.find(u => u.role === 'مدير النظام');
   const role = currentUser?.role;
   const canViewPage = role === 'مدير النظام' || role === 'مدير المكتب';
 
@@ -44,15 +42,6 @@ export default function PoliciesPage() {
   // Placeholder state for policies
   const [daysUntilDefault, setDaysUntilDefault] = useState(90);
   const [lateFeePercentage, setLateFeePercentage] = useState(5);
-  const [trialDays, setTrialDays] = useState(systemAdmin?.defaultTrialPeriodDays ?? 14);
-
-
-  useEffect(() => {
-    if (systemAdmin) {
-      setTrialDays(systemAdmin.defaultTrialPeriodDays ?? 14);
-    }
-  }, [systemAdmin]);
-
 
   const handleSaveChanges = () => {
     // In a real app, you would save these values.
@@ -61,10 +50,6 @@ export default function PoliciesPage() {
       title: 'تم الحفظ',
       description: 'تم حفظ إعدادات السياسة (تجريبيًا).',
     });
-  };
-
-  const handleSaveTrialChanges = () => {
-    updateTrialPeriod(trialDays);
   };
 
   if (!currentUser || !canViewPage) {
@@ -83,7 +68,7 @@ export default function PoliciesPage() {
           </p>
         </header>
         
-        <div className='grid gap-8 md:grid-cols-2'>
+        <div className='grid gap-8 grid-cols-1 max-w-2xl mx-auto'>
             <Card>
             <CardHeader>
                 <CardTitle>قواعد التعثر والرسوم</CardTitle>
@@ -127,37 +112,6 @@ export default function PoliciesPage() {
                 </Button>
             </CardContent>
             </Card>
-            
-            {role === 'مدير النظام' && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>إعدادات الفترة التجريبية</CardTitle>
-                        <CardDescription>
-                        تحديد المدة بالأيام للفترة التجريبية لحسابات مدراء المكاتب الجديدة.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-8 pt-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="trialDays">مدة الفترة التجريبية (أيام)</Label>
-                            <Input
-                            id="trialDays"
-                            type="number"
-                            value={trialDays}
-                            onChange={(e) => setTrialDays(Number(e.target.value))}
-                            placeholder="مثال: 14"
-                            />
-                             <p className="text-sm text-muted-foreground">
-                                سيتم تعليق الحسابات الجديدة تلقائيًا بعد انتهاء هذه المدة.
-                            </p>
-                        </div>
-                        <Button className="w-full" onClick={handleSaveTrialChanges} disabled={trialDays === (systemAdmin?.defaultTrialPeriodDays ?? 14)}>
-                            <Save className="ml-2 h-4 w-4" />
-                            حفظ مدة التجربة
-                        </Button>
-                    </CardContent>
-                </Card>
-            )}
-
         </div>
       </main>
     </div>
