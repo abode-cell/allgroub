@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataState } from '@/contexts/data-context';
 import { Mail, Phone, Rocket, TrendingUp, Handshake, CheckCircle } from 'lucide-react';
+import Image from 'next/image';
 
 
 const Logo = () => (
@@ -117,10 +118,10 @@ export default function LandingPage() {
                     </div>
                 </section>
                 
-                {/* Features Split Section */}
-                <section className="w-full py-12 md:py-24 bg-muted/50">
+                {/* For Managers Section */}
+                <section id="for-managers" className="w-full py-12 md:py-24 bg-muted/50">
                     <div className="container grid items-center justify-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-16">
-                        <div id="for-managers" className="space-y-4">
+                        <div className="space-y-4">
                             <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">للمكتب: تحكم كامل ورؤية واضحة</div>
                             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">إدارة مالية دقيقة ومؤتمتة</h2>
                             <p className="text-muted-foreground md:text-lg">
@@ -145,7 +146,29 @@ export default function LandingPage() {
                                 </li>
                             </ul>
                         </div>
-                        <div id="for-investors" className="space-y-4">
+                        <Image 
+                            src="https://placehold.co/600x400.png"
+                            width={600}
+                            height={400}
+                            alt="Dashboard for office managers"
+                            data-ai-hint="dashboard financial"
+                            className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center sm:w-full"
+                        />
+                    </div>
+                </section>
+
+                {/* For Investors Section */}
+                 <section id="for-investors" className="w-full py-12 md:py-24">
+                    <div className="container grid items-center justify-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-16">
+                         <Image 
+                            src="https://placehold.co/600x400.png"
+                            width={600}
+                            height={400}
+                            alt="Portfolio for investors"
+                            data-ai-hint="investor portfolio"
+                            className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center sm:w-full lg:order-last"
+                        />
+                        <div className="space-y-4">
                             <div className="inline-block rounded-lg bg-accent px-3 py-1 text-sm text-accent-foreground">للمستثمر: شفافية مطلقة وثقة تامة</div>
                              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">بناء الثقة من خلال الشفافية</h2>
                              <p className="text-muted-foreground md:text-lg">
@@ -174,7 +197,7 @@ export default function LandingPage() {
                 </section>
                 
                 {/* Contact Section */}
-                <section id="contact" className="w-full py-12 md:py-24">
+                <section id="contact" className="w-full py-12 md:py-24 bg-muted/50">
                     <div className="container mx-auto px-4 md:px-6">
                         <div className="mx-auto max-w-3xl text-center space-y-4">
                              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">هل أنت مستعد للبدء؟</h2>
