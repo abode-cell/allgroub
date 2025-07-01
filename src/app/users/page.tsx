@@ -493,7 +493,7 @@ export default function UsersPage() {
                                                     {managerInvestors.map((inv) => (
                                                         <TableRow key={inv.id}>
                                                         <TableCell>{inv.name}</TableCell>
-                                                        <TableCell>{formatCurrency(inv.amount)}</TableCell>
+                                                        <TableCell>{formatCurrency(inv.investmentType === 'اقساط' ? inv.installmentCapital : inv.gracePeriodCapital)}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>

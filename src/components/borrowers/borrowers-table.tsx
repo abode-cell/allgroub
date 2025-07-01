@@ -19,6 +19,7 @@ import {
   MessageSquareText,
   CheckCircle,
   Users,
+  Edit,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -232,6 +233,7 @@ export function BorrowersTable({
                   const fundedByOneInvestor = borrower.fundedBy && borrower.fundedBy.length === 1;
                   const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
+                  const isTerminalStatus = borrower.status === 'مسدد بالكامل' || borrower.status === 'متعثر' || borrower.status === 'مرفوض';
 
                   return (
                   <TableRow key={borrower.id}>
@@ -281,7 +283,7 @@ export function BorrowersTable({
                                     updateBorrowerPaymentStatus(borrower.id, value as BorrowerPaymentStatus);
                                 }
                             }}
-                            disabled={!canUpdatePaymentStatus || borrower.status === 'معلق' || borrower.status === 'مرفوض'}
+                            disabled={!canUpdatePaymentStatus || borrower.status === 'معلق' || isTerminalStatus}
                         >
                             <SelectTrigger className={cn(
                                 "w-32", 
@@ -344,8 +346,9 @@ export function BorrowersTable({
                           )}
                           <DropdownMenuItem
                             onSelect={() => handleEditClick(borrower)}
-                            disabled={!canEdit}
+                            disabled={!canEdit || isTerminalStatus}
                           >
+                            <Edit className="ml-2 h-4 w-4" />
                             تعديل
                           </DropdownMenuItem>
                           <DropdownMenuItem

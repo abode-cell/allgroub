@@ -32,18 +32,6 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
       return { text: 'متأخر السداد', variant: 'destructive' };
   }
   
-  // --- New Logic for Progress ---
-  const startDate = new Date(borrower.date);
-  startDate.setHours(0, 0, 0, 0);
-  
-  const totalDuration = dueDate.getTime() - startDate.getTime();
-  if (totalDuration <= 0) {
-      return { text: 'منتظم', variant: 'default' }; // Fallback for invalid dates
-  }
-
-  const elapsedDuration = todayDate.getTime() - startDate.getTime();
-  const progress = Math.max(0, Math.min(1, elapsedDuration / totalDuration));
-  const progressPercentage = Math.round(progress * 100);
-  
-  return { text: `انقضى ${progressPercentage}% من المدة`, variant: 'outline' };
+  // If no other status applies, the loan is on track
+  return { text: 'منتظم', variant: 'default' };
 };
