@@ -13,6 +13,7 @@ import { Edit, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -120,7 +121,18 @@ export default function CredentialsPage() {
                               <TableRow key={user.id}>
                                   <TableCell className="font-medium">{user.name}</TableCell>
                                   <TableCell>{user.email}</TableCell>
-                                  <TableCell className="font-mono text-muted-foreground">{user.password}</TableCell>
+                                  <TableCell>
+                                      <TooltipProvider>
+                                          <Tooltip>
+                                          <TooltipTrigger asChild>
+                                              <span className="font-mono text-muted-foreground cursor-help">********</span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                              <p>لا يتم عرض كلمات المرور لأسباب أمنية.</p>
+                                          </TooltipContent>
+                                          </Tooltip>
+                                      </TooltipProvider>
+                                  </TableCell>
                                   <TableCell className="text-left">
                                     <Button variant="outline" size="sm" onClick={() => handleEditClick(user)} disabled={user.id === currentUser.id}>
                                       <Edit className="ml-2 h-4 w-4" />
