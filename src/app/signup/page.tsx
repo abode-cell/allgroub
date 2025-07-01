@@ -75,7 +75,7 @@ export default function SignUpPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-       <div className="flex flex-col items-center gap-2 mb-6">
+       <Link href="/" className="flex flex-col items-center gap-2 mb-6 text-foreground hover:text-primary transition-colors">
           <div className="flex items-center gap-3">
             <svg
                 width="48"
@@ -95,7 +95,7 @@ export default function SignUpPage() {
           <p className="text-sm text-muted-foreground">
             إدارة, تمويل, تطوير ,وأكثر...
           </p>
-        </div>
+        </Link>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">إنشاء حساب مدير مكتب</CardTitle>
