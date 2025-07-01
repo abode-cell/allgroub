@@ -759,6 +759,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       setBorrowers((prev) => [...prev, newEntry]);
 
+      if (fundedByDetails.length > 0) {
+        fundedByDetails.forEach(funder => {
+          addNotification({
+            recipientId: funder.investorId,
+            title: 'تم استثمار أموالك',
+            description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${borrower.name}".`,
+          });
+        });
+      }
+
       if (isPending && loggedInUser?.managedBy) {
         addNotification({
           recipientId: loggedInUser.managedBy,
