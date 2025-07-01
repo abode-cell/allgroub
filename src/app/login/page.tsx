@@ -46,7 +46,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
        <Link href="/" className="flex flex-col items-center gap-2 mb-6 text-foreground hover:text-primary transition-colors">
           <div className="flex items-center gap-3">
-            <svg
+             <svg
                 width="48"
                 height="48"
                 viewBox="0 0 24 24"
@@ -54,9 +54,10 @@ export default function LoginPage() {
                 xmlns="http://www.w3.org/2000/svg"
                 className="text-primary h-12 w-12"
             >
-                <path d="M12 2L2 22H22L12 2Z" fill="currentColor" fillOpacity="0.1" />
-                <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M12 11L8.5 18L15.5 18L12 11Z" fill="currentColor" />
+                <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                <path d="M12 11L7 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+                <path d="M12 11L17 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+                <path d="M8.5 18H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
             </svg>
             <span className="font-bold text-3xl">مجموعة عال</span>
           </div>
