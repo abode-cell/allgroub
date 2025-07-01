@@ -46,7 +46,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import type { Borrower, BorrowerPaymentStatus, Payment } from '@/lib/types';
@@ -55,11 +55,11 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '../ui/tooltip';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+} from '@/components/ui/tooltip';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import { BorrowerStatusBadge } from '../borrower-status-badge';
-import { Textarea } from '../ui/textarea';
+import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
+import { Textarea } from '@/components/ui/textarea';
 
 const paymentStatusVariant: {
   [key in BorrowerPaymentStatus]: 'success' | 'default' | 'secondary' | 'destructive';
