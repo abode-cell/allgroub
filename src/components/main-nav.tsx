@@ -28,7 +28,7 @@ export type MenuItem = {
 
 export const allMenuItems: MenuItem[] = [
   {
-    href: '/',
+    href: '/dashboard',
     label: 'الرئيسية',
     icon: LayoutDashboard,
     roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف', 'مستثمر'],

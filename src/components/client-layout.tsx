@@ -73,7 +73,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
         ];
   
         if (isSystemAdmin && adminRestrictedPages.some(p => pathname.startsWith(p))) {
-          router.replace('/');
+          router.replace('/dashboard');
         }
       }
     }, [currentUser, pathname, router]);
@@ -98,16 +98,16 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { userId, loading } = useAuth();
   
-  const isAuthPage = pathname === '/login' || pathname === '/signup';
+  const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
 
   useEffect(() => {
-    if (!loading && userId && isAuthPage) {
-        router.replace('/');
+    if (!loading && userId && isPublicPage) {
+        router.replace('/dashboard');
     }
-  },[userId, loading, isAuthPage, router])
+  },[userId, loading, isPublicPage, router])
 
-  if (isAuthPage) {
-    if(loading || (!loading && userId)) return <AppSkeleton /> 
+  if (isPublicPage) {
+    if(loading || (!loading && userId && pathname !== '/')) return <AppSkeleton /> 
     return <>{children}</>;
   }
 

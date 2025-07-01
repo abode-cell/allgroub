@@ -21,7 +21,7 @@ import { useState } from 'react';
 import { ThemeToggle } from './theme-toggle';
 
 const Logo = () => (
-    <Link href="/" className="flex items-center gap-2.5">
+    <Link href="/dashboard" className="flex items-center gap-2.5">
     <svg
       width="48"
       height="48"
