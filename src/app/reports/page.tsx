@@ -4,7 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Borrower } from '@/lib/types';
+import type { Borrower, Investor } from '@/lib/types';
 import { useDataState } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -168,7 +168,7 @@ export default function ReportsPage() {
       const borrowerStatus = getBorrowerStatus(loan, today);
       return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
-    exportToPrintableHtml(title, columns, rows, currentUser);
+    exportToPrintableHtml(title, currentUser, { columns, rows });
   };
 
   const handleExportGracePeriod = (filter: 'all' | 'defaulted' | 'paid') => {
@@ -191,7 +191,7 @@ export default function ReportsPage() {
       const borrowerStatus = getBorrowerStatus(loan, today);
       return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
-    exportToPrintableHtml(title, columns, rows, currentUser);
+    exportToPrintableHtml(title, currentUser, { columns, rows });
   };
 
   const handleExportInvestors = () => {
@@ -222,8 +222,87 @@ export default function ReportsPage() {
             investor.status
         ];
     });
-    exportToPrintableHtml(title, columns, rows, currentUser);
+    exportToPrintableHtml(title, currentUser, { columns, rows });
   };
+  
+  const handleExportSingleInvestor = (investor: Investor) => {
+    if (!currentUser) return;
+
+    // Calculate details (this logic is already in the accordion)
+    const fundedLoans = borrowers.filter(b => 
+        b.fundedBy?.some(f => f.investorId === investor.id)
+    );
+    const totalInvestment = investor.transactionHistory
+        .filter(tx => tx.type === 'إيداع رأس المال')
+        .reduce((acc, tx) => acc + tx.amount, 0);
+    const activeInvestment = fundedLoans
+        .filter(b => b.status === 'منتظم' || b.status === 'متأخر')
+        .reduce((total, loan) => {
+            const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+            return total + (funding?.amount || 0);
+        }, 0);
+    const idleFunds = investor.amount;
+    const defaultedFunds = investor.defaultedFunds || 0;
+
+    const title = `تقرير المستثمر: ${investor.name}`;
+    
+    // Build HTML body
+    const htmlBody = `
+        <style>
+            .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; }
+            .summary-card { padding: 1rem; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9; }
+            .summary-card h3 { margin: 0 0 0.5rem 0; color: #555; font-size: 1rem; }
+            .summary-card p { margin: 0; font-size: 1.5rem; font-weight: bold; }
+            .section-title { font-size: 1.5rem; color: #0F2C59; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; }
+        </style>
+
+        <h2 class="section-title">الملخص المالي</h2>
+        <div class="summary-grid">
+            <div class="summary-card"><h3>إجمالي الاستثمار</h3><p>${formatCurrency(totalInvestment)}</p></div>
+            <div class="summary-card"><h3>الأموال النشطة</h3><p style="color: #28a745;">${formatCurrency(activeInvestment)}</p></div>
+            <div class="summary-card"><h3>الأموال الخاملة</h3><p>${formatCurrency(idleFunds)}</p></div>
+            <div class="summary-card"><h3>الأموال المتعثرة</h3><p style="color: #dc3545;">${formatCurrency(defaultedFunds)}</p></div>
+        </div>
+
+        <h2 class="section-title">القروض الممولة (${fundedLoans.length})</h2>
+        <table>
+            <thead>
+                <tr><th>اسم المقترض</th><th>مبلغ التمويل</th><th>تاريخ الاستحقاق</th><th>الحالة</th></tr>
+            </thead>
+            <tbody>
+                ${fundedLoans.length > 0 ? fundedLoans.map(loan => {
+                    const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
+                    const statusDetails = getBorrowerStatus(loan, new Date());
+                    return `<tr>
+                        <td>${loan.name}</td>
+                        <td>${formatCurrency(fundingAmount)}</td>
+                        <td>${loan.dueDate}</td>
+                        <td>${statusDetails.text}</td>
+                    </tr>`;
+                }).join('') : `<tr><td colspan="4" style="text-align: center; padding: 1rem;">لا توجد قروض ممولة.</td></tr>`}
+            </tbody>
+        </table>
+        
+        <h2 class="section-title">سجل العمليات</h2>
+        <table>
+            <thead>
+                <tr><th>التاريخ</th><th>النوع</th><th>الوصف</th><th>المبلغ</th></tr>
+            </thead>
+            <tbody>
+                 ${investor.transactionHistory.length > 0 ? [...investor.transactionHistory].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(tx => {
+                    return `<tr>
+                        <td>${new Date(tx.date).toLocaleDateString('ar-SA')}</td>
+                        <td>${tx.type}</td>
+                        <td>${tx.description}</td>
+                        <td style="color: ${tx.type.includes('إيداع') ? '#28a745' : '#dc3545'}; font-weight: bold;">${tx.type.includes('إيداع') ? '+' : '-'} ${formatCurrency(tx.amount)}</td>
+                    </tr>`;
+                 }).join('') : `<tr><td colspan="4" style="text-align: center; padding: 1rem;">لا يوجد سجل عمليات.</td></tr>`}
+            </tbody>
+        </table>
+    `;
+
+    exportToPrintableHtml(title, currentUser, { htmlBody });
+};
 
 
   if (!currentUser || !hasAccess) {
@@ -418,6 +497,13 @@ export default function ReportsPage() {
                             </TableBody>
                         </Table>
                         </div>
+                        </div>
+                        
+                        <div className="flex justify-end pt-4">
+                            <Button variant="outline" size="sm" onClick={() => handleExportSingleInvestor(investor)}>
+                                <Download className="ml-2 h-4 w-4" />
+                                تصدير تقرير المستثمر
+                            </Button>
                         </div>
 
                     </AccordionContent>

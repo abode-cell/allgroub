@@ -30,8 +30,39 @@ const formatValue = (value: any): string => {
 };
 
 
-export const exportToPrintableHtml = (title: string, columns: string[], rows: (string | number)[][], user: User) => {
+export const exportToPrintableHtml = (
+  title: string,
+  user: User,
+  options: {
+    columns?: string[];
+    rows?: (string | number)[][];
+    htmlBody?: string;
+  }
+) => {
     const exportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    let reportBody = '';
+
+    if (options.htmlBody) {
+        reportBody = options.htmlBody;
+    } else if (options.columns && options.rows) {
+        reportBody = `
+            <table>
+                <thead>
+                    <tr>
+                        ${options.columns.map(col => `<th>${col}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${options.rows.map(row => `
+                        <tr>
+                            ${row.map(cell => `<td>${formatValue(cell)}</td>`).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
 
     const htmlContent = `
         <!DOCTYPE html>
@@ -95,6 +126,7 @@ export const exportToPrintableHtml = (title: string, columns: string[], rows: (s
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 1em;
+                    margin-bottom: 2rem;
                 }
                 th, td {
                     border: 1px solid #e0e0e0;
@@ -177,22 +209,9 @@ export const exportToPrintableHtml = (title: string, columns: string[], rows: (s
                 </div>
 
                 <h1>${title}</h1>
-
-                <table>
-                    <thead>
-                        <tr>
-                            ${columns.map(col => `<th>${col}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows.map(row => `
-                            <tr>
-                                ${row.map(cell => `<td>${formatValue(cell)}</td>`).join('')}
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
                 
+                ${reportBody}
+
                 <button class="print-button" onclick="window.print()">طباعة</button>
 
                 <div class="footer">
