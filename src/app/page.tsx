@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -60,17 +61,14 @@ export default function LandingPage() {
                     <div className="container mx-auto px-4 md:px-6 text-center">
                         <div className="flex flex-col items-center space-y-6">
                             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
-                                مجموعة عال: حيث تلتقي الفرص برأس المال
+                                منصة عال لإدارة التمويل والاستثمار
                             </h1>
                             <p className="max-w-[700px] text-muted-foreground md:text-xl">
-                                منصة تمويل متكاملة هي الجسر الذي يربط بين مدراء المكاتب الباحثين عن سيولة والمستثمرين الطموحين، لخلق منظومة نمو مشتركة وفعّالة.
+                                أداة متكاملة للمكاتب لإدارة عملياتهم التمويلية مع مستثمريهم. نظّم القروض، واحسب الأرباح، وامنح مستثمريك الشفافية التي يستحقونها.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Button asChild size="lg">
-                                    <Link href="/signup">اطلب تمويل لمكتبك</Link>
-                                </Button>
-                                <Button asChild size="lg" variant="secondary">
-                                    <Link href="/signup">ابدأ الاستثمار الآن</Link>
+                                    <Link href="/signup">ابدأ الآن: أنشئ حساب مكتبك</Link>
                                 </Button>
                             </div>
                         </div>
@@ -82,9 +80,9 @@ export default function LandingPage() {
                     <div className="container mx-auto px-4 md:px-6">
                         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
                             <div className="inline-block rounded-lg bg-secondary px-3 py-1 text-sm">آلية العمل</div>
-                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">كيف نربط بين الطموح ورأس المال</h2>
+                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">منصة واحدة لإدارة دورتك المالية بالكامل</h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-lg/relaxed lg:text-base/relaxed xl:text-lg/relaxed">
-                                نحن لا نمول المشاريع مباشرة، بل نوفر البيئة التكنولوجية الآمنة التي تجمع الطرفين وتضمن سير العملية بسلاسة وشفافية.
+                                نحن لا نربطك بمستثمرين جدد، بل نمنحك الأداة لإدارة علاقتك مع مستثمريك الحاليين بكفاءة وشفافية.
                             </p>
                         </div>
                         <div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-3 md:gap-12">
@@ -92,27 +90,27 @@ export default function LandingPage() {
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <Rocket className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">1. تقديم الطلب</h3>
+                                <h3 className="text-xl font-bold">1. أنشئ حسابك</h3>
                                 <p className="text-muted-foreground">
-                                    يقدم مدير المكتب طلب تمويل واضح ومفصل عبر المنصة، محدداً المبلغ المطلوب والغرض منه.
+                                    يقوم مدير المكتب بإنشاء حساب وتحديد إعدادات المكتب الأساسية.
                                 </p>
                             </div>
                              <div className="grid gap-2 text-center">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <Handshake className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">2. الربط والتمويل</h3>
+                                <h3 className="text-xl font-bold">2. أضف بياناتك</h3>
                                 <p className="text-muted-foreground">
-                                    تُعرض الفرصة على شبكة المستثمرين لدينا، الذين يقومون بتمويل المشاريع التي تتوافق مع أهدافهم الاستثمارية.
+                                    أضف المستثمرين الخاصين بك وعمليات القروض التي تديرها.
                                 </p>
                             </div>
                             <div className="grid gap-2 text-center">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <TrendingUp className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">3. النمو المشترك</h3>
+                                <h3 className="text-xl font-bold">3. أدر وتابع</h3>
                                 <p className="text-muted-foreground">
-                                    يحصل المكتب على السيولة اللازمة للنمو، ويحقق المستثمر عوائد مجدية على استثماراته.
+                                    استخدم لوحة التحكم لمتابعة كل شيء: من الأرصدة المتاحة إلى الأرباح المحققة والتقارير المفصلة.
                                 </p>
                             </div>
                         </div>
@@ -123,44 +121,52 @@ export default function LandingPage() {
                 <section className="w-full py-12 md:py-24 bg-muted/50">
                     <div className="container grid items-center justify-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-16">
                         <div id="for-managers" className="space-y-4">
-                            <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">لأصحاب المكاتب</div>
-                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">تمويل يواكب طموحاتك</h2>
+                            <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">للمكتب: تحكم كامل ورؤية واضحة</div>
+                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">إدارة مالية دقيقة ومؤتمتة</h2>
                             <p className="text-muted-foreground md:text-lg">
-                                بدلاً من البحث التقليدي عن ممولين، منصتنا تضع طلبك أمام شبكة من المستثمرين الجادين مباشرة.
+                                ودّع الجداول المعقدة والمتابعة اليدوية. منصتنا تمنحك القوة لإدارة عملياتك المالية بدقة وسهولة.
                             </p>
                              <ul className="grid gap-4 text-lg">
                                 <li className="flex items-start gap-3">
                                     <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-accent" />
-                                    <span>وصول سريع ومباشر إلى شبكة من المستثمرين الجادين.</span>
+                                    <span>إدارة مركزية لجميع المستثمرين والقروض في مكان واحد.</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-accent" />
-                                    <span>عملية تقديم طلبات إلكترونية مبسطة وواضحة.</span>
+                                    <span>حسابات آلية ودقيقة لتوزيع الأرباح بينك وبين المستثمرين.</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-accent" />
-                                    <span>لوحة تحكم متكاملة لإدارة قروضك ومتابعة السداد.</span>
+                                    <span>تقارير شاملة تساعدك على اتخاذ قرارات أفضل.</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-accent" />
+                                    <span>واجهة احترافية لإدارة موظفيك وصلاحياتهم.</span>
                                 </li>
                             </ul>
                         </div>
                         <div id="for-investors" className="space-y-4">
-                            <div className="inline-block rounded-lg bg-accent px-3 py-1 text-sm text-accent-foreground">للمستثمرين</div>
-                             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">استثمار ذكي بعوائد مجدية</h2>
+                            <div className="inline-block rounded-lg bg-accent px-3 py-1 text-sm text-accent-foreground">للمستثمر: شفافية مطلقة وثقة تامة</div>
+                             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">بناء الثقة من خلال الشفافية</h2>
                              <p className="text-muted-foreground md:text-lg">
-                                تصلك فرص استثمارية مدروسة ومقدمة من مكاتب تم التحقق منها، مما يقلل المخاطر ويزيد من فرص تحقيق العوائد.
+                                عندما تدعو مستثمريك للمنصة، فإنك تمنحهم نافذة شفافة على استثماراتهم، مما يعزز الثقة ويبني علاقات طويلة الأمد.
                             </p>
                              <ul className="grid gap-4 text-lg">
                                 <li className="flex items-start gap-3">
                                     <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                                    <span>فرص استثمارية واضحة ومقدمة من مكاتب عاملة.</span>
+                                    <span>لوحة تحكم خاصة لكل مستثمر لعرض أداء استثماراته.</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                                    <span>شفافية كاملة مع تقارير أداء مفصلة ومتابعة حية للأرباح.</span>
+                                    <span>متابعة حية للأموال المستثمرة، الخاملة، والأرباح المتوقعة.</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                                    <span>تحكم كامل في محفظتك الاستثمارية وتوزيع رأس المال.</span>
+                                    <span>سجل واضح لجميع العمليات المالية من سحب وإيداع.</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
+                                    <span>تجربة آمنة واحترافية تليق باستثماراتهم.</span>
                                 </li>
                             </ul>
                         </div>
