@@ -21,6 +21,12 @@ import { Download } from 'lucide-react';
 import { exportToPrintableHtml } from '@/lib/html-export';
 import { getBorrowerStatus } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 
 const PageSkeleton = () => (
@@ -133,7 +139,8 @@ export default function ReportsPage() {
     b.status === 'متعثر' || 
     b.status === 'معلق' ||
     b.status === 'منتظم' ||
-    b.status === 'متأخر'
+    b.status === 'متأخر' ||
+    b.status === 'مسدد بالكامل'
   ), [borrowers]);
   
   const activeInvestors = useMemo(() => investors.filter(i => i.status === 'نشط' || i.status === 'غير نشط'), [investors]);
@@ -141,24 +148,46 @@ export default function ReportsPage() {
   const installmentLoans = useMemo(() => loansForReport.filter(b => b.loanType === 'اقساط'), [loansForReport]);
   const gracePeriodLoans = useMemo(() => loansForReport.filter(b => b.loanType === 'مهلة'), [loansForReport]);
 
-  const handleExportInstallments = () => {
+  const handleExportInstallments = (filter: 'all' | 'defaulted' | 'paid') => {
     if (!currentUser) return;
-    const title = "تقرير قروض الأقساط";
+    
+    let loansToExport = installmentLoans;
+    let title = "تقرير قروض الأقساط";
+    
+    if (filter === 'defaulted') {
+      loansToExport = installmentLoans.filter(loan => loan.status === 'متعثر' || loan.paymentStatus === 'متعثر');
+      title = "تقرير قروض الأقساط (المتعثرة)";
+    } else if (filter === 'paid') {
+      loansToExport = installmentLoans.filter(loan => loan.status === 'مسدد بالكامل' || loan.paymentStatus === 'تم السداد');
+      title = "تقرير قروض الأقساط (المسددة)";
+    }
+
     const columns = ["اسم المقترض", "مبلغ القرض", "تاريخ القرض", "تاريخ الاستحقاق", "الحالة", "الممول"];
     const today = new Date();
-    const rows = installmentLoans.map(loan => {
+    const rows = loansToExport.map(loan => {
       const borrowerStatus = getBorrowerStatus(loan, today);
       return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
     exportToPrintableHtml(title, columns, rows, currentUser);
   };
 
-  const handleExportGracePeriod = () => {
+  const handleExportGracePeriod = (filter: 'all' | 'defaulted' | 'paid') => {
     if (!currentUser) return;
-    const title = "تقرير قروض المهلة";
+    
+    let loansToExport = gracePeriodLoans;
+    let title = "تقرير قروض المهلة";
+    
+    if (filter === 'defaulted') {
+      loansToExport = gracePeriodLoans.filter(loan => loan.status === 'متعثر' || loan.paymentStatus === 'متعثر');
+      title = "تقرير قروض المهلة (المتعثرة)";
+    } else if (filter === 'paid') {
+      loansToExport = gracePeriodLoans.filter(loan => loan.status === 'مسدد بالكامل' || loan.paymentStatus === 'تم السداد');
+      title = "تقرير قروض المهلة (المسددة)";
+    }
+    
     const columns = ["اسم المقترض", "مبلغ القرض", "تاريخ القرض", "تاريخ الاستحقاق", "الحالة", "الممول"];
     const today = new Date();
-    const rows = gracePeriodLoans.map(loan => {
+    const rows = loansToExport.map(loan => {
       const borrowerStatus = getBorrowerStatus(loan, today);
       return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
     });
@@ -212,8 +241,28 @@ export default function ReportsPage() {
             </p>
             </header>
             <div className="flex flex-wrap gap-2">
-                <Button onClick={handleExportInstallments} variant="outline"><Download className="ml-2 h-4 w-4" /> تصدير الأقساط </Button>
-                <Button onClick={handleExportGracePeriod} variant="outline"><Download className="ml-2 h-4 w-4" /> تصدير المهلة </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline"><Download className="ml-2 h-4 w-4" /> تصدير الأقساط</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => handleExportInstallments('all')}>تصدير الكل</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleExportInstallments('defaulted')}>تصدير المتعثرين فقط</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleExportInstallments('paid')}>تصدير المسددين فقط</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline"><Download className="ml-2 h-4 w-4" /> تصدير المهلة</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => handleExportGracePeriod('all')}>تصدير الكل</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleExportGracePeriod('defaulted')}>تصدير المتعثرين فقط</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleExportGracePeriod('paid')}>تصدير المسددين فقط</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <Button onClick={handleExportInvestors} variant="outline"><Download className="ml-2 h-4 w-4" /> تصدير المستثمرين </Button>
             </div>
         </div>
