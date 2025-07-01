@@ -56,7 +56,7 @@ export default function LandingPage() {
             {/* Main Content */}
             <main className="flex-1">
                 {/* Hero Section */}
-                <section className="w-full py-20 md:py-32 lg:py-40 bg-muted/50">
+                <section className="w-full min-h-screen flex items-center justify-center bg-muted/50">
                     <div className="container mx-auto px-4 md:px-6 text-center">
                         <div className="flex flex-col items-center space-y-6">
                             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
@@ -75,7 +75,7 @@ export default function LandingPage() {
                 </section>
 
                 {/* How It Works Section */}
-                <section id="services" className="w-full py-12 md:py-24">
+                <section id="services" className="w-full min-h-screen flex items-center justify-center">
                     <div className="container mx-auto px-4 md:px-6">
                         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
                             <div className="inline-block rounded-lg bg-secondary px-3 py-1 text-sm">آلية العمل</div>
@@ -117,7 +117,7 @@ export default function LandingPage() {
                 </section>
                 
                 {/* For Managers Section */}
-                <section id="for-managers" className="w-full py-12 md:py-24 bg-muted/50">
+                <section id="for-managers" className="w-full min-h-screen flex items-center justify-center bg-muted/50">
                     <div className="container px-4 md:px-6">
                         <div className="flex flex-col items-center justify-center space-y-4 text-center">
                             <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">للمكتب: تحكم كامل ورؤية واضحة</div>
@@ -168,7 +168,7 @@ export default function LandingPage() {
                 </section>
 
                 {/* For Investors Section */}
-                 <section id="for-investors" className="w-full py-12 md:py-24">
+                 <section id="for-investors" className="w-full min-h-screen flex items-center justify-center">
                     <div className="container px-4 md:px-6">
                         <div className="flex flex-col items-center justify-center space-y-4 text-center">
                             <div className="inline-block rounded-lg bg-accent px-3 py-1 text-sm text-accent-foreground">للمستثمر: شفافية مطلقة وثقة تامة</div>
@@ -219,7 +219,7 @@ export default function LandingPage() {
                 </section>
                 
                 {/* Contact Section */}
-                <section id="contact" className="w-full py-12 md:py-24 bg-muted/50">
+                <section id="contact" className="w-full min-h-screen flex items-center justify-center bg-muted/50">
                     <div className="container mx-auto px-4 md:px-6">
                         <div className="mx-auto max-w-3xl text-center space-y-4">
                              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">هل أنت مستعد للبدء؟</h2>
