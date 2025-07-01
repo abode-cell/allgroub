@@ -46,7 +46,7 @@ const PageSkeleton = () => (
 
 export default function InvestorsPage() {
   const { addInvestor } = useDataActions();
-  const { investors: allInvestors, users, currentUser } = useDataState();
+  const { investors: allInvestors, users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -79,12 +79,16 @@ export default function InvestorsPage() {
     email: string;
     password: string;
     investmentType: 'اقساط' | 'مهلة';
+    installmentProfitShare: string;
+    gracePeriodProfitShare: string;
   }>({
     name: '',
     capital: '',
     email: '',
     password: '',
     investmentType: 'اقساط',
+    installmentProfitShare: String(investorSharePercentage),
+    gracePeriodProfitShare: String(graceInvestorSharePercentage),
   });
   
   const installmentInvestors = useMemo(() => investors.filter(i => i.investmentType === 'اقساط'), [investors]);
@@ -146,11 +150,13 @@ export default function InvestorsPage() {
       email: newInvestor.email,
       password: newInvestor.password,
       investmentType: newInvestor.investmentType,
+      installmentProfitShare: Number(newInvestor.installmentProfitShare),
+      gracePeriodProfitShare: Number(newInvestor.gracePeriodProfitShare),
     };
     
     addInvestor(payload);
     setIsAddDialogOpen(false);
-    setNewInvestor({ name: '', capital: '', email: '', password: '', investmentType: 'اقساط' });
+    setNewInvestor({ name: '', capital: '', email: '', password: '', investmentType: 'اقساط', installmentProfitShare: String(investorSharePercentage), gracePeriodProfitShare: String(graceInvestorSharePercentage) });
   };
 
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
@@ -312,6 +318,36 @@ export default function InvestorsPage() {
                             onChange={handleInputChange}
                             required
                           />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="installmentProfitShare" className="text-right">
+                                ربح الأقساط (%)
+                            </Label>
+                            <Input
+                                id="installmentProfitShare"
+                                type="number"
+                                step="0.1"
+                                placeholder="70"
+                                className="col-span-3"
+                                value={newInvestor.installmentProfitShare}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="gracePeriodProfitShare" className="text-right">
+                                ربح المهلة (%)
+                            </Label>
+                            <Input
+                                id="gracePeriodProfitShare"
+                                type="number"
+                                step="0.1"
+                                placeholder="33.3"
+                                className="col-span-3"
+                                value={newInvestor.gracePeriodProfitShare}
+                                onChange={handleInputChange}
+                                required
+                            />
                         </div>
                       </>
                     )}

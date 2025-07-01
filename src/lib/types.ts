@@ -101,6 +101,8 @@ export type Investor = {
   submittedBy?: string;
   rejectionReason?: string;
   isNotified?: boolean;
+  installmentProfitShare?: number;
+  gracePeriodProfitShare?: number;
 };
 
 export type Notification = {
@@ -140,4 +142,6 @@ export type NewInvestorPayload = {
     capital: number;
     email: string;
     password: string;
+    installmentProfitShare: number;
+    gracePeriodProfitShare: number;
 };

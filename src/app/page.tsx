@@ -59,70 +59,67 @@ const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[]
     dueDebts,
     profitableInstallmentLoans,
   } = useMemo(() => {
-    const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
-    const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
-    const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
-    const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
-    const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
-    
-    const profitableInstallmentLoans = installmentLoans.filter(
-      b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
-    );
-    
-    const netProfit = profitableInstallmentLoans.reduce((acc, loan) => {
-      if (!loan.rate || !loan.term) return acc;
-      return acc + (loan.amount * (loan.rate / 100) * loan.term);
-    }, 0);
+      const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
+      const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
+      const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
+      const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
+      const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
+      
+      const profitableInstallmentLoans = installmentLoans.filter(
+        b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+      );
+      
+      let totalInstitutionProfit = 0;
+      let totalInvestorsProfit = 0;
+      const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
 
-    const totalInstitutionProfit = netProfit * ((100 - investorSharePercentage) / 100);
-    const totalInvestorsProfit = netProfit * (investorSharePercentage / 100);
+      profitableInstallmentLoans.forEach(loan => {
+          if (!loan.rate || !loan.term || !loan.fundedBy) return;
+          
+          loan.fundedBy.forEach(funder => {
+              const investorDetails = investors.find(i => i.id === funder.investorId);
+              if (!investorDetails) return;
 
-    const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
-    profitableInstallmentLoans.forEach(loan => {
-        if (!loan.rate || !loan.term) return;
-        
-        const totalInterestOnLoan = loan.amount * (loan.rate / 100) * loan.term;
-        const totalInvestorShareAmountOnLoan = totalInterestOnLoan * (investorSharePercentage / 100);
+              const profitShare = investorDetails.installmentProfitShare ?? investorSharePercentage;
+              const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
+              
+              const investorPortion = interestOnFundedAmount * (profitShare / 100);
+              const institutionPortion = interestOnFundedAmount - investorPortion;
+              
+              totalInvestorsProfit += investorPortion;
+              totalInstitutionProfit += institutionPortion;
 
-        if (loan.fundedBy && loan.fundedBy.length > 0) {
-            loan.fundedBy.forEach(funder => {
-            const funderShareRatio = funder.amount / loan.amount;
-            const funderProfit = totalInvestorShareAmountOnLoan * funderShareRatio;
+              if (!investorProfits[funder.investorId]) {
+                  investorProfits[funder.investorId] = { name: investorDetails.name, profit: 0 };
+              }
+              investorProfits[funder.investorId].profit += investorPortion;
+          });
+      });
 
-            if (!investorProfits[funder.investorId]) {
-                const investorDetails = investors.find(i => i.id === funder.investorId);
-                investorProfits[funder.investorId] = {
-                name: investorDetails ? investorDetails.name : 'مستثمر غير معروف',
-                profit: 0
-                };
-            }
-            investorProfits[funder.investorId].profit += funderProfit;
-            });
-        }
-    });
+      const netProfit = totalInstitutionProfit + totalInvestorsProfit;
 
-    const investorProfitsArray = Object.entries(investorProfits).map(([id, data]) => ({
-      id,
-      ...data
-    }));
+      const investorProfitsArray = Object.entries(investorProfits).map(([id, data]) => ({
+        id,
+        ...data
+      }));
 
-    const dueDebts = installmentLoans
-      .filter(b => b.status === 'متأخر')
-      .reduce((acc, b) => acc + b.amount, 0); 
+      const dueDebts = installmentLoans
+        .filter(b => b.status === 'متأخر')
+        .reduce((acc, b) => acc + b.amount, 0); 
 
-    return {
-      installmentLoans,
-      installmentLoansGranted,
-      installmentDefaultedFunds,
-      installmentDefaultRate,
-      netProfit,
-      totalInstitutionProfit,
-      totalInvestorsProfit,
-      investorProfitsArray,
-      dueDebts,
-      profitableInstallmentLoans,
-    };
-  }, [borrowers, investors, investorSharePercentage]);
+      return {
+        installmentLoans,
+        installmentLoansGranted,
+        installmentDefaultedFunds,
+        installmentDefaultRate,
+        netProfit,
+        totalInstitutionProfit,
+        totalInvestorsProfit,
+        investorProfitsArray,
+        dueDebts,
+        profitableInstallmentLoans,
+      };
+    }, [borrowers, investors, investorSharePercentage]);
 
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
@@ -234,23 +231,36 @@ const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[]
             <CardContent>
                 <Accordion type="single" collapsible className="w-full">
                     {profitableInstallmentLoans.map(loan => {
-                        if (!loan.rate || !loan.term) return null;
-                        const totalInterest = (loan.amount * (loan.rate / 100) * loan.term);
-                        const institutionProfit = totalInterest * ((100 - investorSharePercentage) / 100);
-                        const investorProfit = totalInterest - institutionProfit;
+                        if (!loan.rate || !loan.term || !loan.fundedBy) return null;
+                        
+                        let totalInstitutionProfitOnLoan = 0;
+                        let totalInvestorProfitOnLoan = 0;
+
+                        loan.fundedBy.forEach(funder => {
+                            const investorDetails = investors.find(i => i.id === funder.investorId);
+                            if (!investorDetails) return;
+                            const profitShare = investorDetails.installmentProfitShare ?? investorSharePercentage;
+                            const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
+                            const investorPortion = interestOnFundedAmount * (profitShare / 100);
+                            const institutionPortion = interestOnFundedAmount - investorPortion;
+                            totalInstitutionProfitOnLoan += institutionPortion;
+                            totalInvestorProfitOnLoan += investorPortion;
+                        });
+
+                        const totalInterest = totalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
 
                         return (
                             <AccordionItem value={loan.id} key={loan.id}>
                                 <AccordionTrigger>
                                     <div className="flex justify-between w-full pr-4 items-center">
                                         <span className="font-medium">{loan.name}</span>
-                                        <span className="font-bold text-primary">{formatCurrency(institutionProfit)}</span>
+                                        <span className="font-bold text-primary">{formatCurrency(totalInstitutionProfitOnLoan)}</span>
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="space-y-2 bg-muted/30 p-4">
                                     <div className="flex justify-between"><span>أصل القرض:</span> <span className="font-semibold">{formatCurrency(loan.amount)}</span></div>
                                     <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(totalInterest)}</span></div>
-                                    <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(investorProfit)}</span></div>
+                                    <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(totalInvestorProfitOnLoan)}</span></div>
                                 </AccordionContent>
                             </AccordionItem>
                         )
@@ -275,7 +285,6 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
 
     const {
         gracePeriodLoans,
-        profitableLoans,
         gracePeriodLoansGranted,
         gracePeriodDefaultedFunds,
         gracePeriodDefaultRate,
@@ -284,6 +293,7 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
         totalInstitutionProfit,
         investorProfitsArray,
         netProfit,
+        profitableLoans,
     } = useMemo(() => {
         const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
         const profitableLoans = gracePeriodLoans.filter(
@@ -300,31 +310,29 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
         const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
 
         profitableLoans.forEach(loan => {
-            const loanTotalProfit = loan.amount * (graceTotalProfitPercentage / 100);
-            const loanInvestorShareAmount = loanTotalProfit * (graceInvestorSharePercentage / 100);
-            const loanInstitutionShareAmount = loanTotalProfit - loanInvestorShareAmount;
+            if (!loan.fundedBy) return;
 
-            totalInstitutionProfit += loanInstitutionShareAmount;
+            loan.fundedBy.forEach(funder => {
+                const investorDetails = investors.find(i => i.id === funder.investorId);
+                if (!investorDetails) return;
 
-            if (loan.fundedBy && loan.fundedBy.length > 0) {
-                loan.fundedBy.forEach(funder => {
-                    const funderShareRatio = funder.amount / loan.amount;
-                    const funderProfit = loanInvestorShareAmount * funderShareRatio;
+                const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
+                const investorProfitShare = investorDetails.gracePeriodProfitShare ?? graceInvestorSharePercentage;
+                const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
+                const institutionPortion = totalProfitOnFundedAmount - investorPortion;
+                
+                totalInstitutionProfit += institutionPortion;
 
-                    if (!investorProfits[funder.investorId]) {
-                        const investorDetails = investors.find(i => i.id === funder.investorId);
-                        investorProfits[funder.investorId] = {
-                            name: investorDetails ? investorDetails.name : 'مستثمر غير معروف',
-                            profit: 0
-                        };
-                    }
-                    investorProfits[funder.investorId].profit += funderProfit;
-                });
-            }
+                if (!investorProfits[funder.investorId]) {
+                    investorProfits[funder.investorId] = { name: investorDetails.name, profit: 0 };
+                }
+                investorProfits[funder.investorId].profit += investorPortion;
+            });
         });
-
+        
+        const totalInvestorsProfit = Object.values(investorProfits).reduce((sum, inv) => sum + inv.profit, 0);
+        const netProfit = totalInstitutionProfit + totalInvestorsProfit;
         const investorProfitsArray = Object.values(investorProfits);
-        const netProfit = totalInstitutionProfit + investorProfitsArray.reduce((acc, inv) => acc + inv.profit, 0);
         
         return {
             gracePeriodLoans,
@@ -335,6 +343,7 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
             totalDiscounts,
             dueDebts,
             totalInstitutionProfit,
+            totalInvestorsProfit,
             investorProfitsArray,
             netProfit,
         };
@@ -446,22 +455,38 @@ const GracePeriodDashboard = ({ borrowers, investors }: { borrowers: Borrower[],
                   <CardContent>
                       <Accordion type="single" collapsible className="w-full">
                           {profitableLoans.map(loan => {
-                              const loanTotalProfit = loan.amount * (graceTotalProfitPercentage / 100);
-                              const loanInvestorShareAmount = loanTotalProfit * (graceInvestorSharePercentage / 100);
-                              const institutionProfit = loanTotalProfit - loanInvestorShareAmount;
+                              if (!loan.fundedBy) return null;
+                              
+                              let totalInstitutionProfitOnLoan = 0;
+                              let totalInvestorProfitOnLoan = 0;
+                              
+                              loan.fundedBy.forEach(funder => {
+                                const investorDetails = investors.find(i => i.id === funder.investorId);
+                                if (!investorDetails) return;
+                                
+                                const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
+                                const investorProfitShare = investorDetails.gracePeriodProfitShare ?? graceInvestorSharePercentage;
+                                const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
+                                const institutionPortion = totalProfitOnFundedAmount - investorPortion;
+                                
+                                totalInstitutionProfitOnLoan += institutionPortion;
+                                totalInvestorProfitOnLoan += investorPortion;
+                              });
 
+                              const totalProfit = totalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
+                              
                               return (
                                   <AccordionItem value={loan.id} key={loan.id}>
                                       <AccordionTrigger>
                                           <div className="flex justify-between w-full pr-4 items-center">
                                               <span className="font-medium">{loan.name}</span>
-                                              <span className="font-bold text-primary">{formatCurrency(institutionProfit)}</span>
+                                              <span className="font-bold text-primary">{formatCurrency(totalInstitutionProfitOnLoan)}</span>
                                           </div>
                                       </AccordionTrigger>
                                       <AccordionContent className="space-y-2 bg-muted/30 p-4">
                                           <div className="flex justify-between"><span>أصل القرض:</span> <span className="font-semibold">{formatCurrency(loan.amount)}</span></div>
-                                          <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(loanTotalProfit)}</span></div>
-                                          <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(loanInvestorShareAmount)}</span></div>
+                                          <div className="flex justify-between"><span>إجمالي الربح الكلي:</span> <span className="font-semibold">{formatCurrency(totalProfit)}</span></div>
+                                          <div className="flex justify-between text-muted-foreground"><span>حصة المستثمر:</span> <span>{formatCurrency(totalInvestorProfitOnLoan)}</span></div>
                                       </AccordionContent>
                                   </AccordionItem>
                               )

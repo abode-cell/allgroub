@@ -15,7 +15,7 @@ export const investorsData: Investor[] = [
     id: 'inv-1',
     name: 'صندوق الاستثمار الأول',
     investmentType: 'اقساط',
-    installmentCapital: 350000, // Initial 500k, funded 150k for bor-1
+    installmentCapital: 350000,
     gracePeriodCapital: 0,
     date: '2023-01-15T14:00:00.000Z',
     status: 'نشط',
@@ -25,13 +25,15 @@ export const investorsData: Investor[] = [
     fundedLoanIds: ['bor-1'],
     defaultedFunds: 0,
     isNotified: false,
+    installmentProfitShare: 70,
+    gracePeriodProfitShare: 33.3,
   },
   {
     id: 'inv-2',
     name: 'مجموعة الاستثمار الذهبي',
     investmentType: 'مهلة',
     installmentCapital: 0, 
-    gracePeriodCapital: 450000, // Initial 750k, withdrew 25k, funded 200k for bor-2 (now أقساط), funded 75k for bor-3 (now defaulted)
+    gracePeriodCapital: 450000,
     date: '2023-03-20T12:00:00.000Z',
     status: 'نشط',
     transactionHistory: [
@@ -42,6 +44,8 @@ export const investorsData: Investor[] = [
     fundedLoanIds: [],
     defaultedFunds: 75000,
     isNotified: false,
+    installmentProfitShare: 70,
+    gracePeriodProfitShare: 33.3,
   },
    {
     id: 'inv-3',
@@ -58,9 +62,11 @@ export const investorsData: Investor[] = [
     defaultedFunds: 0,
     submittedBy: '3',
     isNotified: false,
+    installmentProfitShare: 70,
+    gracePeriodProfitShare: 33.3,
   },
   {
-    id: '4', // Corresponds to user 'خالد المستثمر'
+    id: '4', 
     name: 'خالد المستثمر',
     investmentType: 'اقساط',
     installmentCapital: 800000,
@@ -73,6 +79,8 @@ export const investorsData: Investor[] = [
     fundedLoanIds: [],
     defaultedFunds: 0,
     isNotified: false,
+    installmentProfitShare: 70,
+    gracePeriodProfitShare: 33.3,
   },
    {
     id: 'inv-4',
@@ -89,6 +97,8 @@ export const investorsData: Investor[] = [
     defaultedFunds: 0,
     submittedBy: '2',
     isNotified: false,
+    installmentProfitShare: 70,
+    gracePeriodProfitShare: 33.3,
   }
 ];
 

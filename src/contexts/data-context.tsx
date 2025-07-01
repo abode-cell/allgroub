@@ -194,7 +194,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const parsed = JSON.parse(item);
           if (parsed.users && parsed.borrowers && parsed.investors) {
             
-            // --- DATA MIGRATION LOGIC for investors ---
             const migratedInvestors = parsed.investors.map((inv: any) => {
               if (inv.amount !== undefined && inv.installmentCapital === undefined) {
                 const newInv = { ...inv };
@@ -205,15 +204,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   newInv.installmentCapital = 0;
                   newInv.gracePeriodCapital = newInv.amount;
                 }
-                delete newInv.amount; // Remove the old field to prevent re-migration
+                delete newInv.amount;
                 return newInv;
               }
               return inv;
             });
-            // --- END MIGRATION LOGIC ---
 
             setBorrowers(parsed.borrowers);
-            setInvestors(migratedInvestors); // Use the migrated data
+            setInvestors(migratedInvestors);
             setUsers(parsed.users);
             setSupportTickets(
               parsed.supportTickets || initialData.supportTickets
@@ -479,40 +477,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
           };
 
           if (updatedBorrower.fundedBy && updatedBorrower.amount > 0) {
-            const installmentTotalInterest =
-              updatedBorrower.rate && updatedBorrower.term
-                ? updatedBorrower.amount *
-                  (updatedBorrower.rate / 100) *
-                  updatedBorrower.term
-                : 0;
-            const graceTotalProfit =
-              updatedBorrower.amount * (graceTotalProfitPercentage / 100);
-            const totalProfit =
-              updatedBorrower.loanType === 'اقساط'
-                ? installmentTotalInterest
-                : graceTotalProfit;
-
+            
             const investorUpdates = new Map<
               string,
               { amountToAdd: number; principal: number; profit: number }
             >();
 
             updatedBorrower.fundedBy.forEach((funder) => {
-              const principalReturn = funder.amount;
-              const loanShare = funder.amount / updatedBorrower.amount;
-              const investorProfitShare =
-                updatedBorrower.loanType === 'اقساط'
-                  ? totalProfit * (investorSharePercentage / 100) * loanShare
-                  : totalProfit * (graceInvestorSharePercentage / 100) * loanShare;
+              const investorDetails = investors.find(i => i.id === funder.investorId);
+              if (!investorDetails) return;
 
+              const principalReturn = funder.amount;
+              let profit = 0;
+
+              if(borrowerToUpdate.loanType === 'اقساط' && borrowerToUpdate.rate && borrowerToUpdate.term) {
+                const profitShare = investorDetails.installmentProfitShare ?? investorSharePercentage;
+                const interestOnFundedAmount = funder.amount * (borrowerToUpdate.rate / 100) * borrowerToUpdate.term;
+                profit = interestOnFundedAmount * (profitShare / 100);
+              } else if (borrowerToUpdate.loanType === 'مهلة') {
+                const profitShare = investorDetails.gracePeriodProfitShare ?? graceInvestorSharePercentage;
+                const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
+                profit = totalProfitOnFundedAmount * (profitShare / 100);
+              }
+              
               const currentUpdate = investorUpdates.get(funder.investorId) || {
                 amountToAdd: 0,
                 principal: 0,
                 profit: 0,
               };
-              currentUpdate.amountToAdd += principalReturn + investorProfitShare;
+              currentUpdate.amountToAdd += principalReturn + profit;
               currentUpdate.principal += principalReturn;
-              currentUpdate.profit += investorProfitShare;
+              currentUpdate.profit += profit;
               investorUpdates.set(funder.investorId, currentUpdate);
 
               notificationsToQueue.push({
@@ -638,6 +633,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [
       addNotification,
       toast,
+      investors,
       graceTotalProfitPercentage,
       investorSharePercentage,
       graceInvestorSharePercentage,
@@ -932,6 +928,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           fundedLoanIds: [],
           submittedBy: loggedInUser.id,
           isNotified: false,
+          installmentProfitShare: investorPayload.installmentProfitShare,
+          gracePeriodProfitShare: investorPayload.gracePeriodProfitShare,
         };
 
         setUsers((prev) => [...prev, newInvestorUser]);
@@ -961,6 +959,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           fundedLoanIds: [],
           submittedBy: loggedInUser.id,
           isNotified: false,
+          installmentProfitShare: investorPayload.installmentProfitShare,
+          gracePeriodProfitShare: investorPayload.gracePeriodProfitShare,
         };
 
         setInvestors((prev) => [...prev, newEntry]);

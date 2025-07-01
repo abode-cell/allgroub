@@ -88,7 +88,9 @@ export function InvestorsTable({
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
   const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
 
-  const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(null);
+  const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(
+    null
+  );
   const [smsMessage, setSmsMessage] = useState('');
   const [withdrawal, setWithdrawal] = useState<{
     amount: string;
@@ -196,7 +198,7 @@ export function InvestorsTable({
     setSelectedInvestor(null);
   }
 
-  const canEdit = role === 'مدير المكتب';
+  const canEdit = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
   const canApprove = role === 'مدير المكتب';
   const canWithdraw = role === 'مدير المكتب' || role === 'مستثمر';
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
@@ -363,6 +365,32 @@ export function InvestorsTable({
                   className="col-span-3"
                 />
               </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="installmentProfitShare-edit" className="text-right">
+                        ربح الأقساط (%)
+                    </Label>
+                    <Input
+                        id="installmentProfitShare"
+                        type="number"
+                        step="0.1"
+                        value={selectedInvestor.installmentProfitShare ?? ''}
+                        onChange={(e) => setSelectedInvestor(prev => prev ? { ...prev, installmentProfitShare: Number(e.target.value) } : null)}
+                        className="col-span-3"
+                    />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="gracePeriodProfitShare-edit" className="text-right">
+                        ربح المهلة (%)
+                    </Label>
+                    <Input
+                        id="gracePeriodProfitShare"
+                        type="number"
+                        step="0.1"
+                        value={selectedInvestor.gracePeriodProfitShare ?? ''}
+                        onChange={(e) => setSelectedInvestor(prev => prev ? { ...prev, gracePeriodProfitShare: Number(e.target.value) } : null)}
+                        className="col-span-3"
+                    />
+                </div>
             </div>
           )}
           <DialogFooter>
@@ -421,6 +449,14 @@ export function InvestorsTable({
                         <div>
                             <span className='text-muted-foreground'>الأموال المتعثرة:</span>
                             <span className='font-bold text-base float-left text-destructive'>{hideFunds ? '*****' : formatCurrency(defaultedFunds)}</span>
+                        </div>
+                         <div>
+                            <span className='text-muted-foreground'>حصة ربح الأقساط:</span>
+                            <span className='font-bold text-base float-left'>{selectedInvestor.installmentProfitShare ?? 0}%</span>
+                        </div>
+                        <div>
+                            <span className='text-muted-foreground'>حصة ربح المهلة:</span>
+                            <span className='font-bold text-base float-left'>{selectedInvestor.gracePeriodProfitShare ?? 0}%</span>
                         </div>
                     </div>
                 </div>
