@@ -27,10 +27,9 @@ export function InvestorDashboard() {
     defaultedFunds,
     activeInvestment,
     idleFunds,
-    totalProfits,
   } = useMemo(() => {
       if (!investor) {
-          return { totalInvestment: 0, defaultedFunds: 0, activeInvestment: 0, idleFunds: 0, totalProfits: 0 };
+          return { totalInvestment: 0, defaultedFunds: 0, activeInvestment: 0, idleFunds: 0 };
       }
       const totalInvestment = investor.transactionHistory
         .filter(tx => tx.type === 'إيداع رأس المال')
@@ -49,27 +48,34 @@ export function InvestorDashboard() {
 
       const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
       
-      const totalProfits = myFundedLoans
-        .filter(b => (b.status !== 'معلق' && b.status !== 'مرفوض'))
-        .reduce((sum, loan) => {
-          const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
-          if (!fundingDetails) return sum;
+      return { totalInvestment, defaultedFunds, activeInvestment, idleFunds };
+  }, [investor, borrowers]);
 
-          let profitForInvestor = 0;
-          if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
-              const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
-              const interestOnFundedAmount = fundingDetails.amount * (loan.rate / 100) * loan.term;
-              profitForInvestor = interestOnFundedAmount * (profitShare / 100);
-          } else if (loan.loanType === 'مهلة') {
-              const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
-              const totalProfitOnFundedAmount = fundingDetails.amount * (graceTotalProfitPercentage / 100);
-              profitForInvestor = totalProfitOnFundedAmount * (profitShare / 100);
-          }
+  const totalProfits = useMemo(() => {
+    if (!investor) return 0;
 
-          return sum + profitForInvestor;
-        }, 0);
+    const myFundedLoans = borrowers.filter(b => 
+      b.fundedBy?.some(f => f.investorId === investor.id) &&
+      (b.status !== 'معلق' && b.status !== 'مرفوض')
+    );
       
-      return { totalInvestment, defaultedFunds, activeInvestment, idleFunds, totalProfits };
+    return myFundedLoans.reduce((sum, loan) => {
+        const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
+        if (!fundingDetails) return sum;
+
+        let profitForInvestor = 0;
+        if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
+            const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
+            const interestOnFundedAmount = fundingDetails.amount * (loan.rate / 100) * loan.term;
+            profitForInvestor = interestOnFundedAmount * (profitShare / 100);
+        } else if (loan.loanType === 'مهلة') {
+            const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
+            const totalProfitOnFundedAmount = fundingDetails.amount * (graceTotalProfitPercentage / 100);
+            profitForInvestor = totalProfitOnFundedAmount * (profitShare / 100);
+        }
+
+        return sum + profitForInvestor;
+    }, 0);
   }, [investor, borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
 

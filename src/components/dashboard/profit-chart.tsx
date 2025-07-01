@@ -39,7 +39,7 @@ export function ProfitChart() {
 
     const myFundedLoans = borrowers.filter(b => 
       b.fundedBy?.some(f => f.investorId === currentUser.id) &&
-      (b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل')
+      (b.status !== 'معلق' && b.status !== 'مرفوض')
     );
 
     myFundedLoans.forEach(loan => {
@@ -49,19 +49,19 @@ export function ProfitChart() {
       const fundingDetails = loan.fundedBy?.find(f => f.investorId === currentUser.id);
       if (!fundingDetails) return;
       
-      let profit = 0;
+      let profitForInvestor = 0;
       if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
           const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
           const interestOnFundedAmount = fundingDetails.amount * (loan.rate / 100) * loan.term;
-          profit = interestOnFundedAmount * (profitShare / 100);
+          profitForInvestor = interestOnFundedAmount * (profitShare / 100);
       } else if (loan.loanType === 'مهلة') {
           const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
           const totalProfitOnFundedAmount = fundingDetails.amount * (graceTotalProfitPercentage / 100);
-          profit = totalProfitOnFundedAmount * (profitShare / 100);
+          profitForInvestor = totalProfitOnFundedAmount * (profitShare / 100);
       }
       
-      if (profit > 0) {
-        monthlyProfits[monthKey] = (monthlyProfits[monthKey] || 0) + profit;
+      if (profitForInvestor > 0) {
+        monthlyProfits[monthKey] = (monthlyProfits[monthKey] || 0) + profitForInvestor;
       }
     });
 
