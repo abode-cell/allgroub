@@ -184,8 +184,11 @@ export function BorrowersTable({
     const numberOfPayments = borrower.term * 12;
 
     if (numberOfPayments <= 0) return [];
-    
+
     const monthlyPayment = totalPayment / numberOfPayments;
+    const principalPerMonth = principal / numberOfPayments;
+    const interestPerMonth = totalInterest / numberOfPayments;
+    
     let balance = totalPayment;
     const schedule: Payment[] = [];
 
@@ -194,8 +197,8 @@ export function BorrowersTable({
         schedule.push({
             month: i,
             payment: monthlyPayment,
-            principal: 0, // Simplified for this view
-            interest: 0, // Simplified for this view
+            principal: principalPerMonth,
+            interest: interestPerMonth,
             balance: balance > 0 ? balance : 0,
         });
     }
@@ -580,7 +583,7 @@ export function BorrowersTable({
         open={isScheduleDialogOpen}
         onOpenChange={setIsScheduleDialogOpen}
       >
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>جدول السداد لـ {selectedBorrower?.name}</DialogTitle>
             <DialogDescription>
@@ -593,6 +596,8 @@ export function BorrowersTable({
                 <TableRow>
                   <TableHead>الشهر</TableHead>
                   <TableHead>القسط الشهري</TableHead>
+                  <TableHead>الأصل</TableHead>
+                  <TableHead>الفائدة</TableHead>
                   <TableHead>الرصيد المتبقي</TableHead>
                 </TableRow>
               </TableHeader>
@@ -602,7 +607,9 @@ export function BorrowersTable({
                     <TableRow key={payment.month}>
                       <TableCell>{payment.month}</TableCell>
                       <TableCell>{formatCurrency(payment.payment)}</TableCell>
-                      <TableCell>{formatCurrency(payment.balance)}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatCurrency(payment.principal)}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatCurrency(payment.interest)}</TableCell>
+                      <TableCell className="font-semibold">{formatCurrency(payment.balance)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -680,16 +687,38 @@ export function BorrowersTable({
                 </div>
                 
                 {selectedBorrower.loanType === 'اقساط' && (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
-                      <div>
-                          <span className='text-muted-foreground'>نسبة الفائدة:</span>
-                          <span className='font-bold float-left'>{selectedBorrower.rate}%</span>
+                  (() => {
+                    const principal = selectedBorrower.amount;
+                    const rate = selectedBorrower.rate || 0;
+                    const term = selectedBorrower.term || 0;
+
+                    if (term === 0) return null;
+
+                    const totalInterest = principal * (rate / 100) * term;
+                    const totalPayment = principal + totalInterest;
+                    const monthlyPayment = totalPayment / (term * 12);
+                    
+                    return (
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                          <div>
+                              <span className='text-muted-foreground'>نسبة الفائدة:</span>
+                              <span className='font-bold float-left'>{rate}%</span>
+                          </div>
+                          <div>
+                              <span className='text-muted-foreground'>المدة (سنوات):</span>
+                              <span className='font-bold float-left'>{term}</span>
+                          </div>
+                           <div>
+                              <span className='text-muted-foreground'>القسط الشهري:</span>
+                              <span className='font-bold float-left text-primary'>{formatCurrency(monthlyPayment)}</span>
+                          </div>
+                           <div>
+                              <span className='text-muted-foreground'>الإجمالي مع الفوائد:</span>
+                              <span className='font-bold float-left'>{formatCurrency(totalPayment)}</span>
+                          </div>
                       </div>
-                      <div>
-                          <span className='text-muted-foreground'>المدة (سنوات):</span>
-                          <span className='font-bold float-left'>{selectedBorrower.term}</span>
-                      </div>
-                  </div>
+                    )
+                  })()
                 )}
 
                 {selectedBorrower.loanType === 'مهلة' && (
