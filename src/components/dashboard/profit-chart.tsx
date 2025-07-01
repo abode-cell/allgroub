@@ -1,3 +1,4 @@
+
 'use client';
 
 import { TrendingUp } from 'lucide-react';
@@ -26,10 +27,13 @@ const chartConfig = {
 };
 
 export function ProfitChart() {
-  const { currentUser, borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
+  const { currentUser, borrowers, investors, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
 
   const chartData = useMemo(() => {
     if (!currentUser || currentUser.role !== 'مستثمر') return [];
+
+    const investor = investors.find(i => i.id === currentUser.id);
+    if (!investor) return [];
     
     const monthlyProfits: { [key: string]: number } = {};
 
@@ -46,19 +50,14 @@ export function ProfitChart() {
       if (!fundingDetails) return;
       
       let profit = 0;
-      let loanTotalInvestorProfit = 0;
-
       if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
-        const totalInterest = loan.amount * (loan.rate / 100) * loan.term;
-        loanTotalInvestorProfit = totalInterest * (investorSharePercentage / 100);
+          const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
+          const interestOnFundedAmount = fundingDetails.amount * (loan.rate / 100) * loan.term;
+          profit = interestOnFundedAmount * (profitShare / 100);
       } else if (loan.loanType === 'مهلة') {
-        const totalProfit = loan.amount * (graceTotalProfitPercentage / 100);
-        loanTotalInvestorProfit = totalProfit * (graceInvestorSharePercentage / 100);
-      }
-      
-      if (loanTotalInvestorProfit > 0) {
-        const investorShareOfLoan = fundingDetails.amount / loan.amount;
-        profit = loanTotalInvestorProfit * investorShareOfLoan;
+          const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
+          const totalProfitOnFundedAmount = fundingDetails.amount * (graceTotalProfitPercentage / 100);
+          profit = totalProfitOnFundedAmount * (profitShare / 100);
       }
       
       if (profit > 0) {
@@ -74,7 +73,7 @@ export function ProfitChart() {
       profit: monthlyProfits[monthKey],
     }));
 
-  }, [currentUser, borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+  }, [currentUser, borrowers, investors, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
   return (
     <Card>

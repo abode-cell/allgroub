@@ -55,17 +55,18 @@ export function InvestorDashboard() {
           const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
           if (!fundingDetails) return sum;
 
-          let loanTotalProfit = 0;
+          let profitForInvestor = 0;
           if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
-              const totalInterest = loan.amount * (loan.rate / 100) * loan.term;
-              loanTotalProfit = totalInterest * (investorSharePercentage / 100);
+              const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
+              const interestOnFundedAmount = fundingDetails.amount * (loan.rate / 100) * loan.term;
+              profitForInvestor = interestOnFundedAmount * (profitShare / 100);
           } else if (loan.loanType === 'مهلة') {
-              const totalProfit = loan.amount * (graceTotalProfitPercentage / 100);
-              loanTotalProfit = totalProfit * (graceInvestorSharePercentage / 100);
+              const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
+              const totalProfitOnFundedAmount = fundingDetails.amount * (graceTotalProfitPercentage / 100);
+              profitForInvestor = totalProfitOnFundedAmount * (profitShare / 100);
           }
 
-          const myShareOfLoan = fundingDetails.amount / loan.amount;
-          return sum + (loanTotalProfit * myShareOfLoan);
+          return sum + profitForInvestor;
         }, 0);
       
       return { totalInvestment, defaultedFunds, activeInvestment, idleFunds, totalProfits };
