@@ -43,7 +43,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
+const InstallmentsDashboard = ({ borrowers, investors }: { borrowers: Borrower[], investors: Investor[] }) => {
   const { currentUser, investorSharePercentage } = useDataState();
   const role = currentUser?.role;
 
@@ -55,6 +55,7 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
     netProfit,
     totalInstitutionProfit,
     totalInvestorsProfit,
+    investorProfitsArray,
     dueDebts,
     profitableInstallmentLoans,
   } = useMemo(() => {
@@ -76,6 +77,35 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
     const totalInstitutionProfit = netProfit * ((100 - investorSharePercentage) / 100);
     const totalInvestorsProfit = netProfit * (investorSharePercentage / 100);
 
+    const investorProfits: { [investorId: string]: { name: string, profit: number } } = {};
+    profitableInstallmentLoans.forEach(loan => {
+        if (!loan.rate || !loan.term) return;
+        
+        const totalInterestOnLoan = loan.amount * (loan.rate / 100) * loan.term;
+        const totalInvestorShareAmountOnLoan = totalInterestOnLoan * (investorSharePercentage / 100);
+
+        if (loan.fundedBy && loan.fundedBy.length > 0) {
+            loan.fundedBy.forEach(funder => {
+            const funderShareRatio = funder.amount / loan.amount;
+            const funderProfit = totalInvestorShareAmountOnLoan * funderShareRatio;
+
+            if (!investorProfits[funder.investorId]) {
+                const investorDetails = investors.find(i => i.id === funder.investorId);
+                investorProfits[funder.investorId] = {
+                name: investorDetails ? investorDetails.name : 'مستثمر غير معروف',
+                profit: 0
+                };
+            }
+            investorProfits[funder.investorId].profit += funderProfit;
+            });
+        }
+    });
+
+    const investorProfitsArray = Object.entries(investorProfits).map(([id, data]) => ({
+      id,
+      ...data
+    }));
+
     const dueDebts = installmentLoans
       .filter(b => b.status === 'متأخر')
       .reduce((acc, b) => acc + b.amount, 0); 
@@ -88,10 +118,11 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
       netProfit,
       totalInstitutionProfit,
       totalInvestorsProfit,
+      investorProfitsArray,
       dueDebts,
       profitableInstallmentLoans,
     };
-  }, [borrowers, investorSharePercentage]);
+  }, [borrowers, investors, investorSharePercentage]);
 
   const showSensitiveData = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
@@ -167,9 +198,15 @@ const InstallmentsDashboard = ({ borrowers }: { borrowers: Borrower[] }) => {
                                         <TableCell className="font-medium">ربح المؤسسة</TableCell>
                                         <TableCell className="text-left font-semibold">{formatCurrency(totalInstitutionProfit)}</TableCell>
                                     </TableRow>
-                                    <TableRow>
-                                        <TableCell className="font-medium">ربح المستثمرين</TableCell>
-                                        <TableCell className="text-left font-semibold">{formatCurrency(totalInvestorsProfit)}</TableCell>
+                                    {investorProfitsArray.map(inv => (
+                                        <TableRow key={inv.id}>
+                                            <TableCell>{inv.name}</TableCell>
+                                            <TableCell className="text-left font-semibold">{formatCurrency(inv.profit)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="border-t-2 border-dashed bg-muted/50">
+                                        <TableCell className="font-bold">إجمالي أرباح المستثمرين</TableCell>
+                                        <TableCell className="text-left font-bold">{formatCurrency(totalInvestorsProfit)}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
@@ -718,7 +755,7 @@ export default function DashboardPage() {
                 <TabsTrigger value="grace-period">قروض المهلة</TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-6">
-                <InstallmentsDashboard borrowers={filteredBorrowers} />
+                <InstallmentsDashboard borrowers={filteredBorrowers} investors={filteredInvestors} />
             </TabsContent>
             <TabsContent value="grace-period" className="mt-6">
                 <GracePeriodDashboard borrowers={filteredBorrowers} investors={filteredInvestors} />
