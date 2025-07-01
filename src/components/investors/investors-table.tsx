@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, MessageSquareCheck } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -239,7 +239,7 @@ export function InvestorsTable({
                             <TooltipProvider>
                                 <Tooltip>
                                 <TooltipTrigger>
-                                    <MessageSquareCheck className="h-5 w-5 text-green-600" />
+                                    <CheckCircle className="h-5 w-5 text-green-600" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                     <p>تم تبليغ المستثمر</p>

@@ -18,7 +18,6 @@ import {
   MessageSquareText,
   CheckCircle,
   Users,
-  MessageSquareCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -300,7 +299,7 @@ export function BorrowersTable({
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger>
-                                <MessageSquareCheck className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-5 w-5 text-green-600" />
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>تم تبليغ العميل</p>
