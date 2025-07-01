@@ -37,7 +37,7 @@ export default function LandingPage() {
                 <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
                     <Logo />
                     <nav className="hidden md:flex gap-6 items-center text-lg font-medium">
-                        <a href="#services" className="transition-colors hover:text-primary">الخدمات</a>
+                        <a href="#services" className="transition-colors hover:text-primary">آلية العمل</a>
                         <a href="#for-managers" className="transition-colors hover:text-primary">للمكاتب</a>
                         <a href="#for-investors" className="transition-colors hover:text-primary">للمستثمرين</a>
                         <a href="#contact" className="transition-colors hover:text-primary">تواصل معنا</a>
@@ -63,11 +63,11 @@ export default function LandingPage() {
                                 مجموعة عال: حيث تلتقي الفرص برأس المال
                             </h1>
                             <p className="max-w-[700px] text-muted-foreground md:text-xl">
-                                منصة تمويل متكاملة تربط مدراء المكاتب الباحثين عن سيولة مع المستثمرين الطموحين، لخلق منظومة نمو مشتركة وفعّالة.
+                                منصة تمويل متكاملة هي الجسر الذي يربط بين مدراء المكاتب الباحثين عن سيولة والمستثمرين الطموحين، لخلق منظومة نمو مشتركة وفعّالة.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Button asChild size="lg">
-                                    <Link href="/signup">ابحث عن تمويل لمكتبك</Link>
+                                    <Link href="/signup">اطلب تمويل لمكتبك</Link>
                                 </Button>
                                 <Button asChild size="lg" variant="secondary">
                                     <Link href="/signup">ابدأ الاستثمار الآن</Link>
@@ -81,10 +81,10 @@ export default function LandingPage() {
                 <section id="services" className="w-full py-12 md:py-24">
                     <div className="container mx-auto px-4 md:px-6">
                         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
-                            <div className="inline-block rounded-lg bg-secondary px-3 py-1 text-sm">كيف نعمل</div>
-                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">منظومة تمويل مبسطة وفعّالة</h2>
+                            <div className="inline-block rounded-lg bg-secondary px-3 py-1 text-sm">آلية العمل</div>
+                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">كيف نربط بين الطموح ورأس المال</h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-lg/relaxed lg:text-base/relaxed xl:text-lg/relaxed">
-                                نسهّل عملية الربط بين الفرص التمويلية ورأس المال عبر ثلاث خطوات بسيطة.
+                                نحن لا نمول المشاريع مباشرة، بل نوفر البيئة التكنولوجية الآمنة التي تجمع الطرفين وتضمن سير العملية بسلاسة وشفافية.
                             </p>
                         </div>
                         <div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-3 md:gap-12">
@@ -101,9 +101,9 @@ export default function LandingPage() {
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <Handshake className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">2. التمويل</h3>
+                                <h3 className="text-xl font-bold">2. الربط والتمويل</h3>
                                 <p className="text-muted-foreground">
-                                    يستعرض المستثمرون الفرص المتاحة ويقومون بتمويل المشاريع التي تتوافق مع أهدافهم الاستثمارية.
+                                    تُعرض الفرصة على شبكة المستثمرين لدينا، الذين يقومون بتمويل المشاريع التي تتوافق مع أهدافهم الاستثمارية.
                                 </p>
                             </div>
                             <div className="grid gap-2 text-center">
@@ -126,7 +126,7 @@ export default function LandingPage() {
                             <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">لأصحاب المكاتب</div>
                             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">تمويل يواكب طموحاتك</h2>
                             <p className="text-muted-foreground md:text-lg">
-                                احصل على السيولة التي تحتاجها لتنمية أعمالك وتوسيع نطاقها بكل سهولة ويسر.
+                                بدلاً من البحث التقليدي عن ممولين، منصتنا تضع طلبك أمام شبكة من المستثمرين الجادين مباشرة.
                             </p>
                              <ul className="grid gap-4 text-lg">
                                 <li className="flex items-start gap-3">
@@ -147,12 +147,12 @@ export default function LandingPage() {
                             <div className="inline-block rounded-lg bg-accent px-3 py-1 text-sm text-accent-foreground">للمستثمرين</div>
                              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">استثمار ذكي بعوائد مجدية</h2>
                              <p className="text-muted-foreground md:text-lg">
-                                استثمر أموالك في فرص تمويلية واعدة وحقق عوائد مالية مستقرة.
+                                تصلك فرص استثمارية مدروسة ومقدمة من مكاتب تم التحقق منها، مما يقلل المخاطر ويزيد من فرص تحقيق العوائد.
                             </p>
                              <ul className="grid gap-4 text-lg">
                                 <li className="flex items-start gap-3">
                                     <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                                    <span>فرص استثمارية متنوعة في قطاعات مختلفة.</span>
+                                    <span>فرص استثمارية واضحة ومقدمة من مكاتب عاملة.</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <CheckCircle className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
