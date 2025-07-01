@@ -9,13 +9,17 @@ import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { useDataState } from '@/contexts/data-context';
+import type { Borrower, Investor } from '@/lib/types';
 
-export function DailySummary() {
+export function DailySummary({ borrowers: propsBorrowers, investors: propsInvestors }: { borrowers?: Borrower[], investors?: Investor[]}) {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const { currentUser, borrowers, investors, users } = useDataState();
+  const { currentUser, borrowers: allBorrowers, investors: allInvestors, users } = useDataState();
   const role = currentUser?.role;
+
+  const borrowers = propsBorrowers ?? allBorrowers;
+  const investors = propsInvestors ?? allInvestors;
 
   const fetchSummary = useCallback(() => {
     if (!currentUser) return;

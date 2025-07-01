@@ -1,3 +1,4 @@
+
 'use client';
 
 import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle } from 'lucide-react';
@@ -12,7 +13,7 @@ import { DailySummary } from '@/components/dashboard/daily-summary';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Accordion,
@@ -49,7 +50,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const InstallmentsDashboard = ({ metrics, showSensitiveData }: { metrics: DashboardMetricsOutput['installments'], showSensitiveData: boolean }) => {
+const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investors }: { metrics: DashboardMetricsOutput['installments'], showSensitiveData: boolean, borrowers: Borrower[], investors: Investor[] }) => {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -145,7 +146,7 @@ const InstallmentsDashboard = ({ metrics, showSensitiveData }: { metrics: Dashbo
       </div>
 
       <div>
-        <RecentTransactions />
+        <RecentTransactions borrowers={borrowers} investors={investors} />
       </div>
 
       {showSensitiveData && (
@@ -185,7 +186,7 @@ const InstallmentsDashboard = ({ metrics, showSensitiveData }: { metrics: Dashbo
 };
 
 
-const GracePeriodDashboard = ({ metrics, showSensitiveData, config }: { metrics: DashboardMetricsOutput['gracePeriod'], showSensitiveData: boolean, config: any }) => {
+const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, investors }: { metrics: DashboardMetricsOutput['gracePeriod'], showSensitiveData: boolean, config: any, borrowers: Borrower[], investors: Investor[] }) => {
     return (
         <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -278,7 +279,7 @@ const GracePeriodDashboard = ({ metrics, showSensitiveData, config }: { metrics:
             </div>
 
             <div>
-              <RecentTransactions />
+              <RecentTransactions borrowers={borrowers} investors={investors} />
             </div>
 
             {showSensitiveData && (
@@ -480,6 +481,25 @@ export default function DashboardPage() {
   const [isPending, startTransition] = useTransition();
   const [metrics, setMetrics] = useState<DashboardMetricsOutput | null>(null);
 
+  const { filteredBorrowers, filteredInvestors } = useMemo(() => {
+    if (!currentUser) return { filteredBorrowers: [], filteredInvestors: [] };
+    const { role } = currentUser;
+
+    if (role === 'مدير النظام' || role === 'مستثمر') {
+        return { filteredBorrowers: borrowers, filteredInvestors: investors };
+    }
+
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+
+    const fBorrowers = borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
+    const fInvestors = investors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+
+    return { filteredBorrowers: fBorrowers, filteredInvestors: fInvestors };
+  }, [currentUser, users, borrowers, investors]);
+
+
   useEffect(() => {
     if (currentUser) {
       startTransition(async () => {
@@ -556,7 +576,7 @@ export default function DashboardPage() {
             </div>
         )}
 
-        {showSensitiveData && <DailySummary />}
+        {showSensitiveData && <DailySummary borrowers={filteredBorrowers} investors={filteredInvestors} />}
         
         {showIdleFundsReport && <IdleFundsCard metrics={metrics.idleFunds} />}
 
@@ -566,13 +586,15 @@ export default function DashboardPage() {
                 <TabsTrigger value="grace-period">قروض المهلة</TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-6">
-                <InstallmentsDashboard metrics={metrics.installments} showSensitiveData={showSensitiveData} />
+                <InstallmentsDashboard metrics={metrics.installments} showSensitiveData={showSensitiveData} borrowers={filteredBorrowers} investors={filteredInvestors} />
             </TabsContent>
             <TabsContent value="grace-period" className="mt-6">
                 <GracePeriodDashboard 
                   metrics={metrics.gracePeriod} 
                   showSensitiveData={showSensitiveData} 
                   config={{ graceTotalProfitPercentage }} 
+                  borrowers={filteredBorrowers} 
+                  investors={filteredInvestors}
                 />
             </TabsContent>
         </Tabs>
