@@ -90,6 +90,7 @@ export type Transaction = {
   amount: number;
   description: string;
   withdrawalMethod?: WithdrawalMethod;
+  withdrawalSource?: 'installment' | 'grace'; // To specify which capital pool was used
 };
 
 export type Investor = {
@@ -146,6 +147,7 @@ export type NewInvestorPayload = {
     investmentType: Investor['investmentType'];
     capital: number;
     email: string;
+    phone: string;
     password: string;
     installmentProfitShare: number;
     gracePeriodProfitShare: number;

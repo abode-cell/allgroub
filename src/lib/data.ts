@@ -2,11 +2,11 @@ import type { Borrower, Investor, User, SupportTicket, Notification } from '@/li
 
 export const usersData: User[] = [
   { id: '1', name: 'مدير النظام', email: 'admin@example.com', role: 'مدير النظام', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000001', registrationDate: '2023-01-10T10:00:00.000Z', allowEmployeeSubmissions: true, permissions: {}, defaultTrialPeriodDays: 14 },
-  { id: '2', name: 'مدير المكتب', email: 'manager@example.com', role: 'مدير المكتب', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000002', registrationDate: '2023-01-12T11:00:00.000Z', investorLimit: 10, employeeLimit: 5, assistantLimit: 2, allowEmployeeSubmissions: true, hideEmployeeInvestorFunds: false, permissions: {} },
+  { id: '2', name: 'مدير المكتب', email: 'manager@example.com', role: 'مدير المكتب', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000002', registrationDate: '2023-01-12T11:00:00.000Z', investorLimit: 10, employeeLimit: 5, assistantLimit: 2, allowEmployeeSubmissions: true, hideEmployeeInvestorFunds: false, allowEmployeeLoanEdits: true, permissions: {} },
   { id: '3', name: 'أحمد الموظف', email: 'employee@example.com', role: 'موظف', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000003', managedBy: '2', registrationDate: '2023-01-13T09:00:00.000Z', permissions: {} },
   { id: '4', name: 'خالد المستثمر', email: 'investor@example.com', role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000004', registrationDate: '2023-02-05T10:00:00.000Z', permissions: {} },
   { id: '5', name: 'علي مستخدم معلق', email: 'pending@example.com', role: 'موظف', status: 'معلق', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000005', managedBy: '2', registrationDate: '2024-05-20T09:30:00.000Z', permissions: {} },
-  { id: '6', name: 'مساعد المدير', email: 'assistant@example.com', role: 'مساعد مدير المكتب', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000006', managedBy: '2', registrationDate: '2024-06-01T10:30:00.000Z', permissions: { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false } },
+  { id: '6', name: 'مساعد المدير', email: 'assistant@example.com', role: 'مساعد مدير المكتب', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000006', managedBy: '2', registrationDate: '2024-06-01T10:30:00.000Z', permissions: { manageInvestors: true, manageBorrowers: true, importData: true, viewReports: true, manageRequests: true, useCalculator: true, accessSettings: true, manageEmployeePermissions: true, viewIdleFundsReport: true, allowEmployeeLoanEdits: true } },
   { id: 'inv-4', name: 'محفظة الأصول الجديدة', email: 'assets@example.com', role: 'مستثمر', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000007', managedBy: '2', registrationDate: '2024-03-15T10:00:00.000Z', permissions: {} },
 ];
 
@@ -129,7 +129,7 @@ export const borrowersData: Borrower[] = [
     loanType: 'اقساط',
     status: 'متأخر',
     dueDate: '2030-04-10',
-    fundedBy: [{ investorId: 'inv-4', amount: 200000 }],
+    fundedBy: [{ investorId: '4', amount: 200000 }],
     paymentStatus: 'تم الإمهال',
     isNotified: true,
   },

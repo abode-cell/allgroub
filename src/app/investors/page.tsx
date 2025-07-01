@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -68,7 +69,10 @@ export default function InvestorsPage() {
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
     const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
     relevantUserIds.add(currentUser.id);
-    return allInvestors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+    return allInvestors.filter(i => {
+      const investorUser = users.find(u => u.id === i.id);
+      return investorUser?.managedBy && relevantUserIds.has(investorUser.managedBy);
+    });
   }, [currentUser, allInvestors, users, role]);
 
 
@@ -77,6 +81,7 @@ export default function InvestorsPage() {
     name: string;
     capital: string;
     email: string;
+    phone: string;
     password: string;
     investmentType: 'اقساط' | 'مهلة';
     installmentProfitShare: string;
@@ -85,6 +90,7 @@ export default function InvestorsPage() {
     name: '',
     capital: '',
     email: '',
+    phone: '',
     password: '',
     investmentType: 'اقساط',
     installmentProfitShare: String(investorSharePercentage),
@@ -98,18 +104,19 @@ export default function InvestorsPage() {
   const isOfficeManager = role === 'مدير المكتب';
   const isAssistant = role === 'مساعد مدير المكتب';
 
-  const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
-  const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : false;
-  const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
+  const manager = isEmployee || isAssistant ? users.find((u) => u.id === currentUser?.managedBy) : currentUser;
+  const isDirectAdditionEnabled = isEmployee ? manager?.allowEmployeeSubmissions ?? false : true; // Assistants and Managers always add directly
+  const hideInvestorFunds = isEmployee ? manager?.hideEmployeeInvestorFunds ?? false : false;
 
-  const investorsAddedByManager = isOfficeManager
-    ? investors.filter((i) => i.submittedBy === currentUser?.id).length
-    : 0;
+  const investorsAddedByManager = useMemo(() => {
+    if (!manager) return 0;
+    return investors.filter(i => {
+      const investorUser = users.find(u => u.id === i.id);
+      return investorUser?.managedBy === manager.id;
+    }).length;
+  }, [investors, users, manager]);
 
-  const canAddMoreInvestors =
-    isOfficeManager && currentUser
-      ? investorsAddedByManager < (currentUser.investorLimit ?? 0)
-      : !isOfficeManager;
+  const canAddMoreInvestors = manager ? investorsAddedByManager < (manager.investorLimit ?? 0) : false;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -118,36 +125,23 @@ export default function InvestorsPage() {
 
   const handleAddInvestor = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newInvestor.name || !newInvestor.capital) {
+    if (!newInvestor.name || !newInvestor.capital || !newInvestor.email || !newInvestor.password || !newInvestor.phone) {
+      toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء تعبئة جميع الحقول.' });
+      return;
+    }
+    if (newInvestor.password.length < 6) {
+      toast({ variant: 'destructive', title: 'خطأ', description: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' });
       return;
     }
 
-    if (isOfficeManager || (isAssistant && currentUser?.permissions?.manageInvestors)) {
-      if (!newInvestor.email || !newInvestor.password) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر.',
-        });
-        return;
-      }
-      if (newInvestor.password.length < 6) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.',
-        });
-        return;
-      }
-    }
-
-    const status: Investor['status'] = ((isEmployee || isAssistant) && !isDirectAdditionEnabled) ? 'معلق' : 'نشط';
+    const status: Investor['status'] = !isDirectAdditionEnabled ? 'معلق' : 'نشط';
 
     const payload: NewInvestorPayload = {
       name: newInvestor.name,
       capital: Number(newInvestor.capital),
       status: status,
       email: newInvestor.email,
+      phone: newInvestor.phone,
       password: newInvestor.password,
       investmentType: newInvestor.investmentType,
       installmentProfitShare: Number(newInvestor.installmentProfitShare),
@@ -156,7 +150,7 @@ export default function InvestorsPage() {
     
     addInvestor(payload);
     setIsAddDialogOpen(false);
-    setNewInvestor({ name: '', capital: '', email: '', password: '', investmentType: 'اقساط', installmentProfitShare: String(investorSharePercentage), gracePeriodProfitShare: String(graceInvestorSharePercentage) });
+    setNewInvestor({ name: '', capital: '', email: '', phone: '', password: '', investmentType: 'اقساط', installmentProfitShare: String(investorSharePercentage), gracePeriodProfitShare: String(graceInvestorSharePercentage) });
   };
 
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
@@ -174,29 +168,21 @@ export default function InvestorsPage() {
   };
 
   const getDialogDescription = () => {
-    if (isOfficeManager || (isAssistant && currentUser?.permissions?.manageInvestors)) {
-      return 'أدخل بيانات المستثمر لإنشاء حساب له. سيتمكن من تسجيل الدخول مباشرة.';
-    }
-    if (isEmployee) {
-      return isDirectAdditionEnabled
-        ? 'أدخل تفاصيل المستثمر الجديد لإضافته مباشرة إلى النظام.'
-        : 'أدخل تفاصيل المستثمر الجديد وسيتم مراجعة الطلب من قبل مديرك.';
-    }
-    return 'أدخل تفاصيل المستثمر الجديد هنا. انقر على حفظ عند الانتهاء.';
+    return 'أدخل بيانات المستثمر لإنشاء حساب له. سيتمكن من تسجيل الدخول مباشرة بعد الموافقة (إذا لزم الأمر).';
   };
 
   const getSubmitButtonText = () => {
-    if (isEmployee || isAssistant) {
-      return isDirectAdditionEnabled ? 'حفظ' : 'إرسال الطلب';
+    if (isEmployee) {
+      return isDirectAdditionEnabled ? 'حفظ وإضافة' : 'إرسال الطلب للمراجعة';
     }
-    return 'حفظ';
+    return 'حفظ وإنشاء الحساب';
   };
 
 
   const AddButton = (
     <Button disabled={isAddButtonDisabled}>
       <PlusCircle className="ml-2 h-4 w-4" />
-      {isEmployee || isAssistant ? (isDirectAdditionEnabled ? 'إضافة مستثمر' : 'رفع طلب إضافة مستثمر') : 'إضافة مستثمر'}
+      {isEmployee ? (isDirectAdditionEnabled ? 'إضافة مستثمر' : 'رفع طلب إضافة مستثمر') : 'إضافة مستثمر'}
     </Button>
   );
 
@@ -209,10 +195,10 @@ export default function InvestorsPage() {
               إدارة المستثمرين
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isOfficeManager && currentUser
+              {isOfficeManager && manager
                 ? `يمكنك إضافة ${Math.max(
                     0,
-                    (currentUser.investorLimit ?? 0) - investorsAddedByManager
+                    (manager.investorLimit ?? 0) - investorsAddedByManager
                   )} مستثمرين آخرين.`
                 : 'عرض وإدارة قائمة المستثمرين في المنصة.'}
             </p>
@@ -289,68 +275,78 @@ export default function InvestorsPage() {
                         required
                       />
                     </div>
-                    {(isOfficeManager || (isAssistant && currentUser?.permissions?.manageInvestors)) && (
-                      <>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="email" className="text-right">
-                            البريد الإلكتروني
-                          </Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="بريد الدخول للمستثمر"
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="email" className="text-right">
+                        البريد الإلكتروني
+                        </Label>
+                        <Input
+                        id="email"
+                        type="email"
+                        placeholder="بريد الدخول للمستثمر"
+                        className="col-span-3"
+                        value={newInvestor.email}
+                        onChange={handleInputChange}
+                        required
+                        />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="phone" className="text-right">
+                        رقم الجوال
+                        </Label>
+                        <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="05xxxxxxxx"
+                        className="col-span-3"
+                        value={newInvestor.phone}
+                        onChange={handleInputChange}
+                        required
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="password" className="text-right">
+                        كلمة المرور
+                        </Label>
+                        <Input
+                        id="password"
+                        type="password"
+                        placeholder="كلمة مرور مؤقتة (6+ أحرف)"
+                        className="col-span-3"
+                        value={newInvestor.password}
+                        onChange={handleInputChange}
+                        required
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="installmentProfitShare" className="text-right">
+                            ربح الأقساط (%)
+                        </Label>
+                        <Input
+                            id="installmentProfitShare"
+                            type="number"
+                            step="0.1"
+                            placeholder="70"
                             className="col-span-3"
-                            value={newInvestor.email}
+                            value={newInvestor.installmentProfitShare}
                             onChange={handleInputChange}
                             required
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="password" className="text-right">
-                            كلمة المرور
-                          </Label>
-                          <Input
-                            id="password"
-                            type="password"
-                            placeholder="كلمة مرور مؤقتة"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="gracePeriodProfitShare" className="text-right">
+                            ربح المهلة (%)
+                        </Label>
+                        <Input
+                            id="gracePeriodProfitShare"
+                            type="number"
+                            step="0.1"
+                            placeholder="33.3"
                             className="col-span-3"
-                            value={newInvestor.password}
+                            value={newInvestor.gracePeriodProfitShare}
                             onChange={handleInputChange}
                             required
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="installmentProfitShare" className="text-right">
-                                ربح الأقساط (%)
-                            </Label>
-                            <Input
-                                id="installmentProfitShare"
-                                type="number"
-                                step="0.1"
-                                placeholder="70"
-                                className="col-span-3"
-                                value={newInvestor.installmentProfitShare}
-                                onChange={handleInputChange}
-                                required
-                            />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="gracePeriodProfitShare" className="text-right">
-                                ربح المهلة (%)
-                            </Label>
-                            <Input
-                                id="gracePeriodProfitShare"
-                                type="number"
-                                step="0.1"
-                                placeholder="33.3"
-                                className="col-span-3"
-                                value={newInvestor.gracePeriodProfitShare}
-                                onChange={handleInputChange}
-                                required
-                            />
-                        </div>
-                      </>
-                    )}
+                        />
+                    </div>
                   </div>
                   <DialogFooter>
                     <DialogClose asChild>

@@ -958,134 +958,89 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (investorPayload: NewInvestorPayload) => {
       const loggedInUser = users.find(u => u.id === userId);
       if (!loggedInUser) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: 'يجب تسجيل الدخول أولاً.',
-        });
+        toast({ variant: 'destructive', title: 'خطأ', description: 'يجب تسجيل الدخول أولاً.' });
         return;
       }
-
-      if (
-        loggedInUser.role === 'مدير المكتب' ||
-        (loggedInUser.role === 'مساعد مدير المكتب' &&
-          loggedInUser.permissions?.manageInvestors)
-      ) {
-        const managerId =
-          loggedInUser.role === 'مدير المكتب'
-            ? loggedInUser.id
-            : loggedInUser.managedBy;
-        const manager = users.find((u) => u.id === managerId);
-        const investorsAddedByManager = investors.filter(
-          (i) => i.submittedBy === managerId
-        ).length;
-
-        if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
-          toast({
-            variant: 'destructive',
-            title: 'تم الوصول للحد الأقصى',
-            description: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.',
-          });
-          return;
-        }
-        if (!investorPayload.email || !investorPayload.password) {
-          toast({
-            variant: 'destructive',
-            title: 'خطأ',
-            description:
-              'الرجاء إدخال البريد الإلكتروني وكلمة المرور للمستثمر الجديد.',
-          });
-          return;
-        }
-        if (users.some((u) => u.email === investorPayload.email)) {
-          toast({
-            variant: 'destructive',
-            title: 'خطأ',
-            description: 'البريد الإلكتروني مستخدم بالفعل.',
-          });
-          return;
-        }
-
-        const newId = `user_inv_${Date.now()}`;
-        const newInvestorUser: User = {
-          id: newId,
-          name: investorPayload.name,
-          email: investorPayload.email,
-          phone: '',
-          password: investorPayload.password,
-          role: 'مستثمر',
-          status: 'نشط',
-          photoURL: 'https://placehold.co/40x40.png',
-          registrationDate: new Date().toISOString(),
-          managedBy: managerId,
-        };
-        const newInvestorEntry: Investor = {
-          id: newId,
-          name: investorPayload.name,
-          investmentType: investorPayload.investmentType,
-          installmentCapital: investorPayload.investmentType === 'اقساط' ? investorPayload.capital : 0,
-          gracePeriodCapital: investorPayload.investmentType === 'مهلة' ? investorPayload.capital : 0,
-          status: 'نشط',
-          date: new Date().toISOString(),
-          transactionHistory: [
-            {
-              id: `t_${Date.now()}`,
-              date: new Date().toISOString(),
-              type: 'إيداع رأس المال',
-              amount: investorPayload.capital,
-              description: 'إيداع تأسيسي للحساب',
-            },
-          ],
-          defaultedFunds: 0,
-          fundedLoanIds: [],
-          submittedBy: loggedInUser.id,
-          isNotified: false,
-          installmentProfitShare: investorPayload.installmentProfitShare,
-          gracePeriodProfitShare: investorPayload.gracePeriodProfitShare,
-        };
-
-        setUsers((prev) => [...prev, newInvestorUser]);
-        setInvestors((prev) => [...prev, newInvestorEntry]);
-        toast({
-          title: 'تمت إضافة المستثمر والمستخدم المرتبط به بنجاح.',
-        });
-      } else {
-        const newEntry: Investor = {
-          id: `inv_${Date.now()}`,
-          name: investorPayload.name,
-          status: investorPayload.status,
-          investmentType: investorPayload.investmentType,
-          installmentCapital: investorPayload.investmentType === 'اقساط' ? investorPayload.capital : 0,
-          gracePeriodCapital: investorPayload.investmentType === 'مهلة' ? investorPayload.capital : 0,
-          date: new Date().toISOString(),
-          transactionHistory: [
-            {
-              id: `t_${Date.now()}`,
-              date: new Date().toISOString(),
-              type: 'إيداع رأس المال',
-              amount: investorPayload.capital,
-              description: 'إيداع تأسيسي للحساب',
-            },
-          ],
-          defaultedFunds: 0,
-          fundedLoanIds: [],
-          submittedBy: loggedInUser.id,
-          isNotified: false,
-          installmentProfitShare: investorPayload.installmentProfitShare,
-          gracePeriodProfitShare: investorPayload.gracePeriodProfitShare,
-        };
-
-        setInvestors((prev) => [...prev, newEntry]);
-
-        if (newEntry.status === 'معلق' && loggedInUser?.managedBy) {
-          addNotification({
-            recipientId: loggedInUser.managedBy,
-            title: 'طلب مستثمر جديد معلق',
-            description: `قدم الموظف "${loggedInUser.name}" طلبًا لإضافة المستثمر "${newEntry.name}".`,
-          });
-        }
-        toast({ title: 'تمت إضافة المستثمر بنجاح.' });
+    
+      // Unified Check for existing user by email
+      if (users.some((u) => u.email === investorPayload.email)) {
+        toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني مستخدم بالفعل.' });
+        return;
       }
+    
+      const managerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
+      const manager = users.find(u => u.id === managerId);
+    
+      // Check limits only if the user is a manager or assistant
+      if (loggedInUser.role === 'مدير المكتب' || loggedInUser.role === 'مساعد مدير المكتب') {
+        const investorsAddedByManager = investors.filter(i => {
+          const investorUser = users.find(u => u.id === i.id);
+          return investorUser?.managedBy === managerId;
+        }).length;
+    
+        if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
+          toast({ variant: 'destructive', title: 'تم الوصول للحد الأقصى', description: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' });
+          return;
+        }
+      }
+    
+      // Determine status based on role and permissions
+      const isDirectAdditionEnabled = manager?.allowEmployeeSubmissions ?? false;
+      const status: User['status'] = (loggedInUser.role === 'موظف' && !isDirectAdditionEnabled) ? 'معلق' : 'نشط';
+    
+      const newId = `user_inv_${Date.now()}`;
+    
+      // Create User object for the investor
+      const newInvestorUser: User = {
+        id: newId,
+        name: investorPayload.name,
+        email: investorPayload.email,
+        phone: investorPayload.phone,
+        password: investorPayload.password,
+        role: 'مستثمر',
+        status: status,
+        photoURL: 'https://placehold.co/40x40.png',
+        registrationDate: new Date().toISOString(),
+        managedBy: managerId,
+      };
+    
+      // Create Investor object
+      const newInvestorEntry: Investor = {
+        id: newId,
+        name: investorPayload.name,
+        investmentType: investorPayload.investmentType,
+        installmentCapital: investorPayload.investmentType === 'اقساط' ? investorPayload.capital : 0,
+        gracePeriodCapital: investorPayload.investmentType === 'مهلة' ? investorPayload.capital : 0,
+        status: status,
+        date: new Date().toISOString(),
+        transactionHistory: [{
+          id: `t_${Date.now()}`,
+          date: new Date().toISOString(),
+          type: 'إيداع رأس المال',
+          amount: investorPayload.capital,
+          description: 'إيداع تأسيسي للحساب',
+        }],
+        defaultedFunds: 0,
+        fundedLoanIds: [],
+        submittedBy: loggedInUser.id,
+        isNotified: false,
+        installmentProfitShare: investorPayload.installmentProfitShare,
+        gracePeriodProfitShare: investorPayload.gracePeriodProfitShare,
+      };
+    
+      setUsers((prev) => [...prev, newInvestorUser]);
+      setInvestors((prev) => [...prev, newInvestorEntry]);
+    
+      // Notifications
+      if (status === 'معلق' && loggedInUser?.managedBy) {
+        addNotification({
+          recipientId: loggedInUser.managedBy,
+          title: 'طلب مستثمر جديد معلق',
+          description: `قدم الموظف "${loggedInUser.name}" طلبًا لإضافة المستثمر "${newInvestorEntry.name}".`,
+        });
+      }
+    
+      toast({ title: 'تمت إضافة المستثمر بنجاح' });
     },
     [userId, users, investors, addNotification, toast]
   );
@@ -1213,12 +1168,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
               id: `t_${Date.now()}`,
             };
             const updatedInvestor = { ...i };
-            // Simple logic: withdraw from the pool that matches the investor's primary type.
-            if (updatedInvestor.investmentType === 'اقساط') {
+            
+            if (withdrawal.withdrawalSource === 'installment') {
                 updatedInvestor.installmentCapital -= newTransaction.amount;
-            } else {
+            } else if (withdrawal.withdrawalSource === 'grace') {
                 updatedInvestor.gracePeriodCapital -= newTransaction.amount;
             }
+
             updatedInvestor.transactionHistory = [...updatedInvestor.transactionHistory, newTransaction];
             return updatedInvestor;
           }
@@ -1415,37 +1371,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteUser = useCallback(
-    (userId: string) => {
-      const userToDelete = users.find((u) => u.id === userId);
+    (userIdToDelete: string) => {
+      const userToDelete = users.find((u) => u.id === userIdToDelete);
       if (!userToDelete) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: 'لم يتم العثور على المستخدم.',
-        });
+        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
         return;
       }
-
-      let idsToDelete = new Set<string>([userId]);
-      let managerInvestorIds: Set<string> | null = null;
+  
+      let idsToDelete = new Set<string>([userIdToDelete]);
+      let investorIdsToDelete = new Set<string>();
+  
       if (userToDelete.role === 'مدير المكتب') {
         users.forEach((u) => {
-          if (u.managedBy === userId) idsToDelete.add(u.id);
+          if (u.managedBy === userIdToDelete) idsToDelete.add(u.id);
         });
-        managerInvestorIds = new Set(
-          investors.filter((i) => i.submittedBy === userId).map((i) => i.id)
+        investors.forEach((i) => {
+          const investorUser = users.find(u => u.id === i.id);
+          if (investorUser?.managedBy === userIdToDelete) {
+            idsToDelete.add(i.id);
+            investorIdsToDelete.add(i.id);
+          }
+        });
+      } else if (userToDelete.role === 'مستثمر') {
+        investorIdsToDelete.add(userToDelete.id);
+      }
+  
+      // Remove dangling references from borrowers
+      if (investorIdsToDelete.size > 0) {
+        setBorrowers(prevBorrowers => 
+          prevBorrowers.map(borrower => {
+            if (borrower.fundedBy?.some(funder => investorIdsToDelete.has(funder.investorId))) {
+              return {
+                ...borrower,
+                fundedBy: borrower.fundedBy.filter(funder => !investorIdsToDelete.has(funder.investorId))
+              };
+            }
+            return borrower;
+          })
         );
-        managerInvestorIds.forEach((id) => idsToDelete.add(id));
       }
-      if (userToDelete.role === 'مستثمر') {
-        idsToDelete.add(userToDelete.id);
-      }
-
+  
+      // Now, delete the users and investors
       setUsers((prev) => prev.filter((u) => !idsToDelete.has(u.id)));
-      if (userToDelete.role === 'مستثمر' || managerInvestorIds) {
-        setInvestors((prev) => prev.filter((i) => !idsToDelete.has(i.id)));
+      if (investorIdsToDelete.size > 0) {
+        setInvestors((prev) => prev.filter((i) => !investorIdsToDelete.has(i.id)));
       }
-
+  
       const numDeleted = idsToDelete.size;
       const toastMessage =
         userToDelete.role === 'مدير المكتب' && numDeleted > 1
@@ -1459,6 +1430,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [users, investors, toast]
   );
+  
 
   const requestCapitalIncrease = useCallback(
     (investorId: string) => {

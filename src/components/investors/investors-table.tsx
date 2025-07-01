@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -98,12 +99,14 @@ export function InvestorsTable({
     type: TransactionType;
     date: Date | undefined;
     withdrawalMethod: WithdrawalMethod;
+    withdrawalSource: 'installment' | 'grace';
   }>({
     amount: '',
     description: '',
     type: 'سحب أرباح',
     date: new Date(),
     withdrawalMethod: 'بنكي',
+    withdrawalSource: 'installment',
   });
 
   const handleEditClick = (investor: Investor) => {
@@ -191,10 +194,11 @@ export function InvestorsTable({
       type: withdrawal.type,
       date: withdrawal.date.toISOString(),
       withdrawalMethod: withdrawal.withdrawalMethod,
+      withdrawalSource: withdrawal.withdrawalSource,
     });
 
     setIsWithdrawDialogOpen(false);
-    setWithdrawal({ amount: '', description: '', type: 'سحب أرباح', date: new Date(), withdrawalMethod: 'بنكي' });
+    setWithdrawal({ amount: '', description: '', type: 'سحب أرباح', date: new Date(), withdrawalMethod: 'بنكي', withdrawalSource: 'installment' });
     setSelectedInvestor(null);
   }
 
@@ -222,7 +226,7 @@ export function InvestorsTable({
             <TableBody>
               {investors.length > 0 ? (
                 investors.map((investor) => {
-                  const availableCapital = investor.investmentType === 'اقساط' ? investor.installmentCapital : investor.gracePeriodCapital;
+                  const availableCapital = investor.installmentCapital + investor.gracePeriodCapital;
                   return (
                   <TableRow key={investor.id}>
                     <TableCell className="font-medium">{investor.name}</TableCell>
@@ -344,24 +348,26 @@ export function InvestorsTable({
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  الرصيد
+                <Label htmlFor="installmentCapital" className="text-right">
+                  رصيد الأقساط
                 </Label>
                 <Input
-                  id="amount"
+                  id="installmentCapital"
                   type="number"
-                  value={selectedInvestor.investmentType === 'اقساط' ? selectedInvestor.installmentCapital : selectedInvestor.gracePeriodCapital}
-                  onChange={(e) => {
-                      const newCapital = Number(e.target.value);
-                      setSelectedInvestor(prev => {
-                        if (!prev) return null;
-                        if (prev.investmentType === 'اقساط') {
-                            return { ...prev, installmentCapital: newCapital };
-                        } else {
-                            return { ...prev, gracePeriodCapital: newCapital };
-                        }
-                      });
-                  }}
+                  value={selectedInvestor.installmentCapital}
+                  onChange={(e) => setSelectedInvestor(prev => prev ? { ...prev, installmentCapital: Number(e.target.value) } : null)}
+                  className="col-span-3"
+                />
+              </div>
+               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="gracePeriodCapital" className="text-right">
+                  رصيد المهلة
+                </Label>
+                <Input
+                  id="gracePeriodCapital"
+                  type="number"
+                  value={selectedInvestor.gracePeriodCapital}
+                  onChange={(e) => setSelectedInvestor(prev => prev ? { ...prev, gracePeriodCapital: Number(e.target.value) } : null)}
                   className="col-span-3"
                 />
               </div>
@@ -578,6 +584,23 @@ export function InvestorsTable({
                   onChange={handleWithdrawalChange}
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>مصدر السحب</Label>
+                <RadioGroup
+                    value={withdrawal.withdrawalSource}
+                    onValueChange={(value: 'installment' | 'grace') => setWithdrawal(prev => ({...prev, withdrawalSource: value}))}
+                    className="flex gap-4"
+                >
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                        <RadioGroupItem value="installment" id="source-install" />
+                        <Label htmlFor="source-install">من رصيد الأقساط</Label>
+                    </div>
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                        <RadioGroupItem value="grace" id="source-grace" />
+                        <Label htmlFor="source-grace">من رصيد المهلة</Label>
+                    </div>
+                </RadioGroup>
               </div>
                <div className="space-y-2">
                 <Label htmlFor="type">نوع السحب</Label>
