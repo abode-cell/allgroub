@@ -66,6 +66,7 @@ type DataActions = {
   addSupportTicket: (
     ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
   ) => void;
+  deleteSupportTicket: (ticketId: string) => void;
   registerNewOfficeManager: (
     credentials: Omit<User, 'id' | 'role' | 'status'>
   ) => Promise<{ success: boolean; message: string }>;
@@ -577,7 +578,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
       setBorrowers((prev) =>
-        prev.map((b) => (b.id === updatedBorrower.id ? updatedBorrower : b))
+        prev.map((b) => (b.id === updatedBorrower.id ? { ...b, ...updatedBorrower} : b))
       );
       toast({ title: 'تم تحديث القرض' });
     },
@@ -1559,9 +1560,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
         isRead: false,
       };
       setSupportTickets((prev) => [newTicket, ...prev]);
+
+      const systemAdmin = users.find((u) => u.role === 'مدير النظام');
+      if (systemAdmin) {
+        addNotification({
+          recipientId: systemAdmin.id,
+          title: 'طلب دعم جديد',
+          description: `رسالة جديدة من ${ticket.fromUserName} بخصوص: ${ticket.subject}`,
+        });
+      }
+
       toast({
         title: 'تم إرسال طلب الدعم بنجاح',
         description: 'سيقوم مدير النظام بمراجعة طلبك في أقرب وقت.',
+      });
+    },
+    [users, addNotification, toast]
+  );
+
+  const deleteSupportTicket = useCallback(
+    (ticketId: string) => {
+      setSupportTickets((prev) => prev.filter((t) => t.id !== ticketId));
+      toast({
+        variant: 'destructive',
+        title: 'تم حذف الرسالة',
+        description: 'تم حذف رسالة الدعم بنجاح.',
       });
     },
     [toast]
@@ -1587,6 +1610,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateGraceInvestorSharePercentage,
       updateTrialPeriod,
       addSupportTicket,
+      deleteSupportTicket,
       registerNewOfficeManager,
       addBorrower,
       updateBorrower,
@@ -1623,6 +1647,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateGraceInvestorSharePercentage,
       updateTrialPeriod,
       addSupportTicket,
+      deleteSupportTicket,
       registerNewOfficeManager,
       addBorrower,
       updateBorrower,
