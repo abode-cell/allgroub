@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -99,10 +100,9 @@ export function BorrowersTable({
 }: {
   borrowers: Borrower[];
 }) {
-  const { currentUser, investors } = useDataState();
+  const { currentUser, investors, users } = useDataState();
   const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified } = useDataActions();
   const role = currentUser?.role;
-  const canSendSms = role === 'مدير المكتب' || role === 'مساعد مدير المكتب' || role === 'موظف';
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
@@ -115,6 +115,19 @@ export function BorrowersTable({
   const [smsMessage, setSmsMessage] = useState('');
   const [paymentSchedule, setPaymentSchedule] = useState<Payment[]>([]);
   const isGracePeriodTable = borrowers[0]?.loanType === 'مهلة';
+  
+  const isOfficeManager = role === 'مدير المكتب';
+  const isAssistantWithPerms = role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers;
+  const isEmployee = role === 'موظف';
+  
+  const manager = isEmployee ? users.find((u) => u.id === currentUser?.managedBy) : null;
+  const canEmployeeEdit = isEmployee && !!manager?.allowEmployeeLoanEdits;
+
+  const canEdit = isOfficeManager || isAssistantWithPerms || canEmployeeEdit;
+  const canUpdatePaymentStatus = canEdit;
+  const canViewSchedule = canEdit;
+  const canApprove = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
+  const canSendSms = role === 'مدير المكتب' || role === 'مساعد مدير المكتب' || role === 'موظف';
 
   const handleEditClick = (borrower: Borrower) => {
     setSelectedBorrower({ ...borrower });
@@ -195,10 +208,6 @@ export function BorrowersTable({
     setIsScheduleDialogOpen(true);
   };
 
-  const canApprove = role === 'مدير المكتب';
-  const isEmployee = role === 'موظف';
-  const canEdit = role === 'مدير المكتب';
-
   return (
     <>
       <Card>
@@ -272,7 +281,7 @@ export function BorrowersTable({
                                     updateBorrowerPaymentStatus(borrower.id, value as BorrowerPaymentStatus);
                                 }
                             }}
-                            disabled={!canEdit || borrower.status === 'معلق' || borrower.status === 'مرفوض'}
+                            disabled={!canUpdatePaymentStatus || borrower.status === 'معلق' || borrower.status === 'مرفوض'}
                         >
                             <SelectTrigger className={cn(
                                 "w-32", 
@@ -341,7 +350,7 @@ export function BorrowersTable({
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => handleViewScheduleClick(borrower)}
-                            disabled={borrower.loanType === 'مهلة'}
+                            disabled={!canViewSchedule || borrower.loanType === 'مهلة'}
                           >
                             عرض جدول السداد
                           </DropdownMenuItem>

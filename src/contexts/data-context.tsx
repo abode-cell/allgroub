@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -121,6 +122,7 @@ type DataActions = {
     settings: {
       allowEmployeeSubmissions?: boolean;
       hideEmployeeInvestorFunds?: boolean;
+      allowEmployeeLoanEdits?: boolean;
     }
   ) => void;
   updateAssistantPermission: (
@@ -411,6 +413,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         assistantLimit: 1,
         allowEmployeeSubmissions: true,
         hideEmployeeInvestorFunds: false,
+        allowEmployeeLoanEdits: false,
         permissions: {},
       };
 

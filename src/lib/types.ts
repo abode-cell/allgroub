@@ -43,6 +43,7 @@ export type User = {
   assistantLimit?: number;
   allowEmployeeSubmissions?: boolean;
   hideEmployeeInvestorFunds?: boolean;
+  allowEmployeeLoanEdits?: boolean;
   permissions?: Permissions;
 };
 

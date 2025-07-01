@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useDataState, useDataActions } from '@/contexts/data-context';
@@ -791,6 +792,25 @@ export default function UsersPage() {
                                 onCheckedChange={(checked) => {
                                     if (managerIdForSettings) {
                                         updateManagerSettings(managerIdForSettings, { hideEmployeeInvestorFunds: checked });
+                                    }
+                                }}
+                            />
+                        </div>
+                    </div>
+                     <div className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                        <div className="flex-1 space-y-0.5 overflow-hidden">
+                            <Label htmlFor="allow-loan-edits" className="font-medium text-sm">السماح للموظفين بتعديل القروض</Label>
+                            <p className="text-xs text-muted-foreground">
+                                تمكين الموظفين من تعديل تفاصيل القرض وحالة السداد.
+                            </p>
+                        </div>
+                         <div className="flex-shrink-0">
+                            <Switch
+                                id="allow-loan-edits"
+                                checked={managerForSettings?.allowEmployeeLoanEdits ?? false}
+                                onCheckedChange={(checked) => {
+                                    if (managerIdForSettings) {
+                                        updateManagerSettings(managerIdForSettings, { allowEmployeeLoanEdits: checked });
                                     }
                                 }}
                             />
