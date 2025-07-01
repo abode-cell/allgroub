@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -10,7 +11,15 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, Info, AlertCircle, MessageSquareText, MessageSquareCheck } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Info,
+  AlertCircle,
+  MessageSquareText,
+  MessageSquareCheck,
+  CheckCircle,
+  Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -49,7 +58,6 @@ import {
 } from '../ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { cn } from '@/lib/utils';
-import { CheckCircle, Users } from 'lucide-react';
 import { BorrowerStatusBadge } from '../borrower-status-badge';
 import { Textarea } from '../ui/textarea';
 
