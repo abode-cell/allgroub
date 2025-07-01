@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataState } from '@/contexts/data-context';
 import { Mail, Phone, Rocket, TrendingUp, Handshake } from 'lucide-react';
+import NextImage from 'next/image';
 
 const Logo = () => (
     <Link href="/" className="flex items-center gap-2.5">
@@ -17,26 +18,13 @@ const Logo = () => (
         xmlns="http://www.w3.org/2000/svg"
         className="text-primary shrink-0 h-10 w-10"
     >
-        <path
-            d="M12 2L2 22H22L12 2Z"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="currentColor"
-            fillOpacity="0.1"
-        />
-        <path
-            d="M12 11L7 21H17L12 11Z"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        />
+        <path d="M12 2L2 22H22L12 2Z" fill="currentColor" fillOpacity="0.1" />
+        <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12 11L8.5 18L15.5 18L12 11Z" fill="currentColor" />
     </svg>
     <div className="flex flex-col">
         <span className="font-bold text-lg sm:text-xl text-foreground leading-tight">مجموعة عال</span>
-        <span className="text-sm text-muted-foreground leading-tight hidden sm:block">إدارة, تمويل, تطوير ,وأكثر...</span>
+        <span className="text-sm text-muted-foreground leading-tight hidden sm:block tracking-wide">إدارة • تمويل • تطوير • وأكثر...</span>
     </div>
   </Link>
 );

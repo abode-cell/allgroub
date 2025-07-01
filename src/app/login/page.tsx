@@ -54,27 +54,14 @@ export default function LoginPage() {
                 xmlns="http://www.w3.org/2000/svg"
                 className="text-primary h-12 w-12"
             >
-                <path
-                    d="M12 2L2 22H22L12 2Z"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="currentColor"
-                    fillOpacity="0.1"
-                />
-                <path
-                    d="M12 11L7 21H17L12 11Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
+                <path d="M12 2L2 22H22L12 2Z" fill="currentColor" fillOpacity="0.1" />
+                <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 11L8.5 18L15.5 18L12 11Z" fill="currentColor" />
             </svg>
             <span className="font-bold text-3xl">مجموعة عال</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            إدارة, تمويل, تطوير ,وأكثر...
+          <p className="text-sm text-muted-foreground tracking-wide">
+            إدارة • تمويل • تطوير • وأكثر...
           </p>
         </Link>
       <Card className="w-full max-w-sm">
