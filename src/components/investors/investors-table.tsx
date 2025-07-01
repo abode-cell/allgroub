@@ -33,7 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Textarea } from '@/components/ui/textarea';
-import type { Investor, Transaction, TransactionType, WithdrawalMethod } from '@/lib/types';
+import type { Investor, Transaction, TransactionType, WithdrawalMethod, UpdatableInvestor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -154,7 +154,7 @@ export function InvestorsTable({
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    const { defaultedFunds, transactionHistory, isNotified, ...updatableInvestor } = selectedInvestor;
+    const { defaultedFunds, transactionHistory, isNotified, fundedLoanIds, ...updatableInvestor } = selectedInvestor;
     updateInvestor(updatableInvestor as UpdatableInvestor);
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);

@@ -23,6 +23,7 @@ import type {
   NewUserPayload,
   TransactionType,
   WithdrawalMethod,
+  UpdatableInvestor,
 } from '@/lib/types';
 import {
   borrowersData as initialBorrowersData,
@@ -35,27 +36,6 @@ import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
-type UpdatableInvestor = Omit<
-  Investor,
-  | 'defaultedFunds'
-  | 'fundedLoanIds'
-  | 'transactionHistory'
-  | 'rejectionReason'
-  | 'submittedBy'
-  | 'isNotified'
->;
-
-type NewInvestorPayload = Omit<
-  Investor,
-  | 'id'
-  | 'date'
-  | 'transactionHistory'
-  | 'defaultedFunds'
-  | 'fundedLoanIds'
-  | 'rejectionReason'
-  | 'submittedBy'
-  | 'isNotified'
-> & { email: string; password: string };
 
 type SignUpCredentials = {
   name: User['name'];
@@ -778,7 +758,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateInvestor = useCallback(
-    (updatedInvestor) => {
+    (updatedInvestor: UpdatableInvestor) => {
       setInvestors((prev) =>
         prev.map((i) =>
           i.id === updatedInvestor.id ? { ...i, ...updatedInvestor } : i
@@ -842,7 +822,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addInvestor = useCallback(
-    (investorPayload) => {
+    (investorPayload: NewInvestorPayload) => {
       const loggedInUser = users.find(u => u.id === userId);
       if (!loggedInUser) {
         toast({

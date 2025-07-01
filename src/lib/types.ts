@@ -1,3 +1,4 @@
+
 'use client';
 
 export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف' | 'مستثمر';
@@ -117,3 +118,25 @@ export type SupportTicket = {
   date: string;
   isRead: boolean;
 };
+
+export type UpdatableInvestor = Omit<
+  Investor,
+  | 'defaultedFunds'
+  | 'fundedLoanIds'
+  | 'transactionHistory'
+  | 'rejectionReason'
+  | 'submittedBy'
+  | 'isNotified'
+>;
+
+export type NewInvestorPayload = Omit<
+  Investor,
+  | 'id'
+  | 'date'
+  | 'transactionHistory'
+  | 'defaultedFunds'
+  | 'fundedLoanIds'
+  | 'rejectionReason'
+  | 'submittedBy'
+  | 'isNotified'
+> & { email: string; password: string };
