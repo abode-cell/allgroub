@@ -13,18 +13,17 @@ export type BorrowerStatusDetails = {
 };
 
 export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStatusDetails => {
-  // Terminal statuses set by user actions take priority
-  if (borrower.status === 'مسدد بالكامل' || borrower.paymentStatus === 'تم السداد') return { text: 'تم السداد', variant: 'success' };
-  if (borrower.status === 'متعثر' || borrower.paymentStatus === 'متعثر' || borrower.paymentStatus === 'تم اتخاذ الاجراءات القانونيه') return { text: 'متعثر', variant: 'destructive' };
+  // First, check for statuses that are absolute and not based on time.
   if (borrower.status === 'معلق') return { text: 'طلب معلق', variant: 'secondary' };
   if (borrower.status === 'مرفوض') return { text: 'مرفوض', variant: 'destructive' };
 
-  // If a payment status is set, that has high priority for display, but the logic above already handles terminal ones.
-  // The 'Due Status' column should reflect time-based status for ongoing loans.
-  if (borrower.paymentStatus === 'مسدد جزئي') return { text: 'مسدد جزئي', variant: 'default' };
-  if (borrower.paymentStatus === 'تم الإمهال') return { text: 'تم الإمهال', variant: 'secondary' };
-
-  // Automated statuses based on dates for ongoing loans
+  // If payment status is explicitly set to 'Paid Off', this has the highest priority for display.
+  if (borrower.paymentStatus === 'تم السداد') {
+    return { text: 'تم السداد', variant: 'success' };
+  }
+  
+  // For all other cases, including when paymentStatus is undefined or any other ongoing status,
+  // we calculate the status based on the due date.
   const todayDate = new Date(today);
   todayDate.setHours(0, 0, 0, 0);
   const dueDate = new Date(borrower.dueDate);
