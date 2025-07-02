@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
 import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
+import { Badge } from '@/components/ui/badge';
 
 // Adjusting the type to handle the different return structures from the service
 type DashboardMetricsOutput = ServiceMetrics;
