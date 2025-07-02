@@ -20,6 +20,7 @@ import {
   CheckCircle,
   Users,
   Edit,
+  CalendarDays,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,7 +51,7 @@ import {
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useDataState, useDataActions } from '@/contexts/data-context';
-import type { Borrower, BorrowerPaymentStatus, Payment } from '@/lib/types';
+import type { Borrower, BorrowerPaymentStatus, InstallmentStatus } from '@/lib/types';
 import {
   Tooltip,
   TooltipContent,
@@ -61,6 +62,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
+
+type Payment = {
+  month: number;
+  payment: number;
+  principal: number;
+  interest: number;
+  balance: number;
+  status: InstallmentStatus;
+};
 
 const paymentStatusVariant: {
   [key in BorrowerPaymentStatus]: 'success' | 'default' | 'secondary' | 'destructive';
@@ -101,6 +111,19 @@ const paymentStatusBgColor: {
   'تم اتخاذ الاجراءات القانونيه': 'bg-destructive hover:bg-destructive/90',
 };
 
+const installmentStatusTextColor: { [key in InstallmentStatus]: string } = {
+  'تم السداد': 'text-success-foreground',
+  'لم يسدد بعد': 'text-secondary-foreground',
+  'متأخر': 'text-destructive-foreground',
+};
+
+const installmentStatusBgColor: { [key in InstallmentStatus]: string } = {
+  'تم السداد': 'bg-success hover:bg-success/90',
+  'لم يسدد بعد': 'bg-secondary hover:bg-secondary/80',
+  'متأخر': 'bg-destructive hover:bg-destructive/90',
+};
+
+
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -114,7 +137,7 @@ export function BorrowersTable({
   borrowers: Borrower[];
 }) {
   const { currentUser, investors, users } = useDataState();
-  const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified } = useDataActions();
+  const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified, updateInstallmentStatus } = useDataActions();
   const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -201,14 +224,18 @@ export function BorrowersTable({
     let balance = totalPayment;
     const schedule: Payment[] = [];
 
+    const installmentStatuses = borrower.installments || [];
+
     for (let i = 1; i <= numberOfPayments; i++) {
         balance -= monthlyPayment;
+        const installment = installmentStatuses.find(inst => inst.month === i);
         schedule.push({
             month: i,
             payment: monthlyPayment,
             principal: principalPerMonth,
             interest: interestPerMonth,
             balance: balance > 0 ? balance : 0,
+            status: installment ? installment.status : 'لم يسدد بعد',
         });
     }
 
@@ -220,6 +247,26 @@ export function BorrowersTable({
     setPaymentSchedule(generatePaymentSchedule(borrower));
     setIsScheduleDialogOpen(true);
   };
+
+  const handleInstallmentStatusChange = (month: number, newStatus: InstallmentStatus) => {
+    if (!selectedBorrower) return;
+
+    const borrowerId = selectedBorrower.id;
+
+    // Call the context action to persist the change
+    updateInstallmentStatus(borrowerId, month, newStatus);
+    
+    // Update local state for immediate UI feedback in the dialog
+    const updatedBorrower: Borrower = {
+        ...selectedBorrower,
+        installments: (selectedBorrower.installments || []).map(inst =>
+            inst.month === month ? { ...inst, status: newStatus } : inst
+        ),
+    };
+    setSelectedBorrower(updatedBorrower);
+    setPaymentSchedule(generatePaymentSchedule(updatedBorrower));
+  };
+
 
   return (
     <>
@@ -246,6 +293,7 @@ export function BorrowersTable({
                   const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
                   const isTerminalStatus = borrower.status === 'مرفوض';
+                  const isEditableStatus = borrower.status !== 'مرفوض';
                   const paymentOptions = borrower.loanType === 'اقساط' ? installmentPaymentOptions : gracePaymentOptions;
 
                   return (
@@ -358,7 +406,7 @@ export function BorrowersTable({
                           )}
                           <DropdownMenuItem
                             onSelect={() => handleEditClick(borrower)}
-                            disabled={!canEdit || isTerminalStatus}
+                            disabled={!canEdit || !isEditableStatus}
                           >
                             <Edit className="ml-2 h-4 w-4" />
                             تعديل
@@ -367,6 +415,7 @@ export function BorrowersTable({
                             onSelect={() => handleViewScheduleClick(borrower)}
                             disabled={!canViewSchedule || borrower.loanType === 'مهلة'}
                           >
+                            <CalendarDays className="ml-2 h-4 w-4" />
                             عرض جدول السداد
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -605,11 +654,11 @@ export function BorrowersTable({
         open={isScheduleDialogOpen}
         onOpenChange={setIsScheduleDialogOpen}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>جدول السداد لـ {selectedBorrower?.name}</DialogTitle>
             <DialogDescription>
-              تفاصيل الأقساط الشهرية للقرض (تقديرية).
+              تفاصيل الأقساط الشهرية للقرض. يمكنك تحديث حالة كل قسط.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="h-96">
@@ -621,6 +670,7 @@ export function BorrowersTable({
                   <TableHead>الأصل</TableHead>
                   <TableHead>الفائدة</TableHead>
                   <TableHead>الرصيد المتبقي</TableHead>
+                  <TableHead className="text-center">الحالة</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -632,11 +682,31 @@ export function BorrowersTable({
                       <TableCell className="text-muted-foreground">{formatCurrency(payment.principal)}</TableCell>
                       <TableCell className="text-muted-foreground">{formatCurrency(payment.interest)}</TableCell>
                       <TableCell className="font-semibold">{formatCurrency(payment.balance)}</TableCell>
+                      <TableCell className="text-center">
+                        <Select
+                          value={payment.status}
+                          onValueChange={(newStatus: InstallmentStatus) => handleInstallmentStatusChange(payment.month, newStatus)}
+                          disabled={!canEdit}
+                        >
+                          <SelectTrigger className={cn(
+                            "w-[120px]", 
+                            installmentStatusBgColor[payment.status],
+                            installmentStatusTextColor[payment.status]
+                            )}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="لم يسدد بعد">لم يسدد بعد</SelectItem>
+                            <SelectItem value="تم السداد">تم السداد</SelectItem>
+                            <SelectItem value="متأخر">متأخر</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       لا يوجد جدول سداد لهذا النوع من التمويل.
                     </TableCell>
                   </TableRow>

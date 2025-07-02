@@ -26,6 +26,7 @@ import type {
   WithdrawalMethod,
   UpdatableInvestor,
   NewInvestorPayload,
+  InstallmentStatus,
 } from '@/lib/types';
 import {
   borrowersData as initialBorrowersData,
@@ -73,7 +74,7 @@ type DataActions = {
   addBorrower: (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus' | 'isNotified'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus' | 'isNotified' | 'installments'
     >,
     investorIds: string[]
   ) => void;
@@ -84,6 +85,7 @@ type DataActions = {
   ) => void;
   approveBorrower: (borrowerId: string) => void;
   rejectBorrower: (borrowerId: string, reason: string) => void;
+  updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => void;
   addInvestor: (investor: NewInvestorPayload) => void;
   addEmployee: (
     payload: NewUserPayload
@@ -889,6 +891,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         submittedBy: loggedInUser.id,
         fundedBy: fundedByDetails,
         isNotified: false,
+        installments: borrower.loanType === 'اقساط' && borrower.term > 0
+          ? Array.from({ length: borrower.term * 12 }, (_, i) => ({ month: i + 1, status: 'لم يسدد بعد' }))
+          : undefined,
       };
 
       setBorrowers((prev) => [...prev, newEntry]);
@@ -915,6 +920,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [userId, users, toast, addNotification]
   );
+  
+  const updateInstallmentStatus = useCallback((borrowerId: string, month: number, status: InstallmentStatus) => {
+      setBorrowers(prev => prev.map(borrower => {
+          if (borrower.id === borrowerId && borrower.installments) {
+              const newInstallments = borrower.installments.map(inst => 
+                  inst.month === month ? { ...inst, status } : inst
+              );
+              return { ...borrower, installments: newInstallments };
+          }
+          return borrower;
+      }));
+  }, []);
 
   const updateInvestor = useCallback(
     (updatedInvestor: UpdatableInvestor) => {
@@ -1611,6 +1628,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addBorrower,
       updateBorrower,
       updateBorrowerPaymentStatus,
+      updateInstallmentStatus,
       approveBorrower,
       rejectBorrower,
       addInvestor,
@@ -1648,6 +1666,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addBorrower,
       updateBorrower,
       updateBorrowerPaymentStatus,
+      updateInstallmentStatus,
       approveBorrower,
       rejectBorrower,
       addInvestor,

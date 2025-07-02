@@ -62,6 +62,8 @@ export type User = {
   permissions?: Permissions;
 };
 
+export type InstallmentStatus = 'لم يسدد بعد' | 'تم السداد' | 'متأخر';
+
 export type Borrower = {
   id: string;
   name: string;
@@ -78,6 +80,7 @@ export type Borrower = {
   rejectionReason?: string;
   fundedBy?: { investorId: string; amount: number }[];
   paymentStatus?: BorrowerPaymentStatus;
+  installments?: { month: number; status: InstallmentStatus }[];
   isNotified?: boolean;
 };
 
