@@ -18,7 +18,16 @@ export type Permissions = {
   [key in PermissionKey]?: boolean;
 };
 
-export type BorrowerPaymentStatus = 'تم السداد' | 'مسدد جزئي' | 'تم الإمهال' | 'متعثر';
+export type BorrowerPaymentStatus = 
+  | 'منتظم'
+  | 'متأخر بقسط'
+  | 'متأخر بقسطين'
+  | 'متعثر'
+  | 'تم اتخاذ الاجراءات القانونيه'
+  | 'مسدد جزئي'
+  | 'تم الإمهال'
+  | 'تم السداد';
+
 
 export type NewUserPayload = {
   name: string;

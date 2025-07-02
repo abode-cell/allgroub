@@ -66,9 +66,13 @@ const paymentStatusVariant: {
   [key in BorrowerPaymentStatus]: 'success' | 'default' | 'secondary' | 'destructive';
 } = {
   'تم السداد': 'success',
-  'مسدد جزئي': 'default', // primary color is blueish
-  'تم الإمهال': 'secondary', // gray
+  'مسدد جزئي': 'default',
+  'تم الإمهال': 'secondary',
   'متعثر': 'destructive',
+  'منتظم': 'default',
+  'متأخر بقسط': 'destructive',
+  'متأخر بقسطين': 'destructive',
+  'تم اتخاذ الاجراءات القانونيه': 'destructive',
 };
 
 const paymentStatusTextColor: {
@@ -78,6 +82,10 @@ const paymentStatusTextColor: {
   'مسدد جزئي': 'text-primary-foreground',
   'تم الإمهال': 'text-secondary-foreground',
   'متعثر': 'text-destructive-foreground',
+  'منتظم': 'text-primary-foreground',
+  'متأخر بقسط': 'text-destructive-foreground',
+  'متأخر بقسطين': 'text-destructive-foreground',
+  'تم اتخاذ الاجراءات القانونيه': 'text-destructive-foreground',
 };
 
 const paymentStatusBgColor: {
@@ -87,6 +95,10 @@ const paymentStatusBgColor: {
   'مسدد جزئي': 'bg-primary hover:bg-primary/90',
   'تم الإمهال': 'bg-secondary hover:bg-secondary/80',
   'متعثر': 'bg-destructive hover:bg-destructive/90',
+  'منتظم': 'bg-primary hover:bg-primary/90',
+  'متأخر بقسط': 'bg-destructive hover:bg-destructive/90',
+  'متأخر بقسطين': 'bg-destructive hover:bg-destructive/90',
+  'تم اتخاذ الاجراءات القانونيه': 'bg-destructive hover:bg-destructive/90',
 };
 
 const formatCurrency = (value: number) =>
@@ -129,6 +141,9 @@ export function BorrowersTable({
   const canViewSchedule = canEdit;
   const canApprove = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
   const canSendSms = role === 'مدير المكتب' || role === 'مساعد مدير المكتب' || role === 'موظف';
+
+  const installmentPaymentOptions: BorrowerPaymentStatus[] = ['منتظم', 'متأخر بقسط', 'متأخر بقسطين', 'متعثر', 'تم اتخاذ الاجراءات القانونيه', 'تم السداد'];
+  const gracePaymentOptions: BorrowerPaymentStatus[] = ['مسدد جزئي', 'تم الإمهال', 'متعثر', 'تم اتخاذ الاجراءات القانونيه', 'تم السداد'];
 
   const handleEditClick = (borrower: Borrower) => {
     setSelectedBorrower({ ...borrower });
@@ -230,7 +245,8 @@ export function BorrowersTable({
                   const fundedByOneInvestor = borrower.fundedBy && borrower.fundedBy.length === 1;
                   const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
-                  const isTerminalStatus = borrower.status === 'مسدد بالكامل' || borrower.status === 'متعثر' || borrower.status === 'مرفوض';
+                  const isTerminalStatus = borrower.status === 'مرفوض';
+                  const paymentOptions = borrower.loanType === 'اقساط' ? installmentPaymentOptions : gracePaymentOptions;
 
                   return (
                   <TableRow key={borrower.id}>
@@ -280,20 +296,19 @@ export function BorrowersTable({
                                     updateBorrowerPaymentStatus(borrower.id, value as BorrowerPaymentStatus);
                                 }
                             }}
-                            disabled={!canUpdatePaymentStatus || borrower.status === 'معلق' || isTerminalStatus}
+                            disabled={!canUpdatePaymentStatus || borrower.status === 'معلق'}
                         >
                             <SelectTrigger className={cn(
-                                "w-32", 
+                                "w-36", 
                                 borrower.paymentStatus && `${paymentStatusBgColor[borrower.paymentStatus]} ${paymentStatusTextColor[borrower.paymentStatus]}`
                                 )}>
                                 <SelectValue placeholder="اختر الحالة" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">--</SelectItem>
-                                <SelectItem value="تم السداد">تم السداد</SelectItem>
-                                <SelectItem value="مسدد جزئي">مسدد جزئي</SelectItem>
-                                <SelectItem value="تم الإمهال">تم الإمهال</SelectItem>
-                                <SelectItem value="متعثر">متعثر</SelectItem>
+                                {paymentOptions.map(option => (
+                                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                       </div>
@@ -565,9 +580,8 @@ export function BorrowersTable({
                     <SelectItem value="منتظم">منتظم</SelectItem>
                     <SelectItem value="متأخر">متأخر</SelectItem>
                     <SelectItem value="معلق">طلب معلق</SelectItem>
-                    {/* Critical statuses are handled by payment status dropdown */}
-                    <SelectItem value="متعثر" disabled>متعثر (يتم تحديده من حالة السداد)</SelectItem>
-                    <SelectItem value="مسدد بالكامل" disabled>مسدد بالكامل (يتم تحديده من حالة السداد)</SelectItem>
+                    <SelectItem value="متعثر">متعثر</SelectItem>
+                    <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

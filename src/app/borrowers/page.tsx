@@ -144,10 +144,6 @@ export default function BorrowersPage() {
     setNewBorrower((prev) => ({ ...prev, [id]: value }));
   };
   
-  const handleStatusChange = (value: Borrower['status']) => {
-    setNewBorrower((prev) => ({ ...prev, status: value }));
-  };
-  
   const handleLoanTypeChange = (value: 'اقساط' | 'مهلة') => {
     setSelectedInvestors([]); // Reset selected investors on loan type change
     setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '', discount: '' }));
@@ -156,8 +152,8 @@ export default function BorrowersPage() {
   const proceedToAddBorrower = () => {
     const isInstallments = newBorrower.loanType === 'اقساط';
     // If an employee/assistant isn't allowed direct additions, force status to 'معلق'
-    // Otherwise, use the status selected in the form.
-    const finalStatus = ((isEmployee || isAssistant) && !isDirectAdditionEnabled) ? 'معلق' : newBorrower.status;
+    // Otherwise, the status is 'منتظم'.
+    const finalStatus = ((isEmployee || isAssistant) && !isDirectAdditionEnabled) ? 'معلق' : 'منتظم';
 
     addBorrower({
       ...newBorrower,
@@ -409,70 +405,46 @@ export default function BorrowersPage() {
                       required
                     />
                   </div>
-                  {(!(isEmployee || isAssistant) || isDirectAdditionEnabled) && (
-                     <>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="status" className="text-right">
-                            الحالة
-                          </Label>
-                           <Select
-                              value={newBorrower.status}
-                              onValueChange={(value: Borrower['status']) => handleStatusChange(value)}
-                            >
-                              <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="اختر الحالة" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="منتظم">منتظم</SelectItem>
-                                <SelectItem value="متأخر">متأخر</SelectItem>
-                                 <SelectItem value="متعثر">متعثر</SelectItem>
-                                 <SelectItem value="معلق">معلق</SelectItem>
-                                <SelectItem value="مسدد بالكامل" className="text-green-600">مسدد بالكامل</SelectItem>
-                              </SelectContent>
-                            </Select>
-                        </div>
-                        {newBorrower.status !== 'معلق' && (
-                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right pt-2">
-                                المستثمرون
-                                </Label>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="col-span-3">
-                                        {selectedInvestors.length > 0
-                                        ? `${selectedInvestors.length} مستثمرون محددون`
-                                        : "اختر المستثمرين"}
-                                    </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-64" align='end'>
-                                    <DropdownMenuLabel>المستثمرون المتاحون ({newBorrower.loanType})</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    {availableInvestorsForDropdown.map((investor) => (
-                                        <DropdownMenuCheckboxItem
-                                        key={investor.id}
-                                        checked={selectedInvestors.includes(investor.id)}
-                                        onSelect={(e) => e.preventDefault()}
-                                        onCheckedChange={(checked) => {
-                                            return checked
-                                            ? setSelectedInvestors((prev) => [...prev, investor.id])
-                                            : setSelectedInvestors((prev) =>
-                                                prev.filter((id) => id !== investor.id)
-                                                );
-                                        }}
-                                        >
-                                            <div className='flex justify-between w-full'>
-                                                <span>{investor.name}</span>
-                                                {!hideInvestorFunds && (
-                                                  <span className='text-muted-foreground text-xs'>{formatCurrency(investor.investmentType === 'اقساط' ? investor.installmentCapital : investor.gracePeriodCapital)}</span>
-                                                )}
-                                            </div>
-                                        </DropdownMenuCheckboxItem>
-                                    ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                        )}
-                     </>
+                  {(!(isEmployee || isAssistant) || isDirectAdditionEnabled) && newBorrower.status !== 'معلق' && (
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right pt-2">
+                        المستثمرون
+                        </Label>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="col-span-3">
+                                {selectedInvestors.length > 0
+                                ? `${selectedInvestors.length} مستثمرون محددون`
+                                : "اختر المستثمرين"}
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-64" align='end'>
+                            <DropdownMenuLabel>المستثمرون المتاحون ({newBorrower.loanType})</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {availableInvestorsForDropdown.map((investor) => (
+                                <DropdownMenuCheckboxItem
+                                key={investor.id}
+                                checked={selectedInvestors.includes(investor.id)}
+                                onSelect={(e) => e.preventDefault()}
+                                onCheckedChange={(checked) => {
+                                    return checked
+                                    ? setSelectedInvestors((prev) => [...prev, investor.id])
+                                    : setSelectedInvestors((prev) =>
+                                        prev.filter((id) => id !== investor.id)
+                                        );
+                                }}
+                                >
+                                    <div className='flex justify-between w-full'>
+                                        <span>{investor.name}</span>
+                                        {!hideInvestorFunds && (
+                                          <span className='text-muted-foreground text-xs'>{formatCurrency(investor.investmentType === 'اقساط' ? investor.installmentCapital : investor.gracePeriodCapital)}</span>
+                                        )}
+                                    </div>
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                   )}
                 </div>
                 <DialogFooter>
