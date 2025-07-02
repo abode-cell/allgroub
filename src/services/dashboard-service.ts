@@ -301,6 +301,8 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
 
     return {
         role: role,
+        filteredBorrowers,
+        filteredInvestors,
         capital: {
             total: totalCapital,
             installments: installmentCapital,

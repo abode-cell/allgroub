@@ -22,7 +22,12 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { calculateAllDashboardMetrics, type DashboardMetricsOutput } from '@/services/dashboard-service';
+import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
+import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
+
+// Adjusting the type to handle the different return structures from the service
+type DashboardMetricsOutput = ServiceMetrics;
+
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -479,33 +484,10 @@ const SystemAdminDashboard = ({ metrics }: { metrics: DashboardMetricsOutput['ad
 export default function DashboardPage() {
   const { currentUser, users, borrowers, investors, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
   
-  const { filteredBorrowers, filteredInvestors } = useMemo(() => {
-    if (!currentUser) return { filteredBorrowers: [], filteredInvestors: [] };
-    const { role } = currentUser;
-
-    if (role === 'مدير النظام' || role === 'مستثمر') {
-        return { filteredBorrowers: borrowers, filteredInvestors: investors };
-    }
-
-    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
-    relevantUserIds.add(currentUser.id);
-
-    const fBorrowers = borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
-    const fInvestors = investors.filter(i => {
-       const investorUser = users.find(u => u.id === i.id);
-       return investorUser?.managedBy && relevantUserIds.has(investorUser.managedBy)
-    });
-
-    return { filteredBorrowers: fBorrowers, filteredInvestors: fInvestors };
-  }, [currentUser, users, borrowers, investors]);
-
-
   const metrics = useMemo(() => {
     if (!currentUser) return null;
 
     try {
-      // Use the local function instead of the slow async Genkit flow
       const result = calculateAllDashboardMetrics({
         borrowers,
         investors,
@@ -517,7 +499,7 @@ export default function DashboardPage() {
           graceInvestorSharePercentage,
         }
       });
-      return result;
+      return result as DashboardMetricsOutput;
     } catch (error) {
       console.error("Failed to calculate dashboard metrics:", error);
       return null; 
@@ -536,6 +518,7 @@ export default function DashboardPage() {
     return <InvestorDashboard />;
   }
   
+  const { filteredBorrowers, filteredInvestors } = metrics;
   const showSensitiveData = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
   const showIdleFundsReport = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
   
