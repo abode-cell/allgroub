@@ -662,10 +662,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if (investorUpdates.has(inv.id)) {
                   const update = investorUpdates.get(inv.id)!;
                   const newTransactions: Transaction[] = [];
+                  const timestamp = Date.now();
 
                   if (update.principal > 0)
                     newTransactions.push({
-                      id: `t-principal-ret-${updatedBorrower.id}-${inv.id}`,
+                      id: `t-principal-ret-${borrowerId}-${inv.id}-${timestamp}`,
                       date: new Date().toISOString(),
                       type: 'إيداع رأس المال',
                       amount: update.principal,
@@ -673,7 +674,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     });
                   if (update.profit > 0)
                     newTransactions.push({
-                      id: `t-profit-ret-${updatedBorrower.id}-${inv.id}`,
+                      id: `t-profit-ret-${borrowerId}-${inv.id}-${timestamp}`,
                       date: new Date().toISOString(),
                       type: 'إيداع أرباح',
                       amount: update.profit,
@@ -933,7 +934,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               
               const fullInstallments = Array.from({ length: numberOfPayments }, (_, i) => {
                   const monthNum = i + 1;
-                  return installmentsMap.get(monthNum) || { month: monthNum, status: 'لم يسدد بعد' };
+                  return installmentsMap.get(monthNum) || { month: monthNum, status: 'لم يسدد بعد' as InstallmentStatus };
               });
 
               // Apply the update
