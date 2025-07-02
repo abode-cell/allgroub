@@ -39,8 +39,6 @@ import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
-let globalTxCounter = 0;
-
 type DataState = {
   currentUser: User | undefined;
   borrowers: Borrower[];
@@ -305,7 +303,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
       const newNotification: Notification = {
         ...notification,
-        id: `notif_${Date.now()}_${Math.random()}`,
+        id: `notif_${crypto.randomUUID()}`,
         date: new Date().toISOString(),
         isRead: false,
       };
@@ -676,7 +674,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   if (paymentStatus === 'تم السداد') {
                     if (update.principal > 0)
                       newTransactions.push({
-                        id: `tx_prin_ret_${borrowerId}_${inv.id}_${Date.now()}_${globalTxCounter++}`,
+                        id: `tx_prin_ret_${borrowerId}_${inv.id}_${crypto.randomUUID()}`,
                         date: new Date().toISOString(),
                         type: 'إيداع رأس المال',
                         amount: update.principal,
@@ -684,7 +682,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                       });
                     if (update.profit > 0)
                       newTransactions.push({
-                        id: `tx_prof_ret_${borrowerId}_${inv.id}_${Date.now()}_${globalTxCounter++}`,
+                        id: `tx_prof_ret_${borrowerId}_${inv.id}_${crypto.randomUUID()}`,
                         date: new Date().toISOString(),
                         type: 'إيداع أرباح',
                         amount: update.profit,
@@ -1050,7 +1048,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: status,
         date: new Date().toISOString(),
         transactionHistory: [{
-          id: `tx_init_${newId}_${Date.now()}_${globalTxCounter++}`,
+          id: `tx_init_${newId}_${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           type: 'إيداع رأس المال',
           amount: investorPayload.capital,
@@ -1201,7 +1199,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           if (i.id === investorId) {
             const newTransaction: Transaction = {
               ...transaction,
-              id: `tx_man_${investorId}_${Date.now()}_${globalTxCounter++}`,
+              id: `tx_man_${investorId}_${crypto.randomUUID()}`,
             };
 
             const updatedInvestor = { ...i };
