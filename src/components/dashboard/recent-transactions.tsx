@@ -90,8 +90,8 @@ export function RecentTransactions({ borrowers: propsBorrowers, investors: props
           </TableHeader>
           <TableBody>
             {sortedTransactions.length > 0 ? (
-              sortedTransactions.map((transaction) => (
-                <TableRow key={transaction.id}>
+              sortedTransactions.map((transaction, index) => (
+                <TableRow key={`${transaction.id}-${index}`}>
                   <TableCell className="font-medium">{transaction.type}</TableCell>
                   <TableCell>{transaction.user}</TableCell>
                   <TableCell className={cn(
