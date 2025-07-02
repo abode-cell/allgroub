@@ -17,13 +17,18 @@ interface CalculationInput {
     };
 }
 
+export type DashboardMetricsOutput = ReturnType<typeof calculateAllDashboardMetrics>;
+
 // Helper to filter data based on user role
 function getFilteredData(input: CalculationInput) {
     const { currentUser, borrowers, investors, users } = input;
     const { role } = currentUser;
 
     if (role === 'مدير النظام' || role === 'مستثمر') {
-        return { filteredBorrowers: [], filteredInvestors: [] };
+        const officeManagerIds = new Set(users.filter(u => u.role === 'مدير المكتب').map(m => m.id));
+        const relevantInvestorUsers = users.filter(u => u.role === 'مستثمر' && u.managedBy && officeManagerIds.has(u.managedBy));
+        const relevantInvestorIds = new Set(relevantInvestorUsers.map(u => u.id));
+        return { filteredBorrowers: borrowers, filteredInvestors: investors.filter(i => relevantInvestorIds.has(i.id)) };
     }
 
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
@@ -215,6 +220,19 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
 
 function calculateSystemAdminMetrics(users: User[], investors: Investor[]) {
     const officeManagers = users.filter(u => u.role === 'مدير المكتب');
+    
+    if (officeManagers.length === 0) {
+        return { 
+            pendingManagers: [], 
+            activeManagersCount: 0, 
+            totalCapital: 0, 
+            installmentCapital: 0, 
+            graceCapital: 0, 
+            totalUsersCount: users.length,
+            pendingManagersCount: 0
+        };
+    }
+    
     const officeManagerIds = new Set(officeManagers.map(m => m.id));
 
     const pendingManagers = officeManagers.filter(u => u.status === 'معلق');

@@ -22,7 +22,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { calculateDashboardMetrics, type DashboardMetricsOutput } from '@/ai/flows/calculate-dashboard-metrics';
+import { calculateAllDashboardMetrics, type DashboardMetricsOutput } from '@/services/dashboard-service';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -478,9 +478,7 @@ const SystemAdminDashboard = ({ metrics }: { metrics: DashboardMetricsOutput['ad
 
 export default function DashboardPage() {
   const { currentUser, users, borrowers, investors, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
-  const [isPending, startTransition] = useTransition();
-  const [metrics, setMetrics] = useState<DashboardMetricsOutput | null>(null);
-
+  
   const { filteredBorrowers, filteredInvestors } = useMemo(() => {
     if (!currentUser) return { filteredBorrowers: [], filteredInvestors: [] };
     const { role } = currentUser;
@@ -494,37 +492,39 @@ export default function DashboardPage() {
     relevantUserIds.add(currentUser.id);
 
     const fBorrowers = borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
-    const fInvestors = investors.filter(i => i.submittedBy && relevantUserIds.has(i.submittedBy));
+    const fInvestors = investors.filter(i => {
+       const investorUser = users.find(u => u.id === i.id);
+       return investorUser?.managedBy && relevantUserIds.has(investorUser.managedBy)
+    });
 
     return { filteredBorrowers: fBorrowers, filteredInvestors: fInvestors };
   }, [currentUser, users, borrowers, investors]);
 
 
-  useEffect(() => {
-    if (currentUser) {
-      startTransition(async () => {
-        try {
-          const result = await calculateDashboardMetrics({
-            borrowers,
-            investors,
-            users,
-            currentUser,
-            config: {
-              investorSharePercentage,
-              graceTotalProfitPercentage,
-              graceInvestorSharePercentage,
-            }
-          });
-          setMetrics(result);
-        } catch (error) {
-          console.error("Failed to calculate dashboard metrics:", error);
-          setMetrics(null); 
+  const metrics = useMemo(() => {
+    if (!currentUser) return null;
+
+    try {
+      // Use the local function instead of the slow async Genkit flow
+      const result = calculateAllDashboardMetrics({
+        borrowers,
+        investors,
+        users,
+        currentUser,
+        config: {
+          investorSharePercentage,
+          graceTotalProfitPercentage,
+          graceInvestorSharePercentage,
         }
       });
+      return result;
+    } catch (error) {
+      console.error("Failed to calculate dashboard metrics:", error);
+      return null; 
     }
   }, [borrowers, investors, users, currentUser, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
-  if (!currentUser || isPending || !metrics) {
+  if (!currentUser || !metrics) {
       return <PageSkeleton />;
   }
 
