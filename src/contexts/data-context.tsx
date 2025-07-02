@@ -39,6 +39,7 @@ import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
+let globalTxCounter = 0;
 
 type DataState = {
   currentUser: User | undefined;
@@ -675,7 +676,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   if (paymentStatus === 'تم السداد') {
                     if (update.principal > 0)
                       newTransactions.push({
-                        id: `tx_prin_ret_${borrowerId}_${inv.id}_${Date.now()}_${performance.now().toString().replace('.', '')}_${Math.random().toString(36).substring(2)}`,
+                        id: `tx_prin_ret_${borrowerId}_${inv.id}_${Date.now()}_${globalTxCounter++}`,
                         date: new Date().toISOString(),
                         type: 'إيداع رأس المال',
                         amount: update.principal,
@@ -683,7 +684,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                       });
                     if (update.profit > 0)
                       newTransactions.push({
-                        id: `tx_prof_ret_${borrowerId}_${inv.id}_${Date.now()}_${performance.now().toString().replace('.', '')}_${Math.random().toString(36).substring(2)}`,
+                        id: `tx_prof_ret_${borrowerId}_${inv.id}_${Date.now()}_${globalTxCounter++}`,
                         date: new Date().toISOString(),
                         type: 'إيداع أرباح',
                         amount: update.profit,
@@ -1049,7 +1050,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: status,
         date: new Date().toISOString(),
         transactionHistory: [{
-          id: `tx_init_${newId}_${Date.now()}_${Math.random().toString(36).substring(2)}`,
+          id: `tx_init_${newId}_${Date.now()}_${globalTxCounter++}`,
           date: new Date().toISOString(),
           type: 'إيداع رأس المال',
           amount: investorPayload.capital,
@@ -1200,7 +1201,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           if (i.id === investorId) {
             const newTransaction: Transaction = {
               ...transaction,
-              id: `tx_man_${investorId}_${Date.now()}_${performance.now().toString().replace('.', '')}_${Math.random().toString(36).substring(2)}`,
+              id: `tx_man_${investorId}_${Date.now()}_${globalTxCounter++}`,
             };
 
             const updatedInvestor = { ...i };
