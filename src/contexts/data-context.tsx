@@ -923,10 +923,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const updateInstallmentStatus = useCallback((borrowerId: string, month: number, status: InstallmentStatus) => {
       setBorrowers(prev => prev.map(borrower => {
-          if (borrower.id === borrowerId && borrower.installments) {
-              const newInstallments = borrower.installments.map(inst => 
+          if (borrower.id === borrowerId) {
+              const numberOfPayments = (borrower.term || 0) * 12;
+              if (borrower.loanType !== 'اقساط' || numberOfPayments === 0) return borrower;
+
+              // Ensure the installments array is fully populated before updating
+              const currentInstallments = borrower.installments || [];
+              const installmentsMap = new Map(currentInstallments.map(i => [i.month, i]));
+              
+              const fullInstallments = Array.from({ length: numberOfPayments }, (_, i) => {
+                  const monthNum = i + 1;
+                  return installmentsMap.get(monthNum) || { month: monthNum, status: 'لم يسدد بعد' };
+              });
+
+              // Apply the update
+              const newInstallments = fullInstallments.map(inst => 
                   inst.month === month ? { ...inst, status } : inst
               );
+
               return { ...borrower, installments: newInstallments };
           }
           return borrower;

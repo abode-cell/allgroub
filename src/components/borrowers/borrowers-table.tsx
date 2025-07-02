@@ -251,18 +251,30 @@ export function BorrowersTable({
   const handleInstallmentStatusChange = (month: number, newStatus: InstallmentStatus) => {
     if (!selectedBorrower) return;
 
-    const borrowerId = selectedBorrower.id;
-
     // Call the context action to persist the change
-    updateInstallmentStatus(borrowerId, month, newStatus);
+    updateInstallmentStatus(selectedBorrower.id, month, newStatus);
     
-    // Update local state for immediate UI feedback in the dialog
+    // Robustly update local state for immediate UI feedback in the dialog
+    const numberOfPayments = (selectedBorrower.term || 0) * 12;
+    if (selectedBorrower.loanType !== 'اقساط' || numberOfPayments === 0) return;
+
+    const currentInstallments = selectedBorrower.installments || [];
+    const installmentsMap = new Map(currentInstallments.map(i => [i.month, i]));
+
+    const fullInstallments = Array.from({ length: numberOfPayments }, (_, i) => {
+        const monthNum = i + 1;
+        return installmentsMap.get(monthNum) || { month: monthNum, status: 'لم يسدد بعد' as InstallmentStatus };
+    });
+    
+    const newInstallments = fullInstallments.map(inst => 
+        inst.month === month ? { ...inst, status: newStatus } : inst
+    );
+
     const updatedBorrower: Borrower = {
         ...selectedBorrower,
-        installments: (selectedBorrower.installments || []).map(inst =>
-            inst.month === month ? { ...inst, status: newStatus } : inst
-        ),
+        installments: newInstallments,
     };
+
     setSelectedBorrower(updatedBorrower);
     setPaymentSchedule(generatePaymentSchedule(updatedBorrower));
   };
@@ -293,7 +305,7 @@ export function BorrowersTable({
                   const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
                   const isTerminalStatus = borrower.status === 'مرفوض';
-                  const isEditableStatus = borrower.status !== 'مرفوض';
+                  const isEditableStatus = !isTerminalStatus;
                   const paymentOptions = borrower.loanType === 'اقساط' ? installmentPaymentOptions : gracePaymentOptions;
 
                   return (
