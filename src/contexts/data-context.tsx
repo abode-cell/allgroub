@@ -675,7 +675,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   if (paymentStatus === 'تم السداد') {
                     if (update.principal > 0)
                       newTransactions.push({
-                        id: `t-principal-ret-${borrowerId}-${inv.id}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+                        id: `tx_prin_ret_${borrowerId}_${inv.id}_${Date.now()}_${performance.now().toString().replace('.', '')}_${Math.random().toString(36).substring(2)}`,
                         date: new Date().toISOString(),
                         type: 'إيداع رأس المال',
                         amount: update.principal,
@@ -683,7 +683,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                       });
                     if (update.profit > 0)
                       newTransactions.push({
-                        id: `t-profit-ret-${borrowerId}-${inv.id}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+                        id: `tx_prof_ret_${borrowerId}_${inv.id}_${Date.now()}_${performance.now().toString().replace('.', '')}_${Math.random().toString(36).substring(2)}`,
                         date: new Date().toISOString(),
                         type: 'إيداع أرباح',
                         amount: update.profit,
@@ -1049,7 +1049,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: status,
         date: new Date().toISOString(),
         transactionHistory: [{
-          id: `t_${Date.now()}`,
+          id: `tx_init_${newId}_${Date.now()}_${Math.random().toString(36).substring(2)}`,
           date: new Date().toISOString(),
           type: 'إيداع رأس المال',
           amount: investorPayload.capital,
@@ -1200,7 +1200,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           if (i.id === investorId) {
             const newTransaction: Transaction = {
               ...transaction,
-              id: `t_${Date.now()}`,
+              id: `tx_man_${investorId}_${Date.now()}_${performance.now().toString().replace('.', '')}_${Math.random().toString(36).substring(2)}`,
             };
 
             const updatedInvestor = { ...i };
