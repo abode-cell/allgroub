@@ -606,12 +606,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const borrowerToUpdate = prevBorrowers.find((b) => b.id === borrowerId);
         if (!borrowerToUpdate) return prevBorrowers;
 
-        if (
-          paymentStatus
-        ) {
-          const updatedBorrower = {
+        if (paymentStatus) {
+           const updatedBorrower = {
             ...borrowerToUpdate,
-            status: (paymentStatus === 'تم السداد' || paymentStatus === 'متعثر') ? paymentStatus : borrowerToUpdate.status,
             paymentStatus,
           };
 
@@ -675,7 +672,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   if (paymentStatus === 'تم السداد') {
                     if (update.principal > 0)
                       newTransactions.push({
-                        id: `tx_prin_ret_${borrowerId}_${inv.id}_${crypto.randomUUID()}`,
+                        id: `tx-prin-ret-${borrowerId}-${inv.id}-${crypto.randomUUID()}`,
                         date: new Date().toISOString(),
                         type: 'إيداع رأس المال',
                         amount: update.principal,
@@ -683,7 +680,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                       });
                     if (update.profit > 0)
                       newTransactions.push({
-                        id: `tx_profit_ret_${borrowerId}_${inv.id}_${crypto.randomUUID()}`,
+                        id: `tx-profit-ret-${borrowerId}-${inv.id}-${crypto.randomUUID()}`,
                         date: new Date().toISOString(),
                         type: 'إيداع أرباح',
                         amount: update.profit,
