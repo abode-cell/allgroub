@@ -85,10 +85,10 @@ export default function LandingPage() {
                     <div className="container mx-auto px-4 md:px-6 text-center">
                         <div className="flex flex-col items-center space-y-6">
                             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
-                                منصة عال لإدارة التمويل والاستثمار
+                                حوّل تعقيدات التمويل إلى عمليات بسيطة ومؤتمتة
                             </h1>
                             <p className="max-w-[700px] text-muted-foreground md:text-xl">
-                                أداة متكاملة للمكاتب لإدارة عملياتهم التمويلية مع مستثمريهم. نظّم القروض، واحسب الأرباح، وامنح مستثمريك الشفافية التي يستحقونها.
+                                منصة عال تزيل عنك عبء الحسابات اليدوية وتقسيم الأرباح. أدر عملياتك التمويلية بدقة، ووفّر وقتك الثمين للتركيز على نمو أعمالك.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Button asChild size="lg">
@@ -145,47 +145,47 @@ export default function LandingPage() {
                 <section id="for-managers" className="w-full min-h-screen flex items-center justify-center bg-muted/50">
                     <div className="container px-4 md:px-6">
                         <div className="flex flex-col items-center justify-center space-y-4 text-center">
-                            <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">للمكتب: تحكم كامل ورؤية واضحة</div>
-                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">إدارة مالية دقيقة ومؤتمتة</h2>
+                            <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">للمكتب: تحكم كامل وراحة بال</div>
+                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">إدارة مالية ذكية تمنحك التحكم والراحة</h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-lg/relaxed">
-                                ودّع الجداول المعقدة والمتابعة اليدوية. منصتنا تمنحك القوة لإدارة عملياتك المالية بدقة وسهولة، مما يتيح لك التركيز على نمو أعمالك.
+                                صُممت منصة عال لتكون مساعدك المالي الذكي. ودّع جداول الإكسل المعقدة، والمتابعة اليدوية المرهقة، وأخطاء الحسابات. نحن نمنحك الأدوات اللازمة لإدارة دورتك المالية بدقة وسهولة، مما يتيح لك بناء علاقات أقوى مع مستثمريك وتنمية أعمالك بثقة.
                             </p>
                         </div>
                         <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 mt-12">
                             <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">إدارة مركزية</h3>
+                                <h3 className="text-lg font-bold">إدارة مركزية للقروض</h3>
                                 <p className="text-sm text-muted-foreground">
                                     أضف جميع المستثمرين والقروض في مكان واحد. تتبع كل عملية تمويل، وحدد حالة كل قرض، وتابع الأرصدة المتاحة بسهولة.
                                 </p>
                             </div>
                             <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">حسابات آلية للأرباح</h3>
+                                <h3 className="text-lg font-bold">حسابات أرباح دقيقة وتلقائية</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    تقوم المنصة تلقائيًا بحساب وتوزيع الأرباح بينك وبين كل مستثمر بناءً على حصته من التمويل والنسب المتفق عليها.
+                                    تقوم المنصة تلقائيًا بحساب حصص الأرباح لكل من المكتب والمستثمرين من كل قرض، مهما بلغت درجة تعقيد التمويل. لا مزيد من الأخطاء البشرية أو الساعات الضائعة.
                                 </p>
                             </div>
                             <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">تقارير شاملة</h3>
+                                <h3 className="text-lg font-bold">تقارير شاملة لاتخاذ القرارات</h3>
                                 <p className="text-sm text-muted-foreground">
                                     احصل على تقارير مفصلة عن أداء القروض، وحالة المستثمرين، والأموال المتعثرة لاتخاذ قرارات مدروسة ومبنية على بيانات دقيقة.
                                 </p>
                             </div>
                             <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">إدارة فريق العمل</h3>
+                                <h3 className="text-lg font-bold">إدارة فريق العمل بصلاحيات</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    أضف موظفيك ومساعديك، وتحكم في صلاحياتهم بدقة. يمكنك منحهم صلاحيات محددة مثل إضافة القروض أو إدارة المستثمرين.
+                                    أضف موظفيك ومساعديك، وتحكم في صلاحياتهم بدقة. يمكنك منحهم صلاحيات محددة مثل إضافة القروض أو إدارة المستثمرين، مما يضمن سير العمل بكفاءة وأمان.
                                 </p>
                             </div>
                             <div className="grid gap-2">
                                 <h3 className="text-lg font-bold">مرونة في التمويل</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    مول قرضًا واحدًا من عدة مستثمرين، أو وزع استثمارات مستثمر واحد على عدة قروض مختلفة. المنصة تدعم جميع السيناريوهات.
+                                    مول قرضًا واحدًا من عدة مستثمرين، أو وزع استثمارات مستثمر واحد على عدة قروض مختلفة. المنصة تدعم جميع السيناريوهات لتعكس واقع أعمالك.
                                 </p>
                             </div>
                             <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">شفافية وأمان</h3>
+                                <h3 className="text-lg font-bold">شفافية لبناء الثقة</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    عندما تدعو مستثمرك للمنصة، فإنك تبني جسرًا من الثقة من خلال الشفافية المطلقة في عرض تفاصيل الاستثمارات والأرباح.
+                                    عندما تدعو مستثمرك للمنصة، فإنك تبني جسرًا من الثقة من خلال الشفافية المطلقة في عرض تفاصيل الاستثمارات والأرباح المحققة.
                                 </p>
                             </div>
                         </div>
