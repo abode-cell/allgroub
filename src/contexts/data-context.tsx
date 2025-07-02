@@ -1472,13 +1472,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
       let idsToDelete = new Set<string>([userIdToDelete]);
       let investorIdsToDelete = new Set<string>();
+      const userMap = new Map(users.map(u => [u.id, u]));
   
       if (userToDelete.role === 'مدير المكتب') {
         users.forEach((u) => {
           if (u.managedBy === userIdToDelete) idsToDelete.add(u.id);
         });
         investors.forEach((i) => {
-          const investorUser = users.find(u => u.id === i.id);
+          const investorUser = userMap.get(i.id);
           if (investorUser?.managedBy === userIdToDelete) {
             idsToDelete.add(i.id);
             investorIdsToDelete.add(i.id);

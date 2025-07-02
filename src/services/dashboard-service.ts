@@ -23,6 +23,7 @@ export type DashboardMetricsOutput = ReturnType<typeof calculateAllDashboardMetr
 function getFilteredData(input: CalculationInput) {
     const { currentUser, borrowers, investors, users } = input;
     const { role } = currentUser;
+    const userMap = new Map(users.map(u => [u.id, u]));
 
     if (role === 'مدير النظام' || role === 'مستثمر') {
         const officeManagerIds = new Set(users.filter(u => u.role === 'مدير المكتب').map(m => m.id));
@@ -32,12 +33,17 @@ function getFilteredData(input: CalculationInput) {
     }
 
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    const relevantUserIds = new Set<string>();
+    for(const u of users) {
+        if (u.managedBy === managerId || u.id === managerId) {
+            relevantUserIds.add(u.id);
+        }
+    }
     relevantUserIds.add(currentUser.id);
 
     const filteredBorrowers = borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
     const filteredInvestors = investors.filter(i => {
-        const investorUser = users.find(u => u.id === i.id);
+        const investorUser = userMap.get(i.id);
         return investorUser?.managedBy && relevantUserIds.has(investorUser.managedBy)
     });
     
@@ -58,12 +64,13 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     let totalInstitutionProfit = 0;
     let totalInvestorsProfit = 0;
     const investorProfits: { [investorId: string]: { id: string; name: string, profit: number } } = {};
+    const investorMap = new Map(investors.map(inv => [inv.id, inv]));
 
     profitableInstallmentLoans.forEach(loan => {
         if (!loan.rate || !loan.term || !loan.fundedBy) return;
         
         loan.fundedBy.forEach(funder => {
-            const investorDetails = investors.find(i => i.id === funder.investorId);
+            const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
 
             const profitShare = investorDetails.installmentProfitShare ?? config.investorSharePercentage;
@@ -97,7 +104,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
         let totalInvestorProfitOnLoan = 0;
 
         loan.fundedBy.forEach(funder => {
-            const investorDetails = investors.find(i => i.id === funder.investorId);
+            const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
             const profitShare = investorDetails.installmentProfitShare ?? config.investorSharePercentage;
             const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
@@ -148,12 +155,13 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     let totalInstitutionProfit = 0;
     let totalInvestorsProfit = 0;
     const investorProfits: { [investorId: string]: { id: string; name: string, profit: number } } = {};
+    const investorMap = new Map(investors.map(inv => [inv.id, inv]));
 
     profitableLoans.forEach(loan => {
         if (!loan.fundedBy) return;
 
         loan.fundedBy.forEach(funder => {
-            const investorDetails = investors.find(i => i.id === funder.investorId);
+            const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
 
             const totalProfitOnFundedAmount = funder.amount * (config.graceTotalProfitPercentage / 100);
@@ -181,7 +189,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
         let totalInvestorProfitOnLoan = 0;
         
         loan.fundedBy.forEach(funder => {
-            const investorDetails = investors.find(i => i.id === funder.investorId);
+            const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
             const totalProfitOnFundedAmount = funder.amount * (config.graceTotalProfitPercentage / 100);
             const investorProfitShare = investorDetails.gracePeriodProfitShare ?? config.graceInvestorSharePercentage;
@@ -234,14 +242,15 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[]) {
     }
     
     const officeManagerIds = new Set(officeManagers.map(m => m.id));
+    const userMap = new Map(users.map(u => [u.id, u]));
 
     const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
     const activeManagersCount = officeManagers.length - pendingManagers.length;
     
-    // Find investors that are managed by any office manager
-    const relevantInvestorUsers = users.filter(u => u.role === 'مستثمر' && u.managedBy && officeManagerIds.has(u.managedBy));
-    const relevantInvestorIds = new Set(relevantInvestorUsers.map(u => u.id));
-    const relevantInvestors = investors.filter(i => relevantInvestorIds.has(i.id));
+    const relevantInvestors = investors.filter(i => {
+        const investorUser = userMap.get(i.id);
+        return investorUser?.managedBy && officeManagerIds.has(investorUser.managedBy)
+    });
 
     const totalCapital = relevantInvestors.reduce((total, investor) => total + investor.installmentCapital + investor.gracePeriodCapital, 0);
     const installmentCapital = relevantInvestors.reduce((total, investor) => total + investor.installmentCapital, 0);
