@@ -5,11 +5,12 @@ import { AuthProvider } from '@/contexts/auth-context';
 import { ClientLayout } from '@/components/client-layout';
 import { DataProvider } from '@/contexts/data-context';
 import { ThemeProvider } from '@/components/theme-provider';
-import { Inter } from 'next/font/google';
+import { Tajawal } from 'next/font/google';
 import { cn } from '@/lib/utils';
 
-const inter = Inter({
-  subsets: ['latin'],
+const tajawal = Tajawal({
+  subsets: ['arabic', 'latin'],
+  weight: ['400', '500', '700'],
   variable: '--font-sans',
 });
 
@@ -26,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head />
-      <body className={cn('font-sans antialiased', inter.variable)}>
+      <body className={cn('font-sans antialiased', tajawal.variable)}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
