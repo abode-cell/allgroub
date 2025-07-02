@@ -607,27 +607,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!borrowerToUpdate) return prevBorrowers;
 
         if (
-          paymentStatus === 'تم السداد' &&
-          borrowerToUpdate.status !== 'مسدد بالكامل'
+          paymentStatus
         ) {
           const updatedBorrower = {
             ...borrowerToUpdate,
-            status: 'مسدد بالكامل',
+            status: (paymentStatus === 'تم السداد' || paymentStatus === 'متعثر') ? paymentStatus : borrowerToUpdate.status,
             paymentStatus,
           };
 
-          if (updatedBorrower.fundedBy && updatedBorrower.amount > 0) {
+          if (updatedBorrower.fundedBy && updatedBorrower.amount > 0 && (paymentStatus === 'تم السداد' || paymentStatus === 'متعثر')) {
             
             const investorUpdates = new Map<
               string,
-              { amountToAdd: number; principal: number; profit: number }
+              { amountToChange: number; principal: number; profit: number }
             >();
 
             updatedBorrower.fundedBy.forEach((funder) => {
               const investorDetails = investors.find(i => i.id === funder.investorId);
               if (!investorDetails) return;
 
-              const principalReturn = funder.amount;
+              let principalChange = funder.amount;
               let profit = 0;
 
               if(borrowerToUpdate.loanType === 'اقساط' && borrowerToUpdate.rate && borrowerToUpdate.term) {
@@ -641,20 +640,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
               }
               
               const currentUpdate = investorUpdates.get(funder.investorId) || {
-                amountToAdd: 0,
+                amountToChange: 0,
                 principal: 0,
                 profit: 0,
               };
-              currentUpdate.amountToAdd += principalReturn + profit;
-              currentUpdate.principal += principalReturn;
+
+              if (paymentStatus === 'تم السداد') {
+                  currentUpdate.amountToChange += principalChange + profit;
+                  notificationsToQueue.push({
+                    recipientId: funder.investorId,
+                    title: 'أرباح محققة',
+                    description: `تم سداد قرض "${updatedBorrower.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.`,
+                  });
+              } else { // متعثر
+                  currentUpdate.amountToChange += principalChange;
+                   notificationsToQueue.push({
+                    recipientId: funder.investorId,
+                    title: 'تنبيه: تعثر قرض مرتبط',
+                    description: `القرض الخاص بالعميل "${updatedBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.`,
+                  });
+              }
+
+              currentUpdate.principal += principalChange;
               currentUpdate.profit += profit;
               investorUpdates.set(funder.investorId, currentUpdate);
-
-              notificationsToQueue.push({
-                recipientId: funder.investorId,
-                title: 'أرباح محققة',
-                description: `تم سداد قرض "${updatedBorrower.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.`,
-              });
             });
 
             setInvestors((prevInvestors) =>
@@ -662,31 +671,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if (investorUpdates.has(inv.id)) {
                   const update = investorUpdates.get(inv.id)!;
                   const newTransactions: Transaction[] = [];
-                  const timestamp = Date.now();
 
-                  if (update.principal > 0)
-                    newTransactions.push({
-                      id: `tx-principal-${borrowerId}-${inv.id}-${timestamp}-${Math.floor(Math.random() * 1000000)}`,
-                      date: new Date().toISOString(),
-                      type: 'إيداع رأس المال',
-                      amount: update.principal,
-                      description: `استعادة رأس مال من قرض "${updatedBorrower.name}"`,
-                    });
-                  if (update.profit > 0)
-                    newTransactions.push({
-                      id: `tx-profit-${borrowerId}-${inv.id}-${timestamp}-${Math.floor(Math.random() * 1000000)}`,
-                      date: new Date().toISOString(),
-                      type: 'إيداع أرباح',
-                      amount: update.profit,
-                      description: `أرباح من قرض "${updatedBorrower.name}"`,
-                    });
+                  if (paymentStatus === 'تم السداد') {
+                    if (update.principal > 0)
+                      newTransactions.push({
+                        id: `t-principal-ret-${borrowerId}-${inv.id}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+                        date: new Date().toISOString(),
+                        type: 'إيداع رأس المال',
+                        amount: update.principal,
+                        description: `استعادة رأس مال من قرض "${updatedBorrower.name}"`,
+                      });
+                    if (update.profit > 0)
+                      newTransactions.push({
+                        id: `t-profit-ret-${borrowerId}-${inv.id}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+                        date: new Date().toISOString(),
+                        type: 'إيداع أرباح',
+                        amount: update.profit,
+                        description: `أرباح من قرض "${updatedBorrower.name}"`,
+                      });
+                  }
                   
                   const updatedInv = {...inv};
-                  if (updatedBorrower.loanType === 'اقساط') {
-                    updatedInv.installmentCapital += update.amountToAdd;
-                  } else {
-                    updatedInv.gracePeriodCapital += update.amountToAdd;
-                  }
+                   if (paymentStatus === 'تم السداد') {
+                      if (updatedBorrower.loanType === 'اقساط') {
+                        updatedInv.installmentCapital += update.amountToChange;
+                      } else {
+                        updatedInv.gracePeriodCapital += update.amountToChange;
+                      }
+                   } else { // متعثر
+                        updatedInv.defaultedFunds = (updatedInv.defaultedFunds || 0) + update.amountToChange;
+                   }
                   
                   updatedInv.fundedLoanIds = inv.fundedLoanIds.filter(id => id !== borrowerId);
                   updatedInv.transactionHistory = [...inv.transactionHistory, ...newTransactions];
@@ -697,59 +711,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
               })
             );
           }
-          toastMessage = {
-            title: 'تم سداد القرض بالكامل',
-            description: 'تمت إعادة الأموال والأرباح للمستثمرين بنجاح.',
-          };
-          return prevBorrowers.map((b) =>
-            b.id === borrowerId ? updatedBorrower : b
-          );
-        } else if (
-          paymentStatus === 'متعثر' &&
-          borrowerToUpdate.status !== 'متعثر'
-        ) {
-          const updatedBorrower = {
-            ...borrowerToUpdate,
-            status: 'متعثر',
-            paymentStatus,
-          };
+           if (paymentStatus === 'تم السداد') {
+                toastMessage = { title: 'تم سداد القرض بالكامل', description: 'تمت إعادة الأموال والأرباح للمستثمرين بنجاح.' };
+            } else if (paymentStatus === 'متعثر') {
+                toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
+            }
 
-          if (updatedBorrower.fundedBy) {
-            const investorUpdates = new Map<string, { amountToDefault: number }>();
-            updatedBorrower.fundedBy.forEach((funder) => {
-              const currentUpdate = investorUpdates.get(funder.investorId) || {
-                amountToDefault: 0,
-              };
-              currentUpdate.amountToDefault += funder.amount;
-              investorUpdates.set(funder.investorId, currentUpdate);
-              notificationsToQueue.push({
-                recipientId: funder.investorId,
-                title: 'تنبيه: تعثر قرض مرتبط',
-                description: `القرض الخاص بالعميل "${updatedBorrower.name}" قد تعثر، مما قد يؤثر على استثماراتك.`,
-              });
-            });
-            setInvestors((prevInvestors) =>
-              prevInvestors.map((inv) => {
-                if (investorUpdates.has(inv.id)) {
-                  const update = investorUpdates.get(inv.id)!;
-                  return {
-                    ...inv,
-                    defaultedFunds:
-                      (inv.defaultedFunds || 0) + update.amountToDefault,
-                    fundedLoanIds: inv.fundedLoanIds.filter(
-                      (id) => id !== borrowerId
-                    ),
-                  };
-                }
-                return inv;
-              })
-            );
-          }
-          toastMessage = {
-            title: 'تم تسجيل القرض كمتعثر',
-            description: 'تم تحديث أموال المستثمرين المتعثرة.',
-            variant: 'destructive',
-          };
           return prevBorrowers.map((b) =>
             b.id === borrowerId ? updatedBorrower : b
           );
