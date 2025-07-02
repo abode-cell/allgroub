@@ -5,9 +5,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { AppHeader } from './app-header';
 import { Skeleton } from './ui/skeleton';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useDataState } from '@/contexts/data-context';
-import { PageLoader } from './page-loader';
 
 function AppSkeleton() {
   return (
@@ -51,21 +50,6 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     
-    const [isPageLoading, setIsPageLoading] = useState(false);
-    const pathnameRef = useRef(pathname);
-
-    useEffect(() => {
-        if (pathnameRef.current !== pathname) {
-            setIsPageLoading(true);
-            pathnameRef.current = pathname;
-        }
-    }, [pathname]);
-
-    useEffect(() => {
-        setIsPageLoading(false);
-    }, [children]);
-
-
     useEffect(() => {
         // Redirect to login if auth is done and there's no user.
         if (!authLoading && !userId) {
@@ -102,7 +86,6 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex flex-col min-h-screen bg-background">
-            {isPageLoading && <PageLoader />}
             <AppHeader />
             <main className="flex-1">
                 {children}
