@@ -662,10 +662,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if (investorUpdates.has(inv.id)) {
                   const update = investorUpdates.get(inv.id)!;
                   const newTransactions: Transaction[] = [];
+                  const timestamp = Date.now();
 
                   if (update.principal > 0)
                     newTransactions.push({
-                      id: `tx-principal-${borrowerId}-${inv.id}-${Date.now()}-${Math.random()}`,
+                      id: `tx-principal-${borrowerId}-${inv.id}-${timestamp}-${Math.floor(Math.random() * 1000000)}`,
                       date: new Date().toISOString(),
                       type: 'إيداع رأس المال',
                       amount: update.principal,
@@ -673,7 +674,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     });
                   if (update.profit > 0)
                     newTransactions.push({
-                      id: `tx-profit-${borrowerId}-${inv.id}-${Date.now()}-${Math.random()}`,
+                      id: `tx-profit-${borrowerId}-${inv.id}-${timestamp}-${Math.floor(Math.random() * 1000000)}`,
                       date: new Date().toISOString(),
                       type: 'إيداع أرباح',
                       amount: update.profit,
