@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataState } from '@/contexts/data-context';
 import { Mail, Phone, Rocket, TrendingUp, Handshake } from 'lucide-react';
-import NextImage from 'next/image';
 
 const Logo = () => (
     <Link href="/" className="flex items-center gap-2.5">
