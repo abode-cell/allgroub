@@ -84,6 +84,7 @@ type DataActions = {
   ) => void;
   approveBorrower: (borrowerId: string) => void;
   rejectBorrower: (borrowerId: string, reason: string) => void;
+  deleteBorrower: (borrowerId: string) => void;
   updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => void;
   addInvestor: (investor: NewInvestorPayload) => void;
   addEmployee: (
@@ -682,7 +683,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                       });
                     if (update.profit > 0)
                       newTransactions.push({
-                        id: `tx_prof_ret_${borrowerId}_${inv.id}_${crypto.randomUUID()}`,
+                        id: `tx_profit_ret_${borrowerId}_${inv.id}_${crypto.randomUUID()}`,
                         date: new Date().toISOString(),
                         type: 'إيداع أرباح',
                         amount: update.profit,
@@ -798,6 +799,56 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [addNotification, toast]
   );
+
+  const deleteBorrower = useCallback((borrowerId: string) => {
+    const borrowerToDelete = borrowers.find(b => b.id === borrowerId);
+    if (!borrowerToDelete) {
+        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+        return;
+    }
+
+    const isCapitalLocked = ['منتظم', 'متأخر', 'معلق'].includes(borrowerToDelete.status);
+
+    if (borrowerToDelete.fundedBy && borrowerToDelete.fundedBy.length > 0) {
+        setInvestors(prevInvestors => {
+            const investorsMap = new Map(prevInvestors.map(inv => [inv.id, { ...inv, transactionHistory: [...inv.transactionHistory], fundedLoanIds: [...inv.fundedLoanIds] }]));
+
+            for (const funder of borrowerToDelete.fundedBy!) {
+                if (investorsMap.has(funder.investorId)) {
+                    const investor = investorsMap.get(funder.investorId)!;
+
+                    if (isCapitalLocked) {
+                        if (borrowerToDelete.loanType === 'اقساط') {
+                            investor.installmentCapital += funder.amount;
+                        } else {
+                            investor.gracePeriodCapital += funder.amount;
+                        }
+                        
+                        investor.transactionHistory.push({
+                            id: `tx_del_${borrowerId}_${investor.id}_${crypto.randomUUID()}`,
+                            date: new Date().toISOString(),
+                            type: 'إيداع رأس المال',
+                            amount: funder.amount,
+                            description: `استعادة رأس مال من حذف قرض: "${borrowerToDelete.name}"`,
+                        });
+                    }
+
+                    investor.fundedLoanIds = investor.fundedLoanIds.filter(id => id !== borrowerId);
+                    investorsMap.set(investor.id, investor);
+                }
+            }
+            return Array.from(investorsMap.values());
+        });
+    }
+
+    setBorrowers(prev => prev.filter(b => b.id !== borrowerId));
+
+    toast({
+        variant: 'destructive',
+        title: 'تم الحذف',
+        description: `تم حذف القرض "${borrowerToDelete.name}" بنجاح.`
+    });
+  }, [borrowers, investors, toast]);
 
   const addBorrower = useCallback(
     (borrower, investorIds) => {
@@ -1612,6 +1663,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateInstallmentStatus,
       approveBorrower,
       rejectBorrower,
+      deleteBorrower,
       addInvestor,
       addEmployee,
       addAssistant,
@@ -1650,6 +1702,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateInstallmentStatus,
       approveBorrower,
       rejectBorrower,
+      deleteBorrower,
       addInvestor,
       addEmployee,
       addAssistant,

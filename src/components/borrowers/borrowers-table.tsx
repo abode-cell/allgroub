@@ -21,8 +21,9 @@ import {
   Users,
   Edit,
   CalendarDays,
+  Trash2,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +40,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -137,13 +148,15 @@ export function BorrowersTable({
   borrowers: Borrower[];
 }) {
   const { currentUser, investors, users } = useDataState();
-  const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified, updateInstallmentStatus } = useDataActions();
+  const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified, updateInstallmentStatus, deleteBorrower } = useDataActions();
   const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [borrowerToDelete, setBorrowerToDelete] = useState<Borrower | null>(null);
 
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
     null
@@ -160,6 +173,7 @@ export function BorrowersTable({
   const canEmployeeEdit = isEmployee && !!manager?.allowEmployeeLoanEdits;
 
   const canEdit = isOfficeManager || isAssistantWithPerms || canEmployeeEdit;
+  const canDelete = isOfficeManager || isAssistantWithPerms;
   const canUpdatePaymentStatus = canEdit;
   const canViewSchedule = canEdit;
   const canApprove = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
@@ -173,6 +187,19 @@ export function BorrowersTable({
     setIsEditDialogOpen(true);
   };
   
+  const handleDeleteClick = (borrower: Borrower) => {
+    setBorrowerToDelete(borrower);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (borrowerToDelete) {
+      deleteBorrower(borrowerToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setBorrowerToDelete(null);
+    }
+  };
+
   const handleViewDetailsClick = (borrower: Borrower) => {
     setSelectedBorrower(borrower);
     setIsDetailsDialogOpen(true);
@@ -429,6 +456,14 @@ export function BorrowersTable({
                           >
                             <CalendarDays className="ml-2 h-4 w-4" />
                             عرض جدول السداد
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            onSelect={() => handleDeleteClick(borrower)}
+                            disabled={!canDelete}
+                          >
+                            <Trash2 className="ml-2 h-4 w-4" />
+                            حذف القرض
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -902,6 +937,25 @@ export function BorrowersTable({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد أنك تريد حذف قرض "{borrowerToDelete?.name}"؟ سيؤدي هذا الإجراء إلى إرجاع أي أموال ممولة إلى المستثمرين ولا يمكن التراجع عنه.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBorrowerToDelete(null)}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className={buttonVariants({ variant: 'destructive' })}
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
