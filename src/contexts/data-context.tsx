@@ -107,7 +107,7 @@ type DataActions = {
     userId: string,
     updates: { email?: string; password?: string }
   ) => Promise<{ success: boolean; message: string }>;
-  updateUserStatus: (userId: string, status: User['status']) => void;
+  updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => void;
   updateUserLimits: (
     userId: string,
@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_15';
+export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_16';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -1274,7 +1274,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateUserStatus = useCallback(
-    (userIdToUpdate: string, status: User['status']) => {
+    async (userIdToUpdate: string, status: User['status']) => {
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
         const userToUpdate = d.users.find((u) => u.id === userIdToUpdate);
@@ -1282,6 +1282,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
             return d;
         }
+
+        if (userToUpdate.lastStatusChange) {
+            const lastChangeTime = new Date(userToUpdate.lastStatusChange).getTime();
+            const now = new Date().getTime();
+            if (now - lastChangeTime < 5000) { // 5 second cooldown
+                toast({
+                    variant: 'destructive',
+                    title: 'الرجاء الانتظار',
+                    description: 'يجب الانتظار بضع ثوان قبل تغيير حالة هذا المستخدم مرة أخرى.',
+                });
+                return d;
+            }
+        }
+
         const canUpdate = loggedInUser.role === 'مدير النظام' ||
                           (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id) ||
                           (loggedInUser.role === 'مساعد مدير المكتب' && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف');
@@ -1294,7 +1308,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const newUsers = d.users.map((u) => {
             if (u.id === userIdToUpdate) {
-                const updatedUser: User = { ...u, status };
+                const updatedUser: User = { ...u, status, lastStatusChange: new Date().toISOString() };
                 if (status === 'نشط' && updatedUser.trialEndsAt) {
                   delete updatedUser.trialEndsAt;
                 }
@@ -1522,8 +1536,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const investorData = d.investors.find(i => i.id === userIdToDelete);
             if (investorData) {
                 const financials = calculateInvestorFinancials(investorData, d.borrowers);
-                if (financials.activeCapital > 0 || financials.defaultedFunds > 0) {
-                    blockingReason = `لا يمكن الحذف لوجود أموال نشطة أو متعثرة مرتبطة بالمستثمر "${investorData.name}".`;
+                if (financials.totalCapitalInSystem > 0) {
+                    blockingReason = `لا يمكن الحذف لوجود أرصدة (نشطة، خاملة، أو متعثرة) مرتبطة بالمستثمر "${investorData.name}". يرجى سحب جميع الأرصدة أولاً.`;
                 }
             }
         } else { // Employee or Assistant

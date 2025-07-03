@@ -60,6 +60,7 @@ export type User = {
   hideEmployeeInvestorFunds?: boolean;
   allowEmployeeLoanEdits?: boolean;
   permissions?: Permissions;
+  lastStatusChange?: string;
 };
 
 export type InstallmentStatus = 'لم يسدد بعد' | 'تم السداد' | 'متأخر';

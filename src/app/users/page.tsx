@@ -89,6 +89,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatCurrency } from '@/lib/utils';
+import React from 'react';
 
 
 const PageSkeleton = () => (
@@ -129,6 +130,7 @@ const assistantPermissionsConfig: {
 const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void }) => {
   const { updateUserStatus } = useDataActions();
   const { currentUser } = useDataState();
+  const [isLoading, setIsLoading] = useState(false);
 
   const { canEditCredentials, canDeleteUser, canUpdateUserStatus } = useMemo(() => {
     if (!currentUser || user.id === currentUser.id) {
@@ -154,6 +156,12 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
     return { canEditCredentials: canEdit, canDeleteUser: canDelete, canUpdateUserStatus: canUpdateStatus };
   }, [currentUser, user]);
 
+  const handleStatusChange = async (newStatus: 'نشط' | 'معلق') => {
+    setIsLoading(true);
+    await updateUserStatus(user.id, newStatus);
+    setIsLoading(false);
+  }
+
   if (!canEditCredentials && !canDeleteUser && !canUpdateUserStatus) {
     return null;
   }
@@ -162,13 +170,13 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
     <div className="flex items-center gap-2 justify-start">
         {canUpdateUserStatus && (
           user.status === 'معلق' ? (
-            <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'نشط')}>
-              <Check className="ml-1 h-4 w-4" />
+            <Button size="sm" variant="outline" onClick={() => handleStatusChange('نشط')} disabled={isLoading}>
+              {isLoading ? <Loader2 className="ml-1 h-4 w-4 animate-spin" /> : <Check className="ml-1 h-4 w-4" />}
               تفعيل
             </Button>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'معلق')}>
-               <X className="ml-1 h-4 w-4" />
+            <Button size="sm" variant="outline" onClick={() => handleStatusChange('معلق')} disabled={isLoading}>
+               {isLoading ? <Loader2 className="ml-1 h-4 w-4 animate-spin" /> : <X className="ml-1 h-4 w-4" />}
               تعليق
             </Button>
           )
@@ -293,7 +301,7 @@ export default function UsersPage() {
     setEditCredsForm(prev => ({ ...prev, [id]: value }));
   };
   
-  const handleSaveCredentials = (e: React.FormEvent) => {
+  const handleSaveCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userToEdit) return;
     setIsCredsSubmitting(true);
@@ -307,11 +315,10 @@ export default function UsersPage() {
     }
 
     if (Object.keys(updates).length > 0) {
-        updateUserCredentials(userToEdit.id, updates).then(result => {
-            if (result.success) {
-                setIsEditCredsDialogOpen(false);
-            }
-        });
+        const result = await updateUserCredentials(userToEdit.id, updates);
+        if (result.success) {
+            setIsEditCredsDialogOpen(false);
+        }
     } else {
       setIsEditCredsDialogOpen(false); // Close if no changes were made
     }
@@ -372,7 +379,7 @@ export default function UsersPage() {
     setAddUserForm((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleAddNewUser = (e: React.FormEvent) => {
+  const handleAddNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addUserForm.role) return;
 
@@ -387,11 +394,10 @@ export default function UsersPage() {
     
     setIsSubmittingNewUser(true);
     const { name, email, phone, password } = addUserForm;
-    addNewSubordinateUser({ name, email, phone, password }, addUserForm.role).then(result => {
-        if (result.success) {
-          setIsAddUserDialogOpen(false);
-        }
-    });
+    const result = await addNewSubordinateUser({ name, email, phone, password }, addUserForm.role);
+    if (result.success) {
+        setIsAddUserDialogOpen(false);
+    }
     setIsSubmittingNewUser(false);
   };
 
