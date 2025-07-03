@@ -48,7 +48,7 @@ export default function SupportPage() {
 
     setIsSubmitting(true);
 
-    await addSupportTicket({
+    addSupportTicket({
       subject,
       message,
       fromUserId: currentUser.id,

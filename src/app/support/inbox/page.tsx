@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
-import { Inbox, Trash2 } from 'lucide-react';
+import { Inbox, Trash2, Reply, Send } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +32,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import type { SupportTicket } from '@/lib/types';
+
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -48,9 +60,12 @@ const PageSkeleton = () => (
 
 export default function SupportInboxPage() {
   const { currentUser, supportTickets } = useDataState();
-  const { deleteSupportTicket } = useDataActions();
+  const { deleteSupportTicket, replyToSupportTicket } = useDataActions();
   const router = useRouter();
   const [ticketToDelete, setTicketToDelete] = useState<SupportTicket | null>(null);
+  const [ticketToReply, setTicketToReply] = useState<SupportTicket | null>(null);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [isReplyDialogOpen, setIsReplyDialogOpen] = useState(false);
 
   const role = currentUser?.role;
 
@@ -72,6 +87,20 @@ export default function SupportInboxPage() {
     if (ticketToDelete) {
         deleteSupportTicket(ticketToDelete.id);
         setTicketToDelete(null);
+    }
+  };
+
+  const handleReplyClick = (ticket: SupportTicket) => {
+    setTicketToReply(ticket);
+    setReplyMessage('');
+    setIsReplyDialogOpen(true);
+  };
+  
+  const handleConfirmReply = () => {
+    if (ticketToReply && replyMessage) {
+        replyToSupportTicket(ticketToReply.id, replyMessage);
+        setIsReplyDialogOpen(false);
+        setTicketToReply(null);
     }
   };
 
@@ -104,6 +133,7 @@ export default function SupportInboxPage() {
                         <div className="flex justify-between w-full pr-4 items-center">
                           <div className="flex items-center gap-4 text-right">
                             {!ticket.isRead && <Badge>جديد</Badge>}
+                            {ticket.isReplied && <Badge variant="secondary">تم الرد</Badge>}
                             <span className="font-medium text-sm md:text-base">
                               {ticket.subject}
                             </span>
@@ -132,7 +162,16 @@ export default function SupportInboxPage() {
                         <p className="whitespace-pre-wrap text-foreground">
                           {ticket.message}
                         </p>
-                         <div className="flex justify-end pt-2 border-t mt-4">
+                         <div className="flex justify-end pt-2 border-t mt-4 gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleReplyClick(ticket)}
+                                disabled={ticket.isReplied}
+                            >
+                                <Reply className="ml-2 h-4 w-4" />
+                                {ticket.isReplied ? 'تم الرد' : 'رد على الرسالة'}
+                            </Button>
                             <Button
                                 variant="destructive"
                                 size="sm"
@@ -178,6 +217,37 @@ export default function SupportInboxPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>الرد على رسالة: {ticketToReply?.subject}</DialogTitle>
+            <DialogDescription>
+              اكتب ردك أدناه. سيتم إرساله كتنبيه إلى المستخدم {ticketToReply?.fromUserName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-2">
+            <Label htmlFor="reply-message" className="text-right">
+                رسالة الرد
+            </Label>
+            <Textarea
+                id="reply-message"
+                placeholder="اكتب ردك هنا..."
+                className="min-h-[120px]"
+                value={replyMessage}
+                onChange={(e) => setReplyMessage(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+                <Button variant="secondary">إلغاء</Button>
+            </DialogClose>
+            <Button onClick={handleConfirmReply} disabled={!replyMessage}>
+                <Send className="ml-2 h-4 w-4" />
+                إرسال الرد
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

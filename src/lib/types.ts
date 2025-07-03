@@ -141,6 +141,7 @@ export type SupportTicket = {
   fromUserEmail: string;
   date: string;
   isRead: boolean;
+  isReplied?: boolean;
 };
 
 export type UpdatableInvestor = Omit<

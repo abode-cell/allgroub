@@ -64,9 +64,10 @@ type DataActions = {
   updateGraceInvestorSharePercentage: (percentage: number) => void;
   updateTrialPeriod: (days: number) => void;
   addSupportTicket: (
-    ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead'>
+    ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead' | 'isReplied'>
   ) => void;
   deleteSupportTicket: (ticketId: string) => void;
+  replyToSupportTicket: (ticketId: string, replyMessage: string) => void;
   registerNewOfficeManager: (
     credentials: Omit<User, 'id' | 'role' | 'status'>
   ) => Promise<{ success: boolean; message: string }>;
@@ -708,10 +709,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
               })
             );
           }
-           if (paymentStatus === 'تم السداد') {
-                toastMessage = { title: 'تم سداد القرض بالكامل', description: 'تمت إعادة الأموال والأرباح للمستثمرين بنجاح.' };
-            } else if (paymentStatus === 'متعثر') {
-                toastMessage = { title: 'تم تسجيل القرض كمتعثر', description: 'تم تحديث أموال المستثمرين المتعثرة.', variant: 'destructive' };
+           if (paymentStatus !== 'تم السداد') {
+                toastMessage = {
+                  title: 'تم تحديث حالة السداد',
+                  description: `تم تحديث حالة القرض إلى "${paymentStatus || 'غير محدد'}".`,
+                };
             }
 
           return prevBorrowers.map((b) =>
@@ -1600,6 +1602,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         id: `ticket_${Date.now()}`,
         date: new Date().toISOString(),
         isRead: false,
+        isReplied: false,
       };
       setSupportTickets((prev) => [newTicket, ...prev]);
 
@@ -1631,6 +1634,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [toast]
   );
+
+  const replyToSupportTicket = useCallback((ticketId: string, replyMessage: string) => {
+    let repliedTicket: SupportTicket | null = null;
+
+    setSupportTickets(prev => prev.map(ticket => {
+        if (ticket.id === ticketId) {
+            repliedTicket = { ...ticket, isReplied: true, isRead: true };
+            return repliedTicket;
+        }
+        return ticket;
+    }));
+
+    if (repliedTicket) {
+        addNotification({
+            recipientId: repliedTicket.fromUserId,
+            title: `رد على رسالتك: "${repliedTicket.subject}"`,
+            description: replyMessage,
+        });
+        toast({
+            title: 'تم إرسال الرد بنجاح',
+            description: `تم إرسال ردك إلى ${repliedTicket.fromUserName}.`,
+        });
+    }
+  }, [addNotification, toast]);
   
   const markBorrowerAsNotified = useCallback((borrowerId: string, message: string) => {
       setBorrowers(prev => prev.map(b => b.id === borrowerId ? { ...b, isNotified: true } : b));
@@ -1653,6 +1680,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateTrialPeriod,
       addSupportTicket,
       deleteSupportTicket,
+      replyToSupportTicket,
       registerNewOfficeManager,
       addBorrower,
       updateBorrower,
@@ -1692,6 +1720,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateTrialPeriod,
       addSupportTicket,
       deleteSupportTicket,
+      replyToSupportTicket,
       registerNewOfficeManager,
       addBorrower,
       updateBorrower,
