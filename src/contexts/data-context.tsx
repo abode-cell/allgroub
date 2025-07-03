@@ -144,7 +144,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_cleared_v4';
+const APP_DATA_KEY = 'appData_cleared_v5';
 
 const initialData = {
   borrowers: initialBorrowersData,
@@ -162,14 +162,14 @@ const initialData = {
 };
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [borrowers, setBorrowers] = useState<Borrower[]>(initialData.borrowers);
-  const [investors, setInvestors] = useState<Investor[]>(initialData.investors);
-  const [users, setUsers] = useState<User[]>(initialData.users);
+  const [borrowers, setBorrowers] = useState<Borrower[]>([]);
+  const [investors, setInvestors] = useState<Investor[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(
-    initialData.supportTickets
+    []
   );
   const [notifications, setNotifications] = useState<Notification[]>(
-    initialData.notifications
+    []
   );
   const [salaryRepaymentPercentage, setSalaryRepaymentPercentage] =
     useState<number>(initialData.salaryRepaymentPercentage);
@@ -245,6 +245,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setSupportEmail(parsed.supportEmail || initialData.supportEmail);
             setSupportPhone(parsed.supportPhone || initialData.supportPhone);
           }
+        } else {
+           // If no data, set initial data
+           setBorrowers(initialData.borrowers);
+           setInvestors(initialData.investors);
+           setUsers(initialData.users);
+           setSupportTickets(initialData.supportTickets);
+           setNotifications(initialData.notifications);
         }
       } catch (error) {
         console.warn(`Error reading localStorage key “${APP_DATA_KEY}”:`, error);
@@ -316,7 +323,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Effect to simulate cron job for trial management
   useEffect(() => {
-    if (isInitialLoad || cronJobRan) return;
+    if (isInitialLoad || cronJobRan || users.length === 0) return;
 
     const today = new Date();
     let usersModified = false;
@@ -665,16 +672,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } else if (status === 'متعثر' || status === 'تم اتخاذ الاجراءات القانونيه') {
                 const principal = funder.amount;
                 delta.defaultedDelta += principal * multiplier;
-                
-                // This logic seems flawed, money shouldn't be added back to capital when defaulting.
-                // It should be removed from active capital, which is implicit, and added to defaulted.
-                // The reverse action (moving from defaulted to active) is what needs to be handled.
-                // If reversing, we add capital back and subtract from defaulted.
-                if (borrowerToUpdate.loanType === 'اقساط') {
-                    delta.capitalDelta.installment -= principal * multiplier;
-                } else {
-                    delta.capitalDelta.grace -= principal * multiplier;
-                }
 
                 const txId = `tx-default-${borrowerId}-${funder.investorId}`;
                 if (action === 'apply') {
@@ -704,26 +701,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (investorDeltas.size === 0) return prevInvestors;
       
         return prevInvestors.map(inv => {
+          const invCopy = {...inv}; // Work with a copy
           if (investorDeltas.has(inv.id)) {
             const delta = investorDeltas.get(inv.id)!;
       
-            // Create a new object for the investor to ensure immutability
-            const updatedInv = {
-              ...inv,
-              installmentCapital: inv.installmentCapital + delta.capitalDelta.installment,
-              gracePeriodCapital: inv.gracePeriodCapital + delta.capitalDelta.grace,
-              defaultedFunds: (inv.defaultedFunds || 0) + delta.defaultedDelta,
-              transactionHistory: [
-                ...inv.transactionHistory.filter(tx => !delta.transactionsToRemove.includes(tx.id)),
-                ...delta.transactionsToAdd,
-              ],
-            };
+            invCopy.installmentCapital += delta.capitalDelta.installment;
+            invCopy.gracePeriodCapital += delta.capitalDelta.grace;
+            invCopy.defaultedFunds = (invCopy.defaultedFunds || 0) + delta.defaultedDelta;
+            
+            // Handle transactions immutably
+            const txIdsToRemove = new Set(delta.transactionsToRemove);
+            invCopy.transactionHistory = [
+              ...invCopy.transactionHistory.filter(tx => !txIdsToRemove.has(tx.id)),
+              ...delta.transactionsToAdd,
+            ];
       
             // Handle fundedLoanIds immutably
             const terminalStates: BorrowerPaymentStatus[] = ['تم السداد', 'متعثر', 'تم اتخاذ الاجراءات القانونيه'];
             const isTerminal = newPaymentStatus && terminalStates.includes(newPaymentStatus);
       
-            let newFundedLoanIds = [...inv.fundedLoanIds]; // Create a new array
+            let newFundedLoanIds = [...invCopy.fundedLoanIds];
       
             if (isTerminal) {
               if (newFundedLoanIds.includes(borrowerId)) {
@@ -731,12 +728,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
               }
             } else {
               if (!newFundedLoanIds.includes(borrowerId)) {
-                newFundedLoanIds.push(borrowerId); // Safe to push to the new array
+                newFundedLoanIds.push(borrowerId);
               }
             }
-            updatedInv.fundedLoanIds = newFundedLoanIds;
+            invCopy.fundedLoanIds = newFundedLoanIds;
       
-            return updatedInv;
+            return invCopy;
           }
           return inv;
         });
