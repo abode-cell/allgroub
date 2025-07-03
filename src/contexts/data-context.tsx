@@ -599,129 +599,114 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateBorrowerPaymentStatus = useCallback(
     (borrowerId: string, newPaymentStatus?: BorrowerPaymentStatus) => {
-      const borrower = borrowers.find((b) => b.id === borrowerId);
-      if (!borrower) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
-        return;
-      }
-    
-      const originalPaymentStatus = borrower.paymentStatus;
-      if (originalPaymentStatus === newPaymentStatus) return;
-    
-      const updatedInvestorsMap = new Map<string, Investor>();
-      const investorIdsToUpdate = new Set(borrower.fundedBy?.map(f => f.investorId) || []);
+        const borrower = borrowers.find(b => b.id === borrowerId);
+        if (!borrower) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+            return;
+        }
+
+        const originalPaymentStatus = borrower.paymentStatus;
+        if (originalPaymentStatus === newPaymentStatus) return;
+
+        // Create a mutable map of investors to update
+        const updatedInvestorsMap = new Map<string, Investor>();
+        if (borrower.fundedBy) {
+            for (const funder of borrower.fundedBy) {
+                const investor = investors.find(inv => inv.id === funder.investorId);
+                if (investor) {
+                    updatedInvestorsMap.set(investor.id, JSON.parse(JSON.stringify(investor)));
+                }
+            }
+        }
+        
+        const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+
+        const reverseFinancialEffects = (investor: Investor, funder: { investorId: string; amount: number }) => {
+            if (originalPaymentStatus === 'تم السداد') {
+                const txTag = `borrower:${borrower.id}:status:paid_off`;
+                const principalTx = investor.transactionHistory.find(tx => tx.meta?.tag === txTag && tx.type === 'إيداع رأس المال');
+                const profitTx = investor.transactionHistory.find(tx => tx.meta?.tag === txTag && tx.type === 'إيداع أرباح');
+                
+                if (borrower.loanType === 'اقساط') {
+                    if (principalTx) investor.installmentCapital -= principalTx.amount;
+                    if (profitTx) investor.installmentCapital -= profitTx.amount;
+                } else {
+                    if (principalTx) investor.gracePeriodCapital -= principalTx.amount;
+                    if (profitTx) investor.gracePeriodCapital -= profitTx.amount;
+                }
+                investor.transactionHistory = investor.transactionHistory.filter(tx => tx.meta?.tag !== txTag);
+            } else if (originalPaymentStatus === 'متعثر' || originalPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') {
+                const txTag = `borrower:${borrower.id}:status:defaulted`;
+                const defaultTx = investor.transactionHistory.find(tx => tx.meta?.tag === txTag);
+                if (defaultTx) {
+                    investor.defaultedFunds = (investor.defaultedFunds || 0) - defaultTx.amount;
+                    if (borrower.loanType === 'اقساط') investor.installmentCapital += defaultTx.amount;
+                    else investor.gracePeriodCapital += defaultTx.amount;
+                    investor.transactionHistory = investor.transactionHistory.filter(tx => tx.meta?.tag !== txTag);
+                }
+            }
+        };
+
+        const applyFinancialEffects = (investor: Investor, funder: { investorId: string; amount: number }) => {
+            if (newPaymentStatus === 'تم السداد') {
+                const principal = funder.amount;
+                let profit = 0;
+                 if (borrower.loanType === 'اقساط' && borrower.rate && borrower.term) {
+                    const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
+                    const interestOnFundedAmount = funder.amount * (borrower.rate / 100) * borrower.term;
+                    profit = interestOnFundedAmount * (profitShare / 100);
+                } else if (borrower.loanType === 'مهلة') {
+                    const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
+                    const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
+                    profit = totalProfitOnFundedAmount * (profitShare / 100);
+                }
+
+                if (borrower.loanType === 'اقساط') investor.installmentCapital += (principal + profit);
+                else investor.gracePeriodCapital += (principal + profit);
+
+                const txTag = `borrower:${borrower.id}:status:paid_off`;
+                if (principal > 0) investor.transactionHistory.push({ id: `tx_prin_ret_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'إيداع رأس المال', amount: principal, description: `استعادة رأس مال من قرض "${borrower.name}"`, capitalSource: borrower.loanType, meta: { tag: txTag } });
+                if (profit > 0) investor.transactionHistory.push({ id: `tx_profit_ret_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'إيداع أرباح', amount: profit, description: `أرباح من قرض "${borrower.name}"`, capitalSource: borrower.loanType, meta: { tag: txTag } });
+                
+                notificationsToQueue.push({ recipientId: investor.id, title: 'أرباح محققة', description: `تم سداد قرض "${borrower.name}" بالكامل.` });
+
+            } else if (newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') {
+                if (borrower.loanType === 'اقساط') investor.installmentCapital -= funder.amount;
+                else investor.gracePeriodCapital -= funder.amount;
+
+                investor.defaultedFunds = (investor.defaultedFunds || 0) + funder.amount;
+                
+                const txTag = `borrower:${borrower.id}:status:defaulted`;
+                investor.transactionHistory.push({ id: `tx_default_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'سحب من رأس المال', amount: funder.amount, description: `تحويل رأس مال إلى متعثر بسبب قرض "${borrower.name}"`, capitalSource: borrower.loanType, meta: { tag: txTag } });
+                
+                notificationsToQueue.push({ recipientId: investor.id, title: 'تنبيه: تعثر قرض', description: `القرض الخاص بالعميل "${borrower.name}" قد تعثر.` });
+            }
+        };
+
+        if (borrower.fundedBy) {
+            for (const funder of borrower.fundedBy) {
+                const investor = updatedInvestorsMap.get(funder.investorId);
+                if (!investor) continue;
+                reverseFinancialEffects(investor, funder);
+                applyFinancialEffects(investor, funder);
+            }
+        }
+
+        const finalInvestors = investors.map(inv => updatedInvestorsMap.get(inv.id) || inv);
+        const finalBorrowers = borrowers.map(b => b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus } : b);
+        
+        setInvestors(finalInvestors);
+        setBorrowers(finalBorrowers);
+
+        notificationsToQueue.forEach(addNotification);
       
-      investors.forEach(inv => {
-        if (investorIdsToUpdate.has(inv.id)) {
-          updatedInvestorsMap.set(inv.id, JSON.parse(JSON.stringify(inv)));
-        }
-      });
-    
-      const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-      const terminalStates: (BorrowerPaymentStatus | undefined)[] = ['تم السداد', 'متعثر', 'تم اتخاذ الاجراءات القانونيه'];
-    
-      // --- 1. Reverse the effects of the original status ---
-      if (originalPaymentStatus && borrower.fundedBy) {
-        for (const funder of borrower.fundedBy) {
-          const investor = updatedInvestorsMap.get(funder.investorId);
-          if (!investor) continue;
-    
-          const isOriginalTerminal = terminalStates.includes(originalPaymentStatus);
-          
-          if (originalPaymentStatus === 'تم السداد') {
-            const txTag = `borrower:${borrower.id}:status:paid_off`;
-            const principalTx = investor.transactionHistory.find(tx => tx.meta?.tag === txTag && tx.type === 'إيداع رأس المال');
-            const profitTx = investor.transactionHistory.find(tx => tx.meta?.tag === txTag && tx.type === 'إيداع أرباح');
-            
-            if (borrower.loanType === 'اقساط') {
-              if (principalTx) investor.installmentCapital -= principalTx.amount;
-              if (profitTx) investor.installmentCapital -= profitTx.amount;
-            } else {
-              if (principalTx) investor.gracePeriodCapital -= principalTx.amount;
-              if (profitTx) investor.gracePeriodCapital -= profitTx.amount;
-            }
-            investor.transactionHistory = investor.transactionHistory.filter(tx => tx.meta?.tag !== txTag);
-          } else if (originalPaymentStatus === 'متعثر' || originalPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') {
-            const txTag = `borrower:${borrower.id}:status:defaulted`;
-            const defaultTx = investor.transactionHistory.find(tx => tx.meta?.tag === txTag);
-            if(defaultTx) {
-              investor.defaultedFunds = (investor.defaultedFunds || 0) - defaultTx.amount;
-            }
-            investor.transactionHistory = investor.transactionHistory.filter(tx => tx.meta?.tag !== txTag);
-          }
-    
-          if (isOriginalTerminal) {
-            if (!investor.fundedLoanIds.includes(borrower.id)) {
-              investor.fundedLoanIds.push(borrower.id);
-            }
-          }
-        }
-      }
-    
-      // --- 2. Apply the effects of the new status ---
-      if (newPaymentStatus && borrower.fundedBy) {
-        for (const funder of borrower.fundedBy) {
-          const investor = updatedInvestorsMap.get(funder.investorId);
-          if (!investor) continue;
-    
-          const isNewTerminal = terminalStates.includes(newPaymentStatus);
-    
-          if (newPaymentStatus === 'تم السداد') {
-            let principal = funder.amount;
-            let profit = 0;
-            if (borrower.loanType === 'اقساط' && borrower.rate && borrower.term) {
-              const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
-              const interestOnFundedAmount = funder.amount * (borrower.rate / 100) * borrower.term;
-              profit = interestOnFundedAmount * (profitShare / 100);
-            } else if (borrower.loanType === 'مهلة') {
-              const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
-              const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
-              profit = totalProfitOnFundedAmount * (profitShare / 100);
-            }
-    
-            if (borrower.loanType === 'اقساط') investor.installmentCapital += (principal + profit);
-            else investor.gracePeriodCapital += (principal + profit);
-    
-            const txTag = `borrower:${borrower.id}:status:paid_off`;
-            if (principal > 0) investor.transactionHistory.push({ id: `tx_prin_ret_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'إيداع رأس المال', amount: principal, description: `استعادة رأس مال من قرض "${borrower.name}"`, capitalSource: borrower.loanType, meta: { tag: txTag } });
-            if (profit > 0) investor.transactionHistory.push({ id: `tx_profit_ret_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'إيداع أرباح', amount: profit, description: `أرباح من قرض "${borrower.name}"`, capitalSource: borrower.loanType, meta: { tag: txTag } });
-    
-            notificationsToQueue.push({ recipientId: investor.id, title: 'أرباح محققة', description: `تم سداد قرض "${borrower.name}" بالكامل.` });
-          } else if (newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') {
-            investor.defaultedFunds = (investor.defaultedFunds || 0) + funder.amount;
-            const txTag = `borrower:${borrower.id}:status:defaulted`;
-            investor.transactionHistory.push({ id: `tx_default_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'سحب من رأس المال', amount: funder.amount, description: `تحويل رأس مال إلى متعثر بسبب قرض "${borrower.name}"`, capitalSource: borrower.loanType, meta: { tag: txTag } });
-            
-            notificationsToQueue.push({ recipientId: investor.id, title: 'تنبيه: تعثر قرض', description: `القرض الخاص بالعميل "${borrower.name}" قد تعثر.` });
-          }
-    
-          if (isNewTerminal) {
-            investor.fundedLoanIds = investor.fundedLoanIds.filter(id => id !== borrower.id);
-          }
-        }
-      }
-    
-      // --- 3. Update the state ---
-      const finalInvestors = investors.map(inv => updatedInvestorsMap.get(inv.id) || inv);
-      const finalBorrowers = borrowers.map(b => b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus } : b);
-    
-      setInvestors(finalInvestors);
-      setBorrowers(finalBorrowers);
-    
-      // --- 4. Send notifications and toast ---
-      notificationsToQueue.forEach(addNotification);
-      
-      const toastMessage = newPaymentStatus === 'تم السداد'
-        ? `تم تحديث قرض "${borrower.name}" كمسدد بالكامل.`
-        : (newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه')
-        ? `تم تحديث قرض "${borrower.name}" كمتعثر.`
-        : `تم تحديث حالة القرض إلى "${newPaymentStatus || 'غير محدد'}".`;
-    
-      toast({ 
-        title: 'تم تحديث حالة السداد', 
-        description: toastMessage,
-        variant: (newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') ? 'destructive' : 'default',
-      });
+        const toastMessage = newPaymentStatus ? `تم تحديث حالة القرض إلى "${newPaymentStatus}".` : `تمت إزالة حالة السداد للقرض.`;
+        
+        toast({ 
+            title: 'تم تحديث حالة السداد', 
+            description: toastMessage,
+            variant: (newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') ? 'destructive' : 'default',
+        });
     },
     [borrowers, investors, investorSharePercentage, graceInvestorSharePercentage, graceTotalProfitPercentage, toast, addNotification]
   );
