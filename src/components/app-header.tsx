@@ -18,7 +18,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useState } from 'react';
 import { ThemeToggle } from './theme-toggle';
 import { Logo } from './logo';
@@ -45,6 +44,24 @@ function NavLinks({ menuItems }: { menuItems: MenuItem[] }) {
   );
 }
 
+const UserMenuIcon = () => (
+    <div className="h-10 w-10 rounded-full flex items-center justify-center bg-card border">
+        <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="text-primary h-6 w-6"
+        >
+            <path d="M12 2L4.5 17.5H19.5L12 2Z" fill="currentColor" fillOpacity="0.1" />
+            <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 11.5L8 19.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 11.5L16 19.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    </div>
+);
+
 
 export function AppHeader() {
   const { signOutUser } = useAuth();
@@ -67,14 +84,6 @@ export function AppHeader() {
     return true;
   });
 
-  const getInitials = (name: string) => {
-      const names = name.split(' ');
-      if (names.length > 1 && names[1]) {
-          return `${names[0][0]}${names[1][0]}`.toUpperCase();
-      }
-      return name.substring(0, 2).toUpperCase();
-  }
-
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-card/95 backdrop-blur-md">
       <div className="flex h-20 items-center px-4 md:px-6">
@@ -93,15 +102,12 @@ export function AppHeader() {
                 <Notifications />
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="flex items-center gap-3">
+                        <Button variant="ghost" className="flex items-center gap-3 h-auto p-1.5">
                             <div className="text-right">
                                 <p className="font-semibold text-sm">{currentUser?.name}</p>
                                 <p className="text-xs text-muted-foreground">{currentUser?.role}</p>
                             </div>
-                            <Avatar className="h-10 w-10">
-                                <AvatarImage src={currentUser?.photoURL} alt={currentUser?.name} />
-                                <AvatarFallback>{currentUser?.name ? getInitials(currentUser.name) : '...'}</AvatarFallback>
-                            </Avatar>
+                            <UserMenuIcon />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -167,10 +173,7 @@ export function AppHeader() {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                          <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
-                            <Avatar className="h-10 w-10">
-                                <AvatarImage src={currentUser?.photoURL} alt={currentUser?.name} />
-                                <AvatarFallback>{currentUser?.name ? getInitials(currentUser.name) : '...'}</AvatarFallback>
-                            </Avatar>
+                            <UserMenuIcon />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56" align="end" forceMount>
