@@ -67,11 +67,9 @@ export default function InvestorsPage() {
       return allInvestors.filter(i => i.id === currentUser.id);
     }
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
-    relevantUserIds.add(currentUser.id);
     return allInvestors.filter(i => {
       const investorUser = users.find(u => u.id === i.id);
-      return investorUser?.managedBy && relevantUserIds.has(investorUser.managedBy);
+      return investorUser?.managedBy === managerId;
     });
   }, [currentUser, allInvestors, users, role]);
 
