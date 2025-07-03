@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -135,7 +136,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v55-final-final-check-11-final-final-final-final';
+export const APP_DATA_KEY = 'appData-v-final-audit-secure';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -507,6 +508,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
               return d;
             }
         }
+        
+        if (originalBorrower.paymentStatus === 'تم السداد' || originalBorrower.status === 'مرفوض') {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لا يمكن تعديل قرض تم سداده أو رفضه.' });
+            return d;
+        }
+
 
         if (updatedBorrower.loanType !== originalBorrower.loanType) {
             if (updatedBorrower.loanType === 'اقساط') {

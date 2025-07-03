@@ -1,5 +1,4 @@
 
-
 'use client';
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { User } from '@/lib/types';
@@ -55,6 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!userToSignIn) {
       return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
+    }
+
+    // Critical Security Check: If the user is a subordinate, check their manager's status first.
+    if (userToSignIn.managedBy) {
+        const manager = allUsers.find(u => u.id === userToSignIn.managedBy);
+        if (!manager || manager.status !== 'نشط') {
+            return { success: false, message: 'تم تعليق حساب المدير المسؤول عنك. لا يمكنك تسجيل الدخول حالياً.' };
+        }
     }
     
     // Check status first, as it's the most definitive state.

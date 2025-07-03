@@ -17,11 +17,6 @@ export const Logo = () => {
                 className="text-primary shrink-0 h-10 w-10"
             >
                 <path
-                    d="M12 2L4.5 17.5H19.5L12 2Z"
-                    fill="currentColor"
-                    fillOpacity="0.1"
-                />
-                <path
                     d="M12 2L2 22H22L12 2Z"
                     stroke="currentColor"
                     strokeWidth={1.5}
@@ -37,6 +32,13 @@ export const Logo = () => {
                 />
                 <path
                     d="M12 11.5L16 19.5"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+                 <path
+                    d="M8.5 18H15.5"
                     stroke="currentColor"
                     strokeWidth={1.5}
                     strokeLinecap="round"
