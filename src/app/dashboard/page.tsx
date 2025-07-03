@@ -54,7 +54,7 @@ const PageSkeleton = () => (
 
 
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
+  new Intl.NumberFormat('ar-SA', {
     style: 'currency',
     currency: 'SAR',
   }).format(value);
@@ -374,10 +374,10 @@ const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['id
                             <TableBody>
                                 {metrics.idleInvestors.length > 0 ? (
                                     metrics.idleInvestors.map(investor => (
-                                        <TableRow key={investor.id}>
+                                        <TableRow key={`${investor.id}-${investor.investmentType}`}>
                                             <TableCell className="font-medium">{investor.name}</TableCell>
                                             <TableCell><Badge variant="outline">{investor.investmentType}</Badge></TableCell>
-                                            <TableCell className="text-left font-semibold">{formatCurrency(investor.idleInstallmentCapital + investor.idleGraceCapital)}</TableCell>
+                                            <TableCell className="text-left font-semibold">{formatCurrency(investor.investmentType === 'أقساط' ? investor.idleInstallmentCapital : investor.idleGraceCapital)}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (

@@ -28,12 +28,18 @@ const normalizeDate = (date: Date): Date => {
 }
 
 export const getInitials = (name: string): string => {
-  if (!name) return '';
-  const words = name.trim().split(/\s+/);
+  if (!name || typeof name !== 'string') return '';
+  const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length > 1) {
     return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
   }
-  return name.substring(0, 2).toUpperCase();
+  if (words.length === 1 && words[0].length > 1) {
+    return words[0].substring(0, 2).toUpperCase();
+  }
+  if(words.length === 1 && words[0].length === 1) {
+    return words[0].toUpperCase();
+  }
+  return '';
 };
 
 

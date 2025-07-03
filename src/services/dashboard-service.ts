@@ -415,7 +415,18 @@ function calculateIdleFundsMetrics(investors: Investor[], allBorrowers: Borrower
 
     const totalIdleFunds = idleInvestorsData.reduce((sum, i) => sum + (i.idleInstallmentCapital || 0) + (i.idleGraceCapital || 0), 0);
 
-    return { idleInvestors: idleInvestorsData, totalIdleFunds };
+    const idleInvestorsWithType = idleInvestorsData.flatMap(investor => {
+        const result: { id: string; name: string; investmentType: 'أقساط' | 'مهلة'; idleInstallmentCapital: number; idleGraceCapital: number }[] = [];
+        if ((investor.idleInstallmentCapital ?? 0) > 0) {
+            result.push({ ...investor, investmentType: 'أقساط' });
+        }
+        if ((investor.idleGraceCapital ?? 0) > 0) {
+            result.push({ ...investor, investmentType: 'مهلة' });
+        }
+        return result;
+    });
+
+    return { idleInvestors: idleInvestorsWithType, totalIdleFunds };
 }
 
 export function calculateAllDashboardMetrics(input: CalculationInput) {
