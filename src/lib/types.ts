@@ -82,6 +82,7 @@ export type Borrower = {
   paymentStatus?: BorrowerPaymentStatus;
   installments?: { month: number; status: InstallmentStatus }[];
   isNotified?: boolean;
+  lastStatusChange?: string;
 };
 
 export type Payment = {

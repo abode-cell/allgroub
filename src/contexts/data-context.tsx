@@ -82,7 +82,7 @@ type DataActions = {
   updateBorrowerPaymentStatus: (
     borrowerId: string,
     paymentStatus?: BorrowerPaymentStatus
-  ) => Promise<void>;
+  ) => void;
   approveBorrower: (borrowerId: string) => void;
   rejectBorrower: (borrowerId: string, reason: string) => void;
   deleteBorrower: (borrowerId: string) => void;
@@ -534,48 +534,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateBorrowerPaymentStatus = useCallback(
-    async (borrowerId: string, newPaymentStatus?: BorrowerPaymentStatus) => {
-      const borrower = data.borrowers.find((b) => b.id === borrowerId);
-      if (!borrower) {
-        toast({
-          variant: 'destructive',
-          title: 'خطأ',
-          description: 'لم يتم العثور على القرض.',
-        });
-        return;
-      }
-  
-      if (borrower.paymentStatus === newPaymentStatus) return;
-  
-      const { id: toastId, update } = toast({
-        title: 'جاري تحديث حالة القرض...',
-        description:
-          'سيتم تطبيق التغييرات المالية خلال دقيقة واحدة. الرجاء الانتظار.',
-      });
-  
-      await new Promise((resolve) => setTimeout(resolve, 60000));
-  
+    (borrowerId: string, newPaymentStatus?: BorrowerPaymentStatus) => {
       setData((currentData) => {
-        const {
-          borrowers,
-          investors,
-          investorSharePercentage,
-          graceInvestorSharePercentage,
-          graceTotalProfitPercentage,
-        } = currentData;
-  
-        const targetBorrower = borrowers.find((b) => b.id === borrowerId);
+        const targetBorrower = currentData.borrowers.find((b) => b.id === borrowerId);
   
         if (!targetBorrower) {
-          // The borrower might have been deleted during the wait. It's safer to abort.
+          toast({
+            variant: 'destructive',
+            title: 'خطأ',
+            description: 'لم يتم العثور على القرض.',
+          });
           return currentData;
+        }
+
+        if (targetBorrower.lastStatusChange) {
+            const lastChangeTime = new Date(targetBorrower.lastStatusChange).getTime();
+            const now = new Date().getTime();
+            const oneMinute = 60 * 1000;
+            if (now - lastChangeTime < oneMinute) {
+                toast({
+                    variant: 'destructive',
+                    title: 'الرجاء الانتظار',
+                    description: 'يجب الانتظار دقيقة واحدة قبل تغيير حالة هذا القرض مرة أخرى.',
+                });
+                return currentData; // Abort the update
+            }
         }
   
         const originalPaymentStatus = targetBorrower.paymentStatus;
+        if (originalPaymentStatus === newPaymentStatus) return currentData;
+  
         const notificationsToQueue: Omit<Notification, 'id', 'date', 'isRead'>[] = [];
         
-        // Create a deep copy of investors to safely modify
-        const investorsMap = new Map(investors.map(inv => [inv.id, JSON.parse(JSON.stringify(inv))]));
+        const investorsMap = new Map(currentData.investors.map(inv => [inv.id, JSON.parse(JSON.stringify(inv))]));
 
         if (targetBorrower.fundedBy) {
             for(const funder of targetBorrower.fundedBy) {
@@ -612,12 +603,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     const principal = funder.amount;
                     let profit = 0;
                      if (targetBorrower.loanType === 'اقساط' && targetBorrower.rate && targetBorrower.term) {
-                        const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
+                        const profitShare = investor.installmentProfitShare ?? currentData.investorSharePercentage;
                         const interestOnFundedAmount = funder.amount * (targetBorrower.rate / 100) * targetBorrower.term;
                         profit = interestOnFundedAmount * (profitShare / 100);
                     } else if (targetBorrower.loanType === 'مهلة') {
-                        const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
-                        const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
+                        const profitShare = investor.gracePeriodProfitShare ?? currentData.graceInvestorSharePercentage;
+                        const totalProfitOnFundedAmount = funder.amount * (currentData.graceTotalProfitPercentage / 100);
                         profit = totalProfitOnFundedAmount * (profitShare / 100);
                     }
     
@@ -646,7 +637,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
         const finalInvestors = currentData.investors.map(inv => investorsMap.get(inv.id) || inv);
         const finalBorrowers = currentData.borrowers.map((b) =>
-          b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus } : b
+          b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus, lastStatusChange: new Date().toISOString() } : b
         );
         
         let finalNotifications = currentData.notifications;
@@ -656,8 +647,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const toastMessage = newPaymentStatus ? `تم تحديث حالة القرض إلى "${newPaymentStatus}".` : `تمت إزالة حالة السداد للقرض.`;
         
-        update({ 
-            id: toastId,
+        toast({ 
+            id: `toast-${borrowerId}`,
             title: 'اكتمل تحديث حالة السداد', 
             description: toastMessage,
             variant: (newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') ? 'destructive' : 'default',
@@ -671,7 +662,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         };
       });
     },
-    [data.borrowers, toast]
+    [toast]
   );
   
   const approveBorrower = useCallback(
