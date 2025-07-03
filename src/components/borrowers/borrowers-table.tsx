@@ -150,7 +150,7 @@ export function BorrowersTable({
   borrowers: Borrower[];
 }) {
   const { currentUser, investors, users } = useDataState();
-  const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified, updateInstallmentStatus, deleteBorrower } = useDataActions();
+  const { updateBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified, updateInstallmentStatus, deleteBorrower, handlePartialPayment } = useDataActions();
   const { toast } = useToast();
   const role = currentUser?.role;
 
@@ -159,13 +159,13 @@ export function BorrowersTable({
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [borrowerToDelete, setBorrowerToDelete] = useState<Borrower | null>(
-    null
-  );
+  const [isPartialPaymentDialogOpen, setIsPartialPaymentDialogOpen] = useState(false);
+  
+  const [borrowerForPartialPayment, setBorrowerForPartialPayment] = useState<Borrower | null>(null);
+  const [partialPaidAmount, setPartialPaidAmount] = useState('');
+  const [borrowerToDelete, setBorrowerToDelete] = useState<Borrower | null>(null);
 
-  const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
-    null
-  );
+  const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(null);
   const [smsMessage, setSmsMessage] = useState('');
   const [paymentSchedule, setPaymentSchedule] = useState<Payment[]>([]);
   const isGracePeriodTable = borrowers[0]?.loanType === 'مهلة';
@@ -234,9 +234,27 @@ export function BorrowersTable({
   };
   
   const handleApproveClick = (borrower: Borrower) => {
-    // This action is now handled in the requests page with a dedicated dialog for funding.
-    // This function is kept for potential future use or can be removed if not needed.
     toast({ title: 'إجراء غير مدعوم هنا', description: 'يرجى الموافقة على الطلبات من صفحة الطلبات.' });
+  };
+  
+  const handleConfirmPartialPayment = () => {
+    if (!borrowerForPartialPayment || !partialPaidAmount) return;
+    const paidAmount = Number(partialPaidAmount);
+
+    if (paidAmount <= 0 || paidAmount >= borrowerForPartialPayment.amount) {
+        toast({
+            variant: 'destructive',
+            title: 'مبلغ غير صالح',
+            description: 'المبلغ المسدد يجب أن يكون أكبر من صفر وأقل من إجمالي القرض.',
+        });
+        return;
+    }
+
+    handlePartialPayment(borrowerForPartialPayment.id, paidAmount);
+
+    setIsPartialPaymentDialogOpen(false);
+    setBorrowerForPartialPayment(null);
+    setPartialPaidAmount('');
   };
 
   const generatePaymentSchedule = (borrower: Borrower): Payment[] => {
@@ -285,10 +303,8 @@ export function BorrowersTable({
   const handleInstallmentStatusChange = (month: number, newStatus: InstallmentStatus) => {
     if (!selectedBorrower) return;
 
-    // Call the context action to persist the change
     updateInstallmentStatus(selectedBorrower.id, month, newStatus);
     
-    // Robustly update local state for immediate UI feedback in the dialog
     const numberOfPayments = (selectedBorrower.term || 0) * 12;
     if (selectedBorrower.loanType !== 'اقساط' || numberOfPayments === 0) return;
 
@@ -314,6 +330,13 @@ export function BorrowersTable({
   };
   
   const handlePaymentStatusChange = (borrower: Borrower, newPaymentStatus?: BorrowerPaymentStatus) => {
+      if (borrower.loanType === 'مهلة' && newPaymentStatus === 'مسدد جزئي') {
+          setBorrowerForPartialPayment(borrower);
+          setPartialPaidAmount('');
+          setIsPartialPaymentDialogOpen(true);
+          return;
+      }
+      
       if (borrower.lastStatusChange) {
         const lastChangeTime = new Date(borrower.lastStatusChange).getTime();
         const now = new Date().getTime();
@@ -362,7 +385,21 @@ export function BorrowersTable({
 
                   return (
                   <TableRow key={borrower.id}>
-                    <TableCell className="font-medium">{borrower.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {borrower.name}
+                      {borrower.originalLoanId && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="mr-2 text-xs text-muted-foreground cursor-help">(متبقٍ)</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>هذا القرض هو المبلغ المتبقي من قرض سابق.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </TableCell>
                     <TableCell>{formatCurrency(borrower.amount)}</TableCell>
                     {isGracePeriodTable && (
                       <TableCell className="text-green-600 font-medium">
@@ -507,6 +544,33 @@ export function BorrowersTable({
           </Table>
         </CardContent>
       </Card>
+      
+      <Dialog open={isPartialPaymentDialogOpen} onOpenChange={setIsPartialPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تسجيل سداد جزئي لـ {borrowerForPartialPayment?.name}</DialogTitle>
+            <DialogDescription>
+              إجمالي مبلغ القرض هو {formatCurrency(borrowerForPartialPayment?.amount ?? 0)}. أدخل المبلغ الذي تم سداده. سيتم إنشاء قرض جديد بالمبلغ المتبقي.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="partial-payment-amount">المبلغ المسدد</Label>
+            <Input
+              id="partial-payment-amount"
+              type="number"
+              value={partialPaidAmount}
+              onChange={(e) => setPartialPaidAmount(e.target.value)}
+              placeholder="أدخل المبلغ المسدد"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary" onClick={() => setPartialPaidAmount('')}>إلغاء</Button>
+            </DialogClose>
+            <Button onClick={handleConfirmPartialPayment}>تأكيد السداد</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -797,6 +861,15 @@ export function BorrowersTable({
                     <AlertDescription>
                       تم تمويل {formatCurrency(totalFunded)} من أصل {formatCurrency(selectedBorrower.amount)}.
                     </AlertDescription>
+                  </Alert>
+                )}
+                {selectedBorrower.partialPayment && (
+                  <Alert variant="default" className="bg-primary/10 border-primary/20">
+                      <AlertCircle className="h-4 w-4 !text-primary" />
+                      <AlertTitle className="text-primary">سداد جزئي</AlertTitle>
+                      <AlertDescription>
+                          تم سداد مبلغ {formatCurrency(selectedBorrower.partialPayment.paidAmount)} من هذا القرض. تم إنشاء قرض جديد بالمبلغ المتبقي.
+                      </AlertDescription>
                   </Alert>
                 )}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">

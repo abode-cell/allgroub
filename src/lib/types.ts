@@ -84,6 +84,11 @@ export type Borrower = {
   isNotified?: boolean;
   lastStatusChange?: string;
   paidOffDate?: string;
+  partialPayment?: {
+    paidAmount: number;
+    remainingLoanId: string;
+  };
+  originalLoanId?: string;
 };
 
 export type Payment = {

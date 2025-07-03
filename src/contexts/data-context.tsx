@@ -88,6 +88,7 @@ type DataActions = {
   rejectBorrower: (borrowerId: string, reason: string) => void;
   deleteBorrower: (borrowerId: string) => void;
   updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => void;
+  handlePartialPayment: (borrowerId: string, paidAmount: number) => void;
   addInvestor: (investor: Omit<NewInvestorPayload, 'status'>) => Promise<{ success: boolean; message: string }>;
   addEmployee: (
     payload: NewUserPayload
@@ -146,7 +147,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_secure_v1';
+export const APP_DATA_KEY = 'appData_v_final_secure_v2';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -761,6 +762,62 @@ export function DataProvider({ children }: { children: ReactNode }) {
         })
       }));
   }, []);
+
+  const handlePartialPayment = useCallback((borrowerId: string, paidAmount: number) => {
+    setData(d => {
+        const originalBorrower = d.borrowers.find(b => b.id === borrowerId);
+        if (!originalBorrower) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض الأصلي.' });
+            return d;
+        }
+
+        if (paidAmount <= 0 || paidAmount >= originalBorrower.amount) {
+            toast({ variant: 'destructive', title: 'مبلغ غير صالح', description: 'المبلغ المسدد يجب أن يكون أكبر من صفر وأقل من إجمالي القرض.' });
+            return d;
+        }
+
+        const remainingAmount = originalBorrower.amount - paidAmount;
+        const newLoanId = `bor_rem_${Date.now()}`;
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const newRemainingLoan: Borrower = {
+            id: newLoanId,
+            name: `${originalBorrower.name} (مبلغ متبقٍ)`,
+            phone: originalBorrower.phone,
+            amount: remainingAmount,
+            rate: 0, 
+            term: 0,
+            date: new Date().toISOString(),
+            loanType: 'مهلة',
+            status: 'متأخر',
+            dueDate: yesterday.toISOString().split('T')[0],
+            submittedBy: originalBorrower.submittedBy,
+            fundedBy: originalBorrower.fundedBy,
+            paymentStatus: 'متعثر',
+            isNotified: false,
+            originalLoanId: originalBorrower.id,
+        };
+        
+        const updatedOriginalBorrower: Borrower = {
+            ...originalBorrower,
+            status: 'مسدد بالكامل',
+            paymentStatus: 'تم السداد',
+            paidOffDate: new Date().toISOString(),
+            partialPayment: {
+                paidAmount: paidAmount,
+                remainingLoanId: newLoanId,
+            }
+        };
+
+        const newBorrowers = d.borrowers.map(b => b.id === borrowerId ? updatedOriginalBorrower : b);
+        newBorrowers.push(newRemainingLoan);
+        
+        toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء قرض بالمبلغ المتبقي.' });
+
+        return { ...d, borrowers: newBorrowers };
+    });
+  }, [toast]);
 
   const updateInvestor = useCallback(
     (updatedInvestor: UpdatableInvestor) => {
@@ -1542,6 +1599,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateBorrower,
       updateBorrowerPaymentStatus,
       updateInstallmentStatus,
+      handlePartialPayment,
       approveBorrower,
       rejectBorrower,
       deleteBorrower,
@@ -1582,6 +1640,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateBorrower,
       updateBorrowerPaymentStatus,
       updateInstallmentStatus,
+      handlePartialPayment,
       approveBorrower,
       rejectBorrower,
       deleteBorrower,
