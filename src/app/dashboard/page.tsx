@@ -2,7 +2,7 @@
 
 'use client';
 
-import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle } from 'lucide-react';
+import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle, AlertCircle } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
 import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Define explicit types for each dashboard variant from the discriminated union
 type OfficeManagerRoles = 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف';
@@ -505,10 +506,11 @@ const SystemAdminDashboard = ({ metrics }: { metrics: AdminDashboardMetrics }) =
 
 export default function DashboardPage() {
   const { currentUser, users, borrowers, investors, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
-  
+  const [error, setError] = useState<string | null>(null);
+
   const metrics = useMemo(() => {
     if (!currentUser) return null;
-
+    setError(null);
     try {
       const result = calculateAllDashboardMetrics({
         borrowers,
@@ -522,13 +524,30 @@ export default function DashboardPage() {
         }
       });
       return result as ServiceMetrics;
-    } catch (error) {
-      console.error("Failed to calculate dashboard metrics:", error);
-      return null; 
+    } catch (e) {
+      console.error("Failed to calculate dashboard metrics:", e);
+      setError("حدث خطأ أثناء حساب مقاييس لوحة التحكم. قد تكون بعض البيانات غير متناسقة. يرجى مراجعة البيانات أو التواصل مع الدعم الفني.");
+      return null;
     }
   }, [borrowers, investors, users, currentUser, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
-  if (!currentUser || !metrics) {
+  if (!currentUser) {
+      return <PageSkeleton />;
+  }
+  
+  if (error) {
+    return (
+        <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>خطأ في عرض لوحة التحكم</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        </div>
+    );
+  }
+
+  if (!metrics) {
       return <PageSkeleton />;
   }
 

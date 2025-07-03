@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone, Edit, Info, ShieldX } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone, Edit, Info, ShieldX, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -53,6 +53,16 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { formatCurrency } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 
 type InvestorsTableProps = {
@@ -78,7 +88,7 @@ export function InvestorsTable({
   hideFunds = false,
 }: InvestorsTableProps) {
   const { currentUser, borrowers, visibleUsers: users, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
-  const { updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified } = useDataActions();
+  const { updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified, deleteUser } = useDataActions();
   const { toast } = useToast();
   const role = currentUser?.role;
 
@@ -86,6 +96,8 @@ export function InvestorsTable({
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
   const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
 
   const [selectedInvestor, setSelectedInvestor] = useState<Investor | null>(
     null
@@ -131,6 +143,19 @@ export function InvestorsTable({
     }
     return sources;
   }, [selectedInvestor, investorsWithFinancials]);
+  
+  const handleDeleteClick = (investor: Investor) => {
+    setInvestorToDelete(investor);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handleConfirmDelete = () => {
+    if (investorToDelete) {
+      deleteUser(investorToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setInvestorToDelete(null);
+    }
+  };
 
   const handleEditClick = (investor: Investor) => {
     setSelectedInvestor({ ...investor });
@@ -236,6 +261,7 @@ export function InvestorsTable({
   const canAddTransaction = role === 'مدير المكتب' || role === 'مستثمر';
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
   const canSendSms = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف' && currentUser?.permissions?.manageInvestors);
+  const canDelete = role === 'مدير المكتب';
   const isWithdrawal = transactionDetails.type.includes('سحب');
 
 
@@ -341,6 +367,15 @@ export function InvestorsTable({
                                     طلب زيادة رأس المال
                                 </DropdownMenuItem>
                             )}
+                             {canDelete && (
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                  onSelect={() => handleDeleteClick(investor)}
+                                >
+                                    <Trash2 className="ml-2 h-4 w-4" />
+                                    حذف
+                                </DropdownMenuItem>
+                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
@@ -358,6 +393,31 @@ export function InvestorsTable({
           </Table>
         </CardContent>
       </Card>
+      
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم وضع علامة 'محذوف' على المستخدم <span className="font-bold text-destructive">{investorToDelete?.name}</span> وسيتم إلغاء وصوله. ستبقى بياناته التاريخية محفوظة. لا يمكن حذف مستثمر له قروض ممولة أو رصيد متبقٍ. هل أنت متأكد؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setInvestorToDelete(null)}>
+              إلغاء
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className={buttonVariants({ variant: 'destructive' })}
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) setSelectedInvestor(null); setIsEditDialogOpen(open); }}>
         <DialogContent className="sm:max-w-md">
