@@ -156,7 +156,9 @@ export function BorrowersTable({
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isSmsDialogOpen, setIsSmsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [borrowerToDelete, setBorrowerToDelete] = useState<Borrower | null>(null);
+  const [borrowerToDelete, setBorrowerToDelete] = useState<Borrower | null>(
+    null
+  );
 
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(
     null
@@ -321,7 +323,6 @@ export function BorrowersTable({
                 <TableHead className="text-center">المستثمر</TableHead>
                 <TableHead className="text-center">حالة السداد</TableHead>
                 <TableHead>تاريخ الاستحقاق</TableHead>
-                <TableHead className="text-center">حالة الاستحقاق</TableHead>
                 <TableHead className="text-left">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -401,9 +402,6 @@ export function BorrowersTable({
                       </div>
                     </TableCell>
                     <TableCell>{borrower.dueDate}</TableCell>
-                    <TableCell className="text-center">
-                      <BorrowerStatusBadge borrower={borrower} />
-                    </TableCell>
                     <TableCell className="text-left flex items-center justify-start">
                        {borrower.isNotified && (
                           <TooltipProvider>
@@ -654,32 +652,6 @@ export function BorrowersTable({
                   }
                   className="col-span-3"
                 />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status-edit" className="text-right">
-                  الحالة
-                </Label>
-                <Select
-                  value={selectedBorrower.status}
-                  onValueChange={(value) =>
-                    setSelectedBorrower({
-                      ...selectedBorrower,
-                      status: value as Borrower['status'],
-                    })
-                  }
-                  disabled={isEmployee && selectedBorrower.status === 'معلق'}
-                >
-                  <SelectTrigger id="status-edit" className="col-span-3">
-                    <SelectValue placeholder="اختر الحالة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="منتظم">منتظم</SelectItem>
-                    <SelectItem value="متأخر">متأخر</SelectItem>
-                    <SelectItem value="معلق">طلب معلق</SelectItem>
-                    <SelectItem value="متعثر">متعثر</SelectItem>
-                    <SelectItem value="مسدد بالكامل">مسدد بالكامل</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           )}
