@@ -1,6 +1,4 @@
 
-'use client';
-
 export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف' | 'مستثمر';
 
 export type PermissionKey = 
