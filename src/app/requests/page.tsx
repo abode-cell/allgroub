@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useDataState, useDataActions } from '@/contexts/data-context';
@@ -34,6 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 
 const PageSkeleton = () => (
@@ -48,12 +50,6 @@ const PageSkeleton = () => (
     </div>
 );
 
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
 
 const statusVariant: {
   [key: string]: 'default' | 'secondary' | 'destructive' | 'outline';
@@ -198,7 +194,6 @@ export default function RequestsPage() {
       })
       .filter(i => 
         i.status === 'نشط' && 
-        i.investmentType === loanToApprove.loanType &&
         i.availableCapital > 0
       );
   }, [investors, borrowers, loanToApprove]);

@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_FINAL_3';
+export const APP_DATA_KEY = 'appData_v_FINAL_INTEGRITY_CHECK';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -451,8 +451,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateBorrower = useCallback(
     (updatedBorrower: Borrower) => {
       setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
+        if (!loggedInUser) return d;
+
         const originalBorrower = d.borrowers.find(b => b.id === updatedBorrower.id);
         if (!originalBorrower) return d;
+        
+        // Security check: if user is employee, do they have permission?
+        if(loggedInUser.role === 'موظف') {
+            const manager = d.users.find(u => u.id === loggedInUser.managedBy);
+            if (!manager?.allowEmployeeLoanEdits) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'غير مصرح به',
+                    description: 'ليس لديك الصلاحية لتعديل القروض.',
+                 });
+                 return d;
+            }
+        }
 
         if (originalBorrower.status !== 'معلق') {
             const financialFieldsChanged = updatedBorrower.amount !== originalBorrower.amount ||
@@ -484,7 +500,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       });
     },
-    [toast]
+    [userId, toast]
   );
   
   const updateBorrowerPaymentStatus = useCallback(

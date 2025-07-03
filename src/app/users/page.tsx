@@ -88,6 +88,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatCurrency } from '@/lib/utils';
 
 
 const PageSkeleton = () => (
@@ -108,11 +109,6 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } 
     معلق: 'secondary',
   };
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
   
 const assistantPermissionsConfig: {
   key: PermissionKey;
