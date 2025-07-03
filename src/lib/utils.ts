@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Borrower } from "./types"
-import { differenceInDays, addMonths } from "date-fns";
+import { differenceInDays, addMonths, isValid } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -26,7 +26,17 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
   // we calculate the status based on the due date.
   const todayDate = new Date(today);
   todayDate.setHours(0, 0, 0, 0);
+
+  if (!borrower.dueDate) {
+    return { text: 'لا يوجد تاريخ', variant: 'secondary' };
+  }
   const dueDate = new Date(borrower.dueDate);
+
+  if (!isValid(dueDate)) { // Use isValid from date-fns for robust check
+    console.error(`Invalid dueDate for borrower ${borrower.id}: ${borrower.dueDate}`);
+    return { text: 'تاريخ غير صالح', variant: 'destructive' };
+  }
+
   dueDate.setHours(0, 0, 0, 0);
   
   const daysDiff = differenceInDays(dueDate, todayDate);
@@ -48,6 +58,10 @@ export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text
     if (borrower.status === 'مرفوض' || borrower.status === 'معلق') {
         return { text: '-', isOverdue: false };
     }
+    
+    if (!borrower.dueDate || !isValid(new Date(borrower.dueDate))) {
+        return { text: 'تاريخ غير صالح', isOverdue: true };
+    }
 
     if (borrower.loanType === 'مهلة') {
         const dueDate = new Date(borrower.dueDate);
@@ -61,7 +75,7 @@ export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text
     }
 
     if (borrower.loanType === 'اقساط') {
-        if (!borrower.term || !borrower.installments) {
+        if (!borrower.term || !borrower.installments || !isValid(new Date(borrower.date))) {
             return { text: '-', isOverdue: false };
         }
         
@@ -78,6 +92,10 @@ export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text
         
         const nextPaymentDate = addMonths(startDate, nextInstallment.month);
         nextPaymentDate.setHours(0, 0, 0, 0);
+
+        if (!isValid(nextPaymentDate)) {
+             return { text: 'تاريخ غير صالح', isOverdue: true };
+        }
 
         const daysDiff = differenceInDays(nextPaymentDate, today);
 
