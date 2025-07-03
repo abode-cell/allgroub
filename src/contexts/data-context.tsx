@@ -144,7 +144,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_v20_stable_final';
+const APP_DATA_KEY = 'appData_v_stable_final_5_sanitized';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -161,6 +161,38 @@ const initialDataState: Omit<DataState, 'currentUser'> = {
   supportPhone: '920012345',
 };
 
+const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser'> => {
+  const users = (data.users || []).map((u: any) => ({
+    ...u,
+    permissions: u.permissions || {},
+  }));
+
+  const investors = (data.investors || []).map((i: any) => ({
+    ...i,
+    transactionHistory: i.transactionHistory || [],
+    fundedLoanIds: i.fundedLoanIds || [],
+  }));
+
+  const borrowers = (data.borrowers || []).map((b: any) => ({
+    ...b,
+    fundedBy: b.fundedBy || [],
+    installments: b.installments || [],
+  }));
+
+  const sanitizedData = {
+    ...initialDataState,
+    ...data,
+    users,
+    investors,
+    borrowers,
+    notifications: data.notifications || [],
+    supportTickets: data.supportTickets || [],
+  };
+
+  return sanitizedData;
+};
+
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Omit<DataState, 'currentUser'>>(initialDataState);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -173,14 +205,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const item = window.localStorage.getItem(APP_DATA_KEY);
         if (item) {
           const parsed = JSON.parse(item);
-          // Basic validation to ensure the loaded data has the essential keys
-          if (parsed.users && parsed.borrowers && parsed.investors) {
-             // Merge with initial data to ensure new fields are present
-            loadedData = { ...initialDataState, ...parsed };
-          }
+          loadedData = sanitizeAndMigrateData(parsed);
         }
       } catch (error) {
         console.warn(`Error reading localStorage key “${APP_DATA_KEY}”. Using initial data.`, error);
+        loadedData = initialDataState;
       } finally {
         setData(loadedData);
         setIsInitialLoad(false);
@@ -352,7 +381,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           phone: credentials.phone,
           password: credentials.password,
           role: 'مدير المكتب',
-          status: 'نشط',
+          status: 'معلق',
           photoURL: 'https://placehold.co/40x40.png',
           registrationDate: new Date().toISOString(),
           trialEndsAt: trialEndsAt.toISOString(),
@@ -1307,7 +1336,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
             toast({
                 title: 'تم إرسال الرد بنجاح',
-                description: `تم إرسال ردك إلى repliedTicket.fromUserName.`,
+                description: `تم إرسال ردك إلى ${repliedTicket.fromUserName}.`,
             });
             return { ...d, supportTickets: newSupportTickets, notifications: newNotifications };
         }

@@ -61,7 +61,7 @@ export default function SignUpPage() {
                 <CardHeader>
                     <CardTitle className="text-2xl">تم استلام طلبك</CardTitle>
                     <CardDescription>
-                        تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة من قبل مدير النظام. سيتم إعلامك عند تفعيله.
+                        تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة. سيتم إعلامك عند تفعيله.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

@@ -1,6 +1,8 @@
+
 'use client';
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { User } from '@/lib/types';
+import { isPast } from 'date-fns';
 
 // This is a mock implementation and does not connect to any backend service.
 
@@ -52,23 +54,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!userToSignIn) {
       return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
     }
+    
+    // Check for expired trial first for office managers, but only if they are not already 'نشط'
+    if (userToSignIn.role === 'مدير المكتب' && userToSignIn.status !== 'نشط' && userToSignIn.trialEndsAt) {
+        const trialEndDate = new Date(userToSignIn.trialEndsAt);
+        if (isPast(trialEndDate)) {
+             return {
+                success: false,
+                message: `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني على: ${supportInfo.email} أو ${supportInfo.phone}`
+            };
+        }
+    }
 
     if (userToSignIn.status === 'معلق') {
-      // Check for expired trial first for office managers
-      if (userToSignIn.role === 'مدير المكتب' && userToSignIn.trialEndsAt) {
-          const trialEndDate = new Date(userToSignIn.trialEndsAt);
-          if (new Date() > trialEndDate) {
-              return {
-                  success: false,
-                  message: `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني على: ${supportInfo.email} أو ${supportInfo.phone}`
-              };
-          }
-      }
-
       if (userToSignIn.role === 'مدير المكتب') {
         return {
           success: false,
-          message: `حسابك معلق. لمراجعة حالة حسابك، يرجى التواصل مع الدعم الفني على: ${supportInfo.email} أو ${supportInfo.phone}`
+          message: `حسابك قيد المراجعة. لمتابعة حالة الطلب، يرجى التواصل مع الدعم الفني على: ${supportInfo.email} أو ${supportInfo.phone}`
         };
       }
       return { success: false, message: 'حسابك معلق وفي انتظار موافقة المدير.' };
