@@ -522,7 +522,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const borrower = d.borrowers.find((b) => b.id === borrowerId);
         if (!borrower) return d;
 
-        // Check if enough time has passed since the last change
         if (borrower.lastStatusChange) {
           const lastChangeTime = new Date(borrower.lastStatusChange).getTime();
           const now = new Date().getTime();
@@ -680,13 +679,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return d;
             }
             
-            const newId = `bor_${Date.now()}`;
+            const newId = `bor_${Date.now()}_${crypto.randomUUID()}`;
             const fundedByDetails: { investorId: string; amount: number }[] = [];
             let remainingAmountToFund = borrower.amount;
             
             let newInvestors = d.investors;
             if(!isPending) {
-                const updatedInvestorsMap = new Map(d.investors.map(inv => [inv.id, {...inv, fundedLoanIds: [...inv.fundedLoanIds]} ]));
+                // Use a map for efficient lookups and immutable updates
+                const updatedInvestorsMap = new Map(d.investors.map(inv => [inv.id, inv]));
 
                 for (const invId of investorIds) {
                     if (remainingAmountToFund <= 0) break;
@@ -700,7 +700,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     if (contribution > 0) {
                         remainingAmountToFund -= contribution;
                         fundedByDetails.push({ investorId: invId, amount: contribution });
-                        investor.fundedLoanIds.push(newId);
+                        
+                        // Create a NEW, updated investor object and put it back in the map (IMMUTABLE UPDATE)
+                        const updatedInvestor = {
+                            ...investor,
+                            fundedLoanIds: [...investor.fundedLoanIds, newId]
+                        };
+                        updatedInvestorsMap.set(invId, updatedInvestor);
                     }
                 }
                 newInvestors = Array.from(updatedInvestorsMap.values());
