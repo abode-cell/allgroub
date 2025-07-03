@@ -144,7 +144,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_cleared_v11'; // Incremented key to force clear old data on structural changes
+const APP_DATA_KEY = 'appData_cleared_v12_final_fix'; // Incremented key to force clear old data on structural changes
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -164,16 +164,16 @@ const initialDataState: Omit<DataState, 'currentUser'> = {
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Omit<DataState, 'currentUser'>>(initialDataState);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [cronJobRan, setCronJobRan] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
+        let loadedData: Omit<DataState, 'currentUser'> = initialDataState;
         const item = window.localStorage.getItem(APP_DATA_KEY);
         if (item) {
           const parsed = JSON.parse(item);
           if (parsed.users && parsed.borrowers && parsed.investors) {
-            setData({
+            loadedData = {
               borrowers: parsed.borrowers,
               investors: parsed.investors,
               users: parsed.users,
@@ -186,13 +186,74 @@ export function DataProvider({ children }: { children: ReactNode }) {
               graceInvestorSharePercentage: parsed.graceInvestorSharePercentage || initialDataState.graceInvestorSharePercentage,
               supportEmail: parsed.supportEmail || initialDataState.supportEmail,
               supportPhone: parsed.supportPhone || initialDataState.supportPhone,
-            });
-          } else {
-            setData(initialDataState);
+            };
           }
-        } else {
-           setData(initialDataState);
         }
+
+        // --- ONE-TIME CRON JOB LOGIC ---
+        // This logic runs exactly once on the data that was just loaded, before it becomes part of the React state.
+        // This prevents the infinite loop that was crashing the application.
+        const today = new Date();
+        const systemAdmin = loadedData.users.find((u) => u.role === 'مدير النظام');
+        const notificationsToAdd: Omit<Notification, 'id'>[] = [];
+        let usersModified = false;
+
+        const updatedUsers = loadedData.users.map((user) => {
+            let modifiedUser = { ...user };
+            if (user.role === 'مدير المكتب' && user.trialEndsAt && user.status === 'نشط') {
+                const trialEndDate = new Date(user.trialEndsAt);
+                const alreadySuspendedId = `trial-suspended-${user.id}`;
+                const alreadySuspended = loadedData.notifications.some(n => n.id === alreadySuspendedId);
+
+                if (today > trialEndDate && !alreadySuspended) {
+                    usersModified = true;
+                    if (systemAdmin) {
+                        notificationsToAdd.push({
+                            recipientId: systemAdmin.id,
+                            title: 'انتهاء تجربة مستخدم',
+                            description: `انتهت الفترة التجريبية للمستخدم "${user.name}" وتم تعليق حسابه.`,
+                            date: today.toISOString(), isRead: false
+                        });
+                    }
+                    notificationsToAdd.push({
+                        recipientId: user.id,
+                        title: 'انتهت الفترة التجريبية',
+                        description: 'انتهت فترة التجربة الخاصة بك. تم تعليق حسابك تلقائياً.',
+                        date: today.toISOString(), isRead: false
+                    });
+                    modifiedUser.status = 'معلق';
+                }
+
+                const timeDiff = trialEndDate.getTime() - today.getTime();
+                const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                if (daysLeft > 0 && daysLeft <= 3) {
+                    const reminderId = `trial-reminder-${user.id}-${daysLeft}`;
+                    const alreadySent = loadedData.notifications.some(n => n.id === reminderId);
+                    if (!alreadySent) {
+                        notificationsToAdd.push({
+                            recipientId: user.id,
+                            title: 'تذكير بقرب انتهاء الفترة التجريبية',
+                            description: `ستنتهي الفترة التجريبية لحسابك خلال ${daysLeft} يوم/أيام.`,
+                            date: today.toISOString(), isRead: false
+                        });
+                    }
+                }
+            }
+            return modifiedUser;
+        });
+
+        if (usersModified || notificationsToAdd.length > 0) {
+            const existingNotificationIds = new Set(loadedData.notifications.map(n => n.id));
+            const uniqueNewNotifications = notificationsToAdd
+                .map(n => ({ ...n, id: `notif_${crypto.randomUUID()}` }))
+                .filter(n => !existingNotificationIds.has(n.id));
+
+            loadedData.users = updatedUsers;
+            loadedData.notifications = [...uniqueNewNotifications, ...loadedData.notifications];
+        }
+        // --- END OF CRON JOB LOGIC ---
+
+        setData(loadedData);
       } catch (error) {
         console.warn(`Error reading localStorage key “${APP_DATA_KEY}”:`, error);
         setData(initialDataState);
@@ -200,7 +261,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setIsInitialLoad(false);
       }
     }
-  }, []);
+  }, []); // The empty dependency array is crucial. This effect runs only once on mount.
 
   useEffect(() => {
     if (isInitialLoad) return; 
@@ -235,90 +296,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     []
   );
-
-  // Effect to simulate cron job for trial management
-  useEffect(() => {
-    if (isInitialLoad || cronJobRan || data.users.length === 0) return;
-
-    const today = new Date();
-    let usersModified = false;
-    const notificationsToAdd: Notification[] = [];
-    const systemAdmin = data.users.find((u) => u.role === 'مدير النظام');
-
-    const updatedUsers = data.users.map((user) => {
-      if (
-        user.role === 'مدير المكتب' &&
-        user.trialEndsAt &&
-        user.status === 'نشط'
-      ) {
-        const trialEndDate = new Date(user.trialEndsAt);
-        const alreadySuspendedId = `trial-suspended-${user.id}`;
-        const alreadySuspended = data.notifications.some(n => n.id === alreadySuspendedId);
-
-        // Suspension logic
-        if (today > trialEndDate && !alreadySuspended) {
-          usersModified = true;
-          if (systemAdmin) {
-            notificationsToAdd.push({
-              id: `admin-trial-expired-${user.id}`,
-              recipientId: systemAdmin.id,
-              title: 'انتهاء تجربة مستخدم',
-              description: `انتهت الفترة التجريبية للمستخدم "${user.name}" وتم تعليق حسابه.`,
-              date: today.toISOString(),
-              isRead: false,
-            });
-          }
-          notificationsToAdd.push({
-            id: alreadySuspendedId,
-            recipientId: user.id,
-            title: 'انتهت الفترة التجريبية',
-            description:
-              'انتهت فترة التجربة الخاصة بك. تم تعليق حسابك تلقائياً.',
-            date: today.toISOString(),
-            isRead: false,
-          });
-          return { ...user, status: 'معلق' };
-        }
-
-        // Reminder logic
-        const timeDiff = trialEndDate.getTime() - today.getTime();
-        const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-        if (daysLeft > 0 && daysLeft <= 3) {
-          const reminderId = `trial-reminder-${user.id}-${daysLeft}`;
-          const alreadySent = data.notifications.some((n) => n.id === reminderId);
-          if (!alreadySent) {
-            notificationsToAdd.push({
-              id: reminderId,
-              recipientId: user.id,
-              title: 'تذكير بقرب انتهاء الفترة التجريبية',
-              description: `ستنتهي الفترة التجريبية لحسابك خلال ${daysLeft} يوم/أيام.`,
-              date: today.toISOString(),
-              isRead: false,
-            });
-          }
-        }
-      }
-      return user;
-    });
-
-    if (usersModified || notificationsToAdd.length > 0) {
-      setData(d => {
-        const existingIds = new Set(d.notifications.map((p) => p.id));
-        const uniqueNewNotifications = notificationsToAdd.filter(
-          (n) => !existingIds.has(n.id)
-        );
-
-        return {
-            ...d,
-            users: usersModified ? updatedUsers : d.users,
-            notifications: [...uniqueNewNotifications, ...d.notifications],
-        }
-      });
-    }
-    setCronJobRan(true); // Run only once per session
-  }, [isInitialLoad, cronJobRan, data.users, data.notifications]);
-
 
   const clearUserNotifications = useCallback(
     (userId: string) => {
@@ -619,9 +596,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         const newInvestors = d.investors.map(inv => {
-            if (borrowerToDelete.fundedBy?.some(f => f.investorId === inv.id)) {
-                const currentFundedIds = inv.fundedLoanIds || [];
-                return { ...inv, fundedLoanIds: currentFundedIds.filter(id => id !== borrowerId) };
+            const fundedLoanIds = inv.fundedLoanIds || [];
+            if (fundedLoanIds.includes(borrowerId)) {
+                return { ...inv, fundedLoanIds: fundedLoanIds.filter(id => id !== borrowerId) };
             }
             return inv;
         });
@@ -655,10 +632,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const fundedByDetails: { investorId: string; amount: number }[] = [];
             let remainingAmountToFund = borrower.amount;
             
-            let newInvestors = [...d.investors]; // Start with a safe copy
+            let newInvestorsData = [...d.investors]; 
 
             if(!isPending) {
-                const updatedInvestorsMap = new Map(newInvestors.map(inv => [inv.id, {...inv}])); // Deep copy for safety
+                const updatedInvestorsMap = new Map(newInvestorsData.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
 
                 for (const invId of investorIds) {
                     if (remainingAmountToFund <= 0) break;
@@ -674,14 +651,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
                         remainingAmountToFund -= contribution;
                         fundedByDetails.push({ investorId: invId, amount: contribution });
                         
-                        const updatedInvestor = {
-                            ...currentInvestorState,
-                            fundedLoanIds: [...(currentInvestorState.fundedLoanIds || []), newId]
-                        };
-                        updatedInvestorsMap.set(invId, updatedInvestor);
+                        currentInvestorState.fundedLoanIds.push(newId);
+                        updatedInvestorsMap.set(invId, currentInvestorState);
                     }
                 }
-                newInvestors = Array.from(updatedInvestorsMap.values());
+                newInvestorsData = Array.from(updatedInvestorsMap.values());
             }
 
             const newEntry: Borrower = {
@@ -721,7 +695,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
 
             toast({ title: 'تمت إضافة القرض بنجاح' });
-            return { ...d, borrowers: newBorrowers, investors: newInvestors, notifications: newNotifications };
+            return { ...d, borrowers: newBorrowers, investors: newInvestorsData, notifications: newNotifications };
         });
     },
     [userId, toast]
@@ -1289,10 +1263,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let newBorrowers = d.borrowers;
         if (investorIdsToDelete.size > 0) {
           newBorrowers = d.borrowers.map(borrower => {
-              if (borrower.fundedBy?.some(funder => investorIdsToDelete.has(funder.investorId))) {
+              const fundedBy = borrower.fundedBy || [];
+              if (fundedBy.some(funder => investorIdsToDelete.has(funder.investorId))) {
                 return {
                   ...borrower,
-                  fundedBy: borrower.fundedBy.filter(funder => !investorIdsToDelete.has(funder.investorId))
+                  fundedBy: fundedBy.filter(funder => !investorIdsToDelete.has(funder.investorId))
                 };
               }
               return borrower;

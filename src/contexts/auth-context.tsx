@@ -95,6 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserId(null);
     try {
       localStorage.removeItem('loggedInUserId');
+      // Clearing all app data on sign out to prevent inconsistencies
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('appData')) {
+          localStorage.removeItem(key);
+        }
+      });
       window.location.href = '/login'; // Force reload to clear state
     } catch (error) {
       console.error("Could not access localStorage:", error);

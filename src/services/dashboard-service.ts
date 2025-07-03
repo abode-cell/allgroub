@@ -132,9 +132,10 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     const investorMap = new Map(investors.map(inv => [inv.id, inv]));
 
     profitableInstallmentLoans.forEach(loan => {
-        if (!loan.rate || !loan.term || !loan.fundedBy) return;
+        const fundedBy = loan.fundedBy || [];
+        if (!loan.rate || !loan.term || fundedBy.length === 0) return;
         
-        loan.fundedBy.forEach(funder => {
+        fundedBy.forEach(funder => {
             const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
 
@@ -170,12 +171,13 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
         .reduce((acc, b) => acc + b.amount, 0);
     
     const profitableInstallmentLoansForAccordion = profitableInstallmentLoans.map(loan => {
-        if (!loan.rate || !loan.term || !loan.fundedBy) return null;
+        if (!loan.rate || !loan.term) return null;
         
+        const fundedBy = loan.fundedBy || [];
         let totalInstitutionProfitOnLoan = 0;
         let totalInvestorProfitOnLoan = 0;
 
-        loan.fundedBy.forEach(funder => {
+        fundedBy.forEach(funder => {
             const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
             const profitShare = investorDetails.installmentProfitShare ?? config.investorSharePercentage;
@@ -249,9 +251,10 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     const investorMap = new Map(investors.map(inv => [inv.id, inv]));
 
     profitableLoans.forEach(loan => {
-        if (!loan.fundedBy) return;
+        const fundedBy = loan.fundedBy || [];
+        if (fundedBy.length === 0) return;
 
-        loan.fundedBy.forEach(funder => {
+        fundedBy.forEach(funder => {
             const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
 
@@ -274,12 +277,13 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     const investorProfitsArray = Object.values(investorProfits);
 
      const profitableLoansForAccordion = profitableLoans.map(loan => {
-        if (!loan.fundedBy) return null;
+        const fundedBy = loan.fundedBy || [];
+        if (fundedBy.length === 0) return null;
         
         let totalInstitutionProfitOnLoan = 0;
         let totalInvestorProfitOnLoan = 0;
         
-        loan.fundedBy.forEach(funder => {
+        fundedBy.forEach(funder => {
             const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
             const totalProfitOnFundedAmount = funder.amount * (config.graceTotalProfitPercentage / 100);
