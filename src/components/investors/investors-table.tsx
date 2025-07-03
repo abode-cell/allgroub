@@ -87,7 +87,7 @@ export function InvestorsTable({
   investors,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { currentUser, borrowers, visibleUsers: users, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
+  const { currentUser, borrowers, users, visibleUsers, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
   const { updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified, deleteUser } = useDataActions();
   const { toast } = useToast();
   const role = currentUser?.role;
@@ -504,7 +504,7 @@ export function InvestorsTable({
           </DialogHeader>
           {selectedInvestor && (() => {
             const financials = calculateInvestorFinancials(selectedInvestor, borrowers);
-            const userDetails = users.find(u => u.id === selectedInvestor.id);
+            const userDetails = visibleUsers.find(u => u.id === selectedInvestor.id);
 
             return (
               <div className="grid gap-6 pt-4 text-sm">
