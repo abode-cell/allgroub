@@ -144,7 +144,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_v_stable_final_8_sanitized_fixed';
+const APP_DATA_KEY = 'appData_v_stable_final_11_safe_guards';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,

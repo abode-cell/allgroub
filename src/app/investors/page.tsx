@@ -53,12 +53,14 @@ export default function InvestorsPage() {
   
   const role = currentUser?.role;
   const hasAccess = role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
+  const isSubordinate = role === 'موظف' || role === 'مساعد مدير المكتب';
 
   useEffect(() => {
-    if (currentUser && !hasAccess) {
+    // Critical safety check: if user is subordinate but has no manager, redirect to safety.
+    if (currentUser && (!hasAccess || (isSubordinate && !currentUser.managedBy))) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, router]);
+  }, [currentUser, hasAccess, isSubordinate, router]);
 
   const investors = useMemo(() => {
     if (!currentUser || !allInvestors) return [];
@@ -66,7 +68,13 @@ export default function InvestorsPage() {
     if (role === 'مستثمر') {
       return allInvestors.filter(i => i.id === currentUser.id);
     }
+    
+    // Safety Check: Ensure managerId is valid before proceeding
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    if (!managerId) {
+        return []; // Return empty array if subordinate has no manager
+    }
+
     return allInvestors.filter(i => {
       const investorUser = users.find(u => u.id === i.id);
       return investorUser?.managedBy === managerId;
@@ -154,7 +162,7 @@ export default function InvestorsPage() {
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
   const isAddButtonDisabled = isOfficeManager && !canAddMoreInvestors;
       
-  if (!currentUser || !hasAccess) {
+  if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
     return <PageSkeleton />;
   }
 
