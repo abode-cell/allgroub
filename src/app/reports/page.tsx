@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { calculateInvestorFinancials } from '@/services/dashboard-service';
 
 
 const PageSkeleton = () => (
@@ -145,6 +146,13 @@ export default function ReportsPage() {
   
   const activeInvestors = useMemo(() => investors.filter(i => i.status === 'نشط' || i.status === 'غير نشط'), [investors]);
 
+  const investorsWithFinancials = useMemo(() => {
+    return activeInvestors.map(investor => ({
+      ...investor,
+      ...calculateInvestorFinancials(investor, borrowers),
+    }));
+  }, [activeInvestors, borrowers]);
+
   const installmentLoans = useMemo(() => loansForReport.filter(b => b.loanType === 'اقساط'), [loansForReport]);
   const gracePeriodLoans = useMemo(() => loansForReport.filter(b => b.loanType === 'مهلة'), [loansForReport]);
 
@@ -198,28 +206,15 @@ export default function ReportsPage() {
     if (!currentUser) return;
     const title = "تقرير المستثمرين";
     const columns = ["اسم المستثمر", "نوع الاستثمار", "إجمالي الاستثمار", "الأموال النشطة", "الأموال الخاملة", "الأموال المتعثرة", "الحالة"];
-    const rows = activeInvestors.map(investor => {
-        const totalInvestment = investor.transactionHistory
-            .filter(tx => tx.type === 'إيداع رأس المال')
-            .reduce((acc, tx) => acc + tx.amount, 0);
-        
-        const activeInvestment = borrowers
-            .filter(b => b.fundedBy?.some(f => f.investorId === investor.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
-            .reduce((total, loan) => {
-                const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
-                return total + (funding?.amount || 0);
-            }, 0);
-        
+    const rows = investorsWithFinancials.map(investor => {
         const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
-        const defaultedFunds = investor.defaultedFunds || 0;
-
         return [
             investor.name,
             investor.investmentType,
-            totalInvestment,
-            activeInvestment,
+            investor.totalCapitalInSystem,
+            investor.activeCapital,
             idleFunds,
-            defaultedFunds,
+            investor.defaultedFunds,
             investor.status
         ];
     });
@@ -229,25 +224,15 @@ export default function ReportsPage() {
   const handleExportSingleInvestor = (investor: Investor) => {
     if (!currentUser) return;
 
-    // Calculate details (this logic is already in the accordion)
+    const financials = calculateInvestorFinancials(investor, borrowers);
+    const { totalCapitalInSystem, activeCapital, installmentCapital, gracePeriodCapital, defaultedFunds } = financials;
+    const idleFunds = installmentCapital + gracePeriodCapital;
     const fundedLoans = borrowers.filter(b => 
         b.fundedBy?.some(f => f.investorId === investor.id)
     );
-    const totalInvestment = investor.transactionHistory
-        .filter(tx => tx.type === 'إيداع رأس المال')
-        .reduce((acc, tx) => acc + tx.amount, 0);
-    const activeInvestment = fundedLoans
-        .filter(b => b.status === 'منتظم' || b.status === 'متأخر')
-        .reduce((total, loan) => {
-            const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
-            return total + (funding?.amount || 0);
-        }, 0);
-    const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
-    const defaultedFunds = investor.defaultedFunds || 0;
 
     const title = `تقرير المستثمر: ${investor.name}`;
     
-    // Build HTML body
     const htmlBody = `
         <style>
             .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; }
@@ -259,8 +244,8 @@ export default function ReportsPage() {
 
         <h2 class="section-title">الملخص المالي</h2>
         <div class="summary-grid">
-            <div class="summary-card"><h3>إجمالي الاستثمار</h3><p>${formatCurrency(totalInvestment)}</p></div>
-            <div class="summary-card"><h3>الأموال النشطة</h3><p style="color: #28a745;">${formatCurrency(activeInvestment)}</p></div>
+            <div class="summary-card"><h3>إجمالي الاستثمار</h3><p>${formatCurrency(totalCapitalInSystem)}</p></div>
+            <div class="summary-card"><h3>الأموال النشطة</h3><p style="color: #28a745;">${formatCurrency(activeCapital)}</p></div>
             <div class="summary-card"><h3>الأموال الخاملة</h3><p>${formatCurrency(idleFunds)}</p></div>
             <div class="summary-card"><h3>الأموال المتعثرة</h3><p style="color: #dc3545;">${formatCurrency(defaultedFunds)}</p></div>
         </div>
@@ -387,135 +372,126 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
                 <Accordion type="single" collapsible className="w-full">
-                {activeInvestors.map(investor => {
-                const fundedLoans = borrowers.filter(b => 
-                    b.fundedBy?.some(f => f.investorId === investor.id)
-                );
-                const installmentLoansFunded = fundedLoans.filter(l => l.loanType === 'اقساط');
-                const gracePeriodLoansFunded = fundedLoans.filter(l => l.loanType === 'مهلة');
+                {investorsWithFinancials.map(investor => {
+                    const fundedLoans = borrowers.filter(b => 
+                        b.fundedBy?.some(f => f.investorId === investor.id)
+                    );
+                    const installmentLoansFunded = fundedLoans.filter(l => l.loanType === 'اقساط');
+                    const gracePeriodLoansFunded = fundedLoans.filter(l => l.loanType === 'مهلة');
 
-                const totalInvestment = investor.transactionHistory
-                    .filter(tx => tx.type === 'إيداع رأس المال')
-                    .reduce((acc, tx) => acc + tx.amount, 0);
-                const activeInvestment = fundedLoans
-                    .filter(b => b.status === 'منتظم' || b.status === 'متأخر')
-                    .reduce((total, loan) => {
-                        const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
-                        return total + (funding?.amount || 0);
-                    }, 0);
-                const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
-                const defaultedFunds = investor.defaultedFunds || 0;
+                    const { totalCapitalInSystem, activeCapital, installmentCapital, gracePeriodCapital, defaultedFunds } = investor;
+                    const idleFunds = installmentCapital + gracePeriodCapital;
 
-                return (
-                    <AccordionItem value={investor.id} key={investor.id}>
-                    <AccordionTrigger>
-                        <div className="flex justify-between w-full pr-4 items-center">
-                        <span className="font-medium">{investor.name}</span>
-                        <Badge variant={statusVariant[investor.status] || 'default'}>{investor.status}</Badge>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-6 bg-muted/30 p-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div className="p-3 rounded-md border bg-background shadow-sm">
-                                <p className="text-muted-foreground">إجمالي الاستثمار</p>
-                                <p className="font-bold text-lg">{formatCurrency(totalInvestment)}</p>
+                    return (
+                        <AccordionItem value={investor.id} key={investor.id}>
+                        <AccordionTrigger>
+                            <div className="flex justify-between w-full pr-4 items-center">
+                            <span className="font-medium">{investor.name}</span>
+                            <Badge variant={statusVariant[investor.status] || 'default'}>{investor.status}</Badge>
                             </div>
-                            <div className="p-3 rounded-md border bg-background shadow-sm">
-                                <p className="text-muted-foreground">الأموال النشطة</p>
-                                <p className="font-bold text-lg text-green-600">{formatCurrency(activeInvestment)}</p>
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-6 bg-muted/30 p-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div className="p-3 rounded-md border bg-background shadow-sm">
+                                    <p className="text-muted-foreground">إجمالي الاستثمار</p>
+                                    <p className="font-bold text-lg">{formatCurrency(totalCapitalInSystem)}</p>
+                                </div>
+                                <div className="p-3 rounded-md border bg-background shadow-sm">
+                                    <p className="text-muted-foreground">الأموال النشطة</p>
+                                    <p className="font-bold text-lg text-green-600">{formatCurrency(activeCapital)}</p>
+                                </div>
+                                <div className="p-3 rounded-md border bg-background shadow-sm">
+                                    <p className="text-muted-foreground">الأموال الخاملة</p>
+                                    <p className="font-bold text-lg">{formatCurrency(idleFunds)}</p>
+                                </div>
+                                <div className="p-3 rounded-md border bg-background shadow-sm">
+                                    <p className="text-muted-foreground">الأموال المتعثرة</p>
+                                    <p className="font-bold text-lg text-destructive">{formatCurrency(defaultedFunds)}</p>
+                                </div>
                             </div>
-                            <div className="p-3 rounded-md border bg-background shadow-sm">
-                                <p className="text-muted-foreground">الأموال الخاملة</p>
-                                <p className="font-bold text-lg">{formatCurrency(idleFunds)}</p>
+                            
+                            <div>
+                            <h4 className="font-semibold mb-2">قروض الأقساط الممولة ({installmentLoansFunded.length})</h4>
+                            <div className="border rounded-md bg-background overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                <TableRow>
+                                    <TableHead>اسم المقترض</TableHead>
+                                    <TableHead>مبلغ التمويل</TableHead>
+                                    <TableHead>تاريخ الاستحقاق</TableHead>
+                                    <TableHead className="text-center">الحالة</TableHead>
+                                </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                {installmentLoansFunded.length > 0 ? (
+                                    installmentLoansFunded.map(loan => {
+                                    const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
+                                    return (
+                                        <TableRow key={loan.id}>
+                                        <TableCell>{loan.name}</TableCell>
+                                        <TableCell>{formatCurrency(fundingAmount)}</TableCell>
+                                        <TableCell>{loan.dueDate}</TableCell>
+                                        <TableCell className="text-center"><BorrowerStatusBadge borrower={loan} /></TableCell>
+                                        </TableRow>
+                                    )
+                                    })
+                                ) : (
+                                    <TableRow><TableCell colSpan={4} className="text-center h-24">لا توجد قروض أقساط ممولة.</TableCell></TableRow>
+                                )}
+                                </TableBody>
+                            </Table>
                             </div>
-                            <div className="p-3 rounded-md border bg-background shadow-sm">
-                                <p className="text-muted-foreground">الأموال المتعثرة</p>
-                                <p className="font-bold text-lg text-destructive">{formatCurrency(defaultedFunds)}</p>
                             </div>
-                        </div>
-                        
-                        <div>
-                        <h4 className="font-semibold mb-2">قروض الأقساط الممولة ({installmentLoansFunded.length})</h4>
-                        <div className="border rounded-md bg-background overflow-hidden">
-                        <Table>
-                            <TableHeader>
-                            <TableRow>
-                                <TableHead>اسم المقترض</TableHead>
-                                <TableHead>مبلغ التمويل</TableHead>
-                                <TableHead>تاريخ الاستحقاق</TableHead>
-                                <TableHead className="text-center">الحالة</TableHead>
-                            </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                            {installmentLoansFunded.length > 0 ? (
-                                installmentLoansFunded.map(loan => {
-                                const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
-                                return (
-                                    <TableRow key={loan.id}>
-                                    <TableCell>{loan.name}</TableCell>
-                                    <TableCell>{formatCurrency(fundingAmount)}</TableCell>
-                                    <TableCell>{loan.dueDate}</TableCell>
-                                    <TableCell className="text-center"><BorrowerStatusBadge borrower={loan} /></TableCell>
-                                    </TableRow>
-                                )
-                                })
-                            ) : (
-                                <TableRow><TableCell colSpan={4} className="text-center h-24">لا توجد قروض أقساط ممولة.</TableCell></TableRow>
-                            )}
-                            </TableBody>
-                        </Table>
-                        </div>
-                        </div>
 
-                        <div>
-                        <h4 className="font-semibold mb-2">قروض المهلة الممولة ({gracePeriodLoansFunded.length})</h4>
-                        <div className="border rounded-md bg-background overflow-hidden">
-                        <Table>
-                            <TableHeader>
-                            <TableRow>
-                                <TableHead>اسم المقترض</TableHead>
-                                <TableHead>مبلغ التمويل</TableHead>
-                                <TableHead>تاريخ الاستحقاق</TableHead>
-                                <TableHead className="text-center">الحالة</TableHead>
-                            </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                            {gracePeriodLoansFunded.length > 0 ? (
-                                gracePeriodLoansFunded.map(loan => {
-                                const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
-                                return (
-                                    <TableRow key={loan.id}>
-                                    <TableCell>{loan.name}</TableCell>
-                                    <TableCell>{formatCurrency(fundingAmount)}</TableCell>
-                                    <TableCell>{loan.dueDate}</TableCell>
-                                    <TableCell className="text-center"><BorrowerStatusBadge borrower={loan} /></TableCell>
-                                    </TableRow>
-                                )
-                                })
-                            ) : (
-                                <TableRow><TableCell colSpan={4} className="text-center h-24">لا توجد قروض مهلة ممولة.</TableCell></TableRow>
-                            )}
-                            </TableBody>
-                        </Table>
-                        </div>
-                        </div>
-                        
-                        <div className="flex justify-end pt-4">
-                            <Button variant="outline" size="sm" onClick={() => handleExportSingleInvestor(investor)}>
-                                <Download className="ml-2 h-4 w-4" />
-                                تصدير تقرير المستثمر
-                            </Button>
-                        </div>
+                            <div>
+                            <h4 className="font-semibold mb-2">قروض المهلة الممولة ({gracePeriodLoansFunded.length})</h4>
+                            <div className="border rounded-md bg-background overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                <TableRow>
+                                    <TableHead>اسم المقترض</TableHead>
+                                    <TableHead>مبلغ التمويل</TableHead>
+                                    <TableHead>تاريخ الاستحقاق</TableHead>
+                                    <TableHead className="text-center">الحالة</TableHead>
+                                </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                {gracePeriodLoansFunded.length > 0 ? (
+                                    gracePeriodLoansFunded.map(loan => {
+                                    const fundingAmount = loan.fundedBy?.find(f => f.investorId === investor.id)?.amount || 0;
+                                    return (
+                                        <TableRow key={loan.id}>
+                                        <TableCell>{loan.name}</TableCell>
+                                        <TableCell>{formatCurrency(fundingAmount)}</TableCell>
+                                        <TableCell>{loan.dueDate}</TableCell>
+                                        <TableCell className="text-center"><BorrowerStatusBadge borrower={loan} /></TableCell>
+                                        </TableRow>
+                                    )
+                                    })
+                                ) : (
+                                    <TableRow><TableCell colSpan={4} className="text-center h-24">لا توجد قروض مهلة ممولة.</TableCell></TableRow>
+                                )}
+                                </TableBody>
+                            </Table>
+                            </div>
+                            </div>
+                            
+                            <div className="flex justify-end pt-4">
+                                <Button variant="outline" size="sm" onClick={() => handleExportSingleInvestor(investor)}>
+                                    <Download className="ml-2 h-4 w-4" />
+                                    تصدير تقرير المستثمر
+                                </Button>
+                            </div>
 
-                    </AccordionContent>
-                    </AccordionItem>
-                )
-                })}
-                {activeInvestors.length === 0 && (
-                    <div className="text-center text-muted-foreground py-16">
-                        <p>لا يوجد مستثمرون لعرض تقاريرهم.</p>
-                    </div>
-                )}
+                        </AccordionContent>
+                        </AccordionItem>
+                    )
+                    })}
+                    {activeInvestors.length === 0 && (
+                        <div className="text-center text-muted-foreground py-16">
+                            <p>لا يوجد مستثمرون لعرض تقاريرهم.</p>
+                        </div>
+                    )}
                 </Accordion>
             </CardContent>
         </Card>
