@@ -60,6 +60,12 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
     const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
     
+    const defaultedProfits = installmentDefaultedLoans.reduce((acc, loan) => {
+        if (!loan.rate || !loan.term) return acc;
+        const totalInterest = loan.amount * (loan.rate / 100) * loan.term;
+        return acc + totalInterest;
+    }, 0);
+
     const profitableInstallmentLoans = installmentLoans.filter(
         b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
     );
@@ -141,6 +147,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
       loansGranted: installmentLoansGranted,
       defaultedFunds: installmentDefaultedFunds,
       defaultRate: installmentDefaultRate,
+      defaultedProfits,
       netProfit,
       totalInstitutionProfit,
       totalInvestorsProfit,
@@ -157,12 +164,18 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     );
 
     const loansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
-    const defaultedFunds = gracePeriodLoans.filter(b => 
+    const defaultedLoans = gracePeriodLoans.filter(b => 
         b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه'
-    ).reduce((acc, b) => acc + b.amount, 0);
+    );
+    const defaultedFunds = defaultedLoans.reduce((acc, b) => acc + b.amount, 0);
     const defaultRate = loansGranted > 0 ? (defaultedFunds / loansGranted) * 100 : 0;
     const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
     
+    const defaultedProfits = defaultedLoans.reduce((acc, loan) => {
+        const totalProfit = loan.amount * (config.graceTotalProfitPercentage / 100);
+        return acc + totalProfit;
+    }, 0);
+
     const today = new Date();
     const dueDebts = gracePeriodLoans
         .filter(b => {
@@ -238,6 +251,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
         loansGranted: loansGranted,
         defaultedFunds: defaultedFunds,
         defaultRate: defaultRate,
+        defaultedProfits,
         totalDiscounts,
         dueDebts,
         netProfit,

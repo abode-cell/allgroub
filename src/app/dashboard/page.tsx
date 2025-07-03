@@ -59,7 +59,7 @@ const formatCurrency = (value: number) =>
 const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investors }: { metrics: DashboardMetricsOutput['installments'], showSensitiveData: boolean, borrowers: Borrower[], investors: Investor[] }) => {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-3", showSensitiveData ? "xl:grid-cols-6" : "xl:grid-cols-4")}>
         <KpiCard
           title="القروض الممنوحة (أقساط)"
           value={formatCurrency(metrics.loansGranted)}
@@ -88,6 +88,15 @@ const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investor
           icon={<ShieldX className="size-6 text-muted-foreground" />}
           changeColor="text-red-500"
         />
+        {showSensitiveData && (
+           <KpiCard
+            title="الأرباح المتعثرة"
+            value={formatCurrency(metrics.defaultedProfits)}
+            change="من قروض متعثرة"
+            icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
+            changeColor="text-red-500"
+          />
+        )}
         <KpiCard
           title="نسبة التعثر (أقساط)"
           value={`${metrics.defaultRate.toFixed(1)}%`}
@@ -195,7 +204,7 @@ const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investor
 const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, investors }: { metrics: DashboardMetricsOutput['gracePeriod'], showSensitiveData: boolean, config: any, borrowers: Borrower[], investors: Investor[] }) => {
     return (
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-3", showSensitiveData ? "xl:grid-cols-6" : "xl:grid-cols-4")}>
                 <KpiCard
                     title="التمويل الممنوح (مهلة)"
                     value={formatCurrency(metrics.loansGranted)}
@@ -232,6 +241,15 @@ const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, i
                     icon={<ShieldX className="size-6 text-muted-foreground" />}
                     changeColor="text-red-500"
                 />
+                {showSensitiveData && (
+                    <KpiCard
+                        title="الأرباح المتعثرة"
+                        value={formatCurrency(metrics.defaultedProfits)}
+                        change="من قروض متعثرة"
+                        icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
+                        changeColor="text-red-500"
+                    />
+                )}
             </div>
             
             <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-7">
