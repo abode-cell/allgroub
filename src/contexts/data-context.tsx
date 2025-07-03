@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_qa_pass_12_stable_final_final';
+export const APP_DATA_KEY = 'appData_v_final_qa_pass_14_stable_final_final_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -499,8 +499,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const currentInvestorState = updatedInvestorsMap.get(invId);
             if (!currentInvestorState) continue;
             
-            const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
-            const availableCapital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
+            // Re-fetch financials inside the update to avoid race conditions
+            const freshFinancials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
+            const availableCapital = loanToApprove.loanType === 'اقساط' ? freshFinancials.idleInstallmentCapital : freshFinancials.idleGraceCapital;
             
             const contribution = Math.min(availableCapital, remainingAmountToFund);
             if (contribution > 0) {
@@ -1336,6 +1337,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
 
+        if (userToDelete.id === loggedInUser.id) {
+            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف حسابك الخاص.' });
+            return d;
+        }
         if (userToDelete.role === 'مدير النظام') {
             toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف حساب مدير النظام.' });
             return d;
@@ -1370,11 +1375,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
                         blockingReason = `لا يمكن الحذف لوجود أموال نشطة مرتبطة بالمستثمر "${investorData.name}".`;
                     }
                 }
-            }
-            
-            const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === id && (b.status === 'منتظم' || b.status === 'متأخر'));
-            if (activeLoansSubmitted) {
-                blockingReason = `لا يمكن الحذف لوجود قروض نشطة قدمها المستخدم "${user.name}".`;
+            } else {
+                const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === id && (b.status === 'منتظم' || b.status === 'متأخر'));
+                if (activeLoansSubmitted) {
+                    blockingReason = `لا يمكن الحذف لوجود قروض نشطة قدمها المستخدم "${user.name}".`;
+                }
             }
         });
     

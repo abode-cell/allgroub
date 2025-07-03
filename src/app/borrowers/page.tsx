@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -492,7 +493,7 @@ export default function BorrowersPage() {
           </Dialog>
           )}
         </div>
-        <Tabs defaultValue="grace-period" className="w-full">
+        <Tabs defaultValue="installments" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="installments">
                   قروض الأقساط ({installmentBorrowers.length})

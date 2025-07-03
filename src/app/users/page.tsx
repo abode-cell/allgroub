@@ -129,14 +129,21 @@ const assistantPermissionsConfig: {
   { key: 'manageEmployeePermissions', label: 'إدارة صلاحيات الموظفين', description: 'تمكين المساعد من تفعيل أو تعطيل صلاحيات الموظفين.' },
 ];
 
-const UserActions = ({ user, onDeleteClick, onEditClick, canEdit, canDelete }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void, canEdit: boolean, canDelete: boolean }) => {
+const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void }) => {
   const { updateUserStatus } = useDataActions();
   const { currentUser } = useDataState();
-  const isCurrentUser = user.id === currentUser?.id;
 
-  if (isCurrentUser) {
-    return null;
-  }
+  if (!currentUser) return null;
+  
+  const isCurrentUser = user.id === currentUser?.id;
+  if (isCurrentUser) return null;
+
+  const canEdit = currentUser.role === 'مدير النظام' || 
+                  (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) ||
+                  (currentUser.role === 'مساعد مدير المكتب' && user.role === 'موظف' && user.managedBy === currentUser.managedBy && currentUser.permissions?.accessSettings);
+
+  const canDelete = currentUser.role === 'مدير النظام' || 
+                    (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id);
 
   return (
     <div className="flex items-center gap-2 justify-start">
@@ -394,8 +401,6 @@ export default function UsersPage() {
                     return user?.managedBy === manager.id
                   }
                 );
-                const canEditCredentials = role === 'مدير النظام';
-                const canDeleteUser = role === 'مدير النظام';
 
                 return (
                   <AccordionItem value={manager.id} key={manager.id}>
@@ -420,7 +425,7 @@ export default function UsersPage() {
                             )}
                             {manager.status}
                           </Badge>
-                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditCredentials} canDelete={canDeleteUser} />
+                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                         </div>
                       </div>
                     </AccordionPrimitive.Header>
@@ -600,7 +605,7 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-left">
-                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={role === 'مدير النظام'} canDelete={role === 'مدير النظام'} />
+                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -620,21 +625,6 @@ export default function UsersPage() {
     
     const canManageAssistants = role === 'مدير المكتب';
     const canManageEmployees = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageEmployeePermissions);
-    
-    const canEditTeamCredentials = (targetUser: User): boolean => {
-        if (!currentUser) return false;
-        // Office Manager can edit their own team
-        if (currentUser.role === 'مدير المكتب' && targetUser.managedBy === currentUser.id) return true;
-        // Assistant can edit employees if they have accessSettings permission
-        if (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.accessSettings && targetUser.role === 'موظف' && targetUser.managedBy === currentUser.managedBy) return true;
-        return false;
-    };
-    
-    const canDeleteTeamMember = (targetUser: User): boolean => {
-        if (!currentUser) return false;
-        if (currentUser.role === 'مدير المكتب' && targetUser.managedBy === currentUser.id) return true;
-        return false;
-    };
     
     const pageTitle = role === 'مدير المكتب' ? 'إدارة فريق العمل' : 'إدارة الموظفين';
     const pageDescription = role === 'مدير المكتب'
@@ -690,7 +680,7 @@ export default function UsersPage() {
                               )}
                               {assistant.status}
                             </Badge>
-                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditTeamCredentials(assistant)} canDelete={canDeleteTeamMember(assistant)} />
+                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                           </div>
                         </div>
                       </AccordionPrimitive.Header>
@@ -846,7 +836,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-left">
-                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditTeamCredentials(employee)} canDelete={canDeleteTeamMember(employee)} />
+                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                       </TableCell>
                     </TableRow>
                   ))
