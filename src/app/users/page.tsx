@@ -91,6 +91,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatCurrency } from '@/lib/utils';
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 
 const PageSkeleton = () => (
@@ -469,7 +470,7 @@ export default function UsersPage() {
                 );
 
                 return (
-                  <AccordionItem value={manager.id} key={manager.id}>
+                  <AccordionItem value={manager.id} key={manager.id} className={cn(manager.status === 'معلق' && 'opacity-70 bg-muted/20')}>
                     <AccordionPrimitive.Header className="flex">
                       <AccordionTrigger className="flex-1 text-right py-4 px-4 hover:no-underline hover:bg-muted/50 rounded-t-md justify-start">
                           <div className="flex flex-1 items-center justify-between">

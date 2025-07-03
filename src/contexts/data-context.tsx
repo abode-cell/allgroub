@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v49-final-final-check-7-final';
+export const APP_DATA_KEY = 'appData-v55-final-final-check-11-final-final';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -562,6 +562,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
             
             if (newPaymentStatus === 'تم السداد') {
               updatedBorrower.paidOffDate = new Date().toISOString();
+              // Synchronize installment statuses
+              if (updatedBorrower.loanType === 'اقساط' && updatedBorrower.installments) {
+                updatedBorrower.installments = updatedBorrower.installments.map(inst => ({ ...inst, status: 'تم السداد' }));
+              }
             } else {
               delete updatedBorrower.paidOffDate;
             }
