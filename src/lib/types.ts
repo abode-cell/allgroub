@@ -100,7 +100,7 @@ export type Payment = {
   balance: number;
 };
 
-export type TransactionType = 'إيداع رأس المال' | 'سحب من رأس المال' | 'إيداع أرباح' | 'سحب أرباح';
+export type TransactionType = 'إيداع رأس المال' | 'سحب من رأس المال';
 export type WithdrawalMethod = 'نقدي' | 'بنكي';
 
 export type Transaction = {

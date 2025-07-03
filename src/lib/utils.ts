@@ -1,4 +1,5 @@
 
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Borrower } from "./types"
@@ -44,38 +45,50 @@ export const getInitials = (name: string): string => {
 
 
 export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStatusDetails => {
-  // First, check for statuses that are absolute and not based on time.
   if (borrower.status === 'معلق') return { text: 'طلب معلق', variant: 'secondary' };
   if (borrower.status === 'مرفوض') return { text: 'مرفوض', variant: 'destructive' };
-
-  // If payment status is explicitly set to 'Paid Off', this has the highest priority for display.
-  if (borrower.paymentStatus === 'تم السداد') {
-    return { text: 'تم السداد', variant: 'success' };
+  if (borrower.status === 'مسدد بالكامل' || borrower.paymentStatus === 'تم السداد') {
+    return { text: 'مسدد بالكامل', variant: 'success' };
   }
-  
-  // For all other cases, including when paymentStatus is undefined or any other ongoing status,
-  // we calculate the status based on the due date.
+
   const todayDate = normalizeDate(today);
 
-  if (!borrower.dueDate) {
-    return { text: 'لا يوجد تاريخ', variant: 'secondary' };
+  // For Grace period loans, status depends on the single due date.
+  if (borrower.loanType === 'مهلة') {
+    if (!borrower.dueDate || !isValid(new Date(borrower.dueDate))) {
+        return { text: 'تاريخ غير صالح', variant: 'destructive' };
+    }
+    const dueDate = normalizeDate(new Date(borrower.dueDate));
+    if (isPast(dueDate)) {
+      return { text: 'متأخر', variant: 'destructive' };
+    }
+    return { text: 'منتظم', variant: 'default' };
   }
   
-  const dueDate = new Date(borrower.dueDate);
-  if (!isValid(dueDate)) { // Use isValid from date-fns for robust check
-    console.error(`Invalid dueDate for borrower ${borrower.id}: ${borrower.dueDate}`);
-    return { text: 'تاريخ غير صالح', variant: 'destructive' };
-  }
+  // For Installment loans, status depends on the next unpaid installment.
+  if (borrower.loanType === 'اقساط') {
+      if (!borrower.term || !borrower.installments || !isValid(new Date(borrower.date))) {
+          return { text: 'بيانات ناقصة', variant: 'secondary' };
+      }
+      const startDate = new Date(borrower.date);
+      const nextInstallment = [...borrower.installments]
+          .filter(i => i.status === 'لم يسدد بعد' || i.status === 'متأخر')
+          .sort((a, b) => a.month - b.month)[0];
 
-  const normalizedDueDate = normalizeDate(dueDate);
-  
-  const daysDiff = differenceInDays(normalizedDueDate, todayDate);
+      if (!nextInstallment) {
+        // This case is covered by the 'مسدد بالكامل' check at the top, but as a fallback:
+        return { text: 'منتظم', variant: 'default' };
+      }
+      
+      const nextPaymentDate = normalizeDate(addMonths(startDate, nextInstallment.month));
 
-  if (daysDiff < 0) {
-      return { text: `متأخر ${Math.abs(daysDiff)} يوم`, variant: 'destructive' };
+      if (isPast(nextPaymentDate)) {
+        return { text: 'متأخر', variant: 'destructive' };
+      }
+      return { text: 'منتظم', variant: 'default' };
   }
   
-  return { text: `متبقي ${daysDiff} يوم`, variant: 'default' };
+  return { text: borrower.status, variant: 'default' }; // Fallback
 };
 
 export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text: string; isOverdue: boolean } => {

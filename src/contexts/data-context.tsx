@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_22';
+export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_30';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -477,12 +477,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const financialFieldsChanged = updatedBorrower.amount !== originalBorrower.amount ||
                                            updatedBorrower.rate !== originalBorrower.rate ||
                                            updatedBorrower.term !== originalBorrower.term ||
-                                           updatedBorrower.loanType !== originalBorrower.loanType;
+                                           updatedBorrower.loanType !== originalBorrower.loanType ||
+                                           updatedBorrower.dueDate !== originalBorrower.dueDate;
             if (financialFieldsChanged) {
               toast({
                   variant: 'destructive',
                   title: 'خطأ',
-                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل) لقرض نشط.',
+                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل، تاريخ الاستحقاق) لقرض نشط.',
               });
               return d;
             }
@@ -715,13 +716,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
 
             // Centralized permission check
-            if (loggedInUser.role === 'موظف') {
-                const manager = d.users.find(u => u.id === loggedInUser.managedBy);
-                if (!manager?.allowEmployeeSubmissions) {
-                    result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
-                    toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
-                    return d;
-                }
+            if (loggedInUser.role === 'موظف' && !loggedInUser.permissions?.manageBorrowers) {
+                 result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
+                toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
+                return d;
             } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageBorrowers) {
                 result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
                 toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
@@ -1000,13 +998,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         // Centralized permission check
-        if (loggedInUser.role === 'موظف') {
-            const manager = d.users.find(u => u.id === loggedInUser.managedBy);
-            if (!manager?.allowEmployeeSubmissions) {
-                result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
-                toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
-                return d;
-            }
+        if (loggedInUser.role === 'موظف' && !loggedInUser.permissions?.manageInvestors) {
+           result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
+           toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
+           return d;
         } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageInvestors) {
             result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
             toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
@@ -1050,8 +1045,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
 
-        const isDirectAdditionEnabled = manager?.allowEmployeeSubmissions ?? false;
-        const status: User['status'] = (loggedInUser.role === 'موظف' && !isDirectAdditionEnabled) ? 'معلق' : 'نشط';
+        const status: User['status'] = (loggedInUser.role === 'موظف' || (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageRequests)) ? 'معلق' : 'نشط';
       
         const newId = `user_inv_${Date.now()}`;
       
@@ -1105,12 +1099,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         };
         
         let newNotifications = d.notifications;
-        if (status === 'معلق' && loggedInUser?.managedBy) {
+        if (status === 'معلق' && managerId) {
             newNotifications = [{
                 id: `notif_${crypto.randomUUID()}`,
                 date: new Date().toISOString(),
                 isRead: false,
-                recipientId: loggedInUser.managedBy,
+                recipientId: managerId,
                 title: 'طلب مستثمر جديد معلق',
                 description: `قدم الموظف "${loggedInUser.name}" طلبًا لإضافة المستثمر "${newInvestorEntry.name}".`,
             }, ...d.notifications];
@@ -1167,7 +1161,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const newUser: User = {
                 id: newId, name: payload.name, email: payload.email, phone: payload.phone, password: payload.password,
                 role: role, status: 'نشط', managedBy: loggedInUser.id, photoURL: `https://placehold.co/40x40.png`, registrationDate: new Date().toISOString(),
-                permissions: isEmployee ? { manageInvestors: true, manageBorrowers: true } : { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false },
+                permissions: isEmployee ? undefined : { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false },
             };
             result = { success: true, message: `تمت إضافة ${isEmployee ? 'الموظف' : 'المساعد'} بنجاح.` };
             toast({ title: 'نجاح', description: result.message });

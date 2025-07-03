@@ -67,10 +67,8 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } 
   'مرفوض': 'destructive',
 };
 
-const transactionTypeVariant: { [key in TransactionType]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
+const transactionTypeVariant: { [key in TransactionType]: 'default' | 'destructive' } = {
     'إيداع رأس المال': 'default',
-    'إيداع أرباح': 'default',
-    'سحب أرباح': 'secondary',
     'سحب من رأس المال': 'destructive',
 };
 
@@ -238,7 +236,6 @@ export function InvestorsTable({
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
   const canSendSms = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف' && currentUser?.permissions?.manageInvestors);
   const isWithdrawal = transactionDetails.type.includes('سحب');
-  const affectsCapital = transactionDetails.type === 'إيداع رأس المال' || transactionDetails.type === 'سحب من رأس المال';
 
 
   return (
@@ -575,8 +572,6 @@ export function InvestorsTable({
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="إيداع رأس المال">إيداع رأس المال</SelectItem>
-                        <SelectItem value="إيداع أرباح">إيداع أرباح</SelectItem>
-                        <SelectItem value="سحب أرباح">سحب أرباح</SelectItem>
                         <SelectItem value="سحب من رأس المال">سحب من رأس المال</SelectItem>
                     </SelectContent>
                 </Select>
@@ -638,39 +633,37 @@ export function InvestorsTable({
                   required
                 />
               </div>
-              {affectsCapital && (
-                 <div className="space-y-2">
-                    <Label>محفظة العملية</Label>
-                    <RadioGroup
-                        value={transactionDetails.capitalSource}
-                        onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
-                        className="flex gap-4"
-                    >
-                        {isWithdrawal ? (
-                        availableWithdrawalSources.map(source => (
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse" key={source.value}>
-                            <RadioGroupItem value={source.value} id={`source-${source.value}`} />
-                            <Label htmlFor={`source-${source.value}`}>{source.label}</Label>
-                            </div>
-                        ))
-                        ) : (
-                        <>
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                <RadioGroupItem value="installment" id="source-install" />
-                                <Label htmlFor="source-install">محفظة الأقساط</Label>
-                            </div>
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                <RadioGroupItem value="grace" id="source-grace" />
-                                <Label htmlFor="source-grace">محفظة المهلة</Label>
-                            </div>
-                        </>
-                        )}
-                    </RadioGroup>
-                    {isWithdrawal && availableWithdrawalSources.length === 0 && (
-                        <p className='text-xs text-destructive text-center p-2'>لا يوجد رصيد متاح للسحب.</p>
-                    )}
-                </div>
-              )}
+              <div className="space-y-2">
+                  <Label>محفظة العملية</Label>
+                  <RadioGroup
+                      value={transactionDetails.capitalSource}
+                      onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
+                      className="flex gap-4"
+                  >
+                      {isWithdrawal ? (
+                      availableWithdrawalSources.map(source => (
+                          <div className="flex items-center space-x-2 rtl:space-x-reverse" key={source.value}>
+                          <RadioGroupItem value={source.value} id={`source-${source.value}`} />
+                          <Label htmlFor={`source-${source.value}`}>{source.label}</Label>
+                          </div>
+                      ))
+                      ) : (
+                      <>
+                          <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                              <RadioGroupItem value="installment" id="source-install" />
+                              <Label htmlFor="source-install">محفظة الأقساط</Label>
+                          </div>
+                          <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                              <RadioGroupItem value="grace" id="source-grace" />
+                              <Label htmlFor="source-grace">محفظة المهلة</Label>
+                          </div>
+                      </>
+                      )}
+                  </RadioGroup>
+                  {isWithdrawal && availableWithdrawalSources.length === 0 && (
+                      <p className='text-xs text-destructive text-center p-2'>لا يوجد رصيد متاح للسحب.</p>
+                  )}
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="description">الوصف (السبب)</Label>
                 <Textarea
