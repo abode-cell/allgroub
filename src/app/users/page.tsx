@@ -133,56 +133,73 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
   const { updateUserStatus } = useDataActions();
   const { currentUser } = useDataState();
 
-  if (!currentUser) return null;
+  if (!currentUser || user.id === currentUser.id || user.role === 'مدير النظام') {
+    return null;
+  }
+
+  const canEdit =
+    currentUser.role === 'مدير النظام' ||
+    (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) ||
+    (currentUser.role === 'مساعد مدير المكتب' &&
+      currentUser.permissions?.accessSettings &&
+      user.managedBy === currentUser.managedBy &&
+      user.role === 'موظف');
+
+  const canDelete =
+    currentUser.role === 'مدير النظام' ||
+    (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id);
+
+  const canUpdateStatus =
+    currentUser.role === 'مدير النظام' ||
+    (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) ||
+    (currentUser.role === 'مساعد مدير المكتب' && user.managedBy === currentUser.managedBy && user.role === 'موظف');
+
+  if (!canEdit && !canDelete && !canUpdateStatus) {
+    return null;
+  }
   
-  const isCurrentUser = user.id === currentUser?.id;
-  if (isCurrentUser) return null;
-
-  const canEdit = currentUser.role === 'مدير النظام' || 
-                  (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) ||
-                  (currentUser.role === 'مساعد مدير المكتب' && user.role === 'موظف' && user.managedBy === currentUser.managedBy && currentUser.permissions?.accessSettings);
-
-  const canDelete = currentUser.role === 'مدير النظام' || 
-                    (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id);
-
   return (
     <div className="flex items-center gap-2 justify-start">
-        {user.status === 'معلق' ? (
-          <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'نشط')}>
-            <Check className="ml-1 h-4 w-4" />
-            تفعيل
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'معلق')}>
-             <X className="ml-1 h-4 w-4" />
-            تعليق
-          </Button>
+        {canUpdateStatus && (
+          user.status === 'معلق' ? (
+            <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'نشط')}>
+              <Check className="ml-1 h-4 w-4" />
+              تفعيل
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'معلق')}>
+               <X className="ml-1 h-4 w-4" />
+              تعليق
+            </Button>
+          )
         )}
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">فتح قائمة الإجراءات</span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                 {canEdit && (
-                    <DropdownMenuItem onSelect={() => onEditClick(user)}>
-                        <Edit className="ml-2 h-4 w-4" />
-                        <span>تعديل بيانات الدخول</span>
-                    </DropdownMenuItem>
-                 )}
-                 {canDelete && (
-                    <DropdownMenuItem
-                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                        onClick={() => onDeleteClick(user)}
-                    >
-                        <Trash2 className="ml-2 h-4 w-4" />
-                        <span>حذف الحساب</span>
-                    </DropdownMenuItem>
-                 )}
-            </DropdownMenuContent>
-        </DropdownMenu>
+        {(canEdit || canDelete) && (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">فتح قائمة الإجراءات</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                     {canEdit && (
+                        <DropdownMenuItem onSelect={() => onEditClick(user)}>
+                            <Edit className="ml-2 h-4 w-4" />
+                            <span>تعديل بيانات الدخول</span>
+                        </DropdownMenuItem>
+                     )}
+                     {canDelete && (
+                        <DropdownMenuItem
+                            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                            onClick={() => onDeleteClick(user)}
+                        >
+                            <Trash2 className="ml-2 h-4 w-4" />
+                            <span>حذف الحساب</span>
+                        </DropdownMenuItem>
+                     )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        )}
     </div>
   );
 };
@@ -351,7 +368,7 @@ export default function UsersPage() {
 
   const officeManagers = useMemo(() => users.filter((u) => u.role === 'مدير المكتب'), [users]);
   const otherUsers = useMemo(() => users.filter(
-    (u) => u.role !== 'مدير المكتب' && u.role !== 'موظف' && u.role !== 'مساعد مدير المكتب' && u.role !== 'مستثمر'
+    (u) => u.role === 'مدير النظام'
   ), [users]);
 
   const myEmployees = useMemo(() => {
@@ -667,7 +684,7 @@ export default function UsersPage() {
                 عرض وإدارة صلاحيات مساعدي مدير المكتب التابعين لك.
               </CardDescription>
             </div>
-             <Button size="sm" onClick={() => { setAddUserForm({ ...addUserForm, role: 'مساعد مدير المكتب' }); setIsAddUserDialogOpen(true); }} disabled={!canAddAssistant}>
+             <Button size="sm" onClick={() => { setAddUserForm(getInitialAddUserFormState()); setAddUserForm(prev => ({ ...prev, role: 'مساعد مدير المكتب' })); setIsAddUserDialogOpen(true); }} disabled={!canAddAssistant}>
                 <PlusCircle className="ml-2 h-4 w-4" />
                 إضافة مساعد
             </Button>
@@ -745,7 +762,7 @@ export default function UsersPage() {
               </CardDescription>
             </div>
             {role === 'مدير المكتب' && (
-                <Button size="sm" onClick={() => { setAddUserForm({ ...addUserForm, role: 'موظف' }); setIsAddUserDialogOpen(true); }} disabled={!canAddEmployee}>
+                <Button size="sm" onClick={() => { setAddUserForm(getInitialAddUserFormState()); setAddUserForm(prev => ({ ...prev, role: 'موظف' })); setIsAddUserDialogOpen(true); }} disabled={!canAddEmployee}>
                     <PlusCircle className="ml-2 h-4 w-4" />
                     إضافة موظف
                 </Button>

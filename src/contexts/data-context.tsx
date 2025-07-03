@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_production_ready_v7_final';
+export const APP_DATA_KEY = 'appData_v_final_production_ready_v10_final_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -1163,6 +1163,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 }
                 return updatedUser;
             }
+            // If manager is being suspended/activated, do the same for their subordinates
             if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userIdToUpdate) {
                 return { ...u, status };
             }
@@ -1343,13 +1344,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
         
-        if (userToDelete.id === loggedInUser.id) {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكنك حذف حسابك الخاص.' });
-            return d;
-        }
-
-        if (userToDelete.role === 'مدير النظام') {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف حساب مدير النظام.' });
+        if (userToDelete.id === loggedInUser.id || userToDelete.role === 'مدير النظام') {
+            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكنك حذف هذا الحساب.' });
             return d;
         }
 
