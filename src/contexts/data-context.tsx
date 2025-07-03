@@ -23,7 +23,6 @@ import type {
   PermissionKey,
   NewUserPayload,
   TransactionType,
-  WithdrawalMethod,
   UpdatableInvestor,
   NewInvestorPayload,
   InstallmentStatus,
@@ -138,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_32';
+export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_36';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -176,8 +175,6 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'vis
       installmentProfitShare: i.installmentProfitShare ?? initialDataState.investorSharePercentage,
       gracePeriodProfitShare: i.gracePeriodProfitShare ?? initialDataState.graceInvestorSharePercentage,
     };
-    // Clean up deprecated property
-    delete newInvestor.investmentType;
     return newInvestor;
   });
 
@@ -473,13 +470,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const financialFieldsChanged = updatedBorrower.amount !== originalBorrower.amount ||
                                            updatedBorrower.rate !== originalBorrower.rate ||
                                            updatedBorrower.term !== originalBorrower.term ||
-                                           updatedBorrower.loanType !== originalBorrower.loanType ||
-                                           updatedBorrower.dueDate !== originalBorrower.dueDate;
+                                           updatedBorrower.loanType !== originalBorrower.loanType;
             if (financialFieldsChanged) {
               toast({
                   variant: 'destructive',
                   title: 'خطأ',
-                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل، تاريخ الاستحقاق) لقرض نشط.',
+                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل) لقرض نشط.',
               });
               return d;
             }

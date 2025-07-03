@@ -18,6 +18,62 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Skeleton } from '@/components/ui/skeleton';
+
+
+const PageSkeleton = () => (
+    <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
+        <header>
+            <Skeleton className="h-8 w-80" />
+            <Skeleton className="h-4 w-96 mt-2" />
+        </header>
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+              <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-full" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-10 w-full" />
+                  </div>
+                  <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-10 w-full" />
+                  </div>
+                  <Skeleton className="h-10 w-32" />
+              </CardContent>
+          </Card>
+           <Card>
+              <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-full" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                   <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-10 w-full" />
+                  </div>
+                  <div className="space-y-2">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-10 w-full" />
+                  </div>
+                  <Skeleton className="h-10 w-40" />
+              </CardContent>
+          </Card>
+          <Card className="md:col-span-2">
+              <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-72" />
+              </CardHeader>
+              <CardContent>
+                  <Skeleton className="h-10 w-48" />
+              </CardContent>
+          </Card>
+        </div>
+    </div>
+);
 
 
 const profileSchema = z.object({
@@ -90,7 +146,7 @@ export default function ProfilePage() {
   };
 
   if (!currentUser) {
-    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return <PageSkeleton />;
   }
 
   return (

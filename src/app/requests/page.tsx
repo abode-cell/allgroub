@@ -416,7 +416,14 @@ export default function RequestsPage() {
                 <DialogHeader>
                   <DialogTitle>الموافقة على القرض وتمويله</DialogTitle>
                   <DialogDescription>
-                    لإتمام الموافقة على قرض "{loanToApprove?.name}"، يجب اختيار المستثمرين لتمويله.
+                    للموافقة على قرض "{loanToApprove?.name}" بالمواصفات التالية:
+                    مبلغ <strong className='text-primary'>{formatCurrency(loanToApprove?.amount ?? 0)}</strong>
+                    {loanToApprove?.loanType === 'اقساط' && (
+                        <span>
+                            , بنسبة ربح <strong className='text-primary'>{loanToApprove?.rate ?? 0}%</strong> لمدة <strong className='text-primary'>{loanToApprove?.term ?? 0} سنوات</strong>.
+                        </span>
+                    )}
+                     يرجى اختيار المستثمرين لتمويله.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-4">
