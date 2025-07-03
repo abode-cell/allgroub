@@ -58,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     // Check status first, as it's the most definitive state.
+    if (userToSignIn.status === 'محذوف') {
+      return { success: false, message: 'هذا الحساب تم حذفه ولا يمكن الوصول إليه.' };
+    }
     if (userToSignIn.status === 'معلق') {
       if (userToSignIn.role === 'مدير المكتب') {
         const contactInfo = [supportInfo.email, supportInfo.phone].filter(Boolean).join(' أو ');

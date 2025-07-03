@@ -40,6 +40,7 @@ import {
   PlusCircle,
   Edit,
   Loader2,
+  ShieldX,
 } from 'lucide-react';
 import {
   Select,
@@ -104,10 +105,12 @@ const PageSkeleton = () => (
     </div>
 );
 
-const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } =
+const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } =
   {
     نشط: 'default',
     معلق: 'secondary',
+    مرفوض: 'destructive',
+    محذوف: 'outline',
   };
 
   
@@ -142,6 +145,11 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
         return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
     }
 
+    // A "deleted" user cannot be modified
+    if (user.status === 'محذوف') {
+        return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+    }
+
     const isSystemAdmin = currentUser.role === 'مدير النظام';
     const isOfficeManager = currentUser.role === 'مدير المكتب';
     
@@ -163,6 +171,10 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
     setIsLoading(true);
     await updateUserStatus(user.id, newStatus);
     setIsLoading(false);
+  }
+
+  if (user.status === 'محذوف') {
+    return <Badge variant="outline"><ShieldX className="ml-1 h-3 w-3" />محذوف</Badge>;
   }
 
   if (!canEditCredentials && !canDeleteUser && !canUpdateUserStatus) {
@@ -469,6 +481,8 @@ export default function UsersPage() {
                             <Badge variant={statusVariant[manager.status]}>
                               {manager.status === 'نشط' ? (
                                 <CheckCircle className="w-3 h-3 ml-1" />
+                              ) : manager.status === 'محذوف' ? (
+                                <ShieldX className="w-3 h-3 ml-1" />
                               ) : (
                                 <Hourglass className="w-3 h-3 ml-1" />
                               )}
@@ -962,7 +976,7 @@ export default function UsersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد أنك تريد حذف حساب <span className="font-bold text-destructive">{userToDelete?.name}</span>؟ هذا الإجراء سيقوم بحذف المستخدم نهائيًا ولا يمكن التراجع عنه.
+              سيتم وضع علامة 'محذوف' على المستخدم <span className="font-bold text-destructive">{userToDelete?.name}</span> وسيتم إلغاء وصوله. ستبقى بياناته التاريخية محفوظة. هل أنت متأكد؟
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

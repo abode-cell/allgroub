@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v5-final-audit';
+export const APP_DATA_KEY = 'appData-v8-soft-delete';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -1595,56 +1595,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return d;
         }
         
-        let blockingReason = '';
-        if (userToDelete.role === 'مدير المكتب') {
-          const managedEmployees = d.users.filter(u => u.managedBy === userIdToDelete && u.role === 'موظف');
-          const managedAssistants = d.users.filter(u => u.managedBy === userIdToDelete && u.role === 'مساعد مدير المكتب');
-          const managedInvestors = d.investors.filter(i => {
-              const invUser = d.users.find(u => u.id === i.id);
-              return invUser?.managedBy === userIdToDelete;
-          });
-
-          if (managedEmployees.length > 0 || managedAssistants.length > 0) {
-              blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedEmployees.length} موظف و ${managedAssistants.length} مساعد. يرجى حذفهم أولاً.`;
-          } else if (managedInvestors.length > 0) {
-              blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedInvestors.length} مستثمر. يرجى حذفهم أولاً.`;
-          }
-        } else if (userToDelete.role === 'مستثمر') {
+        if (userToDelete.role === 'مستثمر') {
             const investorData = d.investors.find(i => i.id === userIdToDelete);
             if (investorData) {
                 const financials = calculateInvestorFinancials(investorData, d.borrowers);
                 if (financials.totalCapitalInSystem > 0) {
-                    blockingReason = `لا يمكن الحذف لوجود أرصدة (نشطة، خاملة، أو متعثرة) مرتبطة بالمستثمر "${investorData.name}". يرجى سحب جميع الأرصدة أولاً.`;
-                } else if (investorData.fundedLoanIds && investorData.fundedLoanIds.length > 0) {
-                    blockingReason = `لا يمكن حذف هذا المستثمر لوجود سجل قروض تاريخي مرتبط به. لحماية السجلات، لا يمكن حذف المستثمرين الممولين.`;
+                    toast({
+                        variant: 'destructive',
+                        title: 'لا يمكن الحذف',
+                        description: `لا يمكن حذف المستثمر "${investorData.name}" لوجود أرصدة مالية نشطة أو متعثرة. يرجى تصفية جميع أرصدته أولاً.`,
+                        duration: 7000,
+                    });
+                    return d;
                 }
             }
-        } else { // Employee or Assistant
-            const hasSubmittedLoans = d.borrowers.some(b => b.submittedBy === userIdToDelete);
-            if (hasSubmittedLoans) {
-                blockingReason = `لا يمكن الحذف لوجود قروض مرتبطة بهذا المستخدم "${userToDelete.name}".`;
-            }
-        }
-    
-        if (blockingReason) {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: blockingReason, duration: 5000 });
-            return d;
         }
         
-        const newUsers = d.users.filter((u) => u.id !== userIdToDelete);
-        const newInvestors = d.investors.filter((i) => i.id !== userIdToDelete);
-        const newBorrowers = d.borrowers.map(b => {
-          if (b.fundedBy?.some(f => f.investorId === userIdToDelete)) {
-            return {
-              ...b,
-              fundedBy: b.fundedBy.filter(f => f.investorId !== userIdToDelete)
-            };
-          }
-          return b;
-        });
+        let finalUsers = [...d.users];
+        let finalInvestors = [...d.investors];
 
-        toast({ variant: 'destructive', title: 'اكتمل الحذف', description: `تم حذف المستخدم "${userToDelete.name}" بنجاح.` });
-        return { ...d, users: newUsers, investors: newInvestors, borrowers: newBorrowers };
+        // Mark the primary user as deleted
+        finalUsers = finalUsers.map(u => 
+            u.id === userIdToDelete ? { ...u, status: 'محذوف' as const } : u
+        );
+        finalInvestors = finalInvestors.map(i =>
+            i.id === userIdToDelete ? { ...i, status: 'محذوف' as const } : i
+        );
+
+        // If a manager is deleted, suspend their subordinates
+        if (userToDelete.role === 'مدير المكتب') {
+            const subordinatesIds = new Set(d.users.filter(u => u.managedBy === userIdToDelete).map(u => u.id));
+            
+            finalUsers = finalUsers.map(u => 
+                subordinatesIds.has(u.id) ? { ...u, status: 'معلق' as const } : u
+            );
+            
+            finalInvestors = finalInvestors.map(i => {
+                const investorUser = d.users.find(u => u.id === i.id);
+                return investorUser?.managedBy === userIdToDelete ? { ...i, status: 'غير نشط' as const } : i
+            });
+        }
+        
+        toast({ title: 'اكتمل الحذف', description: `تم حذف الحساب "${userToDelete.name}" وتعيينه كـ "محذوف".` });
+        return { ...d, users: finalUsers, investors: finalInvestors };
       });
     },
     [userId, toast]

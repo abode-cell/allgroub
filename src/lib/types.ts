@@ -42,7 +42,7 @@ export type User = {
   email: string;
   photoURL?: string;
   role: UserRole;
-  status: 'نشط' | 'معلق' | 'مرفوض';
+  status: 'نشط' | 'معلق' | 'مرفوض' | 'محذوف';
   phone?: string;
   password?: string;
   managedBy?: string;
@@ -118,7 +118,7 @@ export type Investor = {
   id:string;
   name: string;
   date: string;
-  status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض';
+  status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض' | 'محذوف';
   transactionHistory: Transaction[];
   fundedLoanIds: string[];
   submittedBy?: string;

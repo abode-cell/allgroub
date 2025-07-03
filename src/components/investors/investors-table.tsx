@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone, Edit, Info } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone, Edit, Info, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -60,11 +60,12 @@ type InvestorsTableProps = {
   hideFunds?: boolean;
 };
 
-const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } = {
+const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   نشط: 'default',
   'غير نشط': 'secondary',
   'معلق': 'secondary',
   'مرفوض': 'destructive',
+  'محذوف': 'outline',
 };
 
 const transactionTypeVariant: { [key in TransactionType]: 'default' | 'destructive' } = {
@@ -257,8 +258,9 @@ export function InvestorsTable({
               {investorsWithFinancials.length > 0 ? (
                 investorsWithFinancials.map((investor) => {
                   const availableCapital = investor.idleInstallmentCapital + investor.idleGraceCapital;
+                  const isDeleted = investor.status === 'محذوف';
                   return (
-                  <TableRow key={investor.id}>
+                  <TableRow key={investor.id} className={cn(isDeleted && 'text-muted-foreground opacity-60')}>
                     <TableCell className="font-medium">{investor.name}</TableCell>
                     <TableCell>{hideFunds ? '*****' : formatCurrency(availableCapital)}</TableCell>
                     <TableCell>{new Date(investor.date).toLocaleDateString('ar-SA')}</TableCell>
@@ -269,6 +271,7 @@ export function InvestorsTable({
                       <Badge
                         variant={statusVariant[investor.status] || 'default'}
                       >
+                         {investor.status === 'محذوف' && <ShieldX className="ml-1 h-3 w-3" />}
                         {investor.status === 'معلق' ? 'طلب معلق' : investor.status}
                       </Badge>
                     </TableCell>
@@ -285,60 +288,62 @@ export function InvestorsTable({
                                 </Tooltip>
                             </TooltipProvider>
                         )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button aria-haspopup="true" size="icon" variant="ghost">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">فتح القائمة</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {canApprove && investor.status === 'معلق' && (
+                      {!isDeleted && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">فتح القائمة</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {canApprove && investor.status === 'معلق' && (
+                              <DropdownMenuItem
+                                onSelect={() => handleApproveClick(investor)}
+                              >
+                                <CheckCircle className="ml-2 h-4 w-4" />
+                                الموافقة على الطلب
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
-                              onSelect={() => handleApproveClick(investor)}
+                              onSelect={() => handleViewDetailsClick(investor)}
                             >
-                              <CheckCircle className="ml-2 h-4 w-4" />
-                              الموافقة على الطلب
+                              <Info className="ml-2 h-4 w-4" />
+                              عرض التفاصيل
                             </DropdownMenuItem>
-                          )}
-                           <DropdownMenuItem
-                            onSelect={() => handleViewDetailsClick(investor)}
-                          >
-                             <Info className="ml-2 h-4 w-4" />
-                            عرض التفاصيل
-                          </DropdownMenuItem>
-                           {canSendSms && (
-                            <DropdownMenuItem onSelect={() => handleSendSmsClick(investor)} disabled={investor.isNotified}>
-                                <MessageSquareText className="ml-2 h-4 w-4" />
-                                إرسال رسالة نصية
-                            </DropdownMenuItem>
-                           )}
-                          {canEdit && (
-                              <DropdownMenuItem
-                                onSelect={() => handleEditClick(investor)}
-                                disabled={investor.status === 'معلق'}
-                              >
-                                 <Edit className="ml-2 h-4 w-4" />
-                                تعديل
+                            {canSendSms && (
+                              <DropdownMenuItem onSelect={() => handleSendSmsClick(investor)} disabled={investor.isNotified}>
+                                  <MessageSquareText className="ml-2 h-4 w-4" />
+                                  إرسال رسالة نصية
                               </DropdownMenuItem>
-                          )}
-                          {canAddTransaction && (
-                              <DropdownMenuItem
-                                onSelect={() => handleAddTransactionClick(investor)}
-                                disabled={investor.status === 'معلق'}
-                              >
-                                <PlusCircle className="ml-2 h-4 w-4" />
-                                إضافة عملية مالية
-                              </DropdownMenuItem>
-                          )}
-                          {availableCapital <= 0 && investor.status === 'نشط' && canRequestIncrease && (
-                              <DropdownMenuItem onSelect={() => requestCapitalIncrease(investor.id)}>
-                                  <TrendingUp className="ml-2 h-4 w-4" />
-                                  طلب زيادة رأس المال
-                              </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            )}
+                            {canEdit && (
+                                <DropdownMenuItem
+                                  onSelect={() => handleEditClick(investor)}
+                                  disabled={investor.status === 'معلق'}
+                                >
+                                  <Edit className="ml-2 h-4 w-4" />
+                                  تعديل
+                                </DropdownMenuItem>
+                            )}
+                            {canAddTransaction && (
+                                <DropdownMenuItem
+                                  onSelect={() => handleAddTransactionClick(investor)}
+                                  disabled={investor.status === 'معلق'}
+                                >
+                                  <PlusCircle className="ml-2 h-4 w-4" />
+                                  إضافة عملية مالية
+                                </DropdownMenuItem>
+                            )}
+                            {availableCapital <= 0 && investor.status === 'نشط' && canRequestIncrease && (
+                                <DropdownMenuItem onSelect={() => requestCapitalIncrease(investor.id)}>
+                                    <TrendingUp className="ml-2 h-4 w-4" />
+                                    طلب زيادة رأس المال
+                                </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 )})

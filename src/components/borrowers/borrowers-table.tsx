@@ -372,6 +372,8 @@ export function BorrowersTable({
                   const fundedByOneInvestor = borrower.fundedBy && borrower.fundedBy.length === 1;
                   const fundedByMultipleInvestors = borrower.fundedBy && borrower.fundedBy.length > 1;
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
+                  const singleInvestorUser = singleInvestor ? users.find(u => u.id === singleInvestor.id) : null;
+                  
                   const isTerminalStatus = borrower.status === 'مرفوض';
                   const isEditableStatus = !isTerminalStatus;
                   const paymentOptions = borrower.loanType === 'اقساط' ? installmentPaymentOptions : gracePaymentOptions;
@@ -404,7 +406,7 @@ export function BorrowersTable({
                     <TableCell className="text-center">{borrower.loanType}</TableCell>
                     <TableCell className="text-center">
                       {fundedByOneInvestor && singleInvestor ? (
-                        <span>{singleInvestor.name}</span>
+                        <span>{singleInvestor.name} {singleInvestorUser?.status === 'محذوف' && <span className="text-xs text-destructive">(محذوف)</span>}</span>
                       ) : fundedByOneInvestor ? (
                         <span className="text-xs text-destructive">مستخدم محذوف</span>
                       ) : fundedByMultipleInvestors ? (
@@ -421,7 +423,8 @@ export function BorrowersTable({
                               <ul className="list-disc mr-4">
                                 {borrower.fundedBy!.map(funder => {
                                   const investor = investors.find(i => i.id === funder.investorId);
-                                  return <li key={funder.investorId}>{investor?.name || 'مستخدم محذوف'}</li>
+                                  const investorUser = users.find(u => u.id === funder.investorId);
+                                  return <li key={funder.investorId}>{investor?.name || 'مستخدم محذوف'} {investorUser?.status === 'محذوف' && <span className="text-xs text-destructive">(محذوف)</span>}</li>
                                 })}
                               </ul>
                             </TooltipContent>
