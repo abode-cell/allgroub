@@ -405,6 +405,8 @@ export function BorrowersTable({
                     <TableCell className="text-center">
                       {fundedByOneInvestor && singleInvestor ? (
                         <span>{singleInvestor.name}</span>
+                      ) : fundedByOneInvestor ? (
+                        <span className="text-xs text-destructive">مستخدم محذوف</span>
                       ) : fundedByMultipleInvestors ? (
                         <TooltipProvider>
                           <Tooltip>
@@ -419,7 +421,7 @@ export function BorrowersTable({
                               <ul className="list-disc mr-4">
                                 {borrower.fundedBy!.map(funder => {
                                   const investor = investors.find(i => i.id === funder.investorId);
-                                  return <li key={funder.investorId}>{investor?.name || 'غير معروف'}</li>
+                                  return <li key={funder.investorId}>{investor?.name || 'مستخدم محذوف'}</li>
                                 })}
                               </ul>
                             </TooltipContent>
@@ -862,7 +864,7 @@ export function BorrowersTable({
                       <AlertCircle className="h-4 w-4 !text-primary" />
                       <AlertTitle className="text-primary">سداد جزئي</AlertTitle>
                       <AlertDescription>
-                          تم سداد مبلغ {formatCurrency(selectedBorrower.partialPayment.paidAmount)} من هذا القرض. تم إنشاء قرض جديد بالمبلغ المتبقي.
+                          تم سداد مبلغ {formatCurrency(selectedBorrower.partialPayment.paidAmount)} من هذا القرض. تم إنشاء طلب قرض جديد بالمبلغ المتبقي.
                       </AlertDescription>
                   </Alert>
                 )}
