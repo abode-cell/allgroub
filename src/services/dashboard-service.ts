@@ -133,16 +133,16 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
             investorProfitsArray: [], dueDebts: 0, profitableLoansForAccordion: []
         };
     }
-    const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
+    const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + (b.amount || 0), 0);
     const installmentDefaultedLoans = installmentLoans.filter(b => 
         b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه'
     );
-    const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
+    const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + (b.amount || 0), 0);
     const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
     
     const defaultedProfits = installmentDefaultedLoans.reduce((acc, loan) => {
         if (!loan.rate || !loan.term || loan.rate <= 0 || loan.term <= 0) return acc;
-        const totalInterest = loan.amount * (loan.rate / 100) * loan.term;
+        const totalInterest = (loan.amount || 0) * ((loan.rate || 0) / 100) * (loan.term || 0);
         return acc + totalInterest;
     }, 0);
 
@@ -164,7 +164,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
             if (!investorDetails) return;
 
             const profitShare = investorDetails.installmentProfitShare ?? config.investorSharePercentage;
-            const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
+            const interestOnFundedAmount = (funder.amount || 0) * ((loan.rate || 0) / 100) * (loan.term || 0);
             
             const investorPortion = interestOnFundedAmount * (profitShare / 100);
             const institutionPortion = interestOnFundedAmount - investorPortion;
@@ -192,7 +192,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
             const statusDetails = getBorrowerStatus(b, today);
             return statusDetails.text.includes('متأخر');
         })
-        .reduce((acc, b) => acc + b.amount, 0);
+        .reduce((acc, b) => acc + (b.amount || 0), 0);
     
     const profitableInstallmentLoansForAccordion = profitableInstallmentLoans.map(loan => {
         if (!loan.rate || !loan.term || loan.rate <= 0 || loan.term <= 0) return null;
@@ -205,7 +205,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
             const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
             const profitShare = investorDetails.installmentProfitShare ?? config.investorSharePercentage;
-            const interestOnFundedAmount = funder.amount * (loan.rate / 100) * loan.term;
+            const interestOnFundedAmount = (funder.amount || 0) * ((loan.rate || 0) / 100) * (loan.term || 0);
             const investorPortion = interestOnFundedAmount * (profitShare / 100);
             const institutionPortion = interestOnFundedAmount - investorPortion;
             totalInstitutionProfitOnLoan += institutionPortion;
@@ -252,17 +252,17 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
       b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل' || b.paymentStatus === 'تم السداد'
     );
 
-    const loansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
+    const loansGranted = gracePeriodLoans.reduce((acc, b) => acc + (b.amount || 0), 0);
     const defaultedLoans = gracePeriodLoans.filter(b => 
         b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه'
     );
-    const defaultedFunds = defaultedLoans.reduce((acc, b) => acc + b.amount, 0);
+    const defaultedFunds = defaultedLoans.reduce((acc, b) => acc + (b.amount || 0), 0);
     const defaultRate = loansGranted > 0 ? (defaultedFunds / loansGranted) * 100 : 0;
     const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
     
     const defaultedProfits = defaultedLoans.reduce((acc, loan) => {
         if (config.graceTotalProfitPercentage <= 0) return acc;
-        const totalProfit = loan.amount * (config.graceTotalProfitPercentage / 100);
+        const totalProfit = (loan.amount || 0) * (config.graceTotalProfitPercentage / 100);
         return acc + totalProfit;
     }, 0);
 
@@ -275,7 +275,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
             const statusDetails = getBorrowerStatus(b, today);
             return statusDetails.text.includes('متأخر');
         })
-        .reduce((acc, b) => acc + b.amount, 0);
+        .reduce((acc, b) => acc + (b.amount || 0), 0);
     
     let totalInstitutionProfit = 0;
     let totalInvestorsProfit = 0;
@@ -290,7 +290,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
             const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
 
-            const totalProfitOnFundedAmount = funder.amount * (config.graceTotalProfitPercentage / 100);
+            const totalProfitOnFundedAmount = (funder.amount || 0) * (config.graceTotalProfitPercentage / 100);
             const investorProfitShare = investorDetails.gracePeriodProfitShare ?? config.graceInvestorSharePercentage;
             const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
             const institutionPortion = totalProfitOnFundedAmount - investorPortion;
@@ -318,7 +318,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
         fundedBy.forEach(funder => {
             const investorDetails = investorMap.get(funder.investorId);
             if (!investorDetails) return;
-            const totalProfitOnFundedAmount = funder.amount * (config.graceTotalProfitPercentage / 100);
+            const totalProfitOnFundedAmount = (funder.amount || 0) * (config.graceTotalProfitPercentage / 100);
             const investorProfitShare = investorDetails.gracePeriodProfitShare ?? config.graceInvestorSharePercentage;
             const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
             const institutionPortion = totalProfitOnFundedAmount - investorPortion;
@@ -411,9 +411,9 @@ function calculateIdleFundsMetrics(investors: Investor[], allBorrowers: Borrower
                 idleGraceCapital: financials.idleGraceCapital,
             };
         })
-        .filter(data => data.idleInstallmentCapital > 0 || data.idleGraceCapital > 0);
+        .filter(data => (data.idleInstallmentCapital ?? 0) > 0 || (data.idleGraceCapital ?? 0) > 0);
 
-    const totalIdleFunds = idleInvestorsData.reduce((sum, i) => sum + i.idleInstallmentCapital + i.idleGraceCapital, 0);
+    const totalIdleFunds = idleInvestorsData.reduce((sum, i) => sum + (i.idleInstallmentCapital || 0) + (i.idleGraceCapital || 0), 0);
 
     return { idleInvestors: idleInvestorsData, totalIdleFunds };
 }

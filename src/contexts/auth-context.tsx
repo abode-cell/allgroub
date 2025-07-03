@@ -61,19 +61,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userToSignIn.role === 'مدير المكتب' && userToSignIn.status !== 'نشط' && userToSignIn.trialEndsAt) {
         const trialEndDate = new Date(userToSignIn.trialEndsAt);
         if (isPast(trialEndDate)) {
-             return {
-                success: false,
-                message: `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني على: ${supportInfo.email} أو ${supportInfo.phone}`
-            };
+             const contactInfo = [supportInfo.email, supportInfo.phone].filter(Boolean).join(' أو ');
+             const message = `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
+             return { success: false, message };
         }
     }
 
     if (userToSignIn.status === 'معلق') {
       if (userToSignIn.role === 'مدير المكتب') {
-        return {
-          success: false,
-          message: `حسابك قيد المراجعة. لمتابعة حالة الطلب، يرجى التواصل مع الدعم الفني على: ${supportInfo.email} أو ${supportInfo.phone}`
-        };
+        const contactInfo = [supportInfo.email, supportInfo.phone].filter(Boolean).join(' أو ');
+        const message = `حسابك قيد المراجعة. لمتابعة حالة الطلب، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
+        return { success: false, message };
       }
       return { success: false, message: 'حسابك معلق وفي انتظار موافقة المدير.' };
     }
