@@ -144,7 +144,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_cleared_v3';
+const APP_DATA_KEY = 'appData_cleared_v4';
 
 const initialData = {
   borrowers: initialBorrowersData,
@@ -666,10 +666,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 const principal = funder.amount;
                 delta.defaultedDelta += principal * multiplier;
                 
+                // This logic seems flawed, money shouldn't be added back to capital when defaulting.
+                // It should be removed from active capital, which is implicit, and added to defaulted.
+                // The reverse action (moving from defaulted to active) is what needs to be handled.
+                // If reversing, we add capital back and subtract from defaulted.
                 if (borrowerToUpdate.loanType === 'اقساط') {
-                  delta.capitalDelta.installment -= principal * multiplier;
+                    delta.capitalDelta.installment -= principal * multiplier;
                 } else {
-                  delta.capitalDelta.grace -= principal * multiplier;
+                    delta.capitalDelta.grace -= principal * multiplier;
                 }
 
                 const txId = `tx-default-${borrowerId}-${funder.investorId}`;
@@ -698,30 +702,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       setInvestors(prevInvestors => {
         if (investorDeltas.size === 0) return prevInvestors;
+      
         return prevInvestors.map(inv => {
-            if (investorDeltas.has(inv.id)) {
-                const delta = investorDeltas.get(inv.id)!;
-                const updatedInv = { ...inv };
-
-                updatedInv.installmentCapital += delta.capitalDelta.installment;
-                updatedInv.gracePeriodCapital += delta.capitalDelta.grace;
-                updatedInv.defaultedFunds = (updatedInv.defaultedFunds || 0) + delta.defaultedDelta;
-
-                if (newPaymentStatus === 'تم السداد' || newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') {
-                    if (updatedInv.fundedLoanIds.includes(borrowerId)) {
-                       updatedInv.fundedLoanIds = updatedInv.fundedLoanIds.filter(id => id !== borrowerId);
-                    }
-                } else if (originalPaymentStatus && !updatedInv.fundedLoanIds.includes(borrowerId)) {
-                    updatedInv.fundedLoanIds.push(borrowerId);
-                }
-
-                let newHistory = inv.transactionHistory.filter(tx => !delta.transactionsToRemove.includes(tx.id));
-                newHistory = [...newHistory, ...delta.transactionsToAdd];
-                updatedInv.transactionHistory = newHistory;
-                
-                return updatedInv;
+          if (investorDeltas.has(inv.id)) {
+            const delta = investorDeltas.get(inv.id)!;
+      
+            // Create a new object for the investor to ensure immutability
+            const updatedInv = {
+              ...inv,
+              installmentCapital: inv.installmentCapital + delta.capitalDelta.installment,
+              gracePeriodCapital: inv.gracePeriodCapital + delta.capitalDelta.grace,
+              defaultedFunds: (inv.defaultedFunds || 0) + delta.defaultedDelta,
+              transactionHistory: [
+                ...inv.transactionHistory.filter(tx => !delta.transactionsToRemove.includes(tx.id)),
+                ...delta.transactionsToAdd,
+              ],
+            };
+      
+            // Handle fundedLoanIds immutably
+            const terminalStates: BorrowerPaymentStatus[] = ['تم السداد', 'متعثر', 'تم اتخاذ الاجراءات القانونيه'];
+            const isTerminal = newPaymentStatus && terminalStates.includes(newPaymentStatus);
+      
+            let newFundedLoanIds = [...inv.fundedLoanIds]; // Create a new array
+      
+            if (isTerminal) {
+              if (newFundedLoanIds.includes(borrowerId)) {
+                newFundedLoanIds = newFundedLoanIds.filter(id => id !== borrowerId);
+              }
+            } else {
+              if (!newFundedLoanIds.includes(borrowerId)) {
+                newFundedLoanIds.push(borrowerId); // Safe to push to the new array
+              }
             }
-            return inv;
+            updatedInv.fundedLoanIds = newFundedLoanIds;
+      
+            return updatedInv;
+          }
+          return inv;
         });
       });
 
@@ -805,7 +822,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const isCapitalLocked = borrowerToDelete.status === 'منتظم' 
         || borrowerToDelete.status === 'متأخر' 
-        || borrowerToDelete.status === 'معلق'
         || (borrowerToDelete.paymentStatus && ['منتظم', 'متأخر بقسط', 'متأخر بقسطين'].includes(borrowerToDelete.paymentStatus));
 
     if (borrowerToDelete.fundedBy && borrowerToDelete.fundedBy.length > 0) {
