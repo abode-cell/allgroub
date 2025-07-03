@@ -12,13 +12,22 @@ import type { Borrower } from '@/lib/types';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
-        <div className="flex items-center justify-between">
-            <div>
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-4 w-80 mt-2" />
-            </div>
-        </div>
-        <Skeleton className="h-96 w-full" />
+        <header>
+            <Skeleton className="h-8 w-80" />
+            <Skeleton className="h-4 w-96 mt-2" />
+        </header>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-72 mt-2" />
+                </div>
+                <Skeleton className="h-10 w-64" />
+            </CardHeader>
+            <CardContent>
+                <Skeleton className="h-64 w-full" />
+            </CardContent>
+        </Card>
     </div>
 );
 

@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v28-final-security-fix';
+export const APP_DATA_KEY = 'appData-v31-final-polish';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -275,7 +275,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const visibleUsers = useMemo(() => {
     if (!currentUser) return [];
 
-    const { role, id, managedBy } = currentUser;
+    const { role, id } = currentUser;
     const allUsers = data.users;
 
     switch (role) {
@@ -283,27 +283,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return allUsers;
         case 'مدير المكتب':
             return allUsers.filter(u =>
-                u.role === 'مدير النظام' || 
                 u.id === id || 
                 u.managedBy === id
             );
         case 'مساعد مدير المكتب':
-        case 'موظف':
-             if (!managedBy) return [currentUser];
-             const manager = allUsers.find(u => u.id === managedBy);
-             if (!manager) return [currentUser];
-             // An employee/assistant can see everyone in their office
-             return allUsers.filter(u =>
-                u.id === manager.id || // can see their manager
-                u.managedBy === manager.id || // can see their colleagues
-                u.id === currentUser.id
-             );
-        case 'مستثمر':
-             if (!managedBy) return [currentUser];
-             return allUsers.filter(u =>
-                u.id === managedBy || 
-                u.id === id 
-             );
+        case 'موظف': {
+             const managerId = currentUser.managedBy;
+             if (!managerId) return [currentUser]; // Should not happen in a valid state
+             // An employee/assistant can see their manager and their colleagues (other users with the same managedBy ID)
+             return allUsers.filter(u => u.managedBy === managerId || u.id === managerId);
+        }
+        case 'مستثمر': {
+             const managerId = currentUser.managedBy;
+             if (!managerId) return [currentUser]; // Should not happen
+             // An investor can see their own manager
+             return allUsers.filter(u => u.id === managerId || u.id === id);
+        }
         default:
             return [];
     }

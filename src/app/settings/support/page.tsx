@@ -12,13 +12,27 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
-        <div className="flex items-center justify-between">
-            <div>
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-4 w-80 mt-2" />
+        <header>
+            <Skeleton className="h-8 w-80" />
+            <Skeleton className="h-4 w-96 mt-2" />
+        </header>
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-full" />
+          </CardHeader>
+          <CardContent className="space-y-8 pt-6">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-10 w-full" />
             </div>
-        </div>
-        <Skeleton className="h-96 w-full" />
+            <div className="space-y-4">
+               <Skeleton className="h-4 w-32" />
+               <Skeleton className="h-10 w-full" />
+            </div>
+             <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
     </div>
 );
 

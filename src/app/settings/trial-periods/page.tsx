@@ -15,13 +15,34 @@ import { differenceInDays, isPast } from 'date-fns';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
-        <div className="flex items-center justify-between">
-            <div>
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-4 w-80 mt-2" />
-            </div>
+        <header>
+            <Skeleton className="h-8 w-80" />
+            <Skeleton className="h-4 w-96 mt-2" />
+        </header>
+        <div className='grid gap-8'>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-full" />
+                </CardHeader>
+                <CardContent className="space-y-4 pt-6 max-w-sm">
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                    <Skeleton className="h-10 w-full" />
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-56" />
+                    <Skeleton className="h-4 w-full" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+            </Card>
         </div>
-        <Skeleton className="h-96 w-full" />
     </div>
 );
 
