@@ -85,6 +85,8 @@ export function InvestorDashboard() {
     );
   }
 
+  const transactionHistory = investor.transactionHistory || [];
+
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -141,7 +143,7 @@ export function InvestorDashboard() {
                         <CardDescription>قائمة بآخر المبالغ المسحوبة من حسابك.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {investor.transactionHistory.length > 0 ? (
+                        {transactionHistory.length > 0 ? (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -151,7 +153,7 @@ export function InvestorDashboard() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {investor.transactionHistory
+                                    {transactionHistory
                                         .filter(tx => tx.type.includes('سحب'))
                                         .slice(0, 5).map(w => (
                                         <TableRow key={w.id}>

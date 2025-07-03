@@ -38,7 +38,7 @@ export function RecentTransactions({ borrowers: propsBorrowers, investors: props
 
 
   const investorTransactions = investors.flatMap(investor => 
-    investor.transactionHistory.map(tx => ({
+    (investor.transactionHistory || []).map(tx => ({
       id: tx.id,
       type: tx.type,
       user: investor.name,
