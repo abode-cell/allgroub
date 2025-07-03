@@ -4,7 +4,7 @@ import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Check, X } from 'lucide-react';
+import { Check, X, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -21,6 +21,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import type { Borrower, Investor } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
+import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
+
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -59,7 +72,7 @@ export default function RequestsPage() {
   const router = useRouter();
   const { 
     borrowers, 
-    investors, 
+    investors: allInvestors, 
     users,
     currentUser,
   } = useDataState();
@@ -69,6 +82,7 @@ export default function RequestsPage() {
     rejectBorrower,
     rejectInvestor,
   } = useDataActions();
+  const { toast } = useToast();
 
   const role = currentUser?.role;
   const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests);
@@ -83,6 +97,25 @@ export default function RequestsPage() {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [itemToReject, setItemToReject] = useState<{id: string; type: 'borrower' | 'investor'} | null>(null);
+  
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [loanToApprove, setLoanToApprove] = useState<Borrower | null>(null);
+  const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
+  const [isInsufficientFundsDialogOpen, setIsInsufficientFundsDialogOpen] = useState(false);
+  const [availableFunds, setAvailableFunds] = useState(0);
+
+  const manager = useMemo(() => {
+    if (!currentUser) return null;
+    return role === 'مدير المكتب' ? currentUser : users.find(u => u.id === currentUser.managedBy);
+  }, [currentUser, users, role]);
+  
+  const investors = useMemo(() => {
+    if (!manager) return [];
+    return allInvestors.filter(i => {
+        const investorUser = users.find(u => u.id === i.id);
+        return investorUser?.managedBy === manager.id;
+    });
+  }, [manager, allInvestors, users]);
 
   const handleRejectClick = (id: string, type: 'borrower' | 'investor') => {
     setItemToReject({ id, type });
@@ -103,6 +136,72 @@ export default function RequestsPage() {
     setRejectionReason('');
     setItemToReject(null);
   };
+  
+  const handleApproveClick = (loan: Borrower) => {
+    setLoanToApprove(loan);
+    setIsApproveDialogOpen(true);
+    setSelectedInvestors([]); // Reset selections
+  };
+
+  const proceedToApproveBorrower = (investorIds: string[]) => {
+      if (loanToApprove) {
+          approveBorrower(loanToApprove.id, investorIds);
+          setIsApproveDialogOpen(false);
+          setLoanToApprove(null);
+          setSelectedInvestors([]);
+      }
+      setIsInsufficientFundsDialogOpen(false);
+  };
+
+  const handleConfirmApproval = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!loanToApprove) return;
+
+      if (selectedInvestors.length === 0) {
+          toast({
+              variant: 'destructive',
+              title: 'خطأ',
+              description: 'يجب اختيار مستثمر واحد على الأقل لتمويل هذا القرض.'
+          });
+          return;
+      }
+
+      const loanAmount = loanToApprove.amount;
+      const totalAvailableFromSelected = investors
+        .filter(inv => selectedInvestors.includes(inv.id))
+        .reduce((sum, inv) => {
+            const financials = calculateInvestorFinancials(inv, borrowers);
+            const available = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
+            return sum + available;
+        }, 0);
+
+      if (totalAvailableFromSelected < loanAmount) {
+          setAvailableFunds(totalAvailableFromSelected);
+          setIsInsufficientFundsDialogOpen(true);
+          return;
+      }
+
+      proceedToApproveBorrower(selectedInvestors);
+  };
+
+  const availableInvestorsForDropdown = useMemo(() => {
+    if (!loanToApprove) return [];
+    return investors
+      .map(investor => {
+        const financials = calculateInvestorFinancials(investor, borrowers);
+        const capital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
+        return {
+          ...investor,
+          availableCapital: capital,
+        };
+      })
+      .filter(i => 
+        i.status === 'نشط' && 
+        i.investmentType === loanToApprove.loanType &&
+        i.availableCapital > 0
+      );
+  }, [investors, borrowers, loanToApprove]);
+
 
   const getStatusForBorrower = (borrower: Borrower) => {
     switch (borrower.status) {
@@ -127,8 +226,8 @@ export default function RequestsPage() {
   };
   
   const requestsToDisplay = useMemo(() => {
-    const allBorrowerRequests = borrowers.filter(b => b.submittedBy);
-    const allInvestorRequests = investors.filter(i => i.submittedBy);
+    const allBorrowerRequests = borrowers.filter(b => b.submittedBy && b.status === 'معلق');
+    const allInvestorRequests = investors.filter(i => i.submittedBy && i.status === 'معلق');
 
     if (!currentUser) return { borrowerRequests: [], investorRequests: [] };
 
@@ -194,7 +293,7 @@ export default function RequestsPage() {
                           <TableCell className="text-left">
                              {borrower.status === 'معلق' ? (
                               <div className="flex gap-2 justify-start">
-                                <Button size="sm" onClick={() => approveBorrower(borrower.id)}>
+                                <Button size="sm" onClick={() => handleApproveClick(borrower)}>
                                   <Check className="ml-2 h-4 w-4" />
                                   موافقة
                                 </Button>
@@ -245,7 +344,7 @@ export default function RequestsPage() {
                       investorRequests.map((investor) => (
                         <TableRow key={investor.id}>
                           <TableCell className="font-medium">{investor.name}</TableCell>
-                          <TableCell>{formatCurrency(investor.amount)}</TableCell>
+                          <TableCell>{formatCurrency(investor.transactionHistory.find(tx => tx.description.includes('تأسيسي'))?.amount ?? 0)}</TableCell>
                           <TableCell className="text-center">
                             {getStatusForInvestor(investor)}
                           </TableCell>
@@ -315,6 +414,88 @@ export default function RequestsPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+            <form onSubmit={handleConfirmApproval}>
+                <DialogHeader>
+                  <DialogTitle>الموافقة على القرض وتمويله</DialogTitle>
+                  <DialogDescription>
+                    لإتمام الموافقة على قرض "{loanToApprove?.name}"، يجب اختيار المستثمرين لتمويله.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <div className="p-3 rounded-lg border bg-muted/50">
+                        <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">المبلغ المطلوب:</span>
+                            <span className="text-xl font-bold">{formatCurrency(loanToApprove?.amount ?? 0)}</span>
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>اختر المستثمرين</Label>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between">
+                                    <span>
+                                        {selectedInvestors.length > 0
+                                        ? `${selectedInvestors.length} مستثمرون محددون`
+                                        : "اختر المستثمرين"}
+                                    </span>
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-[380px]" align='end'>
+                                <DropdownMenuLabel>المستثمرون المتاحون ({loanToApprove?.loanType})</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {availableInvestorsForDropdown.length > 0 ? availableInvestorsForDropdown.map((investor) => (
+                                    <DropdownMenuCheckboxItem
+                                    key={investor.id}
+                                    checked={selectedInvestors.includes(investor.id)}
+                                    onSelect={(e) => e.preventDefault()}
+                                    onCheckedChange={(checked) => {
+                                        return checked
+                                        ? setSelectedInvestors((prev) => [...prev, investor.id])
+                                        : setSelectedInvestors((prev) =>
+                                            prev.filter((id) => id !== investor.id)
+                                            );
+                                    }}
+                                    >
+                                        <div className='flex justify-between w-full'>
+                                            <span>{investor.name}</span>
+                                            <span className='text-muted-foreground text-xs'>{formatCurrency(investor.availableCapital)}</span>
+                                        </div>
+                                    </DropdownMenuCheckboxItem>
+                                )) : <p className='text-xs text-muted-foreground text-center p-2'>لا يوجد مستثمرون متاحون لهذا النوع من التمويل.</p>}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button type="button" variant="secondary">إلغاء</Button>
+                  </DialogClose>
+                  <Button type="submit">تأكيد الموافقة والتمويل</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={isInsufficientFundsDialogOpen} onOpenChange={setIsInsufficientFundsDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>رصيد المستثمر غير كافٍ</AlertDialogTitle>
+                <AlertDialogDescription>
+                    الرصيد المتاح من المستثمرين المختارين ({formatCurrency(availableFunds)}) لا يغطي مبلغ القرض المطلوب ({formatCurrency(loanToApprove?.amount ?? 0)}).
+                    <br/><br/>
+                    يمكنك المتابعة وسيتم إنشاء القرض بالمبلغ المتاح فقط، أو يمكنك العودة لتغيير اختيارك من المستثمرين.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
+                <AlertDialogAction onClick={() => proceedToApproveBorrower(selectedInvestors)}>
+                  المتابعة على أي حال
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

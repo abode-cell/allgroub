@@ -234,7 +234,9 @@ export function BorrowersTable({
   };
   
   const handleApproveClick = (borrower: Borrower) => {
-    approveBorrower(borrower.id);
+    // This action is now handled in the requests page with a dedicated dialog for funding.
+    // This function is kept for potential future use or can be removed if not needed.
+    toast({ title: 'إجراء غير مدعوم هنا', description: 'يرجى الموافقة على الطلبات من صفحة الطلبات.' });
   };
 
   const generatePaymentSchedule = (borrower: Borrower): Payment[] => {

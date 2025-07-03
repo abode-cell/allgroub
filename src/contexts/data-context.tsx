@@ -83,11 +83,11 @@ type DataActions = {
     borrowerId: string,
     paymentStatus?: BorrowerPaymentStatus
   ) => void;
-  approveBorrower: (borrowerId: string) => void;
+  approveBorrower: (borrowerId: string, investorIds: string[]) => void;
   rejectBorrower: (borrowerId: string, reason: string) => void;
   deleteBorrower: (borrowerId: string) => void;
   updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => void;
-  addInvestor: (investor: NewInvestorPayload) => void;
+  addInvestor: (investor: NewInvestorPayload) => Promise<{ success: boolean; message: string }>;
   addEmployee: (
     payload: NewUserPayload
   ) => Promise<{ success: boolean; message: string }>;
@@ -145,7 +145,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_qa_pass_7_stable_final';
+export const APP_DATA_KEY = 'appData_v_final_qa_pass_9_stable_final_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -455,6 +455,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const borrower = d.borrowers.find((b) => b.id === borrowerId);
         if (!borrower) return d;
         
+        if (borrower.lastStatusChange) {
+            const lastChangeTime = new Date(borrower.lastStatusChange).getTime();
+            const now = new Date().getTime();
+            if (now - lastChangeTime < 60 * 1000) {
+              toast({
+                variant: 'destructive',
+                title: 'الرجاء الانتظار',
+                description: 'يجب الانتظار دقيقة واحدة قبل تغيير حالة هذا القرض مرة أخرى.',
+              });
+              return d;
+            }
+        }
+
         const newBorrowers = d.borrowers.map((b) =>
           b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus, lastStatusChange: new Date().toISOString() } : b
         );
@@ -469,31 +482,76 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   
   const approveBorrower = useCallback(
-    (borrowerId: string) => {
+    (borrowerId: string, investorIds: string[]) => {
       setData(d => {
+        const loanToApprove = d.borrowers.find((b) => b.id === borrowerId);
+        if (!loanToApprove) return d;
+
+        const fundedByDetails: { investorId: string; amount: number }[] = [];
+        let remainingAmountToFund = loanToApprove.amount;
+        let newInvestorsData = [...d.investors]; 
+        const updatedInvestorsMap = new Map(newInvestorsData.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
+
+        for (const invId of investorIds) {
+            if (remainingAmountToFund <= 0) break;
+            
+            const currentInvestorState = updatedInvestorsMap.get(invId);
+            if (!currentInvestorState) continue;
+            
+            const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
+            const availableCapital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
+            
+            const contribution = Math.min(availableCapital, remainingAmountToFund);
+            if (contribution > 0) {
+                remainingAmountToFund -= contribution;
+                fundedByDetails.push({ investorId: invId, amount: contribution });
+                
+                if (currentInvestorState.fundedLoanIds) {
+                   currentInvestorState.fundedLoanIds.push(loanToApprove.id);
+                } else {
+                   currentInvestorState.fundedLoanIds = [loanToApprove.id];
+                }
+                
+                updatedInvestorsMap.set(invId, currentInvestorState);
+            }
+        }
+        newInvestorsData = Array.from(updatedInvestorsMap.values());
+        
         let approvedBorrower: Borrower | null = null;
         const newBorrowers = d.borrowers.map((b) => {
           if (b.id === borrowerId) {
-            approvedBorrower = { ...b, status: 'منتظم' };
+            approvedBorrower = { ...b, status: 'منتظم', fundedBy: fundedByDetails };
             return approvedBorrower;
           }
           return b;
         });
 
         let newNotifications = d.notifications;
-        if (approvedBorrower && approvedBorrower.submittedBy) {
-            newNotifications = [{
-                id: `notif_${crypto.randomUUID()}`,
-                date: new Date().toISOString(),
-                isRead: false,
-                recipientId: approvedBorrower.submittedBy,
-                title: 'تمت الموافقة على طلبك',
-                description: `تمت الموافقة على طلب إضافة القرض "${approvedBorrower.name}".`,
-            }, ...d.notifications];
+        if (approvedBorrower) {
+            const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+            if (approvedBorrower.submittedBy) {
+                notificationsToQueue.push({
+                    recipientId: approvedBorrower.submittedBy,
+                    title: 'تمت الموافقة على طلبك',
+                    description: `تمت الموافقة على طلب إضافة القرض "${approvedBorrower.name}".`,
+                });
+            }
+            if (fundedByDetails.length > 0) {
+                fundedByDetails.forEach(funder => {
+                    notificationsToQueue.push({
+                        recipientId: funder.investorId,
+                        title: 'تم استثمار أموالك',
+                        description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${loanToApprove.name}".`,
+                    });
+                });
+            }
+            if(notificationsToQueue.length > 0) {
+                newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
+            }
         }
         
-        toast({ title: 'تمت الموافقة على القرض' });
-        return { ...d, borrowers: newBorrowers, notifications: newNotifications };
+        toast({ title: 'تمت الموافقة على القرض بنجاح' });
+        return { ...d, borrowers: newBorrowers, investors: newInvestorsData, notifications: newNotifications };
       })
     },
     [toast]
@@ -759,16 +817,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addInvestor = useCallback(
-    (investorPayload: NewInvestorPayload) => {
+    async (investorPayload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
+      let result = { success: false, message: 'فشل غير متوقع' };
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
         if (!loggedInUser) {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'يجب تسجيل الدخول أولاً.' });
+          result = { success: false, message: 'يجب تسجيل الدخول أولاً.' };
           return d;
         }
       
-        if (d.users.some((u) => u.email === investorPayload.email)) {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني مستخدم بالفعل.' });
+        if (d.users.some((u) => u.email === investorPayload.email || u.phone === investorPayload.phone)) {
+          result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
           return d;
         }
       
@@ -782,7 +841,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }).length;
       
           if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
-            toast({ variant: 'destructive', title: 'تم الوصول للحد الأقصى', description: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' });
+            result = { success: false, message: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' };
             return d;
           }
         }
@@ -838,6 +897,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }, ...d.notifications];
         }
     
+        result = { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         toast({ title: 'تمت إضافة المستثمر بنجاح' });
         return {
           ...d,
@@ -846,6 +906,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           notifications: newNotifications
         };
       });
+      return result;
     },
     [userId, toast]
   );
@@ -1010,7 +1071,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const canEdit = 
             loggedInUser.role === 'مدير النظام' || 
             (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id) ||
-            (loggedInUser.role === 'مساعد مدير المكتب' && loggedInUser.permissions?.accessSettings && userToUpdate.managedBy === loggedInUser.managedBy);
+            (loggedInUser.role === 'مساعد مدير المكتب' && loggedInUser.permissions?.accessSettings && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف');
         
         if (!canEdit) {
             result = { success: false, message: 'ليس لديك الصلاحية لتعديل هذا المستخدم.' };
@@ -1263,74 +1324,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return d;
         }
         
-        // Comprehensive check for any active relationships
         let blockingReason = '';
-
-        // 1. Check if user is an investor with active funds
-        if(userToDelete.role === 'مستثمر') {
-            const investorData = d.investors.find(i => i.id === userIdToDelete);
-            if(investorData) {
-                const financials = calculateInvestorFinancials(investorData, d.borrowers);
-                if (financials.activeCapital > 0) {
-                    blockingReason = 'لا يمكن حذف المستثمر لوجود أموال نشطة مرتبطة به.';
-                }
-            }
+        const userMap = new Map(d.users.map(u => [u.id, u]));
+        const idsToDelete = new Set<string>([userIdToDelete]);
+        if (userToDelete.role === 'مدير المكتب') {
+          d.users.forEach((u) => {
+            if (u.managedBy === userIdToDelete) idsToDelete.add(u.id);
+          });
         }
         
-        // 2. Check if user submitted any active loans
-        const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === userIdToDelete && (b.status === 'منتظم' || b.status === 'متأخر'));
-        if (activeLoansSubmitted) {
-            blockingReason = 'لا يمكن حذف المستخدم لوجود قروض نشطة قام بتقديمها.';
-        }
-
-        // 3. If user is a manager, check all their managed accounts
-        if (userToDelete.role === 'مدير المكتب') {
-            const managedUserIds = d.users.filter(u => u.managedBy === userIdToDelete).map(u => u.id);
-            const managedInvestorIds = d.investors.filter(i => {
-                const iUser = d.users.find(u => u.id === i.id);
-                return iUser?.managedBy === userIdToDelete;
-            }).map(i => i.id);
-
-            if (d.borrowers.some(b => b.submittedBy && managedUserIds.includes(b.submittedBy) && (b.status === 'منتظم' || b.status === 'متأخر'))) {
-                blockingReason = 'لا يمكن حذف المدير لوجود قروض نشطة قدمها أحد موظفيه.';
-            }
-
-            for (const investorId of managedInvestorIds) {
-                const investorData = d.investors.find(i => i.id === investorId);
-                 if(investorData) {
+        idsToDelete.forEach(id => {
+            const user = userMap.get(id);
+            if (!user) return;
+            
+            if (user.role === 'مستثمر') {
+                const investorData = d.investors.find(i => i.id === id);
+                if (investorData) {
                     const financials = calculateInvestorFinancials(investorData, d.borrowers);
                     if (financials.activeCapital > 0) {
-                        blockingReason = `لا يمكن حذف المدير لأن المستثمر "${investorData.name}" لديه أموال نشطة.`;
-                        break;
+                        blockingReason = `لا يمكن الحذف لوجود أموال نشطة مرتبطة بالمستثمر "${investorData.name}".`;
                     }
                 }
             }
-        }
+            
+            const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === id && (b.status === 'منتظم' || b.status === 'متأخر'));
+            if (activeLoansSubmitted) {
+                blockingReason = `لا يمكن الحذف لوجود قروض نشطة قدمها المستخدم "${user.name}".`;
+            }
+        });
     
         if (blockingReason) {
             toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: blockingReason });
             return d;
         }
         
-        // Proceed with deletion if no blocking reasons found
-        let idsToDelete = new Set<string>([userIdToDelete]);
-        let investorIdsToDelete = new Set<string>();
-        const userMap = new Map(d.users.map(u => [u.id, u]));
-    
-        if (userToDelete.role === 'مدير المكتب') {
-          d.users.forEach((u) => {
-            if (u.managedBy === userIdToDelete) idsToDelete.add(u.id);
-          });
-          d.investors.forEach((i) => {
-            const investorUser = userMap.get(i.id);
-            if (investorUser?.managedBy === userIdToDelete) {
-              idsToDelete.add(i.id);
-              investorIdsToDelete.add(i.id);
-            }
-          });
-        } else if (userToDelete.role === 'مستثمر') {
-          investorIdsToDelete.add(userToDelete.id);
-        }
+        const investorIdsToDelete = new Set<string>();
+        idsToDelete.forEach(id => {
+          const user = userMap.get(id);
+          if (user?.role === 'مستثمر') {
+            investorIdsToDelete.add(id);
+          }
+        });
     
         let newBorrowers = d.borrowers;
         if (investorIdsToDelete.size > 0) {

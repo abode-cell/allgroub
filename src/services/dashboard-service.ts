@@ -1,4 +1,5 @@
 
+
 /**
  * @fileOverview Service for calculating all dashboard metrics.
  * This moves the business logic from the component to a dedicated, testable service.
@@ -70,8 +71,8 @@ export function calculateInvestorFinancials(investor: Investor, allBorrowers: Bo
   const activeCapital = activeInstallmentCapital + activeGraceCapital;
   const defaultedFunds = defaultedInstallmentFunds + defaultedGraceFunds;
 
-  const idleInstallmentCapital = totalInstallmentCapital - activeInstallmentCapital - defaultedInstallmentFunds;
-  const idleGraceCapital = totalGraceCapital - activeGraceCapital - defaultedGraceFunds;
+  const idleInstallmentCapital = totalInstallmentCapital - activeInstallmentCapital;
+  const idleGraceCapital = totalGraceCapital - activeGraceCapital;
   
   return {
     idleInstallmentCapital: Math.max(0, idleInstallmentCapital),
@@ -385,7 +386,8 @@ function calculateIdleFundsMetrics(investors: Investor[], allBorrowers: Borrower
             const financials = calculateInvestorFinancials(investor, allBorrowers);
             return {
                 ...investor,
-                ...financials,
+                idleInstallmentCapital: financials.idleInstallmentCapital,
+                idleGraceCapital: financials.idleGraceCapital,
             };
         })
         .filter(data => data.idleInstallmentCapital > 0 || data.idleGraceCapital > 0);
@@ -434,5 +436,3 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
         idleFunds: calculateIdleFundsMetrics(filteredInvestors, borrowers),
     };
 }
-
-    

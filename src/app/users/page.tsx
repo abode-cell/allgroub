@@ -129,7 +129,7 @@ const assistantPermissionsConfig: {
   { key: 'manageEmployeePermissions', label: 'إدارة صلاحيات الموظفين', description: 'تمكين المساعد من تفعيل أو تعطيل صلاحيات الموظفين.' },
 ];
 
-const UserActions = ({ user, onDeleteClick, onEditClick, canEdit }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void, canEdit: boolean }) => {
+const UserActions = ({ user, onDeleteClick, onEditClick, canEdit, canDelete }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void, canEdit: boolean, canDelete: boolean }) => {
   const { updateUserStatus } = useDataActions();
   const { currentUser } = useDataState();
   const isCurrentUser = user.id === currentUser?.id;
@@ -165,13 +165,15 @@ const UserActions = ({ user, onDeleteClick, onEditClick, canEdit }: { user: User
                         <span>تعديل بيانات الدخول</span>
                     </DropdownMenuItem>
                  )}
-                <DropdownMenuItem
-                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                    onClick={() => onDeleteClick(user)}
-                >
-                    <Trash2 className="ml-2 h-4 w-4" />
-                    <span>حذف الحساب</span>
-                </DropdownMenuItem>
+                 {canDelete && (
+                    <DropdownMenuItem
+                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        onClick={() => onDeleteClick(user)}
+                    >
+                        <Trash2 className="ml-2 h-4 w-4" />
+                        <span>حذف الحساب</span>
+                    </DropdownMenuItem>
+                 )}
             </DropdownMenuContent>
         </DropdownMenu>
     </div>
@@ -341,7 +343,7 @@ export default function UsersPage() {
 
   const officeManagers = useMemo(() => users.filter((u) => u.role === 'مدير المكتب'), [users]);
   const otherUsers = useMemo(() => users.filter(
-    (u) => u.role !== 'مدير المكتب' && u.role !== 'موظف' && u.role !== 'مساعد مدير المكتب'
+    (u) => u.role !== 'مدير المكتب' && u.role !== 'موظف' && u.role !== 'مساعد مدير المكتب' && u.role !== 'مستثمر'
   ), [users]);
 
   const myEmployees = useMemo(() => {
@@ -393,6 +395,7 @@ export default function UsersPage() {
                   }
                 );
                 const canEditCredentials = role === 'مدير النظام';
+                const canDeleteUser = role === 'مدير النظام';
 
                 return (
                   <AccordionItem value={manager.id} key={manager.id}>
@@ -417,7 +420,7 @@ export default function UsersPage() {
                             )}
                             {manager.status}
                           </Badge>
-                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditCredentials} />
+                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditCredentials} canDelete={canDeleteUser} />
                         </div>
                       </div>
                     </AccordionPrimitive.Header>
@@ -536,7 +539,7 @@ export default function UsersPage() {
         <CardHeader>
           <CardTitle>مستخدمون آخرون</CardTitle>
           <CardDescription>
-            قائمة بالمستخدمين الآخرين مثل مدير النظام والمستثمرين.
+            قائمة بالمستخدمين الآخرين مثل مدير النظام.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -597,7 +600,7 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-left">
-                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={role === 'مدير النظام'} />
+                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={role === 'مدير النظام'} canDelete={role === 'مدير النظام'} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -624,6 +627,12 @@ export default function UsersPage() {
         if (currentUser.role === 'مدير المكتب' && targetUser.managedBy === currentUser.id) return true;
         // Assistant can edit employees if they have accessSettings permission
         if (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.accessSettings && targetUser.role === 'موظف' && targetUser.managedBy === currentUser.managedBy) return true;
+        return false;
+    };
+    
+    const canDeleteTeamMember = (targetUser: User): boolean => {
+        if (!currentUser) return false;
+        if (currentUser.role === 'مدير المكتب' && targetUser.managedBy === currentUser.id) return true;
         return false;
     };
     
@@ -681,7 +690,7 @@ export default function UsersPage() {
                               )}
                               {assistant.status}
                             </Badge>
-                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditTeamCredentials(assistant)} />
+                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditTeamCredentials(assistant)} canDelete={canDeleteTeamMember(assistant)} />
                           </div>
                         </div>
                       </AccordionPrimitive.Header>
@@ -837,7 +846,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-left">
-                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditTeamCredentials(employee)} />
+                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditTeamCredentials(employee)} canDelete={canDeleteTeamMember(employee)} />
                       </TableCell>
                     </TableRow>
                   ))
