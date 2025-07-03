@@ -51,6 +51,11 @@ const aiSupportFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      // This should be caught by the client and displayed as a proper error.
+      // Returning an object with an empty string is safer than crashing.
+      return { solution: '' };
+    }
+    return output;
   }
 );
