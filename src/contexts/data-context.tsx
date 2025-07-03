@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -10,6 +9,7 @@ import {
   useCallback,
   useMemo,
   useEffect,
+  useRef,
 } from 'react';
 import type {
   Borrower,
@@ -38,6 +38,7 @@ import {
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { isValid } from 'date-fns';
 
 type DataState = {
   currentUser: User | undefined;
@@ -144,7 +145,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_cleared_v12_final_fix'; // Incremented key to force clear old data on structural changes
+const APP_DATA_KEY = 'appData_v15_structural_fix'; // Final key change
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -164,107 +165,34 @@ const initialDataState: Omit<DataState, 'currentUser'> = {
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Omit<DataState, 'currentUser'>>(initialDataState);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const cronRan = useRef(false);
 
+  // Effect 1: Load data from localStorage. Runs ONLY once on mount.
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      let loadedData = initialDataState;
       try {
-        let loadedData: Omit<DataState, 'currentUser'> = initialDataState;
         const item = window.localStorage.getItem(APP_DATA_KEY);
         if (item) {
           const parsed = JSON.parse(item);
+          // Basic validation to ensure the loaded data has the essential keys
           if (parsed.users && parsed.borrowers && parsed.investors) {
-            loadedData = {
-              borrowers: parsed.borrowers,
-              investors: parsed.investors,
-              users: parsed.users,
-              supportTickets: parsed.supportTickets || initialDataState.supportTickets,
-              notifications: parsed.notifications || initialDataState.notifications,
-              salaryRepaymentPercentage: parsed.salaryRepaymentPercentage || initialDataState.salaryRepaymentPercentage,
-              baseInterestRate: parsed.baseInterestRate || initialDataState.baseInterestRate,
-              investorSharePercentage: parsed.investorSharePercentage || initialDataState.investorSharePercentage,
-              graceTotalProfitPercentage: parsed.graceTotalProfitPercentage || initialDataState.graceTotalProfitPercentage,
-              graceInvestorSharePercentage: parsed.graceInvestorSharePercentage || initialDataState.graceInvestorSharePercentage,
-              supportEmail: parsed.supportEmail || initialDataState.supportEmail,
-              supportPhone: parsed.supportPhone || initialDataState.supportPhone,
-            };
+             // Merge with initial data to ensure new fields are present
+            loadedData = { ...initialDataState, ...parsed };
           }
         }
-
-        // --- ONE-TIME CRON JOB LOGIC ---
-        // This logic runs exactly once on the data that was just loaded, before it becomes part of the React state.
-        // This prevents the infinite loop that was crashing the application.
-        const today = new Date();
-        const systemAdmin = loadedData.users.find((u) => u.role === 'مدير النظام');
-        const notificationsToAdd: Omit<Notification, 'id'>[] = [];
-        let usersModified = false;
-
-        const updatedUsers = loadedData.users.map((user) => {
-            let modifiedUser = { ...user };
-            if (user.role === 'مدير المكتب' && user.trialEndsAt && user.status === 'نشط') {
-                const trialEndDate = new Date(user.trialEndsAt);
-                const alreadySuspendedId = `trial-suspended-${user.id}`;
-                const alreadySuspended = loadedData.notifications.some(n => n.id === alreadySuspendedId);
-
-                if (today > trialEndDate && !alreadySuspended) {
-                    usersModified = true;
-                    if (systemAdmin) {
-                        notificationsToAdd.push({
-                            recipientId: systemAdmin.id,
-                            title: 'انتهاء تجربة مستخدم',
-                            description: `انتهت الفترة التجريبية للمستخدم "${user.name}" وتم تعليق حسابه.`,
-                            date: today.toISOString(), isRead: false
-                        });
-                    }
-                    notificationsToAdd.push({
-                        recipientId: user.id,
-                        title: 'انتهت الفترة التجريبية',
-                        description: 'انتهت فترة التجربة الخاصة بك. تم تعليق حسابك تلقائياً.',
-                        date: today.toISOString(), isRead: false
-                    });
-                    modifiedUser.status = 'معلق';
-                }
-
-                const timeDiff = trialEndDate.getTime() - today.getTime();
-                const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
-                if (daysLeft > 0 && daysLeft <= 3) {
-                    const reminderId = `trial-reminder-${user.id}-${daysLeft}`;
-                    const alreadySent = loadedData.notifications.some(n => n.id === reminderId);
-                    if (!alreadySent) {
-                        notificationsToAdd.push({
-                            recipientId: user.id,
-                            title: 'تذكير بقرب انتهاء الفترة التجريبية',
-                            description: `ستنتهي الفترة التجريبية لحسابك خلال ${daysLeft} يوم/أيام.`,
-                            date: today.toISOString(), isRead: false
-                        });
-                    }
-                }
-            }
-            return modifiedUser;
-        });
-
-        if (usersModified || notificationsToAdd.length > 0) {
-            const existingNotificationIds = new Set(loadedData.notifications.map(n => n.id));
-            const uniqueNewNotifications = notificationsToAdd
-                .map(n => ({ ...n, id: `notif_${crypto.randomUUID()}` }))
-                .filter(n => !existingNotificationIds.has(n.id));
-
-            loadedData.users = updatedUsers;
-            loadedData.notifications = [...uniqueNewNotifications, ...loadedData.notifications];
-        }
-        // --- END OF CRON JOB LOGIC ---
-
-        setData(loadedData);
       } catch (error) {
-        console.warn(`Error reading localStorage key “${APP_DATA_KEY}”:`, error);
-        setData(initialDataState);
+        console.warn(`Error reading localStorage key “${APP_DATA_KEY}”. Using initial data.`, error);
       } finally {
+        setData(loadedData);
         setIsInitialLoad(false);
       }
     }
-  }, []); // The empty dependency array is crucial. This effect runs only once on mount.
+  }, []); // Empty dependency array ensures it runs only once.
 
+  // Effect 2: Save data to localStorage whenever it changes.
   useEffect(() => {
-    if (isInitialLoad) return; 
+    if (isInitialLoad) return;
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
@@ -272,7 +200,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.warn(`Error setting localStorage key “${APP_DATA_KEY}”:`, error);
       }
     }
-  }, [isInitialLoad, data]);
+  }, [data, isInitialLoad]);
 
   const { userId } = useAuth();
   const { toast } = useToast();
@@ -281,6 +209,84 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!userId) return undefined;
     return data.users.find((u) => u.id === userId);
   }, [data.users, userId]);
+
+
+  // Effect 3: Run the "cron job" logic. Runs only ONCE after initial load and user is available.
+  useEffect(() => {
+    // Conditions to run: data must be loaded, and cron job must not have run yet for this session.
+    if (isInitialLoad || cronRan.current) {
+        return;
+    }
+
+    try {
+        const today = new Date();
+        const systemAdmin = data.users.find((u) => u.role === 'مدير النظام');
+        const notificationsToQueue: Omit<Notification, 'id'>[] = [];
+        let usersNeedUpdate = false;
+
+        const updatedUsers = data.users.map((user) => {
+            let modifiedUser = { ...user };
+            if (user.role === 'مدير المكتب' && user.trialEndsAt && user.status === 'نشط') {
+                const trialEndDate = new Date(user.trialEndsAt);
+                if (!isValid(trialEndDate)) return user; // Defensively skip if date is invalid
+
+                const alreadySuspendedId = `trial-suspended-${user.id}`;
+                const alreadySuspended = data.notifications.some(n => n.id === alreadySuspendedId);
+
+                if (today > trialEndDate && !alreadySuspended) {
+                    usersNeedUpdate = true;
+                    if (systemAdmin) {
+                        notificationsToQueue.push({
+                            recipientId: systemAdmin.id,
+                            title: 'انتهاء تجربة مستخدم',
+                            description: `انتهت الفترة التجريبية للمستخدم "${user.name}" وتم تعليق حسابه.`,
+                        });
+                    }
+                    notificationsToQueue.push({
+                        recipientId: user.id,
+                        title: 'انتهت الفترة التجريبية',
+                        description: 'انتهت فترة التجربة الخاصة بك. تم تعليق حسابك تلقائياً.',
+                    });
+                    modifiedUser.status = 'معلق';
+                }
+
+                const timeDiff = trialEndDate.getTime() - today.getTime();
+                const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                if (daysLeft > 0 && daysLeft <= 3) {
+                    const reminderId = `trial-reminder-${user.id}-${daysLeft}`;
+                    const alreadySent = data.notifications.some(n => n.id === reminderId);
+                    if (!alreadySent) {
+                        notificationsToQueue.push({
+                            recipientId: user.id,
+                            title: 'تذكير بقرب انتهاء الفترة التجريبية',
+                            description: `ستنتهي الفترة التجريبية لحسابك خلال ${daysLeft} يوم/أيام.`,
+                        });
+                    }
+                }
+            }
+            return modifiedUser;
+        });
+
+        if (usersNeedUpdate || notificationsToQueue.length > 0) {
+            const existingNotificationIds = new Set(data.notifications.map(n => n.id));
+            const uniqueNewNotifications = notificationsToQueue
+                .map(n => ({ ...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false }))
+                .filter(n => !existingNotificationIds.has(n.id));
+
+            setData(d => ({
+                ...d,
+                users: usersNeedUpdate ? updatedUsers : d.users,
+                notifications: [...uniqueNewNotifications, ...d.notifications],
+            }));
+        }
+
+        // Mark cron as ran for this session
+        cronRan.current = true;
+    } catch (error) {
+        console.error("Error in data cron job effect:", error);
+    }
+  }, [isInitialLoad, data.users, data.notifications]); // Dependencies are correct, but the logic inside prevents re-running.
+
 
   const addNotification = useCallback(
     (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
@@ -651,7 +657,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
                         remainingAmountToFund -= contribution;
                         fundedByDetails.push({ investorId: invId, amount: contribution });
                         
-                        currentInvestorState.fundedLoanIds.push(newId);
+                        if (currentInvestorState.fundedLoanIds) {
+                           currentInvestorState.fundedLoanIds.push(newId);
+                        } else {
+                           currentInvestorState.fundedLoanIds = [newId];
+                        }
+                        
                         updatedInvestorsMap.set(invId, currentInvestorState);
                     }
                 }
