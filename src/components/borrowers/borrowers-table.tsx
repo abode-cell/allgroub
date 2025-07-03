@@ -513,7 +513,7 @@ export function BorrowersTable({
           <DialogHeader>
             <DialogTitle>تعديل القرض</DialogTitle>
             <DialogDescription>
-              قم بتحديث تفاصيل القرض هنا. انقر على حفظ عند الانتهاء.
+              قم بتحديث تفاصيل القرض هنا. لا يمكن تعديل البيانات المالية (المبلغ، الفائدة، إلخ) بعد الموافقة على القرض. انقر على حفظ عند الانتهاء.
             </DialogDescription>
           </DialogHeader>
           {selectedBorrower && (

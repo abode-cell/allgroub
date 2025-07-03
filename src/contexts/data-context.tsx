@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_production_ready_v16_final_final_final';
+export const APP_DATA_KEY = 'appData_v_final_secure_v1';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -471,7 +471,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const newBorrowers = d.borrowers.map((b) => {
           if (b.id === borrowerId) {
-            const updatedBorrower = { 
+            const updatedBorrower: Borrower = { 
               ...b, 
               paymentStatus: newPaymentStatus, 
               lastStatusChange: new Date().toISOString() 

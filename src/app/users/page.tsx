@@ -907,8 +907,7 @@ export default function UsersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد أنك تريد حذف حساب {userToDelete?.name}؟ هذا الإجراء
-              سيقوم بحذف المستخدم نهائيًا ولا يمكن التراجع عنه.
+              هل أنت متأكد أنك تريد حذف حساب <span className="font-bold text-destructive">{userToDelete?.name}</span>؟ هذا الإجراء سيقوم بحذف المستخدم نهائيًا ولا يمكن التراجع عنه.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

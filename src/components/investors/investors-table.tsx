@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 
 type InvestorsTableProps = {
@@ -349,10 +350,17 @@ export function InvestorsTable({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>تعديل المستثمر</DialogTitle>
-            <DialogDescription>
-              قم بتحديث تفاصيل المستثمر هنا. انقر على حفظ عند الانتهاء.
-              <br/>
-              <strong className="text-destructive text-xs">ملاحظة: لا يمكن تعديل رأس المال من هنا. لإضافة أو سحب أموال، استخدم خيار "إضافة عملية مالية" للحفاظ على سجل دقيق.</strong>
+            <DialogDescription asChild>
+                <div className="space-y-2">
+                    <p>قم بتحديث تفاصيل المستثمر هنا. انقر على حفظ عند الانتهاء.</p>
+                     <Alert variant="destructive" className="mt-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>ملاحظة هامة</AlertTitle>
+                        <AlertDescription>
+                          لا يمكن تعديل رأس المال من هنا. لإضافة أو سحب أموال، استخدم خيار "إضافة عملية مالية" من القائمة للحفاظ على سجل دقيق.
+                        </AlertDescription>
+                    </Alert>
+                </div>
             </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (
