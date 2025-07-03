@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview Service for calculating all dashboard metrics.
  * This moves the business logic from the component to a dedicated, testable service.
@@ -93,7 +94,7 @@ function getFilteredData(input: CalculationInput) {
     const filteredBorrowers = borrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
     const filteredInvestors = investors.filter(i => {
         const investorUser = userMap.get(i.id);
-        return investorUser?.managedBy && relevantUserIds.has(investorUser.managedBy)
+        return investorUser?.managedBy === managerId;
     });
     
     return { filteredBorrowers, filteredInvestors };
