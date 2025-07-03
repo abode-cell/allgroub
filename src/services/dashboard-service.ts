@@ -140,10 +140,18 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + (b.amount || 0), 0);
     const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
     
+    const investorMap = new Map(investors.map(inv => [inv.id, inv]));
+    
     const defaultedProfits = installmentDefaultedLoans.reduce((acc, loan) => {
         if (!loan.rate || !loan.term || loan.rate <= 0 || loan.term <= 0) return acc;
-        const totalInterest = (loan.amount || 0) * ((loan.rate || 0) / 100) * (loan.term || 0);
-        return acc + totalInterest;
+        
+        const fundedBy = loan.fundedBy || [];
+        const totalProfitOnLoan = fundedBy.reduce((loanProfit, funder) => {
+            const interestOnFundedAmount = (funder.amount || 0) * ((loan.rate || 0) / 100) * (loan.term || 0);
+            return loanProfit + interestOnFundedAmount;
+        }, 0);
+
+        return acc + totalProfitOnLoan;
     }, 0);
 
     const profitableInstallmentLoans = installmentLoans.filter(
@@ -153,7 +161,6 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     let totalInstitutionProfit = 0;
     let totalInvestorsProfit = 0;
     const investorProfits: { [investorId: string]: { id: string; name: string, profit: number } } = {};
-    const investorMap = new Map(investors.map(inv => [inv.id, inv]));
 
     profitableInstallmentLoans.forEach(loan => {
         const fundedBy = loan.fundedBy || [];
@@ -262,8 +269,12 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     
     const defaultedProfits = defaultedLoans.reduce((acc, loan) => {
         if (config.graceTotalProfitPercentage <= 0) return acc;
-        const totalProfit = (loan.amount || 0) * (config.graceTotalProfitPercentage / 100);
-        return acc + totalProfit;
+        const fundedBy = loan.fundedBy || [];
+        const totalProfitOnLoan = fundedBy.reduce((loanProfit, funder) => {
+             const profitOnFundedAmount = (funder.amount || 0) * (config.graceTotalProfitPercentage / 100);
+             return loanProfit + profitOnFundedAmount;
+        }, 0);
+        return acc + totalProfitOnLoan;
     }, 0);
 
     const today = new Date();

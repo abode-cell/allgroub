@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v39-final-fixes';
+export const APP_DATA_KEY = 'appData-v45-final-final-check-2';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -1357,7 +1357,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                                             userToUpdate.managedBy === loggedInUser.managedBy;
 
         const canUpdate = loggedInUser.role === 'مدير النظام' ||
-                          (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id) ||
+                          (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id && userToUpdate.role !== 'مدير المكتب') ||
                           isAssistantManagingEmployee;
 
         if (!canUpdate) {
@@ -1391,36 +1391,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
 
         const isSuspending = status === 'معلق';
+        const isReactivating = status === 'نشط' && userToUpdate.status === 'معلق';
         let newInvestors = d.investors;
+        let newNotifications = d.notifications;
+
         if (userToUpdate.role === 'مدير المكتب') {
-            newInvestors = d.investors.map((inv) => {
-                const investorUser = d.users.find(u => u.id === inv.id);
-                if (investorUser?.managedBy === userIdToUpdate) {
-                    if (isSuspending && inv.status === 'نشط') {
+             if (isSuspending) {
+                newInvestors = d.investors.map((inv) => {
+                    const investorUser = d.users.find(u => u.id === inv.id);
+                    if (investorUser?.managedBy === userIdToUpdate && inv.status === 'نشط') {
                         return { ...inv, status: 'غير نشط' };
                     }
-                    if (!isSuspending && inv.status === 'غير نشط') {
-                        return { ...inv, status: 'نشط' };
-                    }
-                }
-                return inv;
-            });
+                    return inv;
+                });
+                toast({ title: 'تم التحديث', description: 'تم تعليق حساب المدير والحسابات المرتبطة به.' });
+            } else if (isReactivating) {
+                // When re-activating manager, ONLY reactivate their employees/assistants automatically.
+                // The manager should re-activate their investors manually. This prevents overriding an intentional "inactive" status.
+                newNotifications = [{
+                    id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
+                    recipientId: userIdToUpdate,
+                    title: 'تم إعادة تفعيل مكتبك',
+                    description: `تمت إعادة تفعيل حسابك وحسابات فريقك. يرجى مراجعة حالة المستثمرين لديك وإعادة تفعيلهم حسب الحاجة.`,
+                }, ...newNotifications];
+                toast({ title: 'تم التحديث', description: 'تم تفعيل حساب المدير وفريقه.' });
+            }
         }
         
-        let newNotifications = d.notifications;
-        if (status === 'نشط' && userToUpdate.status === 'معلق') {
+        if (status === 'نشط' && userToUpdate.status === 'معلق' && userToUpdate.role !== 'مدير المكتب') {
             newNotifications = [{
                 id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
                 recipientId: userIdToUpdate,
                 title: 'تم تفعيل حسابك!',
                 description: `مرحباً ${userToUpdate.name}، تم تفعيل حسابك. يمكنك الآن تسجيل الدخول.`,
-            }, ...d.notifications]
+            }, ...newNotifications];
+            toast({ title: 'تم التحديث', description: 'تم تحديث حالة المستخدم بنجاح.' });
         }
 
-        const toastMessage = userToUpdate.role === 'مدير المكتب' && status === 'معلق'
-            ? 'تم تعليق حساب المدير والحسابات المرتبطة به.'
-            : 'تم تحديث حالة المستخدم بنجاح.';
-        toast({ title: 'تم التحديث', description: toastMessage });
 
         return { ...d, users: newUsers, investors: newInvestors, notifications: newNotifications };
       });
@@ -1591,8 +1598,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         if (userToDelete.role === 'مدير المكتب') {
-            if (users.some(u => u.managedBy === userIdToDelete && u.status !== 'محذوف')) {
-                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير مستخدمين نشطين. يرجى حذف الموظفين والمساعدين المرتبطين به أولاً.` });
+            const activeSubordinates = users.filter(u => u.managedBy === userIdToDelete && u.status !== 'محذوف');
+            if (activeSubordinates.length > 0) {
+                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${activeSubordinates.length} مستخدمًا نشطًا. يرجى حذف الموظفين والمساعدين المرتبطين به أولاً.` });
+                return d;
+            }
+            const linkedInvestors = investors.filter(i => {
+                const investorUser = users.find(u => u.id === i.id);
+                return investorUser?.managedBy === userIdToDelete && i.status !== 'محذوف';
+            });
+            if (linkedInvestors.length > 0) {
+                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${linkedInvestors.length} مستثمرًا. يرجى حذف المستثمرين المرتبطين به أولاً.` });
                 return d;
             }
         }

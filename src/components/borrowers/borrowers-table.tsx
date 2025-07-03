@@ -23,6 +23,7 @@ import {
   CalendarDays,
   Trash2,
   ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -157,6 +158,7 @@ export function BorrowersTable({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPartialPaymentDialogOpen, setIsPartialPaymentDialogOpen] = useState(false);
   
+  const [isSaving, setIsSaving] = useState(false);
   const [borrowerForPartialPayment, setBorrowerForPartialPayment] = useState<Borrower | null>(null);
   const [partialPaidAmount, setPartialPaidAmount] = useState('');
   const [borrowerToDelete, setBorrowerToDelete] = useState<Borrower | null>(null);
@@ -227,7 +229,10 @@ export function BorrowersTable({
     e.preventDefault();
     if (!selectedBorrower) return;
     
+    setIsSaving(true);
     updateBorrower(selectedBorrower);
+    setIsSaving(false);
+
     setIsEditDialogOpen(false);
     setSelectedBorrower(null);
   };
@@ -374,7 +379,7 @@ export function BorrowersTable({
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
                   const singleInvestorUser = singleInvestor ? users.find(u => u.id === singleInvestor.id) : null;
                   
-                  const isTerminalStatus = borrower.status === 'مرفوض';
+                  const isTerminalStatus = borrower.status === 'مرفوض' || borrower.status === 'مسدد بالكامل' || borrower.paymentStatus === 'تم السداد';
                   const isEditableStatus = !isTerminalStatus;
                   const paymentOptions = borrower.loanType === 'اقساط' ? installmentPaymentOptions : gracePaymentOptions;
                   const canBeDeleted = borrower.status === 'معلق' || borrower.status === 'مرفوض';
@@ -753,12 +758,13 @@ export function BorrowersTable({
                 <Button
                   type="button"
                   variant="secondary"
+                  disabled={isSaving}
                 >
                   إلغاء
                 </Button>
               </DialogClose>
-              <Button type="submit">
-               حفظ التغييرات
+              <Button type="submit" disabled={isSaving}>
+               {isSaving ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : 'حفظ التغييرات'}
               </Button>
             </DialogFooter>
           </form>
@@ -1018,7 +1024,7 @@ export function BorrowersTable({
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد أنك تريد حذف طلب قرض "{borrowerToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.
+              هل أنت متأكد أنك تريد حذف طلب قرض "{borrowerToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء. سيتم حذف الطلبات المعلقة أو المرفوضة فقط.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
