@@ -163,6 +163,11 @@ export default function BorrowersPage() {
     setSelectedInvestors([]);
     setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '', discount: '' }));
   };
+  
+  const resetForm = () => {
+    setNewBorrower({ name: '', phone: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
+    setSelectedInvestors([]);
+  };
 
   const proceedToAddBorrower = () => {
     const isInstallments = newBorrower.loanType === 'اقساط';
@@ -178,8 +183,7 @@ export default function BorrowersPage() {
     }, finalStatus === 'معلق' ? [] : selectedInvestors);
 
     setIsAddDialogOpen(false);
-    setNewBorrower({ name: '', phone: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
-    setSelectedInvestors([]);
+    resetForm();
     setIsInsufficientFundsDialogOpen(false);
   };
 
@@ -211,7 +215,7 @@ export default function BorrowersPage() {
       .filter(inv => selectedInvestors.includes(inv.id))
       .reduce((sum, inv) => {
         const financials = calculateInvestorFinancials(inv, allBorrowers);
-        const available = newBorrower.loanType === 'اقساط' ? financials.installmentCapital : financials.gracePeriodCapital;
+        const available = newBorrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
         return sum + available;
       }, 0);
 
@@ -259,7 +263,7 @@ export default function BorrowersPage() {
     return investors
       .map(investor => {
         const financials = calculateInvestorFinancials(investor, allBorrowers);
-        const capital = newBorrower.loanType === 'اقساط' ? financials.installmentCapital : financials.gracePeriodCapital;
+        const capital = newBorrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
         return {
           ...investor,
           availableCapital: capital,
@@ -283,7 +287,7 @@ export default function BorrowersPage() {
             </p>
           </header>
           {showAddButton && (
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsAddDialogOpen(open); }}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="ml-2 h-4 w-4" />
@@ -474,7 +478,7 @@ export default function BorrowersPage() {
                   <DialogClose asChild>
                     <Button type="button" variant="secondary" onClick={() => {
                         setIsAddDialogOpen(false);
-                        setSelectedInvestors([]);
+                        resetForm();
                     }}>
                       إلغاء
                     </Button>

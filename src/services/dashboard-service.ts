@@ -74,8 +74,8 @@ export function calculateInvestorFinancials(investor: Investor, allBorrowers: Bo
   const idleGraceCapital = totalGraceCapital - activeGraceCapital - defaultedGraceFunds;
   
   return {
-    installmentCapital: Math.max(0, idleInstallmentCapital),
-    gracePeriodCapital: Math.max(0, idleGraceCapital),
+    idleInstallmentCapital: Math.max(0, idleInstallmentCapital),
+    idleGraceCapital: Math.max(0, idleGraceCapital),
     activeCapital,
     defaultedFunds,
     totalCapitalInSystem
@@ -361,8 +361,8 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBo
     const { totalCapital, installmentCapital, graceCapital } = relevantInvestors.reduce((acc, investor) => {
         const financials = calculateInvestorFinancials(investor, allBorrowers);
         acc.totalCapital += financials.totalCapitalInSystem;
-        acc.installmentCapital += financials.installmentCapital;
-        acc.graceCapital += financials.gracePeriodCapital;
+        acc.installmentCapital += financials.idleInstallmentCapital;
+        acc.graceCapital += financials.idleGraceCapital;
         return acc;
     }, { totalCapital: 0, installmentCapital: 0, graceCapital: 0 });
     
@@ -385,13 +385,12 @@ function calculateIdleFundsMetrics(investors: Investor[], allBorrowers: Borrower
             const financials = calculateInvestorFinancials(investor, allBorrowers);
             return {
                 ...investor,
-                installmentCapital: financials.installmentCapital,
-                gracePeriodCapital: financials.gracePeriodCapital,
+                ...financials,
             };
         })
-        .filter(data => data.installmentCapital > 0 || data.gracePeriodCapital > 0);
+        .filter(data => data.idleInstallmentCapital > 0 || data.idleGraceCapital > 0);
 
-    const totalIdleFunds = idleInvestorsData.reduce((sum, i) => sum + i.installmentCapital + i.gracePeriodCapital, 0);
+    const totalIdleFunds = idleInvestorsData.reduce((sum, i) => sum + i.idleInstallmentCapital + i.idleGraceCapital, 0);
 
     return { idleInvestors: idleInvestorsData, totalIdleFunds };
 }
@@ -419,8 +418,8 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
     const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
         const financials = calculateInvestorFinancials(investor, borrowers);
         acc.total += financials.totalCapitalInSystem;
-        acc.installments += financials.installmentCapital;
-        acc.grace += financials.gracePeriodCapital;
+        acc.installments += financials.idleInstallmentCapital;
+        acc.grace += financials.idleGraceCapital;
         return acc;
     }, { total: 0, installments: 0, grace: 0 });
 

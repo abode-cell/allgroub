@@ -603,15 +603,22 @@ export default function UsersPage() {
   );
 
   const renderOfficeManagerView = () => {
-    const canManageAssistants = role === 'مدير المكتب';
-    const canAddAssistant = canManageAssistants && myAssistants.length < (currentUser.assistantLimit ?? 0);
-    const canAddEmployee = role === 'مدير المكتب' && myEmployees.length < (currentUser.employeeLimit ?? 0);
-    const canManageEmployees = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageEmployeePermissions);
-    const canEditCredentials = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings);
-    
     const managerIdForSettings = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
     const managerForSettings = users.find(u => u.id === managerIdForSettings);
-
+    
+    const canAddAssistant = role === 'مدير المكتب' && myAssistants.length < (currentUser.assistantLimit ?? 0);
+    const canAddEmployee = role === 'مدير المكتب' && myEmployees.length < (currentUser.employeeLimit ?? 0);
+    
+    const canManageAssistants = role === 'مدير المكتب';
+    const canManageEmployees = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageEmployeePermissions);
+    
+    const canEditTeamCredentials = (targetUser: User): boolean => {
+        if (!currentUser) return false;
+        if (currentUser.role === 'مدير المكتب' && targetUser.managedBy === currentUser.id) return true;
+        if (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.accessSettings && targetUser.managedBy === currentUser.managedBy) return true;
+        return false;
+    };
+    
     const pageTitle = role === 'مدير المكتب' ? 'إدارة فريق العمل' : 'إدارة الموظفين';
     const pageDescription = role === 'مدير المكتب'
         ? 'عرض وإدارة المساعدين والموظفين المرتبطين بحسابك وصلاحياتهم.'
@@ -666,7 +673,7 @@ export default function UsersPage() {
                               )}
                               {assistant.status}
                             </Badge>
-                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditCredentials} />
+                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditTeamCredentials(assistant)} />
                           </div>
                         </div>
                       </AccordionPrimitive.Header>
@@ -822,7 +829,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-left">
-                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditCredentials} />
+                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditTeamCredentials(employee)} />
                       </TableCell>
                     </TableRow>
                   ))

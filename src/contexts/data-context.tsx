@@ -145,7 +145,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_qa_pass_5_stable';
+export const APP_DATA_KEY = 'appData_v_final_qa_pass_6_stable_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -606,7 +606,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     if (!currentInvestorState) continue;
                     
                     const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
-                    const availableCapital = borrower.loanType === 'اقساط' ? financials.installmentCapital : financials.gracePeriodCapital;
+                    const availableCapital = borrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
                     
                     const contribution = Math.min(availableCapital, remainingAmountToFund);
                     if (contribution > 0) {
@@ -950,7 +950,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         if (transaction.type.includes('سحب')) {
             const financials = calculateInvestorFinancials(investor, d.borrowers);
-            const availableCapital = transaction.capitalSource === 'installment' ? financials.installmentCapital : financials.gracePeriodCapital;
+            const availableCapital = transaction.capitalSource === 'installment' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
             if (availableCapital < transaction.amount) {
                 toast({ variant: 'destructive', title: 'رصيد غير كافي', description: 'المبلغ المطلوب للسحب يتجاوز الرصيد المتاح.' });
                 return d;
@@ -1014,9 +1014,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
              result = { success: false, message: 'غير مصرح لك.' };
              return d;
         }
-        const canEdit = loggedInUser.role === 'مدير النظام' || 
-                        (loggedInUser.role === 'مدير المكتب' && d.users.find(u=>u.id === userIdToUpdate)?.managedBy === loggedInUser.id) ||
-                        (loggedInUser.role === 'مساعد مدير المكتب' && loggedInUser.permissions?.accessSettings && d.users.find(u=>u.id === userIdToUpdate)?.managedBy === loggedInUser.managedBy);
+        const userToUpdate = d.users.find(u => u.id === userIdToUpdate);
+        if (!userToUpdate) {
+             result = { success: false, message: 'المستخدم المستهدف غير موجود.' };
+             return d;
+        }
+
+        const canEdit = 
+            loggedInUser.role === 'مدير النظام' || 
+            (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id) ||
+            (loggedInUser.role === 'مساعد مدير المكتب' && loggedInUser.permissions?.accessSettings && userToUpdate.managedBy === loggedInUser.managedBy);
+        
         if (!canEdit) {
             result = { success: false, message: 'ليس لديك الصلاحية لتعديل هذا المستخدم.' };
             return d;
@@ -1267,7 +1275,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لحذف هذا المستخدم.' });
             return d;
         }
-
+        
+        const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === userIdToDelete && (b.status === 'منتظم' || b.status === 'متأخر'));
+        if (activeLoansSubmitted) {
+            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف المستخدم لوجود قروض نشطة مرتبطة به.' });
+            return d;
+        }
     
         let idsToDelete = new Set<string>([userIdToDelete]);
         let investorIdsToDelete = new Set<string>();

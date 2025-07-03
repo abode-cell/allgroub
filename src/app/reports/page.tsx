@@ -149,7 +149,7 @@ export default function ReportsPage() {
                     <ul className="list-disc mr-4">
                         {loan.fundedBy.map(funder => {
                         const investor = investors.find(i => i.id === funder.investorId);
-                        return <li key={funder.investorId}>{investor?.name || 'مستخدم محذوف'}</li>
+                        return <li key={funder.investorId}>{investor?.name || 'مستخدم محذوف'}: {formatCurrency(funder.amount)}</li>
                         })}
                     </ul>
                 </TooltipContent>
@@ -164,7 +164,7 @@ export default function ReportsPage() {
     }
     if (loan.fundedBy.length === 1) {
       const investor = investors.find(inv => inv.id === loan.fundedBy![0].investorId);
-      return investor ? investor.name : 'مستخدم محذوف';
+      return investor ? `${investor.name} (${formatCurrency(loan.fundedBy[0].amount)})` : 'مستخدم محذوف';
     }
     return `${loan.fundedBy.length} مستثمرون`;
   };
@@ -240,7 +240,7 @@ export default function ReportsPage() {
     const title = "تقرير المستثمرين";
     const columns = ["اسم المستثمر", "نوع الاستثمار", "إجمالي الاستثمار", "الأموال النشطة", "الأموال الخاملة", "الأموال المتعثرة", "الحالة"];
     const rows = investorsWithFinancials.map(investor => {
-        const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
+        const idleFunds = investor.idleInstallmentCapital + investor.idleGraceCapital;
         return [
             investor.name,
             investor.investmentType,
@@ -258,8 +258,8 @@ export default function ReportsPage() {
     if (!currentUser) return;
 
     const financials = calculateInvestorFinancials(investor, borrowers);
-    const { totalCapitalInSystem, activeCapital, installmentCapital, gracePeriodCapital, defaultedFunds } = financials;
-    const idleFunds = installmentCapital + gracePeriodCapital;
+    const { totalCapitalInSystem, activeCapital, idleInstallmentCapital, idleGraceCapital, defaultedFunds } = financials;
+    const idleFunds = idleInstallmentCapital + idleGraceCapital;
     const fundedLoans = borrowers.filter(b => 
         b.fundedBy?.some(f => f.investorId === investor.id)
     );
@@ -412,8 +412,8 @@ export default function ReportsPage() {
                     const installmentLoansFunded = fundedLoans.filter(l => l.loanType === 'اقساط');
                     const gracePeriodLoansFunded = fundedLoans.filter(l => l.loanType === 'مهلة');
 
-                    const { totalCapitalInSystem, activeCapital, installmentCapital, gracePeriodCapital, defaultedFunds } = investor;
-                    const idleFunds = installmentCapital + gracePeriodCapital;
+                    const { totalCapitalInSystem, activeCapital, idleInstallmentCapital, idleGraceCapital, defaultedFunds } = investor;
+                    const idleFunds = idleInstallmentCapital + idleGraceCapital;
 
                     return (
                         <AccordionItem value={investor.id} key={investor.id}>
