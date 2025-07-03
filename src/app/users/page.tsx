@@ -212,6 +212,14 @@ export default function UsersPage() {
   }, [currentUser, canViewPage, router]);
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
+    if (userId === currentUser?.id) {
+        toast({
+            variant: "destructive",
+            title: "خطأ",
+            description: "لا يمكنك تغيير دورك الخاص.",
+        });
+        return;
+    }
     updateUserRole(userId, newRole);
   };
 
@@ -813,7 +821,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-left">
-                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={true} />
+                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings)} />
                       </TableCell>
                     </TableRow>
                   ))
@@ -867,7 +875,14 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-       <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+       <Dialog open={isAddUserDialogOpen} onOpenChange={(open) => {
+          if(!open) {
+              setIsAddUserDialogOpen(false);
+              setNewUser({ name: '', email: '', phone: '', password: '' });
+          } else {
+              setIsAddUserDialogOpen(true);
+          }
+       }}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleAddNewUser}>
             <DialogHeader>
@@ -896,10 +911,7 @@ export default function UsersPage() {
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="secondary" onClick={() => {
-                    setNewUser({ name: '', email: '', phone: '', password: '' });
-                    setIsAddUserDialogOpen(false);
-                }}>
+                <Button type="button" variant="secondary">
                   إلغاء
                 </Button>
               </DialogClose>

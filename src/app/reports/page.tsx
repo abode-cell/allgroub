@@ -133,7 +133,7 @@ export default function ReportsPage() {
     }
     if (loan.fundedBy.length === 1) {
       const investor = investors.find(inv => inv.id === loan.fundedBy![0].investorId);
-      return investor ? investor.name : 'غير محدد';
+      return investor ? investor.name : <span className="text-xs text-destructive">مستخدم محذوف</span>;
     }
     return (
         <TooltipProvider>
@@ -149,7 +149,7 @@ export default function ReportsPage() {
                     <ul className="list-disc mr-4">
                         {loan.fundedBy.map(funder => {
                         const investor = investors.find(i => i.id === funder.investorId);
-                        return <li key={funder.investorId}>{investor?.name || 'غير معروف'}</li>
+                        return <li key={funder.investorId}>{investor?.name || 'مستخدم محذوف'}</li>
                         })}
                     </ul>
                 </TooltipContent>
@@ -164,7 +164,7 @@ export default function ReportsPage() {
     }
     if (loan.fundedBy.length === 1) {
       const investor = investors.find(inv => inv.id === loan.fundedBy![0].investorId);
-      return investor ? investor.name : 'غير محدد';
+      return investor ? investor.name : 'مستخدم محذوف';
     }
     return `${loan.fundedBy.length} مستثمرون`;
   };

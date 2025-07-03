@@ -539,14 +539,13 @@ export function BorrowersTable({
                   type="number"
                   value={selectedBorrower.amount}
                    readOnly={selectedBorrower.status !== 'معلق'}
-                   className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
+                   className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                   onChange={(e) =>
                     setSelectedBorrower({
                       ...selectedBorrower,
                       amount: Number(e.target.value),
                     })
                   }
-                  className="col-span-3"
                 />
               </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -599,14 +598,13 @@ export function BorrowersTable({
                       step="0.1"
                       value={selectedBorrower.rate}
                       readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
+                      className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,
                           rate: Number(e.target.value),
                         })
                       }
-                      className="col-span-3"
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -618,14 +616,13 @@ export function BorrowersTable({
                       type="number"
                       value={selectedBorrower.term}
                       readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
+                      className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,
                           term: Number(e.target.value),
                         })
                       }
-                      className="col-span-3"
                     />
                   </div>
                  </>
@@ -640,14 +637,13 @@ export function BorrowersTable({
                       type="number"
                       value={selectedBorrower.discount || ''}
                       readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
+                      className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,
                           discount: Number(e.target.value),
                         })
                       }
-                      className="col-span-3"
                     />
                   </div>
                )}

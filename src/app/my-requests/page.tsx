@@ -71,6 +71,11 @@ export default function MyRequestsPage() {
     return <PageSkeleton />;
   }
 
+  const getInvestorCapital = (investor: Investor) => {
+    const initialDeposit = investor.transactionHistory.find(tx => tx.type === 'إيداع رأس المال' && tx.description.includes('تأسيسي'));
+    return initialDeposit ? initialDeposit.amount : 0;
+  }
+
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -147,7 +152,7 @@ export default function MyRequestsPage() {
                     myInvestorRequests.map((investor) => (
                       <TableRow key={investor.id}>
                         <TableCell className="font-medium">{investor.name}</TableCell>
-                        <TableCell>{formatCurrency(investor.amount)}</TableCell>
+                        <TableCell>{formatCurrency(getInvestorCapital(investor))}</TableCell>
                         <TableCell className="text-center">
                            <Badge variant={statusVariant[investor.status] || 'outline'}>
                                 {getStatusText(investor.status)}
