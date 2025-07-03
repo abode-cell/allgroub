@@ -162,7 +162,10 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
     const canDelete = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
     
     const isAssistant = currentUser.role === 'مساعد مدير المكتب';
-    const canUpdateStatus = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && currentUser.permissions?.manageEmployeePermissions && user.managedBy === currentUser.managedBy && user.role === 'موظف');
+    
+    const canUpdateStatus = isSystemAdmin || 
+                            (isOfficeManager && user.managedBy === currentUser.id && user.role !== 'مدير المكتب') || 
+                            (isAssistant && currentUser.permissions?.manageEmployeePermissions && user.role === 'موظف' && user.managedBy === currentUser.managedBy);
     
     return { canEditCredentials: canEdit, canDeleteUser: canDelete, canUpdateUserStatus: canUpdateStatus };
   }, [currentUser, user]);
@@ -861,6 +864,7 @@ export default function UsersPage() {
                             <Switch
                                 id="allow-submissions"
                                 checked={managerForSettings?.allowEmployeeSubmissions ?? false}
+                                disabled={role !== 'مدير المكتب'}
                                 onCheckedChange={(checked) => {
                                     if (managerIdForSettings) {
                                     updateManagerSettings(managerIdForSettings, { allowEmployeeSubmissions: checked });
@@ -880,6 +884,7 @@ export default function UsersPage() {
                             <Switch
                                 id="hide-investor-funds"
                                 checked={managerForSettings?.hideEmployeeInvestorFunds ?? false}
+                                disabled={role !== 'مدير المكتب'}
                                 onCheckedChange={(checked) => {
                                     if (managerIdForSettings) {
                                         updateManagerSettings(managerIdForSettings, { hideEmployeeInvestorFunds: checked });

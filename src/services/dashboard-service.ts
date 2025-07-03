@@ -1,5 +1,4 @@
 
-
 /**
  * @fileOverview Service for calculating all dashboard metrics.
  * This moves the business logic from the component to a dedicated, testable service.
@@ -306,8 +305,8 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
             const investorPortion = totalProfitOnFundedAmount * (investorProfitShare / 100);
             const institutionPortion = totalProfitOnFundedAmount - investorPortion;
             
-            totalInstitutionProfit += institutionPortion;
             totalInvestorsProfit += investorPortion;
+            totalInstitutionProfit += institutionPortion;
 
             if (!investorProfits[funder.investorId]) {
                 investorProfits[funder.investorId] = { id: investorDetails.id, name: investorDetails.name, profit: 0 };
@@ -316,7 +315,8 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
         });
     });
     
-    const netProfit = totalInstitutionProfit + totalInvestorsProfit;
+    const finalInstitutionProfit = totalInstitutionProfit - totalDiscounts;
+    const netProfit = finalInstitutionProfit + totalInvestorsProfit;
     const investorProfitsArray = Object.values(investorProfits);
 
      const profitableLoansForAccordion = profitableLoans.map(loan => {
@@ -336,14 +336,17 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
             totalInstitutionProfitOnLoan += institutionPortion;
             totalInvestorProfitOnLoan += investorPortion;
         });
+        
+        // The loan's specific discount is subtracted from the institution's portion for that loan.
+        const finalInstitutionProfitOnLoan = totalInstitutionProfitOnLoan - (loan.discount || 0);
 
-        const totalProfit = totalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
+        const totalProfit = finalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
         
         return {
             id: loan.id,
             name: loan.name,
             amount: loan.amount,
-            institutionProfit: totalInstitutionProfitOnLoan,
+            institutionProfit: finalInstitutionProfitOnLoan,
             investorProfit: totalInvestorProfitOnLoan,
             totalInterest: totalProfit,
         }
@@ -358,7 +361,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
         totalDiscounts,
         dueDebts,
         netProfit,
-        totalInstitutionProfit,
+        totalInstitutionProfit: finalInstitutionProfit,
         totalInvestorsProfit,
         investorProfitsArray,
         profitableLoansForAccordion,

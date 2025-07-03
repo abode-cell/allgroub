@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
+import { formatCurrency } from '@/lib/utils';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -59,6 +61,7 @@ export default function CalculatorPage() {
 
   // State for Grace Period Tab
   const [graceLoanAmount, setGraceLoanAmount] = useState('100000');
+  const [graceDiscount, setGraceDiscount] = useState('0');
   
   // States for By Salary Tab
   const [salary, setSalary] = useState('5000');
@@ -127,19 +130,22 @@ export default function CalculatorPage() {
 
   const gracePeriodResults = useMemo(() => {
     const principal = parseFloat(graceLoanAmount);
-     if (isNaN(principal) || principal <= 0) {
-      return { institutionProfit: 0, investorProfit: 0, totalProfit: 0 };
+    const discount = parseFloat(graceDiscount) || 0;
+    if (isNaN(principal) || principal <= 0) {
+      return { institutionProfit: 0, investorProfit: 0, totalProfit: 0, netProfit: 0 };
     }
-    
+
     const totalProfitPercentage = parseFloat(localGraceTotalProfitPercentage || '0');
     const investorProfitPercentage = parseFloat(localGraceInvestorSharePercentage || '0');
 
     const totalProfit = principal * (totalProfitPercentage / 100);
-    const investorProfit = totalProfit * (investorProfitPercentage / 100);
-    const institutionProfit = totalProfit - investorProfit;
+    const netProfitAfterDiscount = Math.max(0, totalProfit - discount);
 
-    return { institutionProfit, investorProfit, totalProfit };
-  }, [graceLoanAmount, localGraceTotalProfitPercentage, localGraceInvestorSharePercentage]);
+    const investorProfit = totalProfit * (investorProfitPercentage / 100);
+    const institutionProfit = netProfitAfterDiscount - investorProfit;
+
+    return { totalProfit, investorProfit, institutionProfit, netProfit: netProfitAfterDiscount };
+  }, [graceLoanAmount, graceDiscount, localGraceTotalProfitPercentage, localGraceInvestorSharePercentage]);
   
    const bySalaryResults = useMemo(() => {
         const monthlySalary = parseFloat(salary);
@@ -162,14 +168,6 @@ export default function CalculatorPage() {
             profit: isFinite(profit) ? profit : 0,
         };
     }, [salary, localSalaryRepaymentPercentage, localGraceTotalProfitPercentage]);
-  
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'SAR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
     
   const showProfitDetails = role === 'مدير النظام' || role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
 
@@ -349,6 +347,18 @@ export default function CalculatorPage() {
                         className="text-right"
                       />
                     </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="graceDiscount">الخصم (ر.س)</Label>
+                      <Input
+                        id="graceDiscount"
+                        type="number"
+                        value={graceDiscount}
+                        onChange={(e) => setGraceDiscount(e.target.value)}
+                        placeholder="أدخل مبلغ الخصم (إن وجد)"
+                        style={{ direction: 'ltr' }}
+                        className="text-right"
+                      />
+                    </div>
                     {showProfitDetails && (
                       <>
                           <div className="space-y-2 pt-4">
@@ -414,16 +424,25 @@ export default function CalculatorPage() {
                     {showProfitDetails ? (
                         <>
                             <div className="flex items-baseline justify-between rounded-lg bg-muted p-4">
-                                <p className="text-lg text-muted-foreground">إجمالي الأرباح ({localGraceTotalProfitPercentage || graceTotalProfitPercentage}%)</p>
-                                <p className="text-3xl font-bold">{formatCurrency(gracePeriodResults.totalProfit)}</p>
+                                <p className="text-lg text-muted-foreground">صافي الربح بعد الخصم</p>
+                                <p className="text-3xl font-bold">{formatCurrency(gracePeriodResults.netProfit)}</p>
                             </div>
                             <div className="space-y-2 rounded-lg border p-4">
+                                <div className="flex justify-between">
+                                    <p className="text-muted-foreground">إجمالي الربح قبل الخصم</p>
+                                    <p className="font-semibold">{formatCurrency(gracePeriodResults.totalProfit)}</p>
+                                </div>
+                                <div className="flex justify-between text-destructive">
+                                    <p className="text-muted-foreground">مبلغ الخصم</p>
+                                    <p className="font-semibold">{formatCurrency(parseFloat(graceDiscount) || 0)}</p>
+                                </div>
+                                <Separator className="my-2" />
                                 <div className="flex justify-between text-accent-foreground">
                                     <p>ربح المؤسسة</p>
                                     <p className="font-semibold">{formatCurrency(gracePeriodResults.institutionProfit)}</p>
                                 </div>
                                 <div className="flex justify-between text-primary">
-                                    <p>ربح المستثمر ({parseFloat(localGraceInvestorSharePercentage || String(graceInvestorSharePercentage)).toFixed(1)}%)</p>
+                                    <p>ربح المستثمر</p>
                                     <p className="font-semibold">{formatCurrency(gracePeriodResults.investorProfit)}</p>
                                 </div>
                             </div>

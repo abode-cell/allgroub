@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v46-final-final-check-3-final';
+export const APP_DATA_KEY = 'appData-v49-final-final-check-7-final';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -274,27 +274,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const visibleUsers = useMemo(() => {
     if (!currentUser) return [];
-
     const { role, id } = currentUser;
     const allUsers = data.users;
-    const managerId = role === 'مدير المكتب' ? id : currentUser.managedBy;
-
-    switch (role) {
-        case 'مدير النظام':
-            return allUsers;
-        case 'مدير المكتب':
-        case 'مساعد مدير المكتب':
-        case 'موظف': {
-             if (!managerId) return [currentUser];
-             return allUsers.filter(u => u.managedBy === managerId || u.id === managerId);
-        }
-        case 'مستثمر': {
-             if (!managerId) return [currentUser];
-             return allUsers.filter(u => u.id === managerId || u.id === id);
-        }
-        default:
-            return [];
+    
+    // System admin can see everyone.
+    if (role === 'مدير النظام') {
+      return allUsers;
     }
+    
+    // Investor can only see their manager.
+    if (role === 'مستثمر') {
+      const manager = allUsers.find(u => u.id === currentUser.managedBy);
+      return manager ? [currentUser, manager] : [currentUser];
+    }
+    
+    // Office staff (manager, assistant, employee) can see their own team.
+    const managerId = role === 'مدير المكتب' ? id : currentUser.managedBy;
+    if (managerId) {
+        return allUsers.filter(u => u.id === managerId || u.managedBy === managerId);
+    }
+
+    // Default to only seeing self if no other rule matches.
+    return [currentUser];
   }, [currentUser, data.users]);
 
 
@@ -515,11 +516,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         if (updatedBorrower.loanType !== originalBorrower.loanType) {
             if (updatedBorrower.loanType === 'اقساط') {
-                updatedBorrower.discount = 0;
+                delete updatedBorrower.discount;
             } else {
-                updatedBorrower.rate = 0;
-                updatedBorrower.term = 0;
-                updatedBorrower.installments = undefined;
+                delete updatedBorrower.rate;
+                delete updatedBorrower.term;
+                delete updatedBorrower.installments;
             }
         }
         toast({ title: 'تم تحديث القرض' });
@@ -1344,15 +1345,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        // CRITICAL PERMISSION FIX: Assistant can only manage employees.
         const isAssistantManagingEmployee = loggedInUser.role === 'مساعد مدير المكتب' &&
                                             loggedInUser.permissions?.manageEmployeePermissions &&
                                             userToUpdate.role === 'موظف' &&
                                             userToUpdate.managedBy === loggedInUser.managedBy;
 
-        const canUpdate = loggedInUser.role === 'مدير النظام' ||
-                          (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id && userToUpdate.role !== 'مدير المكتب') ||
-                          isAssistantManagingEmployee;
+        const isManagerManagingSubordinate = loggedInUser.role === 'مدير المكتب' && 
+                                             userToUpdate.managedBy === loggedInUser.id &&
+                                             userToUpdate.role !== 'مدير المكتب';
+
+        const canUpdate = loggedInUser.role === 'مدير النظام' || isManagerManagingSubordinate || isAssistantManagingEmployee;
 
         if (!canUpdate) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير حالة هذا المستخدم.' });
@@ -1365,19 +1367,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (u.id === userIdToUpdate) {
                 const updatedUser: User = { ...u, status, lastStatusChange: new Date().toISOString() };
                 
-                // If activating a pending manager for the first time, set their trial period.
                 if(updatedUser.role === 'مدير المكتب' && userToUpdate.status === 'معلق' && status === 'نشط' && !updatedUser.trialEndsAt) {
                     const trialDays = systemAdmin?.defaultTrialPeriodDays ?? 14;
                     const trialEndsAt = new Date();
                     trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
                     updatedUser.trialEndsAt = trialEndsAt.toISOString();
                 } else if (status === 'نشط' && updatedUser.role === 'مدير المكتب' && updatedUser.trialEndsAt && isPast(new Date(updatedUser.trialEndsAt))) {
-                    // If re-activating an expired trial manager, clear the old expiry date.
                     delete updatedUser.trialEndsAt;
                 }
                 return updatedUser;
             }
-            // If manager is being suspended/activated, do the same for their subordinates
             if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userIdToUpdate) {
                 return { ...u, status };
             }
@@ -1400,8 +1399,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 });
                 toast({ title: 'تم التحديث', description: 'تم تعليق حساب المدير والحسابات المرتبطة به.' });
             } else if (isReactivating) {
-                // When re-activating manager, ONLY reactivate their employees/assistants automatically.
-                // The manager should re-activate their investors manually. This prevents overriding an intentional "inactive" status.
                 newNotifications = [{
                     id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
                     recipientId: userIdToUpdate,
