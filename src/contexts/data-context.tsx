@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_36';
+export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_40_FINAL';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -223,6 +223,46 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.warn(`Error setting localStorage:`, error);
     }
   }, [data]);
+
+  useEffect(() => {
+    const checkAndApplyTrialExpirations = () => {
+      setData(d => {
+        let needsUpdate = false;
+        const newUsers = d.users.map(user => {
+          if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt && isPast(new Date(user.trialEndsAt))) {
+            needsUpdate = true;
+            return { ...user, status: 'معلق' };
+          }
+          return user;
+        });
+
+        if (needsUpdate) {
+          const suspendedManagerIds = new Set(
+            d.users
+              .filter(u => u.role === 'مدير المكتب' && u.status === 'نشط' && u.trialEndsAt && isPast(new Date(u.trialEndsAt)))
+              .map(u => u.id)
+          );
+          
+          const usersWithSuspensions = newUsers.map(u => 
+            u.managedBy && suspendedManagerIds.has(u.managedBy) ? { ...u, status: 'معلق' } : u
+          );
+
+          const investorsWithSuspensions = d.investors.map(inv => {
+            const invUser = usersWithSuspensions.find(u => u.id === inv.id);
+            if(invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
+                return {...inv, status: 'غير نشط'};
+            }
+            return inv;
+          });
+
+          return { ...d, users: usersWithSuspensions, investors: investorsWithSuspensions };
+        }
+        return d;
+      });
+    };
+
+    checkAndApplyTrialExpirations();
+  }, []);
 
   const { userId } = useAuth();
   const { toast } = useToast();
@@ -470,12 +510,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const financialFieldsChanged = updatedBorrower.amount !== originalBorrower.amount ||
                                            updatedBorrower.rate !== originalBorrower.rate ||
                                            updatedBorrower.term !== originalBorrower.term ||
-                                           updatedBorrower.loanType !== originalBorrower.loanType;
+                                           updatedBorrower.loanType !== originalBorrower.loanType ||
+                                           updatedBorrower.date !== originalBorrower.date;
             if (financialFieldsChanged) {
               toast({
                   variant: 'destructive',
                   title: 'خطأ',
-                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل) لقرض نشط.',
+                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل, تاريخ البدء) لقرض نشط.',
               });
               return d;
             }
@@ -899,6 +940,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل المستثمرين.' });
             return d;
         }
+         if (loggedInUser.role === 'موظف') {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل المستثمرين.' });
+            return d;
+        }
 
         const existingInvestor = d.investors.find(i => i.id === updatedInvestor.id);
         if (!existingInvestor) return d;
@@ -990,7 +1035,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         // Centralized permission check
-        if (loggedInUser.role === 'موظف' && !loggedInUser.permissions?.manageInvestors) {
+        if (loggedInUser.role === 'موظف') {
            result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
            toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
            return d;
@@ -1321,7 +1366,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const canUpdate = loggedInUser.role === 'مدير النظام' ||
                           (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id) ||
-                          (loggedInUser.role === 'مساعد مدير المكتب' && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف');
+                          (loggedInUser.role === 'مساعد مدير المكتب' && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف' && loggedInUser.permissions?.manageEmployeePermissions);
 
         if (!canUpdate) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير حالة هذا المستخدم.' });
@@ -1560,7 +1605,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           });
 
           if (managedEmployees.length > 0 || managedAssistants.length > 0) {
-              blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedEmployees.length + managedAssistants.length} موظف/مساعد. يرجى حذفهم أولاً.`;
+              blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedEmployees.length} موظف و ${managedAssistants.length} مساعد. يرجى حذفهم أولاً.`;
           } else if (managedInvestors.length > 0) {
               blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedInvestors.length} مستثمر. يرجى حذفهم أولاً.`;
           }
@@ -1570,6 +1615,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 const financials = calculateInvestorFinancials(investorData, d.borrowers);
                 if (financials.totalCapitalInSystem > 0) {
                     blockingReason = `لا يمكن الحذف لوجود أرصدة (نشطة، خاملة، أو متعثرة) مرتبطة بالمستثمر "${investorData.name}". يرجى سحب جميع الأرصدة أولاً.`;
+                } else if (investorData.fundedLoanIds && investorData.fundedLoanIds.length > 0) {
+                    blockingReason = `لا يمكن حذف هذا المستثمر لوجود سجل قروض تاريخي مرتبط به. لحماية السجلات، لا يمكن حذف المستثمرين الممولين.`;
                 }
             }
         } else { // Employee or Assistant
