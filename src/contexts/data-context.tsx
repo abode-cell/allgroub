@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v13-final-audit';
+export const APP_DATA_KEY = 'appData-v20-final-cascade';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -283,23 +283,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return allUsers;
         case 'مدير المكتب':
             return allUsers.filter(u =>
-                u.role === 'مدير النظام' || // can see admin
-                u.id === id || // can see self
-                u.managedBy === id // can see their team
+                u.role === 'مدير النظام' || 
+                u.id === id || 
+                u.managedBy === id
             );
         case 'مساعد مدير المكتب':
         case 'موظف':
-            if (!managedBy) return [currentUser];
-            return allUsers.filter(u =>
-                u.id === managedBy || // can see their manager
-                u.id === id || // can see self
-                u.managedBy === managedBy // can see their colleagues
-            );
+             if (!managedBy) return [currentUser];
+             const manager = allUsers.find(u => u.id === managedBy);
+             if (!manager) return [currentUser];
+             // An employee/assistant can see everyone in their office
+             return allUsers.filter(u =>
+                u.id === manager.id || // can see their manager
+                u.managedBy === manager.id // can see their colleagues
+             );
         case 'مستثمر':
              if (!managedBy) return [currentUser];
              return allUsers.filter(u =>
-                u.id === managedBy || // can see their manager
-                u.id === id // can see self
+                u.id === managedBy || 
+                u.id === id 
              );
         default:
             return [];
@@ -491,7 +493,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!originalBorrower) return d;
         
         // Security check: if user is employee or assistant, do they have permission?
-        if(loggedInUser.role === 'موظف') {
+        if(loggedInUser.role === 'موظف' && !loggedInUser.permissions?.manageBorrowers) {
             const manager = d.users.find(u => u.id === loggedInUser.managedBy);
             if (!manager?.allowEmployeeLoanEdits) {
                  toast({
@@ -510,12 +512,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const financialFieldsChanged = updatedBorrower.amount !== originalBorrower.amount ||
                                            updatedBorrower.rate !== originalBorrower.rate ||
                                            updatedBorrower.term !== originalBorrower.term ||
-                                           updatedBorrower.loanType !== originalBorrower.loanType;
+                                           updatedBorrower.loanType !== originalBorrower.loanType ||
+                                           updatedBorrower.dueDate !== originalBorrower.dueDate;
             if (financialFieldsChanged) {
               toast({
                   variant: 'destructive',
                   title: 'خطأ',
-                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل) لقرض نشط.',
+                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل، تاريخ الاستحقاق) لقرض نشط.',
               });
               return d;
             }
@@ -748,11 +751,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
 
             // Centralized permission check
-            if (loggedInUser.role === 'موظف' && !loggedInUser.permissions?.manageBorrowers) {
-                 result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
-                toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
-                return d;
-            } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageBorrowers) {
+            if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageBorrowers) {
                 result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
                 toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
                 return d;
@@ -935,11 +934,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
         if (!loggedInUser) return d;
-        if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageInvestors) {
-            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل المستثمرين.' });
-            return d;
-        }
-         if (loggedInUser.role === 'موظف') {
+        if ((loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageInvestors) || loggedInUser.role === 'موظف') {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل المستثمرين.' });
             return d;
         }
@@ -1034,14 +1029,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         // Centralized permission check
-        if (loggedInUser.role === 'موظف') {
+        if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageInvestors) {
            result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
            toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
            return d;
-        } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageInvestors) {
-            result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
-            toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
-            return d;
         }
       
         if (d.users.some((u) => u.email === investorPayload.email || u.phone === investorPayload.phone)) {
@@ -1069,7 +1060,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }).length;
       
           if (investorsAddedByManager >= (manager.investorLimit ?? 0)) {
-            result = { success: false, message: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' };
+            result = { success: false, message: `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).` };
             toast({ variant: 'destructive', title: 'خطأ', description: result.message });
             return d;
           }
@@ -1842,3 +1833,4 @@ export function useDataActions() {
   }
   return context;
 }
+
