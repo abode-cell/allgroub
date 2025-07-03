@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_production_ready_v3';
+export const APP_DATA_KEY = 'appData_v_final_production_ready_v5';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -527,7 +527,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 ...b, 
                 status: 'منتظم', 
                 fundedBy: fundedByDetails,
-                // **CRITICAL FIX**: Update the loan amount to what was actually funded.
                 amount: totalFundedAmount,
             };
             return approvedBorrower;

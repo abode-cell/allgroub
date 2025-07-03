@@ -434,12 +434,14 @@ export default function UsersPage() {
                             تاريخ التسجيل: {manager.registrationDate ? new Date(manager.registrationDate).toLocaleDateString('ar-SA') : 'غير محدد'}
                         </p>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <h4 className="font-semibold text-base flex items-center gap-2">
-                                    <Settings className="h-4 w-4 text-muted-foreground" />
-                                    الإعدادات والحدود
-                                </h4>
-                                <div className="space-y-4 rounded-lg border p-3 shadow-sm bg-background">
+                            <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-base flex items-center gap-2">
+                                      <Settings className="h-5 w-5 text-primary" />
+                                      الإعدادات والحدود
+                                  </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
                                     <div className="grid gap-4 md:grid-cols-3 items-end">
                                         <div className="space-y-2">
                                             <Label htmlFor={`investor-limit-${manager.id}`}>حد المستثمرين</Label>
@@ -467,65 +469,69 @@ export default function UsersPage() {
                                         <Save className="ml-2 h-4 w-4" />
                                         حفظ الحدود
                                     </Button>
-                                </div>
-                                <Separator />
-                                <div className="space-y-3">
-                                    <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
-                                        <div className="flex-1 space-y-0.5 overflow-hidden">
-                                            <Label htmlFor={`allow-submissions-${manager.id}`} className="font-semibold text-sm">السماح بالإضافة للموظفين</Label>
-                                            <p className="text-xs text-muted-foreground">تمكين موظفيه من رفع طلبات جديدة.</p>
+                                    <Separator />
+                                    <div className="space-y-3">
+                                        <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                                            <div className="flex-1 space-y-0.5 overflow-hidden">
+                                                <Label htmlFor={`allow-submissions-${manager.id}`} className="font-semibold text-sm">السماح بالإضافة للموظفين</Label>
+                                                <p className="text-xs text-muted-foreground">تمكين موظفيه من رفع طلبات جديدة.</p>
+                                            </div>
+                                            <div className="flex-shrink-0">
+                                                <Switch id={`allow-submissions-${manager.id}`} checked={manager.allowEmployeeSubmissions ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })} />
+                                            </div>
                                         </div>
-                                        <div className="flex-shrink-0">
-                                            <Switch id={`allow-submissions-${manager.id}`} checked={manager.allowEmployeeSubmissions ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { allowEmployeeSubmissions: checked })} />
+                                        <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                                            <div className="flex-1 space-y-0.5 overflow-hidden">
+                                                <Label htmlFor={`hide-funds-${manager.id}`} className="font-semibold text-sm">إخفاء أرصدة المستثمرين</Label>
+                                                <p className="text-xs text-muted-foreground">منع موظفيه من رؤية أموال المستثمرين.</p>
+                                            </div>
+                                            <div className="flex-shrink-0">
+                                                <Switch id={`hide-funds-${manager.id}`} checked={manager.hideEmployeeInvestorFunds ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { hideEmployeeInvestorFunds: checked })} />
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-start justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
-                                        <div className="flex-1 space-y-0.5 overflow-hidden">
-                                            <Label htmlFor={`hide-funds-${manager.id}`} className="font-semibold text-sm">إخفاء أرصدة المستثمرين</Label>
-                                            <p className="text-xs text-muted-foreground">منع موظفيه من رؤية أموال المستثمرين.</p>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            <Switch id={`hide-funds-${manager.id}`} checked={manager.hideEmployeeInvestorFunds ?? false} onCheckedChange={(checked) => updateManagerSettings(manager.id, { hideEmployeeInvestorFunds: checked })} />
-                                        </div>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Users2 className="h-5 w-5 text-primary" />
+                                        الحسابات المرتبطة
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="rounded-md border bg-background p-2">
+                                        <h5 className="font-medium text-sm p-2 flex items-center gap-2"><PiggyBank className="h-4 w-4 text-muted-foreground" /> المستثمرون ({managerInvestors.length})</h5>
+                                        {managerInvestors.length > 0 ? (
+                                            <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
+                                            {managerInvestors.map(i => <li key={i.id}>{i.name}</li>)}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-xs text-center text-muted-foreground py-2">لا يوجد مستثمرون مرتبطون.</p>
+                                        )}
                                     </div>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <h4 className="font-semibold text-base flex items-center gap-2">
-                                    <Users2 className="h-4 w-4 text-muted-foreground" />
-                                    الحسابات المرتبطة
-                                </h4>
-                                <div className="rounded-md border bg-background p-2">
-                                     <h5 className="font-medium text-sm p-2 flex items-center gap-2"><PiggyBank className="h-4 w-4 text-muted-foreground" /> المستثمرون ({managerInvestors.length})</h5>
-                                     {managerInvestors.length > 0 ? (
-                                        <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
-                                          {managerInvestors.map(i => <li key={i.id}>{i.name}</li>)}
-                                        </ul>
-                                     ) : (
-                                        <p className="text-xs text-center text-muted-foreground py-2">لا يوجد مستثمرون مرتبطون.</p>
-                                     )}
-                                </div>
-                                <div className="rounded-md border bg-background p-2">
-                                    <h5 className="font-medium text-sm p-2 flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground" /> الموظفون ({employees.length})</h5>
-                                     {employees.length > 0 ? (
-                                         <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
-                                            {employees.map(e => <li key={e.id}>{e.name}</li>)}
-                                         </ul>
-                                    ) : (
-                                        <p className="text-xs text-center text-muted-foreground py-2">لا يوجد موظفون مرتبطون.</p>
-                                    )}
-                                </div>
-                                <div className="rounded-md border bg-background p-2">
-                                    <h5 className="font-medium text-sm p-2 flex items-center gap-2"><UserCog className="h-4 w-4 text-muted-foreground" /> المساعدون ({assistants.length})</h5>
-                                     {assistants.length > 0 ? (
-                                        <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
-                                            {assistants.map(a => <li key={a.id}>{a.name}</li>)}
-                                        </ul>
-                                    ) : (
-                                        <p className="text-xs text-center text-muted-foreground py-2">لا يوجد مساعدون مرتبطون.</p>
-                                    )}
-                                </div>
-                            </div>
+                                    <div className="rounded-md border bg-background p-2">
+                                        <h5 className="font-medium text-sm p-2 flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground" /> الموظفون ({employees.length})</h5>
+                                        {employees.length > 0 ? (
+                                            <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
+                                                {employees.map(e => <li key={e.id}>{e.name}</li>)}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-xs text-center text-muted-foreground py-2">لا يوجد موظفون مرتبطون.</p>
+                                        )}
+                                    </div>
+                                    <div className="rounded-md border bg-background p-2">
+                                        <h5 className="font-medium text-sm p-2 flex items-center gap-2"><UserCog className="h-4 w-4 text-muted-foreground" /> المساعدون ({assistants.length})</h5>
+                                        {assistants.length > 0 ? (
+                                            <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
+                                                {assistants.map(a => <li key={a.id}>{a.name}</li>)}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-xs text-center text-muted-foreground py-2">لا يوجد مساعدون مرتبطون.</p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -534,7 +540,7 @@ export default function UsersPage() {
             </Accordion>
           ) : (
             <p className="text-center text-muted-foreground py-4 h-24 flex items-center justify-center">
-              لا يوجد مدراء مكاتب حاليًا.
+              لا يوجد مدراء مكاتب في النظام حالياً لمراجعتهم.
             </p>
           )}
         </CardContent>
@@ -558,7 +564,7 @@ export default function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {otherUsers.map((user) => (
+              {otherUsers.length > 0 ? otherUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="font-medium">{user.name}</div>
@@ -608,7 +614,13 @@ export default function UsersPage() {
                      <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                 <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                        لا يوجد مستخدمون آخرون لعرضهم.
+                    </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
