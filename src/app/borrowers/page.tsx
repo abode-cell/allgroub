@@ -83,7 +83,6 @@ export default function BorrowersPage() {
   const isSubordinate = role === 'موظف' || role === 'مساعد مدير المكتب';
 
   useEffect(() => {
-    // Critical safety check: if user is subordinate but has no manager, redirect to safety.
     if (currentUser && (!hasAccess || (isSubordinate && !currentUser.managedBy))) {
       router.replace('/');
     }
@@ -93,10 +92,9 @@ export default function BorrowersPage() {
     if (!currentUser || !allBorrowers) return [];
     if (role === 'مدير النظام') return [];
 
-    // Safety Check: Ensure managerId is valid before proceeding
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
     if (!managerId) {
-        return []; // Return empty array if subordinate has no manager
+        return []; 
     }
 
     const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
@@ -108,10 +106,9 @@ export default function BorrowersPage() {
     if (!currentUser || !allInvestors) return [];
     if (role === 'مدير النظام') return [];
     
-    // Safety Check: Ensure managerId is valid before proceeding
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
     if (!managerId) {
-        return []; // Return empty array if subordinate has no manager
+        return [];
     }
     
     return allInvestors.filter(i => {
@@ -154,6 +151,8 @@ export default function BorrowersPage() {
   const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : false;
   const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || isEmployee;
+  
+  const isPendingRequest = ((isEmployee || isAssistant) && !isDirectAdditionEnabled);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -161,15 +160,13 @@ export default function BorrowersPage() {
   };
   
   const handleLoanTypeChange = (value: 'اقساط' | 'مهلة') => {
-    setSelectedInvestors([]); // Reset selected investors on loan type change
+    setSelectedInvestors([]);
     setNewBorrower((prev) => ({ ...prev, loanType: value, rate: '', term: '', dueDate: '', discount: '' }));
   };
 
   const proceedToAddBorrower = () => {
     const isInstallments = newBorrower.loanType === 'اقساط';
-    // If an employee/assistant isn't allowed direct additions, force status to 'معلق'
-    // Otherwise, the status is 'منتظم'.
-    const finalStatus = ((isEmployee || isAssistant) && !isDirectAdditionEnabled) ? 'معلق' : 'منتظم';
+    const finalStatus = isPendingRequest ? 'معلق' : 'منتظم';
 
     addBorrower({
       ...newBorrower,
@@ -180,7 +177,6 @@ export default function BorrowersPage() {
       discount: Number(newBorrower.discount) || 0,
     }, finalStatus === 'معلق' ? [] : selectedInvestors);
 
-    // Reset all dialogs and forms
     setIsAddDialogOpen(false);
     setNewBorrower({ name: '', phone: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
     setSelectedInvestors([]);
@@ -191,13 +187,11 @@ export default function BorrowersPage() {
     e.preventDefault();
     const isInstallments = newBorrower.loanType === 'اقساط';
     const rateForValidation = (isEmployee || isAssistant) && isInstallments ? baseInterestRate : newBorrower.rate;
-    const isPendingRequest = ((isEmployee || isAssistant) && !isDirectAdditionEnabled);
 
     if (!newBorrower.name || !newBorrower.amount || !newBorrower.phone || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
       return;
     }
     
-    // If it's a pending request, no need to check for investors or funds.
     if (isPendingRequest) {
       proceedToAddBorrower();
       return;
@@ -225,7 +219,7 @@ export default function BorrowersPage() {
       setNewBorrower(prev => ({...prev, amount: String(totalAvailableFromSelected)}));
       setAvailableFunds(totalAvailableFromSelected);
       setIsInsufficientFundsDialogOpen(true);
-      return; // Stop and show dialog
+      return;
     }
 
     proceedToAddBorrower();
@@ -434,7 +428,7 @@ export default function BorrowersPage() {
                       required
                     />
                   </div>
-                  {(!(isEmployee || isAssistant) || isDirectAdditionEnabled) && newBorrower.status !== 'معلق' && (
+                  {!isPendingRequest && (
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-right pt-2">
                         المستثمرون

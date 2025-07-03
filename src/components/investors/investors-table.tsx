@@ -196,6 +196,7 @@ export function InvestorsTable({
 
   const handleAddTransactionClick = (investor: Investor) => {
     setSelectedInvestor(investor);
+    setTransactionDetails({ amount: '', description: '', type: 'إيداع رأس المال', date: new Date(), withdrawalMethod: 'بنكي', capitalSource: 'installment' });
     setIsTransactionDialogOpen(true);
   };
 

@@ -145,7 +145,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_qa_pass_4_persist';
+export const APP_DATA_KEY = 'appData_v_final_qa_pass_5_stable';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -551,7 +551,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return d;
         }
 
-        // Critical business rule: Only pending or rejected loans can be deleted.
         if (borrowerToDelete.status !== 'معلق' && borrowerToDelete.status !== 'مرفوض') {
             toast({
                 variant: 'destructive',
@@ -561,8 +560,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return d;
         }
         
-        // At this point, the loan should not have any funding attached, so no need to refund investors.
-        // The check for fundedBy is a safety net for inconsistent data, but should ideally not be triggered.
         if (borrowerToDelete.fundedBy && borrowerToDelete.fundedBy.length > 0) {
              console.error(`Attempting to delete loan ${borrowerId} which is ${borrowerToDelete.status} but has funding. This should not happen.`);
         }
@@ -791,7 +788,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const managerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
         const manager = d.users.find(u => u.id === managerId);
       
-        if (loggedInUser.role === 'مدير المكتب' || loggedInUser.role === 'مساعد مدير المكتب') {
+        if (loggedInUser.role === 'مدير المكتب' || loggedInUser.role === 'مساعد مدير المكتب' || loggedInUser.role === 'موظف') {
           const investorsAddedByManager = d.investors.filter(i => {
             const investorUser = d.users.find(u => u.id === i.id);
             return investorUser?.managedBy === managerId;
@@ -1012,6 +1009,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (userIdToUpdate, updates) => {
       let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
       setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
+        if (!loggedInUser) {
+             result = { success: false, message: 'غير مصرح لك.' };
+             return d;
+        }
+        const canEdit = loggedInUser.role === 'مدير النظام' || 
+                        (loggedInUser.role === 'مدير المكتب' && d.users.find(u=>u.id === userIdToUpdate)?.managedBy === loggedInUser.id) ||
+                        (loggedInUser.role === 'مساعد مدير المكتب' && loggedInUser.permissions?.accessSettings && d.users.find(u=>u.id === userIdToUpdate)?.managedBy === loggedInUser.managedBy);
+        if (!canEdit) {
+            result = { success: false, message: 'ليس لديك الصلاحية لتعديل هذا المستخدم.' };
+            return d;
+        }
+
+
         if (updates.email) {
             const emailInUse = d.users.some(
             (u) => u.email === updates.email && u.id !== userIdToUpdate
@@ -1040,17 +1051,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       return result;
     },
-    [toast]
+    [userId, toast]
   );
 
   const updateUserStatus = useCallback(
     (userIdToUpdate: string, status: User['status']) => {
       setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
         const userToUpdate = d.users.find((u) => u.id === userIdToUpdate);
-        if (!userToUpdate) {
+        if (!loggedInUser || !userToUpdate) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
             return d;
         }
+        const canUpdate = loggedInUser.role === 'مدير النظام' ||
+                          (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id) ||
+                          (loggedInUser.role === 'مساعد مدير المكتب' && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف');
+
+        if (!canUpdate) {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير حالة هذا المستخدم.' });
+            return d;
+        }
+
 
         const newUsers = d.users.map((u) => {
             if (u.id === userIdToUpdate) {
@@ -1097,12 +1118,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { ...d, users: newUsers, investors: newInvestors, notifications: newNotifications };
       });
     },
-    [toast]
+    [userId, toast]
   );
 
   const updateUserRole = useCallback(
     (userIdToChange: string, newRole: UserRole) => {
       setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
+        if (loggedInUser?.role !== 'مدير النظام') {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير النظام يمكنه تغيير الأدوار.' });
+            return d;
+        }
+
         const userToChange = d.users.find((u) => u.id === userIdToChange);
         if (!userToChange) {
           toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
@@ -1170,45 +1197,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { ...d, users: newUsers };
       });
     },
-    [toast]
+    [userId, toast]
   );
 
   const updateUserLimits = useCallback(
-    (userId, limits) => {
-      setData(d => ({...d, users: d.users.map((u) => (u.id === userId ? { ...u, ...limits } : u))}));
+    (userIdToUpdate, limits) => {
+      setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
+        if (loggedInUser?.role !== 'مدير النظام') {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير النظام يمكنه تغيير الحدود.' });
+            return d;
+        }
+        return ({...d, users: d.users.map((u) => (u.id === userIdToUpdate ? { ...u, ...limits } : u))})
+      });
       toast({ title: 'تم تحديث حدود المستخدم بنجاح.' });
     },
-    [toast]
+    [userId, toast]
   );
 
   const updateManagerSettings = useCallback(
     (managerId, settings) => {
-      setData(d => ({...d, users: d.users.map((u) => (u.id === managerId ? { ...u, ...settings } : u))}));
+      setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
+        if (!loggedInUser || (loggedInUser.role !== 'مدير النظام' && loggedInUser.id !== managerId)) {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير هذه الإعدادات.' });
+            return d;
+        }
+
+        return ({...d, users: d.users.map((u) => (u.id === managerId ? { ...u, ...settings } : u))})
+      });
       toast({ title: 'تم تحديث إعدادات المدير بنجاح.' });
     },
-    [toast]
+    [userId, toast]
   );
 
   const updateAssistantPermission = useCallback(
     (assistantId, key, value) => {
-      setData(d => ({...d, users: d.users.map((u) =>
+      setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
+        if (loggedInUser?.role !== 'مدير المكتب') {
+             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير المكتب يمكنه تغيير صلاحيات المساعد.' });
+             return d;
+        }
+        return ({...d, users: d.users.map((u) =>
           u.id === assistantId
             ? { ...u, permissions: { ...(u.permissions || {}), [key]: value } }
             : u
-        )}));
+        )})
+      });
       toast({ title: 'تم تحديث صلاحية المساعد بنجاح.' });
     },
-    [toast]
+    [userId, toast]
   );
 
   const deleteUser = useCallback(
     (userIdToDelete: string) => {
       setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
         const userToDelete = d.users.find((u) => u.id === userIdToDelete);
-        if (!userToDelete) {
+
+        if (!loggedInUser || !userToDelete) {
           toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
           return d;
         }
+        const canDelete = loggedInUser.role === 'مدير النظام' || 
+                         (loggedInUser.role === 'مدير المكتب' && userToDelete.managedBy === loggedInUser.id);
+        
+        if (!canDelete) {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لحذف هذا المستخدم.' });
+            return d;
+        }
+
     
         let idsToDelete = new Set<string>([userIdToDelete]);
         let investorIdsToDelete = new Set<string>();
@@ -1256,7 +1315,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { ...d, users: newUsers, investors: newInvestors, borrowers: newBorrowers };
       });
     },
-    [toast]
+    [userId, toast]
   );
   
 

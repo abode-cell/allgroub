@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف' | 'مستثمر';
 
 export type PermissionKey = 
@@ -102,7 +103,7 @@ export type Transaction = {
   amount: number;
   description: string;
   withdrawalMethod?: WithdrawalMethod;
-  capitalSource?: 'installment' | 'grace'; // To specify which capital pool was used
+  capitalSource: 'installment' | 'grace'; // To specify which capital pool was used
   meta?: { [key: string]: any }; // For internal tracking, e.g., linking to a borrower status change
 };
 

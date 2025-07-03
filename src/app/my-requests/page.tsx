@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useDataState } from '@/contexts/data-context';
@@ -70,11 +71,14 @@ export default function MyRequestsPage() {
   if (!currentUser || !isEmployee) {
     return <PageSkeleton />;
   }
+  
+  const getInvestorInitialCapital = (investor: Investor): number => {
+    const capitalDeposit = investor.transactionHistory?.find(
+      (tx) => tx.type === 'إيداع رأس المال' && tx.description.includes('تأسيسي')
+    );
+    return capitalDeposit?.amount || 0;
+  };
 
-  const getInvestorCapital = (investor: Investor) => {
-    const initialDeposit = investor.transactionHistory.find(tx => tx.type === 'إيداع رأس المال' && tx.description.includes('تأسيسي'));
-    return initialDeposit ? initialDeposit.amount : 0;
-  }
 
   return (
     <div className="flex flex-col flex-1">
@@ -152,7 +156,7 @@ export default function MyRequestsPage() {
                     myInvestorRequests.map((investor) => (
                       <TableRow key={investor.id}>
                         <TableCell className="font-medium">{investor.name}</TableCell>
-                        <TableCell>{formatCurrency(getInvestorCapital(investor))}</TableCell>
+                        <TableCell>{formatCurrency(getInvestorInitialCapital(investor))}</TableCell>
                         <TableCell className="text-center">
                            <Badge variant={statusVariant[investor.status] || 'outline'}>
                                 {getStatusText(investor.status)}

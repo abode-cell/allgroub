@@ -135,7 +135,7 @@ const UserActions = ({ user, onDeleteClick, onEditClick, canEdit }: { user: User
   const isCurrentUser = user.id === currentUser?.id;
 
   if (isCurrentUser) {
-    return null; // Can't perform actions on yourself
+    return null;
   }
 
   return (
@@ -193,9 +193,14 @@ export default function UsersPage() {
   >({});
   
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-  const [roleToAdd, setRoleToAdd] = useState<'موظف' | 'مساعد مدير المكتب' | null>(null);
+  const [addUserForm, setAddUserForm] = useState<{
+    role: 'موظف' | 'مساعد مدير المكتب' | null;
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+  }>({ role: null, name: '', email: '', phone: '', password: '' });
   const [isSubmittingNewUser, setIsSubmittingNewUser] = useState(false);
-  const [newUser, setNewUser] = useState<NewUserPayload>({ name: '', email: '', phone: '', password: '' });
   
   const [isEditCredsDialogOpen, setIsEditCredsDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
@@ -273,7 +278,6 @@ export default function UsersPage() {
 
   const handleAccordionChange = (value: string) => {
     if (value) {
-      // only run on open
       const manager = officeManagers.find((m) => m.id === value);
       if (manager && !editableLimits[manager.id]) {
         setEditableLimits((prev) => ({
@@ -315,34 +319,31 @@ export default function UsersPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
-    setNewUser((prev) => ({ ...prev, [id]: value }));
+    setAddUserForm((prev) => ({ ...prev, [id]: value }));
   };
 
   const handleAddNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roleToAdd) return;
+    if (!addUserForm.role) return;
     
     setIsSubmittingNewUser(true);
-    const result = roleToAdd === 'موظف' 
-      ? await addEmployee(newUser)
-      : await addAssistant(newUser);
+    const { name, email, phone, password } = addUserForm;
+    const result = addUserForm.role === 'موظف' 
+      ? await addEmployee({ name, email, phone, password })
+      : await addAssistant({ name, email, phone, password });
       
     setIsSubmittingNewUser(false);
     if (result.success) {
-      setNewUser({ name: '', email: '', phone: '', password: '' });
-      setRoleToAdd(null);
+      setAddUserForm({ role: null, name: '', email: '', phone: '', password: '' });
       setIsAddUserDialogOpen(false);
     }
   };
 
-
-  // Data for System Admin
   const officeManagers = useMemo(() => users.filter((u) => u.role === 'مدير المكتب'), [users]);
   const otherUsers = useMemo(() => users.filter(
     (u) => u.role !== 'مدير المكتب' && u.role !== 'موظف' && u.role !== 'مساعد مدير المكتب'
   ), [users]);
 
-  // Data for Office Manager/Assistant
   const myEmployees = useMemo(() => {
     if (!currentUser) return [];
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
@@ -353,7 +354,6 @@ export default function UsersPage() {
     if (!currentUser || role !== 'مدير المكتب') return [];
     return users.filter((u) => u.managedBy === currentUser.id && u.role === 'مساعد مدير المكتب');
   }, [users, currentUser, role]);
-
 
   if (!currentUser || !canViewPage) {
     return <PageSkeleton />;
@@ -392,6 +392,7 @@ export default function UsersPage() {
                     return user?.managedBy === manager.id
                   }
                 );
+                const canEditCredentials = role === 'مدير النظام';
 
                 return (
                   <AccordionItem value={manager.id} key={manager.id}>
@@ -416,7 +417,7 @@ export default function UsersPage() {
                             )}
                             {manager.status}
                           </Badge>
-                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={true} />
+                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditCredentials} />
                         </div>
                       </div>
                     </AccordionPrimitive.Header>
@@ -590,7 +591,7 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-left">
-                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={true} />
+                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={role === 'مدير النظام'} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -606,8 +607,8 @@ export default function UsersPage() {
     const canAddAssistant = canManageAssistants && myAssistants.length < (currentUser.assistantLimit ?? 0);
     const canAddEmployee = role === 'مدير المكتب' && myEmployees.length < (currentUser.employeeLimit ?? 0);
     const canManageEmployees = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageEmployeePermissions);
+    const canEditCredentials = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings);
     
-    // Logic to find the correct manager for settings
     const managerIdForSettings = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
     const managerForSettings = users.find(u => u.id === managerIdForSettings);
 
@@ -639,7 +640,7 @@ export default function UsersPage() {
                 عرض وإدارة صلاحيات مساعدي مدير المكتب التابعين لك.
               </CardDescription>
             </div>
-             <Button size="sm" onClick={() => { setRoleToAdd('مساعد مدير المكتب'); setIsAddUserDialogOpen(true); }} disabled={!canAddAssistant}>
+             <Button size="sm" onClick={() => { setAddUserForm({ ...addUserForm, role: 'مساعد مدير المكتب' }); setIsAddUserDialogOpen(true); }} disabled={!canAddAssistant}>
                 <PlusCircle className="ml-2 h-4 w-4" />
                 إضافة مساعد
             </Button>
@@ -665,7 +666,7 @@ export default function UsersPage() {
                               )}
                               {assistant.status}
                             </Badge>
-                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={true} />
+                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditCredentials} />
                           </div>
                         </div>
                       </AccordionPrimitive.Header>
@@ -717,7 +718,7 @@ export default function UsersPage() {
               </CardDescription>
             </div>
             {role === 'مدير المكتب' && (
-                <Button size="sm" onClick={() => { setRoleToAdd('موظف'); setIsAddUserDialogOpen(true); }} disabled={!canAddEmployee}>
+                <Button size="sm" onClick={() => { setAddUserForm({ ...addUserForm, role: 'موظف' }); setIsAddUserDialogOpen(true); }} disabled={!canAddEmployee}>
                     <PlusCircle className="ml-2 h-4 w-4" />
                     إضافة موظف
                 </Button>
@@ -821,7 +822,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-left">
-                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.accessSettings)} />
+                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={canEditCredentials} />
                       </TableCell>
                     </TableRow>
                   ))
@@ -878,7 +879,7 @@ export default function UsersPage() {
        <Dialog open={isAddUserDialogOpen} onOpenChange={(open) => {
           if(!open) {
               setIsAddUserDialogOpen(false);
-              setNewUser({ name: '', email: '', phone: '', password: '' });
+              setAddUserForm({ role: null, name: '', email: '', phone: '', password: '' });
           } else {
               setIsAddUserDialogOpen(true);
           }
@@ -886,7 +887,7 @@ export default function UsersPage() {
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleAddNewUser}>
             <DialogHeader>
-              <DialogTitle>إضافة {roleToAdd === 'موظف' ? 'موظف' : 'مساعد'} جديد</DialogTitle>
+              <DialogTitle>إضافة {addUserForm.role === 'موظف' ? 'موظف' : 'مساعد'} جديد</DialogTitle>
               <DialogDescription>
                 أدخل بيانات المستخدم الجديد لإنشاء حساب له.
               </DialogDescription>
@@ -894,19 +895,19 @@ export default function UsersPage() {
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="name">الاسم الكامل</Label>
-                <Input id="name" value={newUser.name} onChange={handleInputChange} required />
+                <Input id="name" value={addUserForm.name} onChange={handleInputChange} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">البريد الإلكتروني</Label>
-                <Input id="email" type="email" value={newUser.email} onChange={handleInputChange} required />
+                <Input id="email" type="email" value={addUserForm.email} onChange={handleInputChange} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">رقم الجوال</Label>
-                <Input id="phone" type="tel" value={newUser.phone} onChange={handleInputChange} required />
+                <Input id="phone" type="tel" value={addUserForm.phone} onChange={handleInputChange} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">كلمة المرور</Label>
-                <Input id="password" type="password" value={newUser.password} onChange={handleInputChange} required />
+                <Input id="password" type="password" value={addUserForm.password} onChange={handleInputChange} required />
               </div>
             </div>
             <DialogFooter>

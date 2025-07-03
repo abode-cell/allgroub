@@ -23,19 +23,29 @@ export type DashboardMetricsOutput = ReturnType<typeof calculateAllDashboardMetr
 
 
 export function calculateInvestorFinancials(investor: Investor, allBorrowers: Borrower[]) {
-  const { deposits, withdrawals } = (investor.transactionHistory || []).reduce(
-    (acc, tx) => {
-      if (tx.type.includes('إيداع')) acc.deposits += tx.amount;
-      else if (tx.type.includes('سحب')) acc.withdrawals += tx.amount;
-      return acc;
-    },
-    { deposits: 0, withdrawals: 0 }
-  );
+  const { installmentDeposits, graceDeposits, installmentWithdrawals, graceWithdrawals } = 
+    (investor.transactionHistory || []).reduce(
+        (acc, tx) => {
+            if (tx.type.includes('إيداع')) {
+                if (tx.capitalSource === 'installment') acc.installmentDeposits += tx.amount;
+                else if (tx.capitalSource === 'grace') acc.graceDeposits += tx.amount;
+            } else if (tx.type.includes('سحب')) {
+                if (tx.capitalSource === 'installment') acc.installmentWithdrawals += tx.amount;
+                else if (tx.capitalSource === 'grace') acc.graceWithdrawals += tx.amount;
+            }
+            return acc;
+        },
+        { installmentDeposits: 0, graceDeposits: 0, installmentWithdrawals: 0, graceWithdrawals: 0 }
+    );
   
-  const totalCapitalInSystem = deposits - withdrawals;
-
-  let activeCapital = 0;
-  let defaultedFunds = 0;
+  const totalInstallmentCapital = installmentDeposits - installmentWithdrawals;
+  const totalGraceCapital = graceDeposits - graceWithdrawals;
+  const totalCapitalInSystem = totalInstallmentCapital + totalGraceCapital;
+  
+  let activeInstallmentCapital = 0;
+  let activeGraceCapital = 0;
+  let defaultedInstallmentFunds = 0;
+  let defaultedGraceFunds = 0;
 
   const fundedLoanIds = investor.fundedLoanIds || [];
   const fundedBorrowers = allBorrowers.filter(b => fundedLoanIds.includes(b.id));
@@ -49,20 +59,23 @@ export function calculateInvestorFinancials(investor: Investor, allBorrowers: Bo
     const isPendingOrRejected = loan.status === 'معلق' || loan.status === 'مرفوض';
 
     if (isDefaulted) {
-      defaultedFunds += fundingDetails.amount;
+        if (loan.loanType === 'اقساط') defaultedInstallmentFunds += fundingDetails.amount;
+        else defaultedGraceFunds += fundingDetails.amount;
     } else if (!isPaid && !isPendingOrRejected) {
-      activeCapital += fundingDetails.amount;
+        if (loan.loanType === 'اقساط') activeInstallmentCapital += fundingDetails.amount;
+        else activeGraceCapital += fundingDetails.amount;
     }
   }
   
-  const idleCapital = totalCapitalInSystem - activeCapital - defaultedFunds;
+  const activeCapital = activeInstallmentCapital + activeGraceCapital;
+  const defaultedFunds = defaultedInstallmentFunds + defaultedGraceFunds;
 
-  const installmentCapital = investor.investmentType === 'اقساط' ? idleCapital : 0;
-  const gracePeriodCapital = investor.investmentType === 'مهلة' ? idleCapital : 0;
+  const idleInstallmentCapital = totalInstallmentCapital - activeInstallmentCapital - defaultedInstallmentFunds;
+  const idleGraceCapital = totalGraceCapital - activeGraceCapital - defaultedGraceFunds;
   
   return {
-    installmentCapital: Math.max(0, installmentCapital),
-    gracePeriodCapital: Math.max(0, gracePeriodCapital),
+    installmentCapital: Math.max(0, idleInstallmentCapital),
+    gracePeriodCapital: Math.max(0, idleGraceCapital),
     activeCapital,
     defaultedFunds,
     totalCapitalInSystem
