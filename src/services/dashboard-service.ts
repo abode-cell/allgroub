@@ -103,7 +103,7 @@ function getFilteredData(input: CalculationInput) {
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
 
     if ((role === 'موظف' || role === 'مساعد مدير المكتب') && !managerId) {
-        console.error(`User ${currentUser.id} with role "${role}" has no assigned manager (managedBy). Returning empty data to prevent crash.`);
+        console.error(`User ${currentUser.id} with role "${role}" has no assigned manager (managedBy). This is a data integrity issue. Returning empty data to prevent a crash.`);
         return { filteredBorrowers: [], filteredInvestors: [] };
     }
 
