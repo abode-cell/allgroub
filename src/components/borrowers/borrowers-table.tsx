@@ -539,7 +539,7 @@ export function BorrowersTable({
                   type="number"
                   value={selectedBorrower.amount}
                    readOnly={selectedBorrower.status !== 'معلق'}
-                   className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50')}
+                   className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                   onChange={(e) =>
                     setSelectedBorrower({
                       ...selectedBorrower,
@@ -599,7 +599,7 @@ export function BorrowersTable({
                       step="0.1"
                       value={selectedBorrower.rate}
                       readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50')}
+                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,
@@ -618,7 +618,7 @@ export function BorrowersTable({
                       type="number"
                       value={selectedBorrower.term}
                       readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50')}
+                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,
@@ -640,7 +640,7 @@ export function BorrowersTable({
                       type="number"
                       value={selectedBorrower.discount || ''}
                       readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50')}
+                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,

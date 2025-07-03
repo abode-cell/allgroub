@@ -116,11 +116,11 @@ export default function InvestorsPage() {
 
   const investorsAddedByManager = useMemo(() => {
     if (!manager) return 0;
-    return investors.filter(i => {
+    return allInvestors.filter(i => {
       const investorUser = users.find(u => u.id === i.id);
       return investorUser?.managedBy === manager.id;
     }).length;
-  }, [investors, users, manager]);
+  }, [allInvestors, users, manager]);
 
   const canAddMoreInvestors = manager ? investorsAddedByManager < (manager.investorLimit ?? 0) : false;
 
@@ -160,7 +160,7 @@ export default function InvestorsPage() {
   };
 
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
-  const isAddButtonDisabled = isOfficeManager && !canAddMoreInvestors;
+  const isAddButtonDisabled = (isOfficeManager || isAssistant || isEmployee) && !canAddMoreInvestors;
       
   if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
     return <PageSkeleton />;
@@ -201,7 +201,7 @@ export default function InvestorsPage() {
               إدارة المستثمرين
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isOfficeManager && manager
+              {manager
                 ? `يمكنك إضافة ${Math.max(
                     0,
                     (manager.investorLimit ?? 0) - investorsAddedByManager

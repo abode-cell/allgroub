@@ -129,7 +129,7 @@ const assistantPermissionsConfig: {
   { key: 'manageEmployeePermissions', label: 'إدارة صلاحيات الموظفين', description: 'تمكين المساعد من تفعيل أو تعطيل صلاحيات الموظفين.' },
 ];
 
-const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void }) => {
+const UserActions = ({ user, onDeleteClick, onEditClick, canEdit }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void, canEdit: boolean }) => {
   const { updateUserStatus } = useDataActions();
   const { currentUser } = useDataState();
   const isCurrentUser = user.id === currentUser?.id;
@@ -159,10 +159,12 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                 <DropdownMenuItem onSelect={() => onEditClick(user)}>
-                    <Edit className="ml-2 h-4 w-4" />
-                    <span>تعديل بيانات الدخول</span>
-                </DropdownMenuItem>
+                 {canEdit && (
+                    <DropdownMenuItem onSelect={() => onEditClick(user)}>
+                        <Edit className="ml-2 h-4 w-4" />
+                        <span>تعديل بيانات الدخول</span>
+                    </DropdownMenuItem>
+                 )}
                 <DropdownMenuItem
                     className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                     onClick={() => onDeleteClick(user)}
@@ -246,8 +248,6 @@ export default function UsersPage() {
       if (result.success) {
         setIsEditCredsDialogOpen(false);
         setUserToEdit(null);
-      } else {
-        toast({ variant: 'destructive', title: 'خطأ', description: result.message });
       }
     } else {
       setIsEditCredsDialogOpen(false); // Close if no changes were made
@@ -324,12 +324,6 @@ export default function UsersPage() {
       setNewUser({ name: '', email: '', phone: '', password: '' });
       setRoleToAdd(null);
       setIsAddUserDialogOpen(false);
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'فشل الإنشاء',
-        description: result.message,
-      });
     }
   };
 
@@ -343,13 +337,14 @@ export default function UsersPage() {
   // Data for Office Manager/Assistant
   const myEmployees = useMemo(() => {
     if (!currentUser) return [];
-    return users.filter((u) => u.managedBy === (role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy) && u.role === 'موظف');
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    return users.filter((u) => u.managedBy === managerId && u.role === 'موظف');
   }, [users, role, currentUser]);
   
   const myAssistants = useMemo(() => {
-    if (!currentUser) return [];
+    if (!currentUser || role !== 'مدير المكتب') return [];
     return users.filter((u) => u.managedBy === currentUser.id && u.role === 'مساعد مدير المكتب');
-  }, [users, currentUser]);
+  }, [users, currentUser, role]);
 
 
   if (!currentUser || !canViewPage) {
@@ -413,7 +408,7 @@ export default function UsersPage() {
                             )}
                             {manager.status}
                           </Badge>
-                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
+                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={true} />
                         </div>
                       </div>
                     </AccordionPrimitive.Header>
@@ -587,7 +582,7 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-left">
-                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
+                     <UserActions user={user} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={true} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -608,8 +603,22 @@ export default function UsersPage() {
     const managerIdForSettings = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
     const managerForSettings = users.find(u => u.id === managerIdForSettings);
 
+    const pageTitle = role === 'مدير المكتب' ? 'إدارة فريق العمل' : 'إدارة الموظفين';
+    const pageDescription = role === 'مدير المكتب'
+        ? 'عرض وإدارة المساعدين والموظفين المرتبطين بحسابك وصلاحياتهم.'
+        : 'عرض وإدارة الموظفين المرتبطين بالمكتب.';
+
     return (
     <>
+      <header className='mb-8'>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {pageTitle}
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          {pageDescription}
+        </p>
+      </header>
+
       {canManageAssistants && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -648,7 +657,7 @@ export default function UsersPage() {
                               )}
                               {assistant.status}
                             </Badge>
-                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
+                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={true} />
                           </div>
                         </div>
                       </AccordionPrimitive.Header>
@@ -804,7 +813,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-left">
-                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
+                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} canEdit={true} />
                       </TableCell>
                     </TableRow>
                   ))
@@ -828,19 +837,7 @@ export default function UsersPage() {
     <>
       <div className="flex flex-col flex-1">
         <main className="flex-1 space-y-8 p-4 md:p-8">
-          <header>
-            <h1 className="text-3xl font-bold tracking-tight">
-              إدارة المستخدمين
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {role === 'مدير النظام'
-                ? 'عرض وإدارة حسابات العملاء والمستخدمين الآخرين في النظام.'
-                : 'عرض وإدارة المساعدين والموظفين المرتبطين بحسابك وصلاحياتهم.'}
-            </p>
-          </header>
-
-          {role === 'مدير النظام' && renderSystemAdminView()}
-          {(role === 'مدير المكتب' || role === 'مساعد مدير المكتب') && renderOfficeManagerView()}
+          {role === 'مدير النظام' ? renderSystemAdminView() : renderOfficeManagerView()}
         </main>
       </div>
 
@@ -899,7 +896,10 @@ export default function UsersPage() {
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="secondary" onClick={() => setNewUser({ name: '', email: '', phone: '', password: '' })}>
+                <Button type="button" variant="secondary" onClick={() => {
+                    setNewUser({ name: '', email: '', phone: '', password: '' });
+                    setIsAddUserDialogOpen(false);
+                }}>
                   إلغاء
                 </Button>
               </DialogClose>
