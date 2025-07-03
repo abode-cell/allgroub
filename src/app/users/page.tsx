@@ -133,30 +133,25 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
   const { updateUserStatus } = useDataActions();
   const { currentUser } = useDataState();
 
-  if (!currentUser) return null;
+  const { canEditCredentials, canDeleteUser, canUpdateUserStatus } = useMemo(() => {
+    if (!currentUser || user.id === currentUser.id) {
+        return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+    }
+    
+    // System admin cannot be modified by anyone
+    if (user.role === 'مدير النظام') {
+        return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+    }
 
-  // Refactored permissions logic for clarity and security
-  const canEditCredentials = useMemo(() => {
-    if (user.id === currentUser.id || user.role === 'مدير النظام') return false;
-    if (currentUser.role === 'مدير النظام') return true;
-    if (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) return true;
-    if (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.accessSettings && user.managedBy === currentUser.managedBy && user.role === 'موظف') return true;
-    return false;
-  }, [currentUser, user]);
+    const isSystemAdmin = currentUser.role === 'مدير النظام';
+    const isOfficeManager = currentUser.role === 'مدير المكتب';
+    const isAssistant = currentUser.role === 'مساعد مدير المكتب';
 
-  const canDeleteUser = useMemo(() => {
-    if (user.id === currentUser.id || user.role === 'مدير النظام') return false;
-    if (currentUser.role === 'مدير النظام') return true;
-    if (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) return true;
-    return false;
-  }, [currentUser, user]);
-
-  const canUpdateUserStatus = useMemo(() => {
-    if (user.id === currentUser.id || user.role === 'مدير النظام') return false;
-    if (currentUser.role === 'مدير النظام') return true;
-    if (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) return true;
-    if (currentUser.role === 'مساعد مدير المكتب' && user.managedBy === currentUser.managedBy && user.role === 'موظف') return true;
-    return false;
+    const canEdit = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && currentUser.permissions?.accessSettings && user.managedBy === currentUser.managedBy && user.role === 'موظف');
+    const canDelete = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
+    const canUpdateStatus = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && user.managedBy === currentUser.managedBy && user.role === 'موظف');
+    
+    return { canEditCredentials: canEdit, canDeleteUser: canDelete, canUpdateUserStatus: canUpdateStatus };
   }, [currentUser, user]);
 
   if (!canEditCredentials && !canDeleteUser && !canUpdateUserStatus) {
@@ -428,34 +423,34 @@ export default function UsersPage() {
                 return (
                   <AccordionItem value={manager.id} key={manager.id}>
                     <AccordionPrimitive.Header className="flex">
-                      <div className="flex flex-1 items-center justify-between hover:bg-muted/50 px-4 rounded-t-md">
-                        <AccordionTrigger className="flex-1 text-right p-0 hover:no-underline justify-start">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 py-4">
-                            <div className="font-bold text-base">
-                              {manager.name}
+                      <AccordionTrigger className="flex-1 text-right py-4 px-4 hover:no-underline hover:bg-muted/50 rounded-t-md justify-start">
+                          <div className="flex flex-1 items-center justify-between">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                              <div className="font-bold text-base">
+                                {manager.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground sm:text-sm">
+                                {manager.email}
+                              </div>
                             </div>
-                            <div className="text-xs text-muted-foreground sm:text-sm">
-                              {manager.email}
-                            </div>
+                            <Badge variant={statusVariant[manager.status]}>
+                              {manager.status === 'نشط' ? (
+                                <CheckCircle className="w-3 h-3 ml-1" />
+                              ) : (
+                                <Hourglass className="w-3 h-3 ml-1" />
+                              )}
+                              {manager.status}
+                            </Badge>
                           </div>
-                        </AccordionTrigger>
-                        <div className="flex items-center gap-4">
-                          <Badge variant={statusVariant[manager.status]}>
-                            {manager.status === 'نشط' ? (
-                              <CheckCircle className="w-3 h-3 ml-1" />
-                            ) : (
-                              <Hourglass className="w-3 h-3 ml-1" />
-                            )}
-                            {manager.status}
-                          </Badge>
-                          <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
-                        </div>
-                      </div>
+                      </AccordionTrigger>
                     </AccordionPrimitive.Header>
                     <AccordionContent className="bg-muted/30 p-4 border-l-4 border-primary space-y-6">
-                        <p className="text-xs text-muted-foreground">
-                            تاريخ التسجيل: {manager.registrationDate ? new Date(manager.registrationDate).toLocaleDateString('ar-SA') : 'غير محدد'}
-                        </p>
+                        <div className="flex justify-between items-center">
+                            <p className="text-xs text-muted-foreground">
+                                تاريخ التسجيل: {manager.registrationDate ? new Date(manager.registrationDate).toLocaleDateString('ar-SA') : 'غير محدد'}
+                            </p>
+                             <UserActions user={manager} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
+                        </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <Card>
                                 <CardHeader>
@@ -700,27 +695,27 @@ export default function UsersPage() {
                 {myAssistants.map((assistant) => (
                   <AccordionItem value={assistant.id} key={assistant.id}>
                        <AccordionPrimitive.Header className="flex">
-                        <div className="flex flex-1 items-center justify-between hover:bg-muted/50 px-4 rounded-t-md">
-                          <AccordionTrigger className="flex-1 text-right p-0 hover:no-underline justify-start">
-                              <div className="font-bold text-base py-4">
+                        <AccordionTrigger className="flex-1 text-right p-4 hover:no-underline hover:bg-muted/50 rounded-t-md justify-start">
+                          <div className="flex flex-1 items-center justify-between">
+                              <div className="font-bold text-base">
                                 {assistant.name}
                               </div>
-                          </AccordionTrigger>
-                          <div className="flex items-center gap-4">
-                            <Badge variant={statusVariant[assistant.status]}>
-                              {assistant.status === 'نشط' ? (
-                                <CheckCircle className="w-3 h-3 ml-1" />
-                              ) : (
-                                <Hourglass className="w-3 h-3 ml-1" />
-                              )}
-                              {assistant.status}
-                            </Badge>
-                            <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
+                              <Badge variant={statusVariant[assistant.status]}>
+                                {assistant.status === 'نشط' ? (
+                                  <CheckCircle className="w-3 h-3 ml-1" />
+                                ) : (
+                                  <Hourglass className="w-3 h-3 ml-1" />
+                                )}
+                                {assistant.status}
+                              </Badge>
                           </div>
-                        </div>
+                        </AccordionTrigger>
                       </AccordionPrimitive.Header>
                       <AccordionContent className="bg-muted/30 p-4">
                           <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <UserActions user={assistant} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
+                            </div>
                             <h4 className="font-semibold flex items-center gap-2">
                                   <ShieldCheck className="h-5 w-5 text-primary" />
                                   صلاحيات المساعد

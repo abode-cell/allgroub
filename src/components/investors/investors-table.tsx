@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -447,6 +447,7 @@ export function InvestorsTable({
           </DialogHeader>
           {selectedInvestor && (() => {
             const financials = calculateInvestorFinancials(selectedInvestor, borrowers);
+            const userDetails = users.find(u => u.id === selectedInvestor.id);
 
             return (
               <div className="grid gap-6 pt-4 text-sm">
@@ -479,6 +480,24 @@ export function InvestorsTable({
                         </div>
                     </div>
                 </div>
+                
+                {userDetails && (
+                    <div>
+                        <h4 className="font-semibold text-base mb-2 mt-2">معلومات التواصل</h4>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                            <div className='flex items-center gap-2'>
+                                <Mail className='h-4 w-4 text-muted-foreground'/>
+                                <span className='text-muted-foreground'>البريد:</span>
+                                <span className='font-bold float-left'>{userDetails.email}</span>
+                            </div>
+                            <div className='flex items-center gap-2'>
+                                <Phone className='h-4 w-4 text-muted-foreground'/>
+                                <span className='text-muted-foreground'>الجوال:</span>
+                                <span className='font-bold float-left'>{userDetails.phone}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div>
                     <h4 className="font-semibold text-base mb-2 mt-2">سجل العمليات</h4>

@@ -134,7 +134,7 @@ export default function CredentialsPage() {
                                       </TooltipProvider>
                                   </TableCell>
                                   <TableCell className="text-left">
-                                    <Button variant="outline" size="sm" onClick={() => handleEditClick(user)} disabled={user.id === currentUser.id}>
+                                    <Button variant="outline" size="sm" onClick={() => handleEditClick(user)} disabled={user.id === currentUser.id || user.role === 'مدير النظام'}>
                                       <Edit className="ml-2 h-4 w-4" />
                                       تعديل
                                     </Button>
