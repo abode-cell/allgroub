@@ -144,7 +144,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_cleared_v10'; // Incremented key to force clear old data on structural changes
+const APP_DATA_KEY = 'appData_cleared_v11'; // Incremented key to force clear old data on structural changes
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -522,9 +522,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const borrower = d.borrowers.find((b) => b.id === borrowerId);
         if (!borrower) return d;
 
-        const oldPaymentStatus = borrower.paymentStatus;
-        if (oldPaymentStatus === newPaymentStatus) return d;
-
         if (borrower.lastStatusChange) {
           const lastChangeTime = new Date(borrower.lastStatusChange).getTime();
           const now = new Date().getTime();
@@ -538,77 +535,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         }
         
-        let investorsToUpdate = new Map<string, Investor>();
-        
-        // This is a safe copy of investors who might be affected
-        if (borrower.fundedBy) {
-            borrower.fundedBy.forEach(funder => {
-                const inv = d.investors.find(i => i.id === funder.investorId);
-                if (inv) {
-                    investorsToUpdate.set(inv.id, { ...inv, transactionHistory: [...inv.transactionHistory] });
-                }
-            });
-        }
-        
-        const wasPaid = oldPaymentStatus === 'تم السداد';
-        const isPaid = newPaymentStatus === 'تم السداد';
-        
-        if (wasPaid) {
-            borrower.fundedBy?.forEach(funder => {
-                const investor = investorsToUpdate.get(funder.investorId);
-                if (!investor) return;
-                
-                const originalTxId = `tx_paid_${borrower.id}_${investor.id}`;
-                const originalTx = investor.transactionHistory.find(tx => tx.meta?.borrowerId === borrower.id && tx.id === originalTxId);
-
-                if (originalTx) {
-                  const reversalTx: Transaction = {
-                      id: `tx_reversal_${borrower.id}_${investor.id}_${crypto.randomUUID()}`,
-                      date: new Date().toISOString(),
-                      type: 'سحب من رأس المال',
-                      amount: originalTx.amount,
-                      description: `عكس عملية سداد القرض "${borrower.name}"`,
-                      meta: { reversedTxId: originalTx.id, borrowerId: borrower.id },
-                      capitalSource: originalTx.capitalSource
-                  };
-                  investor.transactionHistory.push(reversalTx);
-                }
-            });
-        }
-        
-        if (isPaid) {
-            borrower.fundedBy?.forEach(funder => {
-                const investor = investorsToUpdate.get(funder.investorId);
-                const investorUser = d.users.find(u => u.id === funder.investorId);
-                if (!investor || !investorUser) return;
-                
-                let profitForInvestor = 0;
-                if (borrower.loanType === 'اقساط' && borrower.rate && borrower.term) {
-                    const profitShare = investor.installmentProfitShare ?? d.investorSharePercentage;
-                    const interestOnFundedAmount = funder.amount * (borrower.rate / 100) * borrower.term;
-                    profitForInvestor = interestOnFundedAmount * (profitShare / 100);
-                } else if (borrower.loanType === 'مهلة') {
-                    const profitShare = investor.gracePeriodProfitShare ?? d.graceInvestorSharePercentage;
-                    const totalProfitOnFundedAmount = funder.amount * (d.graceTotalProfitPercentage / 100);
-                    profitForInvestor = totalProfitOnFundedAmount * (profitShare / 100);
-                }
-                
-                const totalAmount = funder.amount + profitForInvestor;
-                
-                const newTx: Transaction = {
-                    id: `tx_paid_${borrower.id}_${investor.id}`,
-                    date: new Date().toISOString(),
-                    type: 'إيداع رأس المال',
-                    amount: totalAmount,
-                    description: `إيداع رأس مال + أرباح من سداد قرض "${borrower.name}"`,
-                    meta: { borrowerId: borrower.id },
-                    capitalSource: investor.investmentType
-                };
-                investor.transactionHistory.push(newTx);
-            });
-        }
-
-        const finalInvestors = d.investors.map(inv => investorsToUpdate.get(inv.id) || inv);
         const newBorrowers = d.borrowers.map((b) =>
           b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus, lastStatusChange: new Date().toISOString() } : b
         );
@@ -616,7 +542,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const toastMessage = newPaymentStatus ? `تم تحديث حالة القرض إلى "${newPaymentStatus}".` : `تمت إزالة حالة السداد للقرض.`;
         toast({ title: 'اكتمل تحديث حالة السداد', description: toastMessage });
 
-        return { ...d, borrowers: newBorrowers, investors: finalInvestors };
+        return { ...d, borrowers: newBorrowers };
       });
     },
     [toast]
@@ -694,7 +620,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const newInvestors = d.investors.map(inv => {
             if (borrowerToDelete.fundedBy?.some(f => f.investorId === inv.id)) {
-                return { ...inv, fundedLoanIds: inv.fundedLoanIds.filter(id => id !== borrowerId) };
+                const currentFundedIds = inv.fundedLoanIds || [];
+                return { ...inv, fundedLoanIds: currentFundedIds.filter(id => id !== borrowerId) };
             }
             return inv;
         });
@@ -749,7 +676,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                         
                         const updatedInvestor = {
                             ...currentInvestorState,
-                            fundedLoanIds: [...currentInvestorState.fundedLoanIds, newId]
+                            fundedLoanIds: [...(currentInvestorState.fundedLoanIds || []), newId]
                         };
                         updatedInvestorsMap.set(invId, updatedInvestor);
                     }

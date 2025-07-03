@@ -45,8 +45,9 @@ export function InvestorDashboard() {
   const totalProfits = useMemo(() => {
     if (!investor) return 0;
 
+    const myFundedLoanIds = investor.fundedLoanIds || [];
     const myFundedLoans = borrowers.filter(b => 
-      b.fundedBy?.some(f => f.investorId === investor.id) &&
+      myFundedLoanIds.includes(b.id) &&
       (b.status !== 'معلق' && b.status !== 'مرفوض')
     );
       

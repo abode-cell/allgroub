@@ -37,7 +37,8 @@ export function calculateInvestorFinancials(investor: Investor, allBorrowers: Bo
   let activeCapital = 0;
   let defaultedFunds = 0;
 
-  const fundedBorrowers = allBorrowers.filter(b => investor.fundedLoanIds.includes(b.id));
+  const fundedLoanIds = investor.fundedLoanIds || [];
+  const fundedBorrowers = allBorrowers.filter(b => fundedLoanIds.includes(b.id));
 
   for (const loan of fundedBorrowers) {
     const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);

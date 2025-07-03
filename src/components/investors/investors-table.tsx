@@ -140,7 +140,8 @@ export function InvestorsTable({
     }
     
     // Calculate financial details for the message
-    const myFundedLoans = borrowers.filter(b => investor.fundedLoanIds.includes(b.id));
+    const myFundedLoanIds = investor.fundedLoanIds || [];
+    const myFundedLoans = borrowers.filter(b => myFundedLoanIds.includes(b.id));
     const totalProfits = myFundedLoans
         .filter(b => (b.status !== 'معلق' && b.status !== 'مرفوض'))
         .reduce((sum, loan) => {
