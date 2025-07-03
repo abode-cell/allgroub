@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -145,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_v_final_crash_fix_stable_2';
+const APP_DATA_KEY = 'appData_v_final_crash_fix_stable_3_final';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'isLoading'> = {
   borrowers: initialBorrowersData,
@@ -212,7 +213,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // This effect runs ONCE on mount to load and sanitize data.
     let loadedData;
     try {
       const item = window.localStorage.getItem(APP_DATA_KEY);
@@ -221,13 +221,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.warn(`Error reading localStorage. Using initial data.`, error);
       loadedData = initialDataState;
     }
-    
     setData(loadedData);
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    // This effect runs to SAVE data, only when it has been initialized.
     if (!isLoading) {
       try {
         window.localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
@@ -1452,10 +1450,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }),
     [currentUser, data, isLoading]
   );
-  
-  if (isLoading) {
-    return null; // Or a full-page loader
-  }
 
   return (
     <DataStateContext.Provider value={state}>
