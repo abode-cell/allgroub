@@ -1,3 +1,4 @@
+
 'use client';
 
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
@@ -153,7 +154,11 @@ export function DailySummary() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : (
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{summary}</p>
+          <div className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap p-4 bg-muted rounded-md border text-right">
+            {summary.split('**').map((part, index) =>
+              index % 2 === 1 ? <strong key={index}>{part}</strong> : <span key={index}>{part}</span>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

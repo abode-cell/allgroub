@@ -192,6 +192,7 @@ export default function UsersPage() {
   
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [roleToAdd, setRoleToAdd] = useState<'موظف' | 'مساعد مدير المكتب' | null>(null);
+  const [isSubmittingNewUser, setIsSubmittingNewUser] = useState(false);
   const [newUser, setNewUser] = useState<NewUserPayload>({ name: '', email: '', phone: '', password: '' });
   
   const [isEditCredsDialogOpen, setIsEditCredsDialogOpen] = useState(false);
@@ -313,16 +314,17 @@ export default function UsersPage() {
     e.preventDefault();
     if (!roleToAdd) return;
     
-    setIsAddUserDialogOpen(false); // Optimistically close
+    setIsSubmittingNewUser(true);
     const result = roleToAdd === 'موظف' 
       ? await addEmployee(newUser)
       : await addAssistant(newUser);
       
+    setIsSubmittingNewUser(false);
     if (result.success) {
       setNewUser({ name: '', email: '', phone: '', password: '' });
       setRoleToAdd(null);
+      setIsAddUserDialogOpen(false);
     } else {
-      setIsAddUserDialogOpen(true); // Re-open on error
       toast({
         variant: 'destructive',
         title: 'فشل الإنشاء',
@@ -901,7 +903,10 @@ export default function UsersPage() {
                   إلغاء
                 </Button>
               </DialogClose>
-              <Button type="submit">إنشاء الحساب</Button>
+              <Button type="submit" disabled={isSubmittingNewUser}>
+                {isSubmittingNewUser && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                إنشاء الحساب
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

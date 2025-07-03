@@ -37,7 +37,7 @@ const GenerateDailySummaryInputSchema = z.object({
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
 const GenerateDailySummaryOutputSchema = z.object({
-  summary: z.string().describe('ملخص يومي مفصل ومنسق بصيغة ماركداون باللغة العربية. استخدم النقاط (*) للتعداد والعلامات (**) لتغميق النص.'),
+  summary: z.string().describe('ملخص يومي مفصل ومنسق بصيغة ماركداون باللغة العربية. استخدم العناوين والنقاط (*) والعلامات (**) لتغميق النص.'),
 });
 export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
 
@@ -57,35 +57,35 @@ const prompt = ai.definePrompt({
 استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
 
 {{#if totalUsersCount}}
-أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا شاملًا عن صحة المنصة وأدائها.
+أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا شاملاً عن صحة المنصة وأدائها.
 
-**نظرة عامة على النظام:**
-* **إجمالي المستخدمين:** {{{totalUsersCount}}} مستخدم
-* **مدراء المكاتب النشطون:** {{{activeManagersCount}}} مدير
-* **الحسابات التي تنتظر التفعيل:** {{{pendingActivationsCount}}} طلب
+**نظرة عامة على النظام**
+* **إجمالي المستخدمين:** **{{{totalUsersCount}}}** مستخدم
+* **مدراء المكاتب النشطون:** **{{{activeManagersCount}}}** مدير
+* **الحسابات التي تنتظر التفعيل:** **{{{pendingActivationsCount}}}** طلب
 
-**النشاط المالي:**
-* **إجمالي رأس المال في النظام:** {{{totalCapitalInSystem}}} ريال
-* **إجمالي القروض النشطة:** {{{totalActiveLoansCount}}} قرض
+**النشاط المالي**
+* **إجمالي رأس المال في النظام:** **{{{totalCapitalInSystem}}}** ريال
+* **إجمالي القروض النشطة:** **{{{totalActiveLoansCount}}}** قرض
 
-**الدعم الفني:**
-* **طلبات الدعم الجديدة:** {{{newSupportTicketsCount}}} طلب
+**الدعم الفني**
+* **طلبات الدعم الجديدة:** **{{{newSupportTicketsCount}}}** طلب
 
 {{else}}
 أنت تتحدث إلى مدير مكتب. قدم ملخصًا مفصلاً عن الأداء المالي والتشغيلي لمكتبه.
 
-**نظرة عامة على النشاط:**
-* **إجمالي المقترضين:** {{{newBorrowersCount}}} مقترض
-* **إجمالي المستثمرين:** {{{newInvestorsCount}}} مستثمر
-* **إجمالي مبالغ القروض:** {{{totalLoansGranted}}} ريال
-* **إجمالي مبالغ الاستثمارات:** {{{totalNewInvestments}}} ريال
-* **الطلبات المعلقة للمراجعة:** {{{pendingRequestsCount}}} طلب
+**نظرة عامة على النشاط**
+* **إجمالي المقترضين:** **{{{newBorrowersCount}}}** مقترض
+* **إجمالي المستثمرين:** **{{{newInvestorsCount}}}** مستثمر
+* **إجمالي مبالغ القروض:** **{{{totalLoansGranted}}}** ريال
+* **إجمالي مبالغ الاستثمارات:** **{{{totalNewInvestments}}}** ريال
+* **الطلبات المعلقة للمراجعة:** **{{{pendingRequestsCount}}}** طلب
 
-**أداء المحفظة:**
-* **الأرباح الصافية:** {{{totalNetProfit}}} ريال
-* **القروض المتعثرة:** {{{defaultedLoansCount}}} قرض
-* **رأس المال النشط:** {{{activeCapital}}} ريال
-* **رأس المال الخامل:** {{{idleCapital}}} ريال
+**أداء المحفظة**
+* **الأرباح الصافية:** **{{{totalNetProfit}}}** ريال
+* **القروض المتعثرة:** **{{{defaultedLoansCount}}}** قرض
+* **رأس المال النشط:** **{{{activeCapital}}}** ريال
+* **رأس المال الخامل:** **{{{idleCapital}}}** ريال
 {{/if}}
 `,
 });
