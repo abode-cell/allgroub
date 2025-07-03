@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_perfected_final_1';
+export const APP_DATA_KEY = 'appData_v_final_production_ready';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -492,6 +492,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let remainingAmountToFund = loanToApprove.amount;
         let newInvestorsData = [...d.investors]; 
         const updatedInvestorsMap = new Map(newInvestorsData.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
+        let totalFundedAmount = 0;
 
         for (const invId of investorIds) {
             if (remainingAmountToFund <= 0) break;
@@ -499,13 +500,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const currentInvestorState = updatedInvestorsMap.get(invId);
             if (!currentInvestorState) continue;
             
-            // Re-fetch financials inside the update to avoid race conditions
             const freshFinancials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
             const availableCapital = loanToApprove.loanType === 'اقساط' ? freshFinancials.idleInstallmentCapital : freshFinancials.idleGraceCapital;
             
             const contribution = Math.min(availableCapital, remainingAmountToFund);
             if (contribution > 0) {
                 remainingAmountToFund -= contribution;
+                totalFundedAmount += contribution;
                 fundedByDetails.push({ investorId: invId, amount: contribution });
                 
                 if (currentInvestorState.fundedLoanIds) {
@@ -522,7 +523,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let approvedBorrower: Borrower | null = null;
         const newBorrowers = d.borrowers.map((b) => {
           if (b.id === borrowerId) {
-            approvedBorrower = { ...b, status: 'منتظم', fundedBy: fundedByDetails };
+            approvedBorrower = { 
+                ...b, 
+                status: 'منتظم', 
+                fundedBy: fundedByDetails,
+                // **CRITICAL FIX**: Update the loan amount to what was actually funded.
+                amount: totalFundedAmount,
+            };
             return approvedBorrower;
           }
           return b;
@@ -1336,6 +1343,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
           return d;
         }
+        
+        if (userToDelete.id === loggedInUser.id) {
+            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكنك حذف حسابك الخاص.' });
+            return d;
+        }
 
         if (userToDelete.role === 'مدير النظام') {
             toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف حساب مدير النظام.' });
@@ -1351,79 +1363,50 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         let blockingReason = '';
-        const userMap = new Map(d.users.map(u => [u.id, u]));
-        const idsToDelete = new Set<string>([userIdToDelete]);
         if (userToDelete.role === 'مدير المكتب') {
           const managedEmployees = d.users.filter(u => u.managedBy === userIdToDelete && u.role === 'موظف');
           const managedAssistants = d.users.filter(u => u.managedBy === userIdToDelete && u.role === 'مساعد مدير المكتب');
           const managedInvestors = d.investors.filter(i => {
-              const invUser = userMap.get(i.id);
+              const invUser = d.users.find(u => u.id === i.id);
               return invUser?.managedBy === userIdToDelete;
           });
 
           if (managedEmployees.length > 0 || managedAssistants.length > 0 || managedInvestors.length > 0) {
               blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedEmployees.length} موظف/مساعد و ${managedInvestors.length} مستثمر. يرجى حذفهم أولاً.`;
           }
-        }
-        
-        idsToDelete.forEach(id => {
-            if(blockingReason) return;
-            const user = userMap.get(id);
-            if (!user) return;
-            
-            if (user.role === 'مستثمر') {
-                const investorData = d.investors.find(i => i.id === id);
-                if (investorData) {
-                    const financials = calculateInvestorFinancials(investorData, d.borrowers);
-                    if (financials.activeCapital > 0) {
-                        blockingReason = `لا يمكن الحذف لوجود أموال نشطة مرتبطة بالمستثمر "${investorData.name}".`;
-                    }
-                }
-            } else {
-                const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === id && (b.status === 'منتظم' || b.status === 'متأخر'));
-                if (activeLoansSubmitted) {
-                    blockingReason = `لا يمكن الحذف لوجود قروض نشطة قدمها المستخدم "${user.name}".`;
+        } else if (userToDelete.role === 'مستثمر') {
+            const investorData = d.investors.find(i => i.id === userIdToDelete);
+            if (investorData) {
+                const financials = calculateInvestorFinancials(investorData, d.borrowers);
+                if (financials.activeCapital > 0) {
+                    blockingReason = `لا يمكن الحذف لوجود أموال نشطة مرتبطة بالمستثمر "${investorData.name}".`;
                 }
             }
-        });
+        } else { // Employee or Assistant
+            const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === userIdToDelete && (b.status === 'منتظم' || b.status === 'متأخر'));
+            if (activeLoansSubmitted) {
+                blockingReason = `لا يمكن الحذف لوجود قروض نشطة قدمها المستخدم "${userToDelete.name}".`;
+            }
+        }
     
         if (blockingReason) {
             toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: blockingReason, duration: 5000 });
             return d;
         }
         
-        const investorIdsToDelete = new Set<string>();
-        idsToDelete.forEach(id => {
-          const user = userMap.get(id);
-          if (user?.role === 'مستثمر') {
-            investorIdsToDelete.add(id);
+        const newUsers = d.users.filter((u) => u.id !== userIdToDelete);
+        const newInvestors = d.investors.filter((i) => i.id !== userIdToDelete);
+        const newBorrowers = d.borrowers.map(b => {
+          if (b.fundedBy?.some(f => f.investorId === userIdToDelete)) {
+            return {
+              ...b,
+              fundedBy: b.fundedBy.filter(f => f.investorId !== userIdToDelete)
+            };
           }
-        });
-    
-        let newBorrowers = d.borrowers;
-        if (investorIdsToDelete.size > 0) {
-          newBorrowers = d.borrowers.map(borrower => {
-              const fundedBy = borrower.fundedBy || [];
-              if (fundedBy.some(funder => investorIdsToDelete.has(funder.investorId))) {
-                return {
-                  ...borrower,
-                  fundedBy: fundedBy.filter(funder => !investorIdsToDelete.has(funder.investorId))
-                };
-              }
-              return borrower;
-            })
-        }
-    
-        const newUsers = d.users.filter((u) => !idsToDelete.has(u.id));
-        const newInvestors = d.investors.filter((i) => !idsToDelete.has(i.id));
-        
-        const numDeleted = idsToDelete.size;
-        const toastMessage =
-          userToDelete.role === 'مدير المكتب' && numDeleted > 1
-            ? `تم حذف المدير و ${numDeleted - 1} من الحسابات المرتبطة به.`
-            : 'تم حذف المستخدم بنجاح.';
-        toast({ variant: 'destructive', title: 'اكتمل الحذف', description: toastMessage, });
+          return b;
+        }).filter(b => b.submittedBy !== userIdToDelete);
 
+        toast({ variant: 'destructive', title: 'اكتمل الحذف', description: `تم حذف المستخدم "${userToDelete.name}" بنجاح.` });
         return { ...d, users: newUsers, investors: newInvestors, borrowers: newBorrowers };
       });
     },

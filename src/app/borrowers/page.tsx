@@ -51,6 +51,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -279,6 +280,19 @@ export default function BorrowersPage() {
       );
   }, [investors, allBorrowers, newBorrower.loanType]);
 
+  const hasAvailableInvestorsForType = (type: 'اقساط' | 'مهلة') => {
+    return investors.some(i => {
+        if (i.status !== 'نشط' || i.investmentType !== type) return false;
+        const financials = calculateInvestorFinancials(i, allBorrowers);
+        const capital = type === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
+        return capital > 0;
+    });
+  };
+  
+  const canAddInstallmentLoan = hasAvailableInvestorsForType('اقساط');
+  const canAddGraceLoan = hasAvailableInvestorsForType('مهلة');
+  const canAddAnyLoan = canAddInstallmentLoan || canAddGraceLoan;
+
   return (
     <div className="flex flex-col flex-1">
       <main className="flex-1 space-y-8 p-4 md:p-8">
@@ -292,12 +306,25 @@ export default function BorrowersPage() {
           {showAddButton && (
           <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsAddDialogOpen(open); }}>
             <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="ml-2 h-4 w-4" />
-                {isEmployee || isAssistant ? (isDirectAdditionEnabled ? 'إضافة قرض' : 'رفع طلب إضافة قرض') : 'إضافة قرض'}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                      <span tabIndex={isPendingRequest || canAddAnyLoan ? undefined : 0}>
+                        <Button disabled={!isPendingRequest && !canAddAnyLoan}>
+                            <PlusCircle className="ml-2 h-4 w-4" />
+                            {isEmployee || isAssistant ? (isDirectAdditionEnabled ? 'إضافة قرض' : 'رفع طلب إضافة قرض') : 'إضافة قرض'}
+                        </Button>
+                      </span>
+                  </TooltipTrigger>
+                  {(!isPendingRequest && !canAddAnyLoan) && (
+                    <TooltipContent>
+                        <p>لا يوجد مستثمرون نشطون لديهم رأس مال متاح لإضافة قرض جديد.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
               <form onSubmit={handleAddBorrower}>
                 <DialogHeader>
                   <DialogTitle>{getDialogTitle()}</DialogTitle>
@@ -355,11 +382,11 @@ export default function BorrowersPage() {
                       className="col-span-3 flex gap-4 rtl:space-x-reverse"
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="اقساط" id="r1" />
+                        <RadioGroupItem value="اقساط" id="r1" disabled={!isPendingRequest && !canAddInstallmentLoan} />
                         <Label htmlFor="r1">أقساط</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="مهلة" id="r2" />
+                        <RadioGroupItem value="مهلة" id="r2" disabled={!isPendingRequest && !canAddGraceLoan}/>
                         <Label htmlFor="r2">مهلة</Label>
                       </div>
                     </RadioGroup>

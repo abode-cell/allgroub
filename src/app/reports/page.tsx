@@ -116,7 +116,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { borrowers, investors, currentUser } = useDataState();
+  const { borrowers: allBorrowers, investors: allInvestors, currentUser, users } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;
@@ -127,6 +127,27 @@ export default function ReportsPage() {
       router.replace('/');
     }
   }, [currentUser, hasAccess, router]);
+
+  // Filter data based on user role
+  const { borrowers, investors } = useMemo(() => {
+    if (!currentUser) return { borrowers: [], investors: [] };
+    if (role === 'مدير النظام') return { borrowers: allBorrowers, investors: allInvestors };
+    
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    if (!managerId) return { borrowers: [], investors: [] };
+
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+
+    const filteredBorrowers = allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
+    const filteredInvestors = allInvestors.filter(i => {
+        const investorUser = users.find(u => u.id === i.id);
+        return investorUser?.managedBy === managerId;
+    });
+
+    return { borrowers: filteredBorrowers, investors: filteredInvestors };
+  }, [currentUser, allBorrowers, allInvestors, users, role]);
+
 
   const getInvestorInfoForLoan = (loan: Borrower): React.ReactNode => {
     if (!loan.fundedBy || loan.fundedBy.length === 0) {
