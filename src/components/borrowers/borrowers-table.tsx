@@ -225,7 +225,8 @@ export function BorrowersTable({
     setSelectedBorrower(null);
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!selectedBorrower) return;
     
     updateBorrower(selectedBorrower);
@@ -258,7 +259,7 @@ export function BorrowersTable({
   };
 
   const generatePaymentSchedule = (borrower: Borrower): Payment[] => {
-    if (borrower.loanType !== 'اقساط' || !borrower.term || !borrower.rate) {
+    if (borrower.loanType !== 'اقساط' || !borrower.term || !borrower.rate || borrower.term <= 0) {
       return [];
     }
 
@@ -574,194 +575,197 @@ export function BorrowersTable({
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>تعديل القرض</DialogTitle>
-            <DialogDescription>
-              قم بتحديث تفاصيل القرض هنا. لا يمكن تعديل البيانات المالية (المبلغ، الفائدة، إلخ) بعد الموافقة على القرض. انقر على حفظ عند الانتهاء.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedBorrower && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name-edit" className="text-right">
-                  الاسم
-                </Label>
-                <Input
-                  id="name-edit"
-                  value={selectedBorrower.name}
-                  onChange={(e) =>
-                    setSelectedBorrower({
-                      ...selectedBorrower,
-                      name: e.target.value,
-                    })
-                  }
-                  className="col-span-3"
-                />
-              </div>
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone-edit" className="text-right">
-                  الجوال
-                </Label>
-                <Input
-                  id="phone-edit"
-                  value={selectedBorrower.phone}
-                  onChange={(e) =>
-                    setSelectedBorrower({
-                      ...selectedBorrower,
-                      phone: e.target.value,
-                    })
-                  }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount-edit" className="text-right">
-                  المبلغ
-                </Label>
-                <Input
-                  id="amount-edit"
-                  type="number"
-                  value={selectedBorrower.amount}
-                   readOnly={selectedBorrower.status !== 'معلق'}
-                   className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
-                  onChange={(e) =>
-                    setSelectedBorrower({
-                      ...selectedBorrower,
-                      amount: Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
+          <form onSubmit={handleSaveChanges}>
+            <DialogHeader>
+              <DialogTitle>تعديل القرض</DialogTitle>
+              <DialogDescription>
+                قم بتحديث تفاصيل القرض هنا. لا يمكن تعديل البيانات المالية بعد الموافقة على القرض. انقر على حفظ عند الانتهاء.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedBorrower && (
+              <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">نوع التمويل</Label>
-                    <RadioGroup
-                        value={selectedBorrower.loanType}
-                        disabled={selectedBorrower.status !== 'معلق'}
-                        onValueChange={(value) => {
-                          const newType = value as 'اقساط' | 'مهلة';
-                          setSelectedBorrower(prev => {
-                              if (!prev) return null;
-                              if (newType === 'اقساط') {
-                                  return {
-                                      ...prev,
-                                      loanType: newType,
-                                      discount: 0,
-                                  };
-                              } else {
-                                  return {
-                                      ...prev,
-                                      loanType: newType,
-                                      rate: 0,
-                                      term: 0,
-                                  };
-                              }
-                          });
-                        }}
-                        className="col-span-3 flex gap-4 rtl:space-x-reverse"
-                        >
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="اقساط" id="edit-r1" />
-                            <Label htmlFor="edit-r1">أقساط</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="مهلة" id="edit-r2" />
-                            <Label htmlFor="edit-r2">مهلة</Label>
-                        </div>
-                    </RadioGroup>
+                  <Label htmlFor="name-edit" className="text-right">
+                    الاسم
+                  </Label>
+                  <Input
+                    id="name-edit"
+                    value={selectedBorrower.name}
+                    onChange={(e) =>
+                      setSelectedBorrower({
+                        ...selectedBorrower,
+                        name: e.target.value,
+                      })
+                    }
+                    className="col-span-3"
+                  />
                 </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="phone-edit" className="text-right">
+                    الجوال
+                  </Label>
+                  <Input
+                    id="phone-edit"
+                    value={selectedBorrower.phone}
+                    onChange={(e) =>
+                      setSelectedBorrower({
+                        ...selectedBorrower,
+                        phone: e.target.value,
+                      })
+                    }
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount-edit" className="text-right">
+                    المبلغ
+                  </Label>
+                  <Input
+                    id="amount-edit"
+                    type="number"
+                    value={selectedBorrower.amount}
+                     readOnly={selectedBorrower.status !== 'معلق'}
+                     className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
+                    onChange={(e) =>
+                      setSelectedBorrower({
+                        ...selectedBorrower,
+                        amount: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                      <Label className="text-right">نوع التمويل</Label>
+                      <RadioGroup
+                          value={selectedBorrower.loanType}
+                          disabled={selectedBorrower.status !== 'معلق'}
+                          onValueChange={(value) => {
+                            const newType = value as 'اقساط' | 'مهلة';
+                            setSelectedBorrower(prev => {
+                                if (!prev) return null;
+                                if (newType === 'اقساط') {
+                                    return {
+                                        ...prev,
+                                        loanType: newType,
+                                        discount: 0,
+                                    };
+                                } else {
+                                    return {
+                                        ...prev,
+                                        loanType: newType,
+                                        rate: 0,
+                                        term: 0,
+                                    };
+                                }
+                            });
+                          }}
+                          className="col-span-3 flex gap-4 rtl:space-x-reverse"
+                          >
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="اقساط" id="edit-r1" />
+                              <Label htmlFor="edit-r1">أقساط</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="مهلة" id="edit-r2" />
+                              <Label htmlFor="edit-r2">مهلة</Label>
+                          </div>
+                      </RadioGroup>
+                  </div>
 
-               {selectedBorrower.loanType === 'اقساط' && (
-                 <>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="rate-edit" className="text-right">
-                      الفائدة
-                    </Label>
-                    <Input
-                      id="rate-edit"
-                      type="number"
-                      step="0.1"
-                      value={selectedBorrower.rate}
-                      readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
-                      onChange={(e) =>
-                        setSelectedBorrower({
-                          ...selectedBorrower,
-                          rate: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="term-edit" className="text-right">
-                      المدة (سنوات)
-                    </Label>
-                    <Input
-                      id="term-edit"
-                      type="number"
-                      value={selectedBorrower.term}
-                      readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
-                      onChange={(e) =>
-                        setSelectedBorrower({
-                          ...selectedBorrower,
-                          term: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                 </>
-               )}
-               {selectedBorrower.loanType === 'مهلة' && (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="discount-edit" className="text-right">
-                      الخصم
-                    </Label>
-                    <Input
-                      id="discount-edit"
-                      type="number"
-                      value={selectedBorrower.discount || ''}
-                      readOnly={selectedBorrower.status !== 'معلق'}
-                      className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
-                      onChange={(e) =>
-                        setSelectedBorrower({
-                          ...selectedBorrower,
-                          discount: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-               )}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="dueDate-edit" className="text-right">
-                  تاريخ الاستحقاق
-                </Label>
-                <Input
-                  id="dueDate-edit"
-                  type="date"
-                  value={selectedBorrower.dueDate}
-                  onChange={(e) =>
-                    setSelectedBorrower({
-                      ...selectedBorrower,
-                      dueDate: e.target.value,
-                    })
-                  }
-                  className="col-span-3"
-                />
+                 {selectedBorrower.loanType === 'اقساط' && (
+                   <>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="rate-edit" className="text-right">
+                        الفائدة
+                      </Label>
+                      <Input
+                        id="rate-edit"
+                        type="number"
+                        step="0.1"
+                        value={selectedBorrower.rate}
+                        readOnly={selectedBorrower.status !== 'معلق'}
+                        className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
+                        onChange={(e) =>
+                          setSelectedBorrower({
+                            ...selectedBorrower,
+                            rate: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="term-edit" className="text-right">
+                        المدة (سنوات)
+                      </Label>
+                      <Input
+                        id="term-edit"
+                        type="number"
+                        value={selectedBorrower.term}
+                        readOnly={selectedBorrower.status !== 'معلق'}
+                        className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
+                        onChange={(e) =>
+                          setSelectedBorrower({
+                            ...selectedBorrower,
+                            term: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                   </>
+                 )}
+                 {selectedBorrower.loanType === 'مهلة' && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="discount-edit" className="text-right">
+                        الخصم
+                      </Label>
+                      <Input
+                        id="discount-edit"
+                        type="number"
+                        value={selectedBorrower.discount || ''}
+                        readOnly={selectedBorrower.status !== 'معلق'}
+                        className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
+                        onChange={(e) =>
+                          setSelectedBorrower({
+                            ...selectedBorrower,
+                            discount: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                 )}
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="dueDate-edit" className="text-right">
+                    تاريخ الاستحقاق
+                  </Label>
+                  <Input
+                    id="dueDate-edit"
+                    type="date"
+                    value={selectedBorrower.dueDate}
+                    onChange={(e) =>
+                      setSelectedBorrower({
+                        ...selectedBorrower,
+                        dueDate: e.target.value,
+                      })
+                    }
+                    className="col-span-3"
+                  />
+                </div>
               </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsEditDialogOpen(false)}
-            >
-              إلغاء
-            </Button>
-            <Button type="button" onClick={handleSaveChanges}>
-             حفظ التغييرات
-            </Button>
-          </DialogFooter>
+            )}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="secondary"
+                >
+                  إلغاء
+                </Button>
+              </DialogClose>
+              <Button type="submit">
+               حفظ التغييرات
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
       <Dialog

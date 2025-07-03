@@ -142,7 +142,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_secure_v_ultimate';
+export const APP_DATA_KEY = 'appData_v_ultimate_final_v2_sanitized';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -419,13 +419,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const originalBorrower = d.borrowers.find(b => b.id === updatedBorrower.id);
         if (!originalBorrower) return d;
 
-        if (originalBorrower.status !== 'معلق' && updatedBorrower.amount !== originalBorrower.amount) {
-            toast({
-                variant: 'destructive',
-                title: 'خطأ',
-                description: 'لا يمكن تغيير مبلغ قرض نشط.',
-            });
-            return d;
+        if (originalBorrower.status !== 'معلق') {
+            const financialFieldsChanged = updatedBorrower.amount !== originalBorrower.amount ||
+                                           updatedBorrower.rate !== originalBorrower.rate ||
+                                           updatedBorrower.term !== originalBorrower.term;
+            if (financialFieldsChanged) {
+              toast({
+                  variant: 'destructive',
+                  title: 'خطأ',
+                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة) لقرض نشط.',
+              });
+              return d;
+            }
         }
 
         if (updatedBorrower.loanType !== originalBorrower.loanType) {
@@ -1009,6 +1014,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
+            
+            if (d.users.some((u) => u.email === payload.email || u.phone === payload.phone)) {
+                result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
+                return d;
+            }
+            if (!payload.password || payload.password.length < 6) {
+                result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
+                return d;
+            }
 
             const isEmployee = role === 'موظف';
             const limit = isEmployee ? loggedInUser.employeeLimit : loggedInUser.assistantLimit;
@@ -1020,16 +1036,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return d;
             }
 
-            if (d.users.some((u) => u.email === payload.email || u.phone === payload.phone)) {
-                result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
-            if (!payload.password || payload.password.length < 6) {
-                result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
 
             const newId = `user_${isEmployee ? 'emp' : 'asst'}_${Date.now()}`;
             const newUser: User = {
@@ -1110,7 +1116,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateUserCredentials = useCallback(
-    async (userIdToUpdate, updates) => {
+    async (userIdToUpdate: string, updates: { email?: string; password?: string }) => {
       let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
@@ -1124,12 +1130,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
              return d;
         }
 
-        const canEdit = 
-            loggedInUser.role === 'مدير النظام' || 
-            (loggedInUser.role === 'مدير المكتب' && userToUpdate.managedBy === loggedInUser.id) ||
-            (loggedInUser.role === 'مساعد مدير المكتب' && loggedInUser.permissions?.accessSettings && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف');
+        const isSystemAdmin = loggedInUser.role === 'مدير النظام';
+        const isOfficeManager = loggedInUser.role === 'مدير المكتب';
+        const isAssistant = loggedInUser.role === 'مساعد مدير المكتب';
+
+        const canEdit = isSystemAdmin || 
+                        (isOfficeManager && userToUpdate.managedBy === loggedInUser.id) ||
+                        (isAssistant && loggedInUser.permissions?.accessSettings && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف');
         
-        if (!canEdit) {
+        if (!canEdit || userToUpdate.role === 'مدير النظام') {
             result = { success: false, message: 'ليس لديك الصلاحية لتعديل هذا المستخدم.' };
             return d;
         }

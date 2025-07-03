@@ -146,6 +146,9 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
     const isSystemAdmin = currentUser.role === 'مدير النظام';
     const isOfficeManager = currentUser.role === 'مدير المكتب';
     const isAssistant = currentUser.role === 'مساعد مدير المكتب';
+    
+    // A subordinate cannot edit their manager
+    if(user.id === currentUser.managedBy) return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
 
     const canEdit = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && currentUser.permissions?.accessSettings && user.managedBy === currentUser.managedBy && user.role === 'موظف');
     const canDelete = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
@@ -273,7 +276,8 @@ export default function UsersPage() {
     setEditCredsForm(prev => ({ ...prev, [id]: value }));
   };
   
-  const handleSaveCredentials = async () => {
+  const handleSaveCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!userToEdit) return;
     setIsCredsSubmitting(true);
     
@@ -289,7 +293,6 @@ export default function UsersPage() {
       const result = await updateUserCredentials(userToEdit.id, updates);
       if (result.success) {
         setIsEditCredsDialogOpen(false);
-        setUserToEdit(null);
       }
     } else {
       setIsEditCredsDialogOpen(false); // Close if no changes were made
@@ -985,45 +988,47 @@ export default function UsersPage() {
           setIsEditCredsDialogOpen(open);
       }}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>تعديل بيانات دخول {userToEdit?.name}</DialogTitle>
-            <DialogDescription>
-              قم بتحديث البريد الإلكتروني أو كلمة المرور. اترك حقل كلمة المرور فارغًا لإبقائها كما هي.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="email-edit">البريد الإلكتروني</Label>
-              <Input
-                id="email"
-                type="email"
-                value={editCredsForm.email}
-                onChange={handleCredsFormChange}
-                required
-              />
+          <form onSubmit={handleSaveCredentials}>
+            <DialogHeader>
+              <DialogTitle>تعديل بيانات دخول {userToEdit?.name}</DialogTitle>
+              <DialogDescription>
+                قم بتحديث البريد الإلكتروني أو كلمة المرور. اترك حقل كلمة المرور فارغًا لإبقائها كما هي.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="email-edit">البريد الإلكتروني</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={editCredsForm.email}
+                  onChange={handleCredsFormChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password-edit">كلمة المرور الجديدة</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={editCredsForm.password}
+                  onChange={handleCredsFormChange}
+                  placeholder="اتركه فارغًا لعدم التغيير"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password-edit">كلمة المرور الجديدة</Label>
-              <Input
-                id="password"
-                type="password"
-                value={editCredsForm.password}
-                onChange={handleCredsFormChange}
-                placeholder="اتركه فارغًا لعدم التغيير"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="secondary">
-                إلغاء
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  إلغاء
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isCredsSubmitting}>
+                {isCredsSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                حفظ التغييرات
               </Button>
-            </DialogClose>
-            <Button type="button" onClick={handleSaveCredentials} disabled={isCredsSubmitting}>
-              {isCredsSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-              حفظ التغييرات
-            </Button>
-          </DialogFooter>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </>
