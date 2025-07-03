@@ -4,6 +4,7 @@
  */
 
 import type { Borrower, Investor, User } from '@/lib/types';
+import { getBorrowerStatus } from '@/lib/utils';
 
 interface CalculationInput {
     borrowers: Borrower[];
@@ -53,7 +54,9 @@ function getFilteredData(input: CalculationInput) {
 function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor[], config: CalculationInput['config']) {
     const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
     const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
-    const installmentDefaultedLoans = installmentLoans.filter(b => b.status === 'متعثر');
+    const installmentDefaultedLoans = installmentLoans.filter(b => 
+        b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه'
+    );
     const installmentDefaultedFunds = installmentDefaultedLoans.reduce((acc, b) => acc + b.amount, 0);
     const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
     
@@ -93,8 +96,15 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
 
     const investorProfitsArray = Object.values(investorProfits);
 
+    const today = new Date();
     const dueDebts = installmentLoans
-        .filter(b => b.status === 'متأخر')
+        .filter(b => {
+            if (b.status === 'مسدد بالكامل' || b.status === 'متعثر' || b.paymentStatus === 'تم السداد' || b.paymentStatus === 'متعثر') {
+                return false;
+            }
+            const statusDetails = getBorrowerStatus(b, today);
+            return statusDetails.text.includes('متأخر');
+        })
         .reduce((acc, b) => acc + b.amount, 0);
     
     const profitableInstallmentLoansForAccordion = profitableInstallmentLoans.map(loan => {
@@ -147,10 +157,22 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     );
 
     const loansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
-    const defaultedFunds = gracePeriodLoans.filter(b => b.status === 'متعثر').reduce((acc, b) => acc + b.amount, 0);
+    const defaultedFunds = gracePeriodLoans.filter(b => 
+        b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه'
+    ).reduce((acc, b) => acc + b.amount, 0);
     const defaultRate = loansGranted > 0 ? (defaultedFunds / loansGranted) * 100 : 0;
     const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
-    const dueDebts = gracePeriodLoans.filter(b => b.status === 'متأخر').reduce((acc, b) => acc + b.amount, 0);
+    
+    const today = new Date();
+    const dueDebts = gracePeriodLoans
+        .filter(b => {
+            if (b.status === 'مسدد بالكامل' || b.status === 'متعثر' || b.paymentStatus === 'تم السداد' || b.paymentStatus === 'متعثر') {
+                return false;
+            }
+            const statusDetails = getBorrowerStatus(b, today);
+            return statusDetails.text.includes('متأخر');
+        })
+        .reduce((acc, b) => acc + b.amount, 0);
     
     let totalInstitutionProfit = 0;
     let totalInvestorsProfit = 0;
