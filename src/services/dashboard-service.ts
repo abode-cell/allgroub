@@ -20,6 +20,54 @@ interface CalculationInput {
 
 export type DashboardMetricsOutput = ReturnType<typeof calculateAllDashboardMetrics>;
 
+
+export function calculateInvestorFinancials(investor: Investor, allBorrowers: Borrower[]) {
+  const { deposits, withdrawals } = investor.transactionHistory.reduce(
+    (acc, tx) => {
+      if (tx.type.includes('إيداع')) acc.deposits += tx.amount;
+      else if (tx.type.includes('سحب')) acc.withdrawals += tx.amount;
+      return acc;
+    },
+    { deposits: 0, withdrawals: 0 }
+  );
+  
+  const totalCapitalInSystem = deposits - withdrawals;
+
+  let activeCapital = 0;
+  let defaultedFunds = 0;
+
+  const fundedBorrowers = allBorrowers.filter(b => investor.fundedLoanIds.includes(b.id));
+
+  for (const loan of fundedBorrowers) {
+    const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
+    if (!fundingDetails) continue;
+
+    const isDefaulted = loan.status === 'متعثر' || loan.paymentStatus === 'متعثر' || loan.paymentStatus === 'تم اتخاذ الاجراءات القانونيه';
+    const isPaid = loan.status === 'مسدد بالكامل' || loan.paymentStatus === 'تم السداد';
+    const isPendingOrRejected = loan.status === 'معلق' || loan.status === 'مرفوض';
+
+    if (isDefaulted) {
+      defaultedFunds += fundingDetails.amount;
+    } else if (!isPaid && !isPendingOrRejected) {
+      activeCapital += fundingDetails.amount;
+    }
+  }
+  
+  const idleCapital = totalCapitalInSystem - activeCapital - defaultedFunds;
+
+  const installmentCapital = investor.investmentType === 'اقساط' ? idleCapital : 0;
+  const gracePeriodCapital = investor.investmentType === 'مهلة' ? idleCapital : 0;
+  
+  return {
+    installmentCapital: Math.max(0, installmentCapital),
+    gracePeriodCapital: Math.max(0, gracePeriodCapital),
+    activeCapital,
+    defaultedFunds,
+    totalCapitalInSystem
+  };
+}
+
+
 // Helper to filter data based on user role
 function getFilteredData(input: CalculationInput) {
     const { currentUser, borrowers, investors, users } = input;
@@ -67,7 +115,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     }, 0);
 
     const profitableInstallmentLoans = installmentLoans.filter(
-        b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+        b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل' || b.paymentStatus === 'تم السداد'
     );
     
     let totalInstitutionProfit = 0;
@@ -160,7 +208,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
 function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[], config: CalculationInput['config']) {
     const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
     const profitableLoans = gracePeriodLoans.filter(
-      b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل'
+      b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل' || b.paymentStatus === 'تم السداد'
     );
 
     const loansGranted = gracePeriodLoans.reduce((acc, b) => acc + b.amount, 0);
@@ -262,7 +310,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     };
 }
 
-function calculateSystemAdminMetrics(users: User[], investors: Investor[]) {
+function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBorrowers: Borrower[]) {
     const officeManagers = users.filter(u => u.role === 'مدير المكتب');
     
     if (officeManagers.length === 0) {
@@ -288,9 +336,13 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[]) {
         return investorUser?.managedBy && officeManagerIds.has(investorUser.managedBy)
     });
 
-    const totalCapital = relevantInvestors.reduce((total, investor) => total + investor.installmentCapital + investor.gracePeriodCapital, 0);
-    const installmentCapital = relevantInvestors.reduce((total, investor) => total + investor.installmentCapital, 0);
-    const graceCapital = relevantInvestors.reduce((total, investor) => total + investor.gracePeriodCapital, 0);
+    const { totalCapital, installmentCapital, graceCapital } = relevantInvestors.reduce((acc, investor) => {
+        const financials = calculateInvestorFinancials(investor, allBorrowers);
+        acc.totalCapital += financials.totalCapitalInSystem;
+        acc.installmentCapital += financials.installmentCapital;
+        acc.graceCapital += financials.gracePeriodCapital;
+        return acc;
+    }, { totalCapital: 0, installmentCapital: 0, graceCapital: 0 });
     
     const totalUsersCount = users.length;
     return { 
@@ -304,10 +356,22 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[]) {
     };
 }
 
-function calculateIdleFundsMetrics(investors: Investor[]) {
-    const idleInvestors = investors.filter(i => (i.installmentCapital > 0 || i.gracePeriodCapital > 0) && i.status === 'نشط');
-    const totalIdleFunds = idleInvestors.reduce((sum, i) => sum + i.installmentCapital + i.gracePeriodCapital, 0);
-    return { idleInvestors, totalIdleFunds };
+function calculateIdleFundsMetrics(investors: Investor[], allBorrowers: Borrower[]) {
+    const idleInvestorsData = investors
+        .filter(i => i.status === 'نشط')
+        .map(investor => {
+            const financials = calculateInvestorFinancials(investor, allBorrowers);
+            return {
+                ...investor,
+                installmentCapital: financials.installmentCapital,
+                gracePeriodCapital: financials.gracePeriodCapital,
+            };
+        })
+        .filter(data => data.installmentCapital > 0 || data.gracePeriodCapital > 0);
+
+    const totalIdleFunds = idleInvestorsData.reduce((sum, i) => sum + i.installmentCapital + i.gracePeriodCapital, 0);
+
+    return { idleInvestors: idleInvestorsData, totalIdleFunds };
 }
 
 export function calculateAllDashboardMetrics(input: CalculationInput) {
@@ -315,7 +379,7 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
     const { role } = currentUser;
 
     if (role === 'مدير النظام') {
-        const adminMetrics = calculateSystemAdminMetrics(users, investors);
+        const adminMetrics = calculateSystemAdminMetrics(users, investors, borrowers);
         return {
             role: 'مدير النظام' as const,
             admin: adminMetrics,
@@ -331,21 +395,23 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
 
     // For Office Manager, Assistant, Employee
     const { filteredBorrowers, filteredInvestors } = getFilteredData(input);
-    const totalCapital = filteredInvestors.reduce((acc, inv) => acc + inv.installmentCapital + inv.gracePeriodCapital, 0);
-    const installmentCapital = filteredInvestors.reduce((acc, inv) => acc + inv.installmentCapital, 0);
-    const graceCapital = filteredInvestors.reduce((acc, inv) => acc + inv.gracePeriodCapital, 0);
+    
+    const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
+        const financials = calculateInvestorFinancials(investor, borrowers);
+        acc.total += financials.totalCapitalInSystem;
+        acc.installments += financials.installmentCapital;
+        acc.grace += financials.gracePeriodCapital;
+        return acc;
+    }, { total: 0, installments: 0, grace: 0 });
+
 
     return {
         role: role,
         filteredBorrowers,
         filteredInvestors,
-        capital: {
-            total: totalCapital,
-            installments: installmentCapital,
-            grace: graceCapital
-        },
+        capital: capitalMetrics,
         installments: calculateInstallmentsMetrics(filteredBorrowers, filteredInvestors, config),
         gracePeriod: calculateGracePeriodMetrics(filteredBorrowers, filteredInvestors, config),
-        idleFunds: calculateIdleFundsMetrics(filteredInvestors),
+        idleFunds: calculateIdleFundsMetrics(filteredInvestors, borrowers),
     };
 }

@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { calculateInvestorFinancials } from '@/services/dashboard-service';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -199,7 +200,11 @@ export default function BorrowersPage() {
     const loanAmount = Number(newBorrower.amount);
     const totalAvailableFromSelected = investors
       .filter(inv => selectedInvestors.includes(inv.id))
-      .reduce((sum, inv) => sum + (inv.investmentType === 'اقساط' ? inv.installmentCapital : inv.gracePeriodCapital), 0);
+      .reduce((sum, inv) => {
+        const financials = calculateInvestorFinancials(inv, allBorrowers);
+        const available = newBorrower.loanType === 'اقساط' ? financials.installmentCapital : financials.gracePeriodCapital;
+        return sum + available;
+      }, 0);
 
     if (totalAvailableFromSelected < loanAmount) {
       setNewBorrower(prev => ({...prev, amount: String(totalAvailableFromSelected)}));
@@ -242,12 +247,21 @@ export default function BorrowersPage() {
   };
   
   const availableInvestorsForDropdown = useMemo(() => {
-    return investors.filter(i => 
+    return investors
+      .map(investor => {
+        const financials = calculateInvestorFinancials(investor, allBorrowers);
+        const capital = newBorrower.loanType === 'اقساط' ? financials.installmentCapital : financials.gracePeriodCapital;
+        return {
+          ...investor,
+          availableCapital: capital,
+        };
+      })
+      .filter(i => 
         i.status === 'نشط' && 
         i.investmentType === newBorrower.loanType &&
-        (i.investmentType === 'اقساط' ? i.installmentCapital > 0 : i.gracePeriodCapital > 0)
-    );
-  }, [investors, newBorrower.loanType]);
+        i.availableCapital > 0
+      );
+  }, [investors, allBorrowers, newBorrower.loanType]);
 
   return (
     <div className="flex flex-col flex-1">
@@ -437,7 +451,7 @@ export default function BorrowersPage() {
                                     <div className='flex justify-between w-full'>
                                         <span>{investor.name}</span>
                                         {!hideInvestorFunds && (
-                                          <span className='text-muted-foreground text-xs'>{formatCurrency(investor.investmentType === 'اقساط' ? investor.installmentCapital : investor.gracePeriodCapital)}</span>
+                                          <span className='text-muted-foreground text-xs'>{formatCurrency(investor.availableCapital)}</span>
                                         )}
                                     </div>
                                 </DropdownMenuCheckboxItem>

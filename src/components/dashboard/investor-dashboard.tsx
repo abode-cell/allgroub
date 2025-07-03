@@ -8,6 +8,7 @@ import { useDataState } from '@/contexts/data-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { useMemo } from 'react';
+import { calculateInvestorFinancials } from '@/services/dashboard-service';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -31,24 +32,14 @@ export function InvestorDashboard() {
       if (!investor) {
           return { totalInvestment: 0, defaultedFunds: 0, activeInvestment: 0, idleFunds: 0 };
       }
-      const totalInvestment = investor.transactionHistory
-        .filter(tx => tx.type === 'إيداع رأس المال')
-        .reduce((acc, tx) => acc + tx.amount, 0);
-
-      const defaultedFunds = investor.defaultedFunds || 0;
+      const financials = calculateInvestorFinancials(investor, borrowers);
       
-      const myFundedLoans = borrowers.filter(b => investor.fundedLoanIds.includes(b.id));
-
-      const activeInvestment = myFundedLoans
-        .filter(b => (b.status === 'منتظم' || b.status === 'متأخر'))
-        .reduce((total, loan) => {
-          const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
-          return total + (funding?.amount || 0);
-        }, 0);
-
-      const idleFunds = investor.installmentCapital + investor.gracePeriodCapital;
-      
-      return { totalInvestment, defaultedFunds, activeInvestment, idleFunds };
+      return { 
+          totalInvestment: financials.totalCapitalInSystem, 
+          defaultedFunds: financials.defaultedFunds, 
+          activeInvestment: financials.activeCapital,
+          idleFunds: financials.installmentCapital + financials.gracePeriodCapital
+      };
   }, [investor, borrowers]);
 
   const totalProfits = useMemo(() => {

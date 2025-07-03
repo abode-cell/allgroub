@@ -111,13 +111,10 @@ export type Investor = {
   id:string;
   name: string;
   investmentType: 'اقساط' | 'مهلة';
-  installmentCapital: number;
-  gracePeriodCapital: number;
   date: string;
   status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض';
   transactionHistory: Transaction[];
   fundedLoanIds: string[];
-  defaultedFunds: number;
   submittedBy?: string;
   rejectionReason?: string;
   isNotified?: boolean;
@@ -125,30 +122,8 @@ export type Investor = {
   gracePeriodProfitShare?: number;
 };
 
-export type Notification = {
-  id: string;
-  recipientId: string;
-  title: string;
-  description: string;
-  date: string;
-  isRead: boolean;
-};
-
-export type SupportTicket = {
-  id: string;
-  subject: string;
-  message: string;
-  fromUserId: string;
-  fromUserName: string;
-  fromUserEmail: string;
-  date: string;
-  isRead: boolean;
-  isReplied?: boolean;
-};
-
 export type UpdatableInvestor = Omit<
   Investor,
-  | 'defaultedFunds'
   | 'fundedLoanIds'
   | 'transactionHistory'
   | 'rejectionReason'

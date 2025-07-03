@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +50,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
+import { calculateInvestorFinancials } from '@/services/dashboard-service';
 
 
 type InvestorsTableProps = {
@@ -110,6 +111,17 @@ export function InvestorsTable({
     withdrawalMethod: 'بنكي',
     capitalSource: 'installment',
   });
+  
+  const investorsWithFinancials = useMemo(() => {
+    return investors.map(investor => {
+        const financials = calculateInvestorFinancials(investor, borrowers);
+        return {
+            ...investor,
+            ...financials,
+        };
+    });
+  }, [investors, borrowers]);
+
 
   const handleEditClick = (investor: Investor) => {
     setSelectedInvestor({ ...investor });
@@ -147,9 +159,11 @@ export function InvestorsTable({
             }
           return sum + profitForInvestor;
         }, 0);
+        
+    const financials = calculateInvestorFinancials(investor, borrowers);
 
     setSelectedInvestor(investor);
-    const defaultMessage = `مرحباً ${investor.name},\n\nهذا ملخص لأداء استثماراتك معنا:\n- إجمالي الأرباح المتوقعة: ${formatCurrency(totalProfits)}\n- إجمالي الأموال المتعثرة: ${formatCurrency(investor.defaultedFunds || 0)}\n- الرصيد الخامل المتاح: ${formatCurrency(investor.investmentType === 'اقساط' ? investor.installmentCapital : investor.gracePeriodCapital)}\n\nنشكركم على ثقتكم،\nإدارة الموقع`;
+    const defaultMessage = `مرحباً ${investor.name},\n\nهذا ملخص لأداء استثماراتك معنا:\n- إجمالي الأرباح المتوقعة: ${formatCurrency(totalProfits)}\n- إجمالي الأموال المتعثرة: ${formatCurrency(financials.defaultedFunds || 0)}\n- الرصيد الخامل المتاح: ${formatCurrency(financials.installmentCapital + financials.gracePeriodCapital)}\n\nنشكركم على ثقتكم،\nإدارة الموقع`;
     setSmsMessage(defaultMessage);
     setIsSmsDialogOpen(true);
   };
@@ -164,7 +178,7 @@ export function InvestorsTable({
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    const { defaultedFunds, transactionHistory, isNotified, fundedLoanIds, ...updatableInvestor } = selectedInvestor;
+    const { ...updatableInvestor } = selectedInvestor;
     updateInvestor(updatableInvestor as UpdatableInvestor);
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);
@@ -230,8 +244,8 @@ export function InvestorsTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {investors.length > 0 ? (
-                investors.map((investor) => {
+              {investorsWithFinancials.length > 0 ? (
+                investorsWithFinancials.map((investor) => {
                   const availableCapital = investor.installmentCapital + investor.gracePeriodCapital;
                   return (
                   <TableRow key={investor.id}>
@@ -407,18 +421,7 @@ export function InvestorsTable({
             </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (() => {
-            const activeInvestment = borrowers
-              .filter(b => selectedInvestor.fundedLoanIds.includes(b.id) && (b.status === 'منتظم' || b.status === 'متأخر'))
-              .reduce((total, loan) => {
-                  const funding = loan.fundedBy?.find(f => f.investorId === selectedInvestor.id);
-                  return total + (funding?.amount || 0);
-              }, 0);
-            
-            const idleFunds = selectedInvestor.installmentCapital + selectedInvestor.gracePeriodCapital;
-            const defaultedFunds = selectedInvestor.defaultedFunds || 0;
-            const totalCapital = selectedInvestor.transactionHistory
-              .filter(tx => tx.type === 'إيداع رأس المال')
-              .reduce((acc, tx) => acc + tx.amount, 0);
+            const financials = calculateInvestorFinancials(selectedInvestor, borrowers);
 
             return (
               <div className="grid gap-6 pt-4 text-sm">
@@ -427,19 +430,19 @@ export function InvestorsTable({
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
                         <div>
                             <span className='text-muted-foreground'>إجمالي رأس المال:</span>
-                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(totalCapital)}</span>
+                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(financials.totalCapitalInSystem)}</span>
                         </div>
                         <div>
                             <span className='text-muted-foreground'>الأموال النشطة:</span>
-                            <span className='font-bold text-base float-left text-green-600'>{hideFunds ? '*****' : formatCurrency(activeInvestment)}</span>
+                            <span className='font-bold text-base float-left text-green-600'>{hideFunds ? '*****' : formatCurrency(financials.activeCapital)}</span>
                         </div>
                         <div>
                             <span className='text-muted-foreground'>الأموال الخاملة:</span>
-                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(idleFunds)}</span>
+                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(financials.installmentCapital + financials.gracePeriodCapital)}</span>
                         </div>
                         <div>
                             <span className='text-muted-foreground'>الأموال المتعثرة:</span>
-                            <span className='font-bold text-base float-left text-destructive'>{hideFunds ? '*****' : formatCurrency(defaultedFunds)}</span>
+                            <span className='font-bold text-base float-left text-destructive'>{hideFunds ? '*****' : formatCurrency(financials.defaultedFunds)}</span>
                         </div>
                          <div>
                             <span className='text-muted-foreground'>حصة ربح الأقساط:</span>
