@@ -30,6 +30,7 @@ import {
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Users } from 'lucide-react';
+import { getBorrowerStatus } from '@/lib/utils';
 
 
 const PageSkeleton = () => (

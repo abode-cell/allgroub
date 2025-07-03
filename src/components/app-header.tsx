@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useState } from 'react';
 import { ThemeToggle } from './theme-toggle';
 import { Logo } from './logo';
@@ -97,34 +98,10 @@ export function AppHeader() {
                                 <p className="font-semibold text-sm">{currentUser?.name}</p>
                                 <p className="text-xs text-muted-foreground">{currentUser?.role}</p>
                             </div>
-                           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-primary shrink-0">
-                                <path
-                                    d="M12 2L4.5 17.5H19.5L12 2Z"
-                                    fill="currentColor"
-                                    fillOpacity="0.1"
-                                />
-                                <path
-                                    d="M12 2L2 22H22L12 2Z"
-                                    stroke="currentColor"
-                                    strokeWidth={1.5}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                                <path
-                                    d="M12 11.5L8 19.5"
-                                    stroke="currentColor"
-                                    strokeWidth={1.5}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                                <path
-                                    d="M12 11.5L16 19.5"
-                                    stroke="currentColor"
-                                    strokeWidth={1.5}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                            </svg>
+                            <Avatar className="h-10 w-10">
+                                <AvatarImage src={currentUser?.photoURL} alt={currentUser?.name} />
+                                <AvatarFallback>{currentUser?.name ? getInitials(currentUser.name) : '...'}</AvatarFallback>
+                            </Avatar>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -189,35 +166,11 @@ export function AppHeader() {
                 <Notifications />
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                         <Button variant="ghost" className="relative h-12 w-12 rounded-full p-0">
-                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary h-full w-full">
-                                <path
-                                    d="M12 2L4.5 17.5H19.5L12 2Z"
-                                    fill="currentColor"
-                                    fillOpacity="0.1"
-                                />
-                                <path
-                                    d="M12 2L2 22H22L12 2Z"
-                                    stroke="currentColor"
-                                    strokeWidth={1.5}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                                <path
-                                    d="M12 11.5L8 19.5"
-                                    stroke="currentColor"
-                                    strokeWidth={1.5}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                                <path
-                                    d="M12 11.5L16 19.5"
-                                    stroke="currentColor"
-                                    strokeWidth={1.5}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                            </svg>
+                         <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
+                            <Avatar className="h-10 w-10">
+                                <AvatarImage src={currentUser?.photoURL} alt={currentUser?.name} />
+                                <AvatarFallback>{currentUser?.name ? getInitials(currentUser.name) : '...'}</AvatarFallback>
+                            </Avatar>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56" align="end" forceMount>
