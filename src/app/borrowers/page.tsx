@@ -181,7 +181,6 @@ export default function BorrowersPage() {
     }, finalStatus === 'معلق' ? [] : selectedInvestors).then(result => {
         if(result.success) {
             setIsAddDialogOpen(false);
-            resetForm();
         }
     }).finally(() => {
         setIsSubmitting(false);
@@ -280,14 +279,6 @@ export default function BorrowersPage() {
       );
   }, [investors, allBorrowers, newBorrower.loanType]);
   
-  const investorsForSelectedLoanType = useMemo(() => {
-     return availableInvestorsForDropdown.filter(i => {
-        const financials = calculateInvestorFinancials(i, allBorrowers);
-        const capital = newBorrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
-        return capital > 0;
-     });
-  }, [availableInvestorsForDropdown, newBorrower.loanType, allBorrowers]);
-
   const hasAvailableInvestorsForType = (type: 'اقساط' | 'مهلة') => {
     return investors.some(i => {
         if (i.status !== 'نشط') return false;
@@ -486,27 +477,33 @@ export default function BorrowersPage() {
                             <DropdownMenuContent className="w-64" align='end'>
                             <DropdownMenuLabel>المستثمرون المتاحون ({newBorrower.loanType})</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            {investorsForSelectedLoanType.map((investor) => (
-                                <DropdownMenuCheckboxItem
-                                key={investor.id}
-                                checked={selectedInvestors.includes(investor.id)}
-                                onSelect={(e) => e.preventDefault()}
-                                onCheckedChange={(checked) => {
-                                    return checked
-                                    ? setSelectedInvestors((prev) => [...prev, investor.id])
-                                    : setSelectedInvestors((prev) =>
-                                        prev.filter((id) => id !== investor.id)
-                                        );
-                                }}
-                                >
-                                    <div className='flex justify-between w-full'>
-                                        <span>{investor.name}</span>
-                                        {!hideInvestorFunds && (
-                                          <span className='text-muted-foreground text-xs'>{formatCurrency(investor.availableCapital)}</span>
-                                        )}
-                                    </div>
-                                </DropdownMenuCheckboxItem>
-                            ))}
+                            {availableInvestorsForDropdown.length > 0 ? (
+                                availableInvestorsForDropdown.map((investor) => (
+                                    <DropdownMenuCheckboxItem
+                                    key={investor.id}
+                                    checked={selectedInvestors.includes(investor.id)}
+                                    onSelect={(e) => e.preventDefault()}
+                                    onCheckedChange={(checked) => {
+                                        return checked
+                                        ? setSelectedInvestors((prev) => [...prev, investor.id])
+                                        : setSelectedInvestors((prev) =>
+                                            prev.filter((id) => id !== investor.id)
+                                            );
+                                    }}
+                                    >
+                                        <div className='flex justify-between w-full'>
+                                            <span>{investor.name}</span>
+                                            {!hideInvestorFunds && (
+                                              <span className='text-muted-foreground text-xs'>{formatCurrency(investor.availableCapital)}</span>
+                                            )}
+                                        </div>
+                                    </DropdownMenuCheckboxItem>
+                                ))
+                              ) : (
+                                  <div className="text-center text-xs text-muted-foreground p-2">
+                                      لا يوجد مستثمرون متاحون لهذا النوع.
+                                  </div>
+                              )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>

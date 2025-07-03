@@ -379,7 +379,7 @@ export function BorrowersTable({
                   const singleInvestor = fundedByOneInvestor ? investors.find(i => i.id === borrower.fundedBy![0].investorId) : null;
                   const singleInvestorUser = singleInvestor ? users.find(u => u.id === singleInvestor.id) : null;
                   
-                  const isTerminalStatus = borrower.status === 'مرفوض' || borrower.status === 'مسدد بالكامل' || borrower.paymentStatus === 'تم السداد';
+                  const isTerminalStatus = borrower.status === 'مرفوض' || borrower.paymentStatus === 'تم السداد';
                   const isEditableStatus = !isTerminalStatus;
                   const paymentOptions = borrower.loanType === 'اقساط' ? installmentPaymentOptions : gracePaymentOptions;
                   const canBeDeleted = borrower.status === 'معلق' || borrower.status === 'مرفوض';
@@ -648,12 +648,13 @@ export function BorrowersTable({
                                 const newType = value as 'اقساط' | 'مهلة';
                                 setSelectedBorrower(prev => {
                                     if (!prev) return null;
-                                    const updated = { ...prev, loanType: newType };
+                                    const updated: Borrower = { ...prev, loanType: newType };
                                     if (newType === 'اقساط') {
-                                        updated.discount = 0;
+                                        delete updated.discount;
                                     } else {
-                                        updated.rate = 0;
-                                        updated.term = 0;
+                                        delete updated.rate;
+                                        delete updated.term;
+                                        delete updated.installments;
                                     }
                                     return updated;
                                 });

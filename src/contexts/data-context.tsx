@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v45-final-final-check-2';
+export const APP_DATA_KEY = 'appData-v46-final-final-check-3-final';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -277,26 +277,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const { role, id } = currentUser;
     const allUsers = data.users;
+    const managerId = role === 'مدير المكتب' ? id : currentUser.managedBy;
 
     switch (role) {
         case 'مدير النظام':
             return allUsers;
         case 'مدير المكتب':
-            return allUsers.filter(u =>
-                u.id === id || 
-                u.managedBy === id
-            );
         case 'مساعد مدير المكتب':
         case 'موظف': {
-             const managerId = currentUser.managedBy;
-             if (!managerId) return [currentUser]; // Should not happen in a valid state
-             // An employee/assistant can see their manager and their colleagues (other users with the same managedBy ID)
-             return allUsers.filter(u => u.managedBy === managerId || u.id === managerId || u.id === id);
+             if (!managerId) return [currentUser];
+             return allUsers.filter(u => u.managedBy === managerId || u.id === managerId);
         }
         case 'مستثمر': {
-             const managerId = currentUser.managedBy;
-             if (!managerId) return [currentUser]; // Should not happen
-             // An investor can see their own manager
+             if (!managerId) return [currentUser];
              return allUsers.filter(u => u.id === managerId || u.id === id);
         }
         default:
@@ -526,6 +519,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } else {
                 updatedBorrower.rate = 0;
                 updatedBorrower.term = 0;
+                updatedBorrower.installments = undefined;
             }
         }
         toast({ title: 'تم تحديث القرض' });
@@ -590,11 +584,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const loanToApprove = d.borrowers.find((b) => b.id === borrowerId);
         if (!loanToApprove) return d;
 
-        const fundedByDetails: { investorId: string; amount: number }[] = [];
-        let remainingAmountToFund = loanToApprove.amount;
-        let newInvestorsData = [...d.investors]; 
-        const updatedInvestorsMap = new Map(newInvestorsData.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
         let totalFundedAmount = 0;
+        let remainingAmountToFund = loanToApprove.amount;
+        const fundedByDetails: { investorId: string; amount: number }[] = [];
+        
+        const updatedInvestorsMap = new Map(d.investors.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
 
         for (const invId of investorIds) {
             if (remainingAmountToFund <= 0) break;
@@ -602,6 +596,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const currentInvestorState = updatedInvestorsMap.get(invId);
             if (!currentInvestorState) continue;
             
+            // Recalculate financials in this exact moment to ensure accuracy
             const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
             const availableCapital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
             
@@ -620,7 +615,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 updatedInvestorsMap.set(invId, currentInvestorState);
             }
         }
-        newInvestorsData = Array.from(updatedInvestorsMap.values());
         
         let approvedBorrower: Borrower | null = null;
         const newBorrowers = d.borrowers.map((b) => {
@@ -629,7 +623,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 ...b, 
                 status: 'منتظم', 
                 fundedBy: fundedByDetails,
-                amount: totalFundedAmount,
+                amount: totalFundedAmount, // The amount might be reduced if funds were insufficient
             };
             return approvedBorrower;
           }
@@ -661,7 +655,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         toast({ title: 'تمت الموافقة على القرض بنجاح' });
-        return { ...d, borrowers: newBorrowers, investors: newInvestorsData, notifications: newNotifications };
+        return { ...d, borrowers: newBorrowers, investors: Array.from(updatedInvestorsMap.values()), notifications: newNotifications };
       })
     },
     [toast]
@@ -899,7 +893,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             date: new Date().toISOString(),
             loanType: 'مهلة',
             status: 'معلق',
-            dueDate: new Date().toISOString().split('T')[0], // Placeholder, should be edited by manager
+            dueDate: new Date().toISOString().split('T')[0],
             submittedBy: originalBorrower.submittedBy,
             isNotified: false,
             originalLoanId: originalBorrower.id,

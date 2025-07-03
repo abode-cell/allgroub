@@ -449,7 +449,8 @@ export default function RequestsPage() {
                             <DropdownMenuContent className="w-[380px]" align='end'>
                                 <DropdownMenuLabel>المستثمرون المتاحون ({loanToApprove?.loanType})</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                {availableInvestorsForDropdown.length > 0 ? availableInvestorsForDropdown.map((investor) => (
+                                {availableInvestorsForDropdown.length > 0 ? (
+                                    availableInvestorsForDropdown.map((investor) => (
                                     <DropdownMenuCheckboxItem
                                     key={investor.id}
                                     checked={selectedInvestors.includes(investor.id)}
@@ -467,7 +468,12 @@ export default function RequestsPage() {
                                             <span className='text-muted-foreground text-xs'>{formatCurrency(investor.availableCapital)}</span>
                                         </div>
                                     </DropdownMenuCheckboxItem>
-                                )) : <p className='text-xs text-muted-foreground text-center p-2'>لا يوجد مستثمرون متاحون لهذا النوع من التمويل.</p>}
+                                ))
+                                ) : (
+                                    <div className="text-center text-xs text-muted-foreground p-2">
+                                        لا يوجد مستثمرون متاحون لهذا النوع.
+                                    </div>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
