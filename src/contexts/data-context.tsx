@@ -143,7 +143,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData';
+const APP_DATA_KEY = 'appData_cleared_v2';
 
 const initialData = {
   borrowers: initialBorrowersData,
