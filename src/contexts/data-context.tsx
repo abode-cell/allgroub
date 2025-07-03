@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_PERFECT_FINAL_19';
+export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_22';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -457,7 +457,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const originalBorrower = d.borrowers.find(b => b.id === updatedBorrower.id);
         if (!originalBorrower) return d;
         
-        // Security check: if user is employee, do they have permission?
+        // Security check: if user is employee or assistant, do they have permission?
         if(loggedInUser.role === 'موظف') {
             const manager = d.users.find(u => u.id === loggedInUser.managedBy);
             if (!manager?.allowEmployeeLoanEdits) {
@@ -468,6 +468,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                  });
                  return d;
             }
+        } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageBorrowers) {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل القروض.' });
+            return d;
         }
 
         if (originalBorrower.status !== 'معلق') {
@@ -711,6 +714,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return d;
             }
 
+            // Centralized permission check
+            if (loggedInUser.role === 'موظف') {
+                const manager = d.users.find(u => u.id === loggedInUser.managedBy);
+                if (!manager?.allowEmployeeSubmissions) {
+                    result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
+                    toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
+                    return d;
+                }
+            } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageBorrowers) {
+                result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
+                toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
+                return d;
+            }
+
             if (borrower.loanType === 'اقساط' && (!borrower.rate || borrower.rate <= 0 || !borrower.term || borrower.term <= 0)) {
                 result = { success: false, message: 'قروض الأقساط يجب أن تحتوي على فائدة ومدة صحيحة.' };
                 toast({ variant: 'destructive', title: 'بيانات غير مكتملة', description: result.message });
@@ -886,6 +903,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateInvestor = useCallback(
     (updatedInvestor: UpdatableInvestor) => {
       setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
+        if (!loggedInUser) return d;
+        if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageInvestors) {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل المستثمرين.' });
+            return d;
+        }
+
         const existingInvestor = d.investors.find(i => i.id === updatedInvestor.id);
         if (!existingInvestor) return d;
         
@@ -895,7 +919,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       toast({ title: 'تم تحديث المستثمر' });
     },
-    [toast]
+    [userId, toast]
   );
 
   const approveInvestor = useCallback(
@@ -973,6 +997,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
           result = { success: false, message: 'يجب تسجيل الدخول أولاً.' };
           toast({ variant: 'destructive', title: 'خطأ', description: result.message });
           return d;
+        }
+
+        // Centralized permission check
+        if (loggedInUser.role === 'موظف') {
+            const manager = d.users.find(u => u.id === loggedInUser.managedBy);
+            if (!manager?.allowEmployeeSubmissions) {
+                result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
+                toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
+                return d;
+            }
+        } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageInvestors) {
+            result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
+            return d;
         }
       
         if (d.users.some((u) => u.email === investorPayload.email || u.phone === investorPayload.phone)) {
@@ -1193,6 +1231,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         const newUsers = d.users.map((u) => (u.id === loggedInUser.id ? { ...u, ...updates } : u));
+        
         const newInvestors = d.investors.map((i) => {
           if (i.id === loggedInUser.id && updates.name) {
               return { ...i, name: updates.name };
@@ -1325,8 +1364,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             newInvestors = d.investors.map((inv) => {
                 const investorUser = d.users.find(u => u.id === inv.id);
                 if (investorUser?.managedBy === userIdToUpdate) {
-                if (isSuspending && inv.status === 'نشط') return { ...inv, status: 'غير نشط' };
-                if (!isSuspending && inv.status === 'غير نشط') return { ...inv, status: 'نشط' };
+                    if (isSuspending && inv.status === 'نشط') return { ...inv, status: 'غير نشط' };
+                    if (!isSuspending && inv.status === 'غير نشط') return { ...inv, status: 'نشط' };
                 }
                 return inv;
             });

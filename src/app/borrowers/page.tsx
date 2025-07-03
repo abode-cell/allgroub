@@ -75,7 +75,7 @@ export default function BorrowersPage() {
   const router = useRouter();
 
   const role = currentUser?.role;
-  const hasAccess = role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers);
+  const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers) || role === 'موظف';
   const isSubordinate = role === 'موظف' || role === 'مساعد مدير المكتب';
 
   useEffect(() => {
@@ -145,11 +145,11 @@ export default function BorrowersPage() {
   const isAssistant = role === 'مساعد مدير المكتب';
 
   const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
-  const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : false;
+  const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : true;
   const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
-  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || isEmployee;
+  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || (isEmployee);
   
-  const isPendingRequest = ((isEmployee || isAssistant) && !isDirectAdditionEnabled);
+  const isPendingRequest = ((isEmployee || (isAssistant && !currentUser.permissions?.manageBorrowers)) && !isDirectAdditionEnabled);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
