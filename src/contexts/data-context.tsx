@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v20-final-cascade';
+export const APP_DATA_KEY = 'appData-v25-final-cascade-deletefix';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -295,7 +295,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
              // An employee/assistant can see everyone in their office
              return allUsers.filter(u =>
                 u.id === manager.id || // can see their manager
-                u.managedBy === manager.id // can see their colleagues
+                u.managedBy === manager.id || // can see their colleagues
+                u.id === currentUser.id
              );
         case 'مستثمر':
              if (!managedBy) return [currentUser];
@@ -1394,8 +1395,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             newInvestors = d.investors.map((inv) => {
                 const investorUser = d.users.find(u => u.id === inv.id);
                 if (investorUser?.managedBy === userIdToUpdate) {
-                    if (isSuspending && inv.status === 'نشط') return { ...inv, status: 'غير نشط' };
-                    if (!isSuspending && inv.status === 'غير نشط') return { ...inv, status: 'نشط' };
+                    if (isSuspending && inv.status === 'نشط') {
+                        return { ...inv, status: 'غير نشط' };
+                    }
+                    if (!isSuspending && inv.status === 'غير نشط') {
+                        return { ...inv, status: 'نشط' };
+                    }
                 }
                 return inv;
             });
@@ -1584,19 +1589,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
 
-        if (userToDelete.role === 'مدير المكتب' && users.some(u => u.managedBy === userIdToDelete)) {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير مستخدمين. يرجى حذف الموظفين والمساعدين المرتبطين به أولاً.` });
-            return d;
+        // Prevent deletion if the user is a manager with subordinates or investors.
+        if (userToDelete.role === 'مدير المكتب') {
+            if (users.some(u => u.managedBy === userIdToDelete)) {
+                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير مستخدمين. يرجى حذف الموظفين والمساعدين المرتبطين به أولاً.` });
+                return d;
+            }
+            if (investors.some(i => {
+                const investorUser = users.find(u => u.id === i.id);
+                return investorUser?.managedBy === userIdToDelete;
+            })) {
+                 toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأن لديه مستثمرين مرتبطين به. يرجى حذفهم أو إعادة تعيينهم أولاً.` });
+                 return d;
+            }
         }
         
+        // Prevent deletion if user has submitted any loans.
         if (borrowers.some(b => b.submittedBy === userIdToDelete)) {
              toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستخدم لأنه قام بتسجيل قروض. لسلامة السجلات، يتم منع الحذف.` });
              return d;
         }
         
-        if (userToDelete.role === 'مستثمر' && investors.some(i => i.id === userIdToDelete && i.fundedLoanIds && i.fundedLoanIds.length > 0)) {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأنه قام بتمويل قروض. لسلامة السجلات، يتم منع الحذف.` });
-            return d;
+        // Prevent deletion if the user is an investor with capital or funded loans.
+        if (userToDelete.role === 'مستثمر') {
+            const investorRecord = investors.find(i => i.id === userIdToDelete);
+            if (investorRecord) {
+                const financials = calculateInvestorFinancials(investorRecord, borrowers);
+                if (financials.totalCapitalInSystem > 0) {
+                     toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأن لديه رصيد متبقٍ. يرجى سحب جميع الأموال أولاً.` });
+                     return d;
+                }
+                if (investorRecord.fundedLoanIds?.length > 0) {
+                     toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأنه قام بتمويل قروض. لسلامة السجلات، يتم منع الحذف.` });
+                     return d;
+                }
+            }
         }
 
         const finalUsers = users.map(u => 
@@ -1833,4 +1860,3 @@ export function useDataActions() {
   }
   return context;
 }
-

@@ -977,6 +977,8 @@ export default function UsersPage() {
             <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
             <AlertDialogDescription>
               سيتم وضع علامة 'محذوف' على المستخدم <span className="font-bold text-destructive">{userToDelete?.name}</span> وسيتم إلغاء وصوله. ستبقى بياناته التاريخية محفوظة. هل أنت متأكد؟
+              <br/><br/>
+              <strong className="text-destructive">ملاحظة: لا يمكن حذف مستخدم إذا كان مسؤولاً عن أي سجلات (قروض، مستثمرين، موظفين).</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

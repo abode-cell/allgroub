@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone, Edit, Info, ShieldX, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -261,7 +261,7 @@ export function InvestorsTable({
   const canAddTransaction = role === 'مدير المكتب' || role === 'مستثمر';
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
   const canSendSms = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف' && currentUser?.permissions?.manageInvestors);
-  const canDelete = role === 'مدير المكتب';
+  const canDelete = role === 'مدير المكتب' || (currentUser?.role === 'مدير النظام');
   const isWithdrawal = transactionDetails.type.includes('سحب');
 
 
@@ -406,9 +406,7 @@ export function InvestorsTable({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setInvestorToDelete(null)}>
-              إلغاء
-            </AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setInvestorToDelete(null)}>إلغاء</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               className={buttonVariants({ variant: 'destructive' })}
@@ -700,11 +698,21 @@ export function InvestorsTable({
               </div>
               <div className="space-y-2">
                   <Label>محفظة العملية</Label>
+                   {isWithdrawal && availableWithdrawalSources.length === 0 && (
+                      <Alert variant='destructive' className='text-xs p-3'>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle className='font-bold'>لا يوجد رصيد</AlertTitle>
+                        <AlertDescription>
+                           لا يوجد رصيد خامل متاح للسحب في أي من المحافظ.
+                        </AlertDescription>
+                      </Alert>
+                  )}
                   <RadioGroup
                       value={transactionDetails.capitalSource}
                       onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
                       className="flex gap-4"
                   >
+                     
                       {isWithdrawal ? (
                       availableWithdrawalSources.map(source => (
                           <div className="flex items-center space-x-2 rtl:space-x-reverse" key={source.value}>
@@ -725,9 +733,6 @@ export function InvestorsTable({
                       </>
                       )}
                   </RadioGroup>
-                  {isWithdrawal && availableWithdrawalSources.length === 0 && (
-                      <p className='text-xs text-destructive text-center p-2'>لا يوجد رصيد متاح للسحب.</p>
-                  )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">الوصف (السبب)</Label>
