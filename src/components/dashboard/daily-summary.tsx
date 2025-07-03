@@ -9,53 +9,90 @@ import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { useDataState } from '@/contexts/data-context';
-import type { Borrower, Investor } from '@/lib/types';
+import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
 
-export function DailySummary({ borrowers: propsBorrowers, investors: propsInvestors }: { borrowers?: Borrower[], investors?: Investor[]}) {
+export function DailySummary() {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const { currentUser, borrowers: allBorrowers, investors: allInvestors, users } = useDataState();
+  const { 
+    currentUser, 
+    borrowers: allBorrowers, 
+    investors: allInvestors, 
+    users, 
+    supportTickets,
+    investorSharePercentage,
+    graceTotalProfitPercentage,
+    graceInvestorSharePercentage,
+  } = useDataState();
   const role = currentUser?.role;
-
-  const borrowers = propsBorrowers ?? allBorrowers;
-  const investors = propsInvestors ?? allInvestors;
 
   const fetchSummary = useCallback(() => {
     if (!currentUser) return;
     startTransition(async () => {
       setError('');
       try {
-        if (role === 'مدير النظام') {
-           const totalUsersCount = users.length;
-           const newOfficeManagersCount = users.filter(u => u.role === 'مدير المكتب').length;
-           const pendingActivationsCount = users.filter(u => u.role === 'مدير المكتب' && u.status === 'معلق').length;
-           
-            const result = await generateDailySummary({
-              userName: currentUser.name,
-              userRole: currentUser.role,
-              totalUsersCount,
-              newOfficeManagersCount,
-              pendingActivationsCount
-            });
-            if (result.summary) setSummary(result.summary);
-            else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
+        const metricsInput = {
+          borrowers: allBorrowers,
+          investors: allInvestors,
+          users,
+          currentUser,
+          config: { investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage }
+        };
 
-        } else {
-            const newBorrowersCount = borrowers.filter(b => b.status !== 'معلق').length;
-            const newInvestorsCount = investors.filter(i => i.status === 'نشط').length;
-            const totalLoansGranted = borrowers.filter(b => b.status !== 'معلق').reduce((acc, b) => acc + b.amount, 0);
-            
-            const totalNewInvestments = investors
-              .filter(i => i.status === 'نشط')
-              .reduce((total, investor) => {
+        if (role === 'مدير النظام') {
+          const metrics = calculateAllDashboardMetrics(metricsInput);
+          if (metrics.role !== 'مدير النظام') {
+              setError('حدث خطأ في حساب المقاييس.');
+              return;
+          }
+
+          const newSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
+          const totalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
+
+          const result = await generateDailySummary({
+            userName: currentUser.name,
+            userRole: currentUser.role,
+            totalUsersCount: metrics.admin.totalUsersCount,
+            activeManagersCount: metrics.admin.activeManagersCount,
+            pendingActivationsCount: metrics.admin.pendingManagersCount,
+            totalCapitalInSystem: metrics.admin.totalCapital,
+            totalActiveLoansCount: totalActiveLoansCount,
+            newSupportTicketsCount: newSupportTicketsCount,
+          });
+          if (result.summary) setSummary(result.summary);
+          else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
+
+        } else { // Office Manager or assistant
+            const metrics = calculateAllDashboardMetrics(metricsInput);
+            if (metrics.role === 'مدير النظام' || metrics.role === 'مستثمر') {
+                setError('لا يمكن إنشاء ملخص لهذا الدور.');
+                return;
+            }
+
+            const { filteredBorrowers, filteredInvestors } = metrics;
+            const newBorrowersCount = filteredBorrowers.length;
+            const newInvestorsCount = filteredInvestors.length;
+            const totalLoansGranted = filteredBorrowers.reduce((acc, b) => acc + b.amount, 0);
+            const totalNewInvestments = filteredInvestors.reduce((total, investor) => {
                 const capitalDeposits = investor.transactionHistory
                   .filter(tx => tx.type === 'إيداع رأس المال')
                   .reduce((sum, tx) => sum + tx.amount, 0);
                 return total + capitalDeposits;
-              }, 0);
+            }, 0);
 
-            const pendingRequestsCount = borrowers.filter(b => b.status === 'معلق').length + investors.filter(i => i.status === 'معلق').length;
+            const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+            const employeeIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
+
+            const pendingBorrowerRequests = allBorrowers.filter(b => b.status === 'معلق' && b.submittedBy && employeeIds.includes(b.submittedBy));
+            const pendingInvestorRequests = allInvestors.filter(i => i.status === 'معلق' && i.submittedBy && employeeIds.includes(i.submittedBy));
+            const pendingRequestsCount = pendingBorrowerRequests.length + pendingInvestorRequests.length;
+
+
+            const defaultedLoansCount = filteredBorrowers.filter(b => b.status === 'متعثر').length;
+            const totalNetProfit = metrics.installments.netProfit + metrics.gracePeriod.netProfit;
+            const idleCapital = metrics.idleFunds.totalIdleFunds;
+            const activeCapital = metrics.capital.total - idleCapital;
             
             const result = await generateDailySummary({
               userName: currentUser.name,
@@ -64,7 +101,11 @@ export function DailySummary({ borrowers: propsBorrowers, investors: propsInvest
               newInvestorsCount,
               totalLoansGranted,
               totalNewInvestments,
-              pendingRequestsCount
+              pendingRequestsCount,
+              defaultedLoansCount,
+              totalNetProfit,
+              idleCapital,
+              activeCapital,
             });
             if (result.summary) setSummary(result.summary);
             else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
@@ -75,7 +116,7 @@ export function DailySummary({ borrowers: propsBorrowers, investors: propsInvest
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
     });
-  }, [borrowers, investors, users, role, currentUser]);
+  }, [allBorrowers, allInvestors, users, role, currentUser, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
   useEffect(() => {
     fetchSummary();
@@ -90,7 +131,7 @@ export function DailySummary({ borrowers: propsBorrowers, investors: propsInvest
             الملخص اليومي
           </CardTitle>
           <CardDescription>
-            ملخص سريع لأهم أحداث اليوم مدعوم بالذكاء الاصطناعي.
+            ملخص سريع ومفصل لأهم أحداث اليوم مدعوم بالذكاء الاصطناعي.
           </CardDescription>
         </div>
         <Button variant="ghost" size="icon" onClick={fetchSummary} disabled={isPending}>
@@ -103,6 +144,8 @@ export function DailySummary({ borrowers: propsBorrowers, investors: propsInvest
           <div className="space-y-2">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
           </div>
         ) : error ? (
            <Alert variant="destructive">
@@ -111,7 +154,7 @@ export function DailySummary({ borrowers: propsBorrowers, investors: propsInvest
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : (
-          <p className="text-sm text-muted-foreground">{summary}</p>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{summary}</p>
         )}
       </CardContent>
     </Card>

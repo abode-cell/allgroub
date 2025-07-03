@@ -21,16 +21,23 @@ const GenerateDailySummaryInputSchema = z.object({
   totalLoansGranted: z.number().optional().describe('The total amount of new loans granted today.'),
   totalNewInvestments: z.number().optional().describe('The total amount of new investments received today.'),
   pendingRequestsCount: z.number().optional().describe('The number of pending requests that need review.'),
+  defaultedLoansCount: z.number().optional().describe('Number of loans that defaulted.'),
+  totalNetProfit: z.number().optional().describe('Total net profit generated.'),
+  idleCapital: z.number().optional().describe('Total idle capital available for investment.'),
+  activeCapital: z.number().optional().describe('Total capital currently active in loans.'),
   
   // System fields for System Admin
   totalUsersCount: z.number().optional().describe('The total number of users in the system.'),
-  newOfficeManagersCount: z.number().optional().describe('The number of new office managers who registered.'),
+  activeManagersCount: z.number().optional().describe('The number of active office managers.'),
   pendingActivationsCount: z.number().optional().describe('The number of office managers pending activation.'),
+  totalCapitalInSystem: z.number().optional().describe('The total capital across all investors in the system.'),
+  totalActiveLoansCount: z.number().optional().describe('The total number of active loans in the system.'),
+  newSupportTicketsCount: z.number().optional().describe('The number of new support tickets received.'),
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
 const GenerateDailySummaryOutputSchema = z.object({
-  summary: z.string().describe('ملخص يومي واضح ومختصر جداً باللغة العربية، بحد أقصى جملتين.'),
+  summary: z.string().describe('ملخص يومي مفصل ومنسق بصيغة ماركداون باللغة العربية. استخدم النقاط (*) للتعداد والعلامات (**) لتغميق النص.'),
 });
 export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
 
@@ -46,23 +53,39 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
-مهمتك هي إنشاء ملخص يومي واضح ومختصر جدًا باللغة العربية.
-يجب أن لا يتجاوز الملخص جملة إلى جملتين. ركز فقط على الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
+مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
+استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
 
 {{#if totalUsersCount}}
-أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا عن صحة المنصة.
-بيانات النظام:
-- إجمالي المستخدمين: {{{totalUsersCount}}}
-- إجمالي مدراء المكاتب: {{{newOfficeManagersCount}}}
-- الحسابات التي تنتظر التفعيل: {{{pendingActivationsCount}}}
+أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا شاملًا عن صحة المنصة وأدائها.
+
+**نظرة عامة على النظام:**
+* **إجمالي المستخدمين:** {{{totalUsersCount}}} مستخدم
+* **مدراء المكاتب النشطون:** {{{activeManagersCount}}} مدير
+* **الحسابات التي تنتظر التفعيل:** {{{pendingActivationsCount}}} طلب
+
+**النشاط المالي:**
+* **إجمالي رأس المال في النظام:** {{{totalCapitalInSystem}}} ريال
+* **إجمالي القروض النشطة:** {{{totalActiveLoansCount}}} قرض
+
+**الدعم الفني:**
+* **طلبات الدعم الجديدة:** {{{newSupportTicketsCount}}} طلب
+
 {{else}}
-أنت تتحدث إلى مدير مكتب. قدم ملخصًا ماليًا لأنشطة مكتبه.
-بيانات اليوم:
-- المقترضون الجدد: {{{newBorrowersCount}}}
-- المستثمرون الجدد: {{{newInvestorsCount}}}
-- إجمالي القروض الجديدة: {{{totalLoansGranted}}} ريال
-- إجمالي الاستثمارات الجديدة: {{{totalNewInvestments}}} ريال
-- الطلبات المعلقة: {{{pendingRequestsCount}}}
+أنت تتحدث إلى مدير مكتب. قدم ملخصًا مفصلاً عن الأداء المالي والتشغيلي لمكتبه.
+
+**نظرة عامة على النشاط:**
+* **إجمالي المقترضين:** {{{newBorrowersCount}}} مقترض
+* **إجمالي المستثمرين:** {{{newInvestorsCount}}} مستثمر
+* **إجمالي مبالغ القروض:** {{{totalLoansGranted}}} ريال
+* **إجمالي مبالغ الاستثمارات:** {{{totalNewInvestments}}} ريال
+* **الطلبات المعلقة للمراجعة:** {{{pendingRequestsCount}}} طلب
+
+**أداء المحفظة:**
+* **الأرباح الصافية:** {{{totalNetProfit}}} ريال
+* **القروض المتعثرة:** {{{defaultedLoansCount}}} قرض
+* **رأس المال النشط:** {{{activeCapital}}} ريال
+* **رأس المال الخامل:** {{{idleCapital}}} ريال
 {{/if}}
 `,
 });

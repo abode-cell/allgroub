@@ -560,7 +560,7 @@ export default function DashboardPage() {
             </div>
         )}
 
-        {showSensitiveData && <DailySummary borrowers={filteredBorrowers} investors={filteredInvestors} />}
+        {showSensitiveData && <DailySummary />}
         
         {showIdleFundsReport && <IdleFundsCard metrics={metrics.idleFunds} />}
 
