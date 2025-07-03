@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -179,7 +179,7 @@ export function InvestorsTable({
     const financials = calculateInvestorFinancials(investor, borrowers);
 
     setSelectedInvestor(investor);
-    const defaultMessage = `مرحباً ${investor.name},\n\nهذا ملخص لأداء استثماراتك معنا:\n- إجمالي الأرباح المتوقعة: ${formatCurrency(totalProfits)}\n- إجمالي الأموال المتعثرة: ${formatCurrency(financials.defaultedFunds || 0)}\n- الرصيد الخامل المتاح: ${formatCurrency(financials.installmentCapital + financials.gracePeriodCapital)}\n\nنشكركم على ثقتكم،\nإدارة الموقع`;
+    const defaultMessage = `مرحباً ${investor.name},\n\nهذا ملخص لأداء استثماراتك معنا:\n- إجمالي الأرباح المتوقعة: ${formatCurrency(totalProfits)}\n- إجمالي الأموال المتعثرة: ${formatCurrency(financials.defaultedFunds || 0)}\n- الرصيد الخامل المتاح: ${formatCurrency(financials.idleInstallmentCapital + financials.idleGraceCapital)}\n\nنشكركم على ثقتكم،\nإدارة الموقع`;
     setSmsMessage(defaultMessage);
     setIsSmsDialogOpen(true);
   };
@@ -312,6 +312,7 @@ export function InvestorsTable({
                            <DropdownMenuItem
                             onSelect={() => handleViewDetailsClick(investor)}
                           >
+                             <Info className="ml-2 h-4 w-4" />
                             عرض التفاصيل
                           </DropdownMenuItem>
                            {canSendSms && (
@@ -325,6 +326,7 @@ export function InvestorsTable({
                                 onSelect={() => handleEditClick(investor)}
                                 disabled={investor.status === 'معلق'}
                               >
+                                 <Edit className="ml-2 h-4 w-4" />
                                 تعديل
                               </DropdownMenuItem>
                           )}

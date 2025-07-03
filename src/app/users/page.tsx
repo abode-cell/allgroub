@@ -87,6 +87,7 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 const PageSkeleton = () => (
@@ -695,10 +696,23 @@ export default function UsersPage() {
                 عرض وإدارة صلاحيات مساعدي مدير المكتب التابعين لك.
               </CardDescription>
             </div>
-             <Button size="sm" onClick={() => { setAddUserForm(getInitialAddUserFormState()); setAddUserForm(prev => ({ ...prev, role: 'مساعد مدير المكتب' })); setIsAddUserDialogOpen(true); }} disabled={!canAddAssistant}>
-                <PlusCircle className="ml-2 h-4 w-4" />
-                إضافة مساعد
-            </Button>
+             <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span tabIndex={canAddAssistant ? undefined : 0}>
+                            <Button size="sm" onClick={() => { setAddUserForm(getInitialAddUserFormState()); setAddUserForm(prev => ({ ...prev, role: 'مساعد مدير المكتب' })); setIsAddUserDialogOpen(true); }} disabled={!canAddAssistant}>
+                                <PlusCircle className="ml-2 h-4 w-4" />
+                                إضافة مساعد
+                            </Button>
+                        </span>
+                    </TooltipTrigger>
+                    {!canAddAssistant && (
+                        <TooltipContent>
+                            <p>لقد وصلت للحد الأقصى لعدد المساعدين.</p>
+                        </TooltipContent>
+                    )}
+                </Tooltip>
+             </TooltipProvider>
           </CardHeader>
           <CardContent>
             {myAssistants.length > 0 ? (
@@ -773,10 +787,23 @@ export default function UsersPage() {
               </CardDescription>
             </div>
             {role === 'مدير المكتب' && (
-                <Button size="sm" onClick={() => { setAddUserForm(getInitialAddUserFormState()); setAddUserForm(prev => ({ ...prev, role: 'موظف' })); setIsAddUserDialogOpen(true); }} disabled={!canAddEmployee}>
-                    <PlusCircle className="ml-2 h-4 w-4" />
-                    إضافة موظف
-                </Button>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <span tabIndex={canAddEmployee ? undefined : 0}>
+                                <Button size="sm" onClick={() => { setAddUserForm(getInitialAddUserFormState()); setAddUserForm(prev => ({ ...prev, role: 'موظف' })); setIsAddUserDialogOpen(true); }} disabled={!canAddEmployee}>
+                                    <PlusCircle className="ml-2 h-4 w-4" />
+                                    إضافة موظف
+                                </Button>
+                             </span>
+                        </TooltipTrigger>
+                         {!canAddEmployee && (
+                            <TooltipContent>
+                                <p>لقد وصلت للحد الأقصى لعدد الموظفين.</p>
+                            </TooltipContent>
+                        )}
+                    </Tooltip>
+                </TooltipProvider>
             )}
           </CardHeader>
           <CardContent className="space-y-6">
