@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { useDataState } from '@/contexts/data-context';
 import { cn } from '@/lib/utils';
 import type { Borrower, Investor } from '@/lib/types';
+import { useMemo } from 'react';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -33,8 +34,11 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } 
 
 export function RecentTransactions({ borrowers: propsBorrowers, investors: propsInvestors }: { borrowers?: Borrower[], investors?: Investor[] }) {
   const { investors: allInvestors, borrowers: allBorrowers } = useDataState();
-  const borrowers = propsBorrowers ?? allBorrowers;
-  const investors = propsInvestors ?? allInvestors;
+  
+  const { borrowers, investors } = useMemo(() => ({
+      borrowers: propsBorrowers ?? allBorrowers,
+      investors: propsInvestors ?? allInvestors,
+  }), [propsBorrowers, propsInvestors, allBorrowers, allInvestors]);
 
 
   const investorTransactions = investors.flatMap(investor => 

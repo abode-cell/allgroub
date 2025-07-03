@@ -201,14 +201,16 @@ export default function UsersPage() {
     Record<string, { investorLimit: string; employeeLimit: string; assistantLimit: string }>
   >({});
   
+  const getInitialAddUserFormState = () => ({
+    role: null as 'موظف' | 'مساعد مدير المكتب' | null,
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+  });
+
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-  const [addUserForm, setAddUserForm] = useState<{
-    role: 'موظف' | 'مساعد مدير المكتب' | null;
-    name: string;
-    email: string;
-    phone: string;
-    password: string;
-  }>({ role: null, name: '', email: '', phone: '', password: '' });
+  const [addUserForm, setAddUserForm] = useState(getInitialAddUserFormState());
   const [isSubmittingNewUser, setIsSubmittingNewUser] = useState(false);
   
   const [isEditCredsDialogOpen, setIsEditCredsDialogOpen] = useState(false);
@@ -343,7 +345,6 @@ export default function UsersPage() {
       
     setIsSubmittingNewUser(false);
     if (result.success) {
-      setAddUserForm({ role: null, name: '', email: '', phone: '', password: '' });
       setIsAddUserDialogOpen(false);
     }
   };
@@ -904,11 +905,9 @@ export default function UsersPage() {
 
        <Dialog open={isAddUserDialogOpen} onOpenChange={(open) => {
           if(!open) {
-              setIsAddUserDialogOpen(false);
-              setAddUserForm({ role: null, name: '', email: '', phone: '', password: '' });
-          } else {
-              setIsAddUserDialogOpen(true);
+            setAddUserForm(getInitialAddUserFormState());
           }
+          setIsAddUserDialogOpen(open);
        }}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleAddNewUser}>
@@ -951,7 +950,12 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
       
-      <Dialog open={isEditCredsDialogOpen} onOpenChange={setIsEditCredsDialogOpen}>
+      <Dialog open={isEditCredsDialogOpen} onOpenChange={(open) => {
+          if (!open) {
+              setUserToEdit(null);
+          }
+          setIsEditCredsDialogOpen(open);
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>تعديل بيانات دخول {userToEdit?.name}</DialogTitle>

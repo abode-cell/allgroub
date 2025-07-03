@@ -56,7 +56,6 @@ export default function InvestorsPage() {
   const isSubordinate = role === 'موظف' || role === 'مساعد مدير المكتب';
 
   useEffect(() => {
-    // Critical safety check: if user is subordinate but has no manager, redirect to safety.
     if (currentUser && (!hasAccess || (isSubordinate && !currentUser.managedBy))) {
       router.replace('/');
     }
@@ -69,10 +68,9 @@ export default function InvestorsPage() {
       return allInvestors.filter(i => i.id === currentUser.id);
     }
     
-    // Safety Check: Ensure managerId is valid before proceeding
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
     if (!managerId) {
-        return []; // Return empty array if subordinate has no manager
+        return []; 
     }
 
     return allInvestors.filter(i => {
@@ -83,28 +81,22 @@ export default function InvestorsPage() {
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newInvestor, setNewInvestor] = useState<{
-    name: string;
-    capital: string;
-    email: string;
-    phone: string;
-    password: string;
-    investmentType: 'اقساط' | 'مهلة';
-    installmentProfitShare: string;
-    gracePeriodProfitShare: string;
-  }>({
+  
+  const getInitialNewInvestorState = () => ({
     name: '',
     capital: '',
     email: '',
     phone: '',
     password: '',
-    investmentType: 'اقساط',
+    investmentType: 'اقساط' as 'اقساط' | 'مهلة',
     installmentProfitShare: String(investorSharePercentage),
     gracePeriodProfitShare: String(graceInvestorSharePercentage),
   });
+
+  const [newInvestor, setNewInvestor] = useState(getInitialNewInvestorState());
   
   useEffect(() => {
-    // Keep local state in sync with global state from context
+    // Keep local state in sync with global state from context when it changes
     setNewInvestor(prev => ({
       ...prev,
       installmentProfitShare: String(investorSharePercentage),
@@ -152,11 +144,7 @@ export default function InvestorsPage() {
 
     if (result.success) {
       setIsAddDialogOpen(false);
-      setNewInvestor({
-        name: '', capital: '', email: '', phone: '', password: '', investmentType: 'اقساط',
-        installmentProfitShare: String(investorSharePercentage),
-        gracePeriodProfitShare: String(graceInvestorSharePercentage),
-      });
+      // Resetting the form is handled by onOpenChange now
     }
   };
 
@@ -190,7 +178,6 @@ export default function InvestorsPage() {
     return 'حفظ وإنشاء الحساب';
   };
 
-
   const AddButton = (
     <Button disabled={isAddButtonDisabled}>
       <PlusCircle className="ml-2 h-4 w-4" />
@@ -216,7 +203,7 @@ export default function InvestorsPage() {
             </p>
           </header>
           {showAddButton && (
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) setNewInvestor(getInitialNewInvestorState()); setIsAddDialogOpen(open); }}>
               <DialogTrigger asChild>
                 {isAddButtonDisabled ? (
                   <TooltipProvider>

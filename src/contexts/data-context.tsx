@@ -75,7 +75,7 @@ type DataActions = {
   addBorrower: (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus' | 'isNotified' | 'installments'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'
     >,
     investorIds: string[]
   ) => void;
@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_production_ready_v6';
+export const APP_DATA_KEY = 'appData_v_final_production_ready_v7_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -1382,9 +1382,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 }
             }
         } else { // Employee or Assistant
-            const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === userIdToDelete && (b.status === 'منتظم' || b.status === 'متأخر'));
+            const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === userIdToDelete && b.status === 'معلق');
             if (activeLoansSubmitted) {
-                blockingReason = `لا يمكن الحذف لوجود قروض نشطة قدمها المستخدم "${userToDelete.name}".`;
+                blockingReason = `لا يمكن الحذف لوجود طلبات قروض معلقة قدمها المستخدم "${userToDelete.name}".`;
             }
         }
     

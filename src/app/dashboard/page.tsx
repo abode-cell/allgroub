@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle } from 'lucide-react';
@@ -376,7 +377,7 @@ const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['id
                                         <TableRow key={investor.id}>
                                             <TableCell className="font-medium">{investor.name}</TableCell>
                                             <TableCell><Badge variant="outline">{investor.investmentType}</Badge></TableCell>
-                                            <TableCell className="text-left font-semibold">{formatCurrency(investor.installmentCapital + investor.gracePeriodCapital)}</TableCell>
+                                            <TableCell className="text-left font-semibold">{formatCurrency(investor.idleInstallmentCapital + investor.idleGraceCapital)}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (

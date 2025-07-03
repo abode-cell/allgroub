@@ -122,7 +122,7 @@ export default function ImportPage() {
               }
           }
 
-          const newBorrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'> = {
+          const newBorrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus' | 'phone'> = {
             name: row['اسم المقترض'],
             amount: Number(row['المبلغ']),
             loanType: row['نوع التمويل'],
