@@ -103,6 +103,7 @@ export type Transaction = {
   description: string;
   withdrawalMethod?: WithdrawalMethod;
   capitalSource?: 'installment' | 'grace'; // To specify which capital pool was used
+  meta?: { [key: string]: any }; // For internal tracking, e.g., linking to a borrower status change
 };
 
 export type Investor = {

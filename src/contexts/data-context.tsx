@@ -144,7 +144,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_cleared_v5';
+const APP_DATA_KEY = 'appData_cleared_v6';
 
 const initialData = {
   borrowers: initialBorrowersData,
@@ -535,7 +535,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         phone: credentials.phone,
         password: credentials.password,
         role: 'مدير المكتب',
-        status: 'معلق',
+        status: 'نشط',
         photoURL: 'https://placehold.co/40x40.png',
         registrationDate: new Date().toISOString(),
         trialEndsAt: trialEndsAt.toISOString(),
@@ -599,161 +599,118 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateBorrowerPaymentStatus = useCallback(
     (borrowerId: string, newPaymentStatus?: BorrowerPaymentStatus) => {
-      const borrowerToUpdate = borrowers.find((b) => b.id === borrowerId);
-      if (!borrowerToUpdate) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
-        return;
-      }
+        const borrowerToUpdate = borrowers.find((b) => b.id === borrowerId);
+        if (!borrowerToUpdate) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+            return;
+        }
 
-      const originalPaymentStatus = borrowerToUpdate.paymentStatus;
-      if (originalPaymentStatus === newPaymentStatus) return;
+        const originalPaymentStatus = borrowerToUpdate.paymentStatus;
+        if (originalPaymentStatus === newPaymentStatus) return;
 
-      const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-      const investorDeltas = new Map<string, {
-          capitalDelta: { installment: number; grace: number };
-          defaultedDelta: number;
-          transactionsToAdd: Transaction[];
-          transactionsToRemove: string[];
-      }>();
+        let updatedInvestors = [...investors];
+        const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
 
-      const getOrCreateDelta = (investorId: string) => {
-          if (!investorDeltas.has(investorId)) {
-              investorDeltas.set(investorId, {
-                  capitalDelta: { installment: 0, grace: 0 },
-                  defaultedDelta: 0,
-                  transactionsToAdd: [],
-                  transactionsToRemove: [],
-              });
-          }
-          return investorDeltas.get(investorId)!;
-      };
+        const processStatusChange = (
+            status: BorrowerPaymentStatus,
+            action: 'apply' | 'reverse'
+        ) => {
+            if (!borrowerToUpdate.fundedBy) return;
 
-      const processFinancials = (status: BorrowerPaymentStatus, action: 'apply' | 'reverse') => {
-        if (!borrowerToUpdate.fundedBy) return;
+            const multiplier = action === 'apply' ? 1 : -1;
+            const tempUpdatedInvestors = new Map(updatedInvestors.map(i => [i.id, JSON.parse(JSON.stringify(i))]));
 
-        const multiplier = action === 'apply' ? 1 : -1;
+            for (const funder of borrowerToUpdate.fundedBy) {
+                const investor = tempUpdatedInvestors.get(funder.investorId);
+                if (!investor) continue;
 
-        borrowerToUpdate.fundedBy.forEach(funder => {
-            const investorDetails = investors.find(i => i.id === funder.investorId);
-            if (!investorDetails) return;
+                if (status === 'تم السداد') {
+                    let principal = funder.amount;
+                    let profit = 0;
 
-            const delta = getOrCreateDelta(funder.investorId);
+                    if (borrowerToUpdate.loanType === 'اقساط' && borrowerToUpdate.rate && borrowerToUpdate.term) {
+                        const profitShare = investor.installmentProfitShare ?? investorSharePercentage;
+                        const interestOnFundedAmount = funder.amount * (borrowerToUpdate.rate / 100) * borrowerToUpdate.term;
+                        profit = interestOnFundedAmount * (profitShare / 100);
+                    } else if (borrowerToUpdate.loanType === 'مهلة') {
+                        const profitShare = investor.gracePeriodProfitShare ?? graceInvestorSharePercentage;
+                        const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
+                        profit = totalProfitOnFundedAmount * (profitShare / 100);
+                    }
 
-            if (status === 'تم السداد') {
-                let principal = funder.amount;
-                let profit = 0;
-                
-                if (borrowerToUpdate.loanType === 'اقساط' && borrowerToUpdate.rate && borrowerToUpdate.term) {
-                    const profitShare = investorDetails.installmentProfitShare ?? investorSharePercentage;
-                    const interestOnFundedAmount = funder.amount * (borrowerToUpdate.rate / 100) * borrowerToUpdate.term;
-                    profit = interestOnFundedAmount * (profitShare / 100);
-                } else if (borrowerToUpdate.loanType === 'مهلة') {
-                    const profitShare = investorDetails.gracePeriodProfitShare ?? graceInvestorSharePercentage;
-                    const totalProfitOnFundedAmount = funder.amount * (graceTotalProfitPercentage / 100);
-                    profit = totalProfitOnFundedAmount * (profitShare / 100);
+                    if (borrowerToUpdate.loanType === 'اقساط') {
+                        investor.installmentCapital += (principal + profit) * multiplier;
+                    } else {
+                        investor.gracePeriodCapital += (principal + profit) * multiplier;
+                    }
+
+                    const txTag = `borrower:${borrowerId}:status:paid_off`;
+                    if (action === 'apply') {
+                        if (principal > 0) investor.transactionHistory.push({ id: `tx_prin_ret_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'إيداع رأس المال', amount: principal, description: `استعادة رأس مال من قرض "${borrowerToUpdate.name}"`, capitalSource: borrowerToUpdate.loanType, meta: { tag: txTag } });
+                        if (profit > 0) investor.transactionHistory.push({ id: `tx_profit_ret_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'إيداع أرباح', amount: profit, description: `أرباح من قرض "${borrowerToUpdate.name}"`, capitalSource: borrowerToUpdate.loanType, meta: { tag: txTag } });
+                    } else {
+                        investor.transactionHistory = investor.transactionHistory.filter(tx => tx.meta?.tag !== txTag);
+                    }
+
+                } else if (status === 'متعثر' || status === 'تم اتخاذ الاجراءات القانونيه') {
+                    investor.defaultedFunds = (investor.defaultedFunds || 0) + (funder.amount * multiplier);
+
+                    const txTag = `borrower:${borrowerId}:status:defaulted`;
+                    if (action === 'apply') {
+                        investor.transactionHistory.push({ id: `tx_default_${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'سحب من رأس المال', amount: funder.amount, description: `تحويل رأس مال إلى متعثر بسبب قرض "${borrowerToUpdate.name}"`, capitalSource: borrowerToUpdate.loanType, meta: { tag: txTag } });
+                    } else {
+                        investor.transactionHistory = investor.transactionHistory.filter(tx => tx.meta?.tag !== txTag);
+                    }
                 }
 
-                if(borrowerToUpdate.loanType === 'اقساط') {
-                  delta.capitalDelta.installment += (principal + profit) * multiplier;
-                } else {
-                  delta.capitalDelta.grace += (principal + profit) * multiplier;
-                }
-                
-                const principalTxId = `tx-prin-ret-${borrowerId}-${funder.investorId}`;
-                const profitTxId = `tx-profit-ret-${borrowerId}-${funder.investorId}`;
-
-                if (action === 'apply') {
-                    if (principal > 0) delta.transactionsToAdd.push({ id: principalTxId, date: new Date().toISOString(), type: 'إيداع رأس المال', amount: principal, description: `استعادة رأس مال من قرض "${borrowerToUpdate.name}"`, capitalSource: borrowerToUpdate.loanType });
-                    if (profit > 0) delta.transactionsToAdd.push({ id: profitTxId, date: new Date().toISOString(), type: 'إيداع أرباح', amount: profit, description: `أرباح من قرض "${borrowerToUpdate.name}"`, capitalSource: borrowerToUpdate.loanType });
-                } else {
-                    delta.transactionsToRemove.push(principalTxId, profitTxId);
-                }
-
-            } else if (status === 'متعثر' || status === 'تم اتخاذ الاجراءات القانونيه') {
-                const principal = funder.amount;
-                delta.defaultedDelta += principal * multiplier;
-
-                const txId = `tx-default-${borrowerId}-${funder.investorId}`;
-                if (action === 'apply') {
-                    delta.transactionsToAdd.push({
-                      id: txId,
-                      date: new Date().toISOString(),
-                      type: 'سحب من رأس المال',
-                      amount: principal,
-                      description: `تحويل رأس مال إلى متعثر بسبب قرض "${borrowerToUpdate.name}"`,
-                      capitalSource: borrowerToUpdate.loanType
-                    });
-                } else {
-                    delta.transactionsToRemove.push(txId);
-                }
+                tempUpdatedInvestors.set(investor.id, investor);
             }
-        });
-      };
-      
-      if (originalPaymentStatus) {
-          processFinancials(originalPaymentStatus, 'reverse');
-      }
-      if (newPaymentStatus) {
-          processFinancials(newPaymentStatus, 'apply');
-      }
+            updatedInvestors = Array.from(tempUpdatedInvestors.values());
+        };
 
-      setInvestors(prevInvestors => {
-        if (investorDeltas.size === 0) return prevInvestors;
-      
-        return prevInvestors.map(inv => {
-          const invCopy = {...inv}; // Work with a copy
-          if (investorDeltas.has(inv.id)) {
-            const delta = investorDeltas.get(inv.id)!;
-      
-            invCopy.installmentCapital += delta.capitalDelta.installment;
-            invCopy.gracePeriodCapital += delta.capitalDelta.grace;
-            invCopy.defaultedFunds = (invCopy.defaultedFunds || 0) + delta.defaultedDelta;
+        if (originalPaymentStatus) {
+            processStatusChange(originalPaymentStatus, 'reverse');
+        }
+        if (newPaymentStatus) {
+            processStatusChange(newPaymentStatus, 'apply');
+        }
+
+        const terminalStates: (BorrowerPaymentStatus | undefined)[] = ['تم السداد', 'متعثر', 'تم اتخاذ الاجراءات القانونيه'];
+        const isNowTerminal = newPaymentStatus && terminalStates.includes(newPaymentStatus);
+        const wasTerminal = originalPaymentStatus && terminalStates.includes(originalPaymentStatus);
+
+        setInvestors(updatedInvestors.map(inv => {
+            if (!borrowerToUpdate.fundedBy?.some(f => f.investorId === inv.id)) return inv;
+
+            const invCopy = JSON.parse(JSON.stringify(inv));
+            let newFundedLoanIds = invCopy.fundedLoanIds;
             
-            // Handle transactions immutably
-            const txIdsToRemove = new Set(delta.transactionsToRemove);
-            invCopy.transactionHistory = [
-              ...invCopy.transactionHistory.filter(tx => !txIdsToRemove.has(tx.id)),
-              ...delta.transactionsToAdd,
-            ];
-      
-            // Handle fundedLoanIds immutably
-            const terminalStates: BorrowerPaymentStatus[] = ['تم السداد', 'متعثر', 'تم اتخاذ الاجراءات القانونيه'];
-            const isTerminal = newPaymentStatus && terminalStates.includes(newPaymentStatus);
-      
-            let newFundedLoanIds = [...invCopy.fundedLoanIds];
-      
-            if (isTerminal) {
-              if (newFundedLoanIds.includes(borrowerId)) {
-                newFundedLoanIds = newFundedLoanIds.filter(id => id !== borrowerId);
-              }
-            } else {
-              if (!newFundedLoanIds.includes(borrowerId)) {
-                newFundedLoanIds.push(borrowerId);
-              }
+            if (isNowTerminal && !wasTerminal) {
+                newFundedLoanIds = newFundedLoanIds.filter((id: string) => id !== borrowerId);
+            } else if (!isNowTerminal && wasTerminal) {
+                if (!newFundedLoanIds.includes(borrowerId)) {
+                    newFundedLoanIds.push(borrowerId);
+                }
             }
             invCopy.fundedLoanIds = newFundedLoanIds;
-      
             return invCopy;
-          }
-          return inv;
-        });
-      });
+        }));
 
-      setBorrowers(prevBorrowers => prevBorrowers.map(b => 
-          b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus } : b
-      ));
+        setBorrowers(prevBorrowers => prevBorrowers.map(b =>
+            b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus } : b
+        ));
 
-      if (newPaymentStatus === 'تم السداد') {
-        toast({ title: 'تم السداد', description: `تم تحديث قرض "${borrowerToUpdate.name}" كمسدد بالكامل.` });
-        borrowerToUpdate.fundedBy?.forEach(funder => notificationsToQueue.push({ recipientId: funder.investorId, title: 'أرباح محققة', description: `تم سداد قرض "${borrowerToUpdate.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.` }));
-      } else if (newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') {
-        toast({ title: 'تم التحديث', description: `تم تحديث قرض "${borrowerToUpdate.name}" كمتعثر.`, variant: 'destructive' });
-        borrowerToUpdate.fundedBy?.forEach(funder => notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${borrowerToUpdate.name}" قد تعثر، مما قد يؤثر على استثماراتك.` }));
-      } else {
-        toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${newPaymentStatus || 'غير محدد'}".` });
-      }
+        if (newPaymentStatus === 'تم السداد') {
+            toast({ title: 'تم السداد', description: `تم تحديث قرض "${borrowerToUpdate.name}" كمسدد بالكامل.` });
+            borrowerToUpdate.fundedBy?.forEach(funder => notificationsToQueue.push({ recipientId: funder.investorId, title: 'أرباح محققة', description: `تم سداد قرض "${borrowerToUpdate.name}" بالكامل. تم إضافة الأرباح ورأس المال إلى حسابك.` }));
+        } else if (newPaymentStatus === 'متعثر' || newPaymentStatus === 'تم اتخاذ الاجراءات القانونيه') {
+            toast({ title: 'تم التحديث', description: `تم تحديث قرض "${borrowerToUpdate.name}" كمتعثر.`, variant: 'destructive' });
+            borrowerToUpdate.fundedBy?.forEach(funder => notificationsToQueue.push({ recipientId: funder.investorId, title: 'تنبيه: تعثر قرض مرتبط', description: `القرض الخاص بالعميل "${borrowerToUpdate.name}" قد تعثر، مما قد يؤثر على استثماراتك.` }));
+        } else {
+            toast({ title: 'تم تحديث حالة السداد', description: `تم تحديث حالة القرض إلى "${newPaymentStatus || 'غير محدد'}".` });
+        }
 
-      notificationsToQueue.forEach(addNotification);
+        notificationsToQueue.forEach(addNotification);
     },
     [borrowers, investors, investorSharePercentage, graceInvestorSharePercentage, graceTotalProfitPercentage, toast, addNotification]
   );

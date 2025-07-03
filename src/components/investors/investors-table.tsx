@@ -119,8 +119,11 @@ export function InvestorsTable({
   const handleSendSmsClick = (investor: Investor) => {
     const investorUser = users.find(u => u.id === investor.id);
     if (!investorUser || !investorUser.phone) {
-        // In a real app, you might show a toast error.
-        console.error("Investor phone number not found.");
+        toast({
+            variant: "destructive",
+            title: "خطأ",
+            description: "رقم جوال المستثمر غير مسجل.",
+        });
         return;
     }
     
