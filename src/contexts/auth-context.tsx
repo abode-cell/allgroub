@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { User } from '@/lib/types';
 import { isPast } from 'date-fns';
+import { APP_DATA_KEY } from './data-context';
 
 // This is a mock implementation and does not connect to any backend service.
 
@@ -97,13 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserId(null);
     try {
       localStorage.removeItem('loggedInUserId');
-      // Clearing all app data on sign out to prevent inconsistencies
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('appData')) {
-          localStorage.removeItem(key);
-        }
-      });
-      window.location.href = '/login'; // Force reload to clear state
+      // Clearing the app data is crucial to prevent inconsistencies on next login.
+      localStorage.removeItem(APP_DATA_KEY);
+      window.location.href = '/login'; // Force reload to clear all state from memory
     } catch (error) {
       console.error("Could not access localStorage:", error);
     }

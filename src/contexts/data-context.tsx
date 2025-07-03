@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_v_final_crash_fix_stable_3_final';
+export const APP_DATA_KEY = 'appData_v_final_crash_fix_stable_4_final';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'isLoading'> = {
   borrowers: initialBorrowersData,
