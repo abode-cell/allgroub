@@ -25,21 +25,21 @@ const Logo = () => (
         <path
             d="M12 2L2 22H22L12 2Z"
             stroke="currentColor"
-            strokeWidth="1.5"
+            strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
         />
         <path
             d="M12 11.5L8 19.5"
             stroke="currentColor"
-            strokeWidth="1.5"
+            strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
         />
         <path
             d="M12 11.5L16 19.5"
             stroke="currentColor"
-            strokeWidth="1.5"
+            strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
         />
