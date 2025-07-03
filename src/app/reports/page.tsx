@@ -28,6 +28,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Users } from 'lucide-react';
 
 
 const PageSkeleton = () => (
@@ -133,6 +135,37 @@ export default function ReportsPage() {
       const investor = investors.find(inv => inv.id === loan.fundedBy![0].investorId);
       return investor ? investor.name : 'غير محدد';
     }
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex items-center justify-center gap-1 cursor-pointer">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span>{loan.fundedBy.length}</span>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent className="text-right">
+                    <p className='font-bold mb-2'>المستثمرون:</p>
+                    <ul className="list-disc mr-4">
+                        {loan.fundedBy.map(funder => {
+                        const investor = investors.find(i => i.id === funder.investorId);
+                        return <li key={funder.investorId}>{investor?.name || 'غير معروف'}</li>
+                        })}
+                    </ul>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+  };
+  
+  const getInvestorInfoForLoanForExport = (loan: Borrower): string => {
+    if (!loan.fundedBy || loan.fundedBy.length === 0) {
+      return "غير ممول";
+    }
+    if (loan.fundedBy.length === 1) {
+      const investor = investors.find(inv => inv.id === loan.fundedBy![0].investorId);
+      return investor ? investor.name : 'غير محدد';
+    }
     return `${loan.fundedBy.length} مستثمرون`;
   };
 
@@ -174,7 +207,7 @@ export default function ReportsPage() {
     const today = new Date();
     const rows = loansToExport.map(loan => {
       const borrowerStatus = getBorrowerStatus(loan, today);
-      return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
+      return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoanForExport(loan)];
     });
     exportToPrintableHtml(title, currentUser, { columns, rows });
   };
@@ -197,7 +230,7 @@ export default function ReportsPage() {
     const today = new Date();
     const rows = loansToExport.map(loan => {
       const borrowerStatus = getBorrowerStatus(loan, today);
-      return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoan(loan) as string];
+      return [loan.name, loan.amount, new Date(loan.date).toLocaleDateString('ar-SA'), loan.dueDate, borrowerStatus.text, getInvestorInfoForLoanForExport(loan)];
     });
     exportToPrintableHtml(title, currentUser, { columns, rows });
   };
