@@ -165,13 +165,13 @@ export default function BorrowersPage() {
     setSelectedInvestors([]);
   };
 
-  const proceedToAddBorrower = () => {
+  const proceedToAddBorrower = (finalAmount?: number) => {
     const isInstallments = newBorrower.loanType === 'اقساط';
     const finalStatus = isPendingRequest ? 'معلق' : 'منتظم';
 
     addBorrower({
       ...newBorrower,
-      amount: Number(newBorrower.amount),
+      amount: finalAmount ?? Number(newBorrower.amount),
       rate: (isEmployee || isAssistant) && isInstallments ? baseInterestRate : Number(newBorrower.rate),
       term: Number(newBorrower.term) || 0,
       status: finalStatus,
@@ -216,7 +216,6 @@ export default function BorrowersPage() {
       }, 0);
 
     if (totalAvailableFromSelected < loanAmount) {
-      setNewBorrower(prev => ({...prev, amount: String(totalAvailableFromSelected)}));
       setAvailableFunds(totalAvailableFromSelected);
       setIsInsufficientFundsDialogOpen(true);
       return;
@@ -267,14 +266,21 @@ export default function BorrowersPage() {
       })
       .filter(i => 
         i.status === 'نشط' && 
-        i.investmentType === newBorrower.loanType &&
         i.availableCapital > 0
       );
   }, [investors, allBorrowers, newBorrower.loanType]);
+  
+  const investorsForSelectedLoanType = useMemo(() => {
+     return availableInvestorsForDropdown.filter(i => {
+        const financials = calculateInvestorFinancials(i, allBorrowers);
+        const capital = newBorrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
+        return capital > 0;
+     });
+  }, [availableInvestorsForDropdown, newBorrower.loanType, allBorrowers]);
 
   const hasAvailableInvestorsForType = (type: 'اقساط' | 'مهلة') => {
     return investors.some(i => {
-        if (i.status !== 'نشط' || i.investmentType !== type) return false;
+        if (i.status !== 'نشط') return false;
         const financials = calculateInvestorFinancials(i, allBorrowers);
         const capital = type === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
         return capital > 0;
@@ -470,7 +476,7 @@ export default function BorrowersPage() {
                             <DropdownMenuContent className="w-64" align='end'>
                             <DropdownMenuLabel>المستثمرون المتاحون ({newBorrower.loanType})</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            {availableInvestorsForDropdown.map((investor) => (
+                            {investorsForSelectedLoanType.map((investor) => (
                                 <DropdownMenuCheckboxItem
                                 key={investor.id}
                                 checked={selectedInvestors.includes(investor.id)}
@@ -542,7 +548,7 @@ export default function BorrowersPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
-                <AlertDialogAction onClick={() => proceedToAddBorrower()}>
+                <AlertDialogAction onClick={() => proceedToAddBorrower(availableFunds)}>
                   المتابعة على أي حال
                 </AlertDialogAction>
             </AlertDialogFooter>

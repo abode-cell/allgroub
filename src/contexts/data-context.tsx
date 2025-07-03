@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ultimate_final_v8_final_secure';
+export const APP_DATA_KEY = 'appData_v_ultimate_final_v9_final_secure_robust';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -457,12 +457,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (originalBorrower.status !== 'معلق') {
             const financialFieldsChanged = updatedBorrower.amount !== originalBorrower.amount ||
                                            updatedBorrower.rate !== originalBorrower.rate ||
-                                           updatedBorrower.term !== originalBorrower.term;
+                                           updatedBorrower.term !== originalBorrower.term ||
+                                           updatedBorrower.loanType !== originalBorrower.loanType;
             if (financialFieldsChanged) {
               toast({
                   variant: 'destructive',
                   title: 'خطأ',
-                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة) لقرض نشط.',
+                  description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل) لقرض نشط.',
               });
               return d;
             }
@@ -1469,8 +1470,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
               return invUser?.managedBy === userIdToDelete;
           });
 
-          if (managedEmployees.length > 0 || managedAssistants.length > 0 || managedInvestors.length > 0) {
-              blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedEmployees.length} موظف/مساعد و ${managedInvestors.length} مستثمر. يرجى حذفهم أولاً.`;
+          if (managedEmployees.length > 0 || managedAssistants.length > 0) {
+              blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedEmployees.length + managedAssistants.length} موظف/مساعد. يرجى حذفهم أولاً.`;
+          } else if (managedInvestors.length > 0) {
+              blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedInvestors.length} مستثمر. يرجى حذفهم أولاً.`;
           }
         } else if (userToDelete.role === 'مستثمر') {
             const investorData = d.investors.find(i => i.id === userIdToDelete);

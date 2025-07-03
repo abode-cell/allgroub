@@ -509,7 +509,7 @@ export function BorrowersTable({
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => handleViewScheduleClick(borrower)}
-                            disabled={!canViewSchedule || borrower.loanType === 'مهلة'}
+                            disabled={!canViewSchedule || borrower.loanType === 'مهلة' || (borrower.term || 0) <= 0}
                           >
                             <CalendarDays className="ml-2 h-4 w-4" />
                             عرض جدول السداد
@@ -634,24 +634,20 @@ export function BorrowersTable({
                           value={selectedBorrower.loanType}
                           disabled={selectedBorrower.status !== 'معلق'}
                           onValueChange={(value) => {
-                            const newType = value as 'اقساط' | 'مهلة';
-                            setSelectedBorrower(prev => {
-                                if (!prev) return null;
-                                if (newType === 'اقساط') {
-                                    return {
-                                        ...prev,
-                                        loanType: newType,
-                                        discount: 0,
-                                    };
-                                } else {
-                                    return {
-                                        ...prev,
-                                        loanType: newType,
-                                        rate: 0,
-                                        term: 0,
-                                    };
-                                }
-                            });
+                            if (selectedBorrower.status === 'معلق') {
+                                const newType = value as 'اقساط' | 'مهلة';
+                                setSelectedBorrower(prev => {
+                                    if (!prev) return null;
+                                    const updated = { ...prev, loanType: newType };
+                                    if (newType === 'اقساط') {
+                                        updated.discount = 0;
+                                    } else {
+                                        updated.rate = 0;
+                                        updated.term = 0;
+                                    }
+                                    return updated;
+                                });
+                            }
                           }}
                           className="col-span-3 flex gap-4 rtl:space-x-reverse"
                           >
