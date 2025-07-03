@@ -123,6 +123,20 @@ export function InvestorsTable({
     });
   }, [investors, borrowers]);
 
+  const availableWithdrawalSources = useMemo(() => {
+    if (!selectedInvestor) return [];
+    const financials = investorsWithFinancials.find(i => i.id === selectedInvestor.id);
+    if (!financials) return [];
+
+    const sources: {value: 'installment' | 'grace', label: string}[] = [];
+    if (financials.idleInstallmentCapital > 0) {
+      sources.push({ value: 'installment', label: 'محفظة الأقساط' });
+    }
+    if (financials.idleGraceCapital > 0) {
+      sources.push({ value: 'grace', label: 'محفظة المهلة' });
+    }
+    return sources;
+  }, [selectedInvestor, investorsWithFinancials]);
 
   const handleEditClick = (investor: Investor) => {
     setSelectedInvestor({ ...investor });
@@ -250,7 +264,7 @@ export function InvestorsTable({
             <TableBody>
               {investorsWithFinancials.length > 0 ? (
                 investorsWithFinancials.map((investor) => {
-                  const availableCapital = investor.installmentCapital + investor.gracePeriodCapital;
+                  const availableCapital = investor.idleInstallmentCapital + investor.idleGraceCapital;
                   return (
                   <TableRow key={investor.id}>
                     <TableCell className="font-medium">{investor.name}</TableCell>
@@ -346,7 +360,7 @@ export function InvestorsTable({
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) setSelectedInvestor(null); setIsEditDialogOpen(open); }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>تعديل المستثمر</DialogTitle>
@@ -423,7 +437,7 @@ export function InvestorsTable({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+      <Dialog open={isDetailsDialogOpen} onOpenChange={(open) => { if(!open) setSelectedInvestor(null); setIsDetailsDialogOpen(open); }}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>تفاصيل المستثمر: {selectedInvestor?.name}</DialogTitle>
@@ -449,7 +463,7 @@ export function InvestorsTable({
                         </div>
                         <div>
                             <span className='text-muted-foreground'>الأموال الخاملة:</span>
-                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(financials.installmentCapital + financials.gracePeriodCapital)}</span>
+                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(financials.idleInstallmentCapital + financials.idleGraceCapital)}</span>
                         </div>
                         <div>
                             <span className='text-muted-foreground'>الأموال المتعثرة:</span>
@@ -520,7 +534,7 @@ export function InvestorsTable({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
+      <Dialog open={isTransactionDialogOpen} onOpenChange={(open) => { if(!open) setSelectedInvestor(null); setIsTransactionDialogOpen(open)}}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleConfirmTransaction}>
             <DialogHeader>
@@ -612,15 +626,29 @@ export function InvestorsTable({
                       onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
                       className="flex gap-4"
                   >
-                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                          <RadioGroupItem value="installment" id="source-install" />
-                          <Label htmlFor="source-install">محفظة الأقساط</Label>
-                      </div>
-                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                          <RadioGroupItem value="grace" id="source-grace" />
-                          <Label htmlFor="source-grace">محفظة المهلة</Label>
-                      </div>
+                     {isWithdrawal ? (
+                        availableWithdrawalSources.map(source => (
+                          <div className="flex items-center space-x-2 rtl:space-x-reverse" key={source.value}>
+                            <RadioGroupItem value={source.value} id={`source-${source.value}`} />
+                            <Label htmlFor={`source-${source.value}`}>{source.label}</Label>
+                          </div>
+                        ))
+                     ) : (
+                        <>
+                           <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                                <RadioGroupItem value="installment" id="source-install" />
+                                <Label htmlFor="source-install">محفظة الأقساط</Label>
+                            </div>
+                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                                <RadioGroupItem value="grace" id="source-grace" />
+                                <Label htmlFor="source-grace">محفظة المهلة</Label>
+                            </div>
+                        </>
+                     )}
                   </RadioGroup>
+                  {isWithdrawal && availableWithdrawalSources.length === 0 && (
+                     <p className='text-xs text-destructive text-center p-2'>لا يوجد رصيد متاح للسحب.</p>
+                  )}
                 </div>
               )}
               <div className="space-y-2">
@@ -640,12 +668,12 @@ export function InvestorsTable({
                   إلغاء
                 </Button>
               </DialogClose>
-              <Button type="submit">تأكيد العملية</Button>
+              <Button type="submit" disabled={isWithdrawal && availableWithdrawalSources.length === 0}>تأكيد العملية</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-      <Dialog open={isSmsDialogOpen} onOpenChange={setIsSmsDialogOpen}>
+      <Dialog open={isSmsDialogOpen} onOpenChange={(open) => { if (!open) setSelectedInvestor(null); setIsSmsDialogOpen(open); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>إرسال رسالة إلى {selectedInvestor?.name}</DialogTitle>

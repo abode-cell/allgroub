@@ -147,7 +147,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_secure_v3_stable';
+export const APP_DATA_KEY = 'appData_v_final_secure_v4_stable';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -652,6 +652,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return d;
             }
 
+            if (borrower.loanType === 'اقساط' && (!borrower.rate || borrower.rate <= 0 || !borrower.term || borrower.term <= 0)) {
+                toast({ variant: 'destructive', title: 'بيانات غير مكتملة', description: 'قروض الأقساط يجب أن تحتوي على فائدة ومدة صحيحة.' });
+                return d;
+            }
+
             const isPending = borrower.status === 'معلق';
             if (!isPending && investorIds.length === 0) {
                 toast({ variant: 'destructive', title: 'خطأ في التمويل', description: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' });
@@ -1097,7 +1102,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const financials = calculateInvestorFinancials(investor, d.borrowers);
             const availableCapital = transaction.capitalSource === 'installment' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
             if (availableCapital < transaction.amount) {
-                toast({ variant: 'destructive', title: 'رصيد غير كافي', description: 'المبلغ المطلوب للسحب يتجاوز الرصيد المتاح.' });
+                toast({ variant: 'destructive', title: 'رصيد غير كافي', description: `المبلغ المطلوب للسحب يتجاوز الرصيد المتاح في محفظة ${transaction.capitalSource === 'installment' ? 'الأقساط' : 'المهلة'}.` });
                 return d;
             }
         }
@@ -1444,8 +1449,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const investorData = d.investors.find(i => i.id === userIdToDelete);
             if (investorData) {
                 const financials = calculateInvestorFinancials(investorData, d.borrowers);
-                if (financials.activeCapital > 0) {
-                    blockingReason = `لا يمكن الحذف لوجود أموال نشطة مرتبطة بالمستثمر "${investorData.name}".`;
+                if (financials.activeCapital > 0 || financials.defaultedFunds > 0) {
+                    blockingReason = `لا يمكن الحذف لوجود أموال نشطة أو متعثرة مرتبطة بالمستثمر "${investorData.name}".`;
                 }
             }
         } else { // Employee or Assistant
