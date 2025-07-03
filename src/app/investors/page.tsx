@@ -52,7 +52,7 @@ export default function InvestorsPage() {
   const router = useRouter();
   
   const role = currentUser?.role;
-  const hasAccess = role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors);
+  const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف' && currentUser?.permissions?.manageInvestors);
   const isSubordinate = role === 'موظف' || role === 'مساعد مدير المكتب';
 
   useEffect(() => {
@@ -103,6 +103,15 @@ export default function InvestorsPage() {
     gracePeriodProfitShare: String(graceInvestorSharePercentage),
   });
   
+  useEffect(() => {
+    // Keep local state in sync with global state from context
+    setNewInvestor(prev => ({
+      ...prev,
+      installmentProfitShare: String(investorSharePercentage),
+      gracePeriodProfitShare: String(graceInvestorSharePercentage),
+    }));
+  }, [investorSharePercentage, graceInvestorSharePercentage]);
+
   const installmentInvestors = useMemo(() => investors.filter(i => i.investmentType === 'اقساط'), [investors]);
   const gracePeriodInvestors = useMemo(() => investors.filter(i => i.investmentType === 'مهلة'), [investors]);
 
@@ -111,9 +120,7 @@ export default function InvestorsPage() {
   const isAssistant = role === 'مساعد مدير المكتب';
 
   const manager = isEmployee || isAssistant ? users.find((u) => u.id === currentUser?.managedBy) : currentUser;
-  const isDirectAdditionEnabled = isEmployee ? manager?.allowEmployeeSubmissions ?? false : true; // Assistants and Managers always add directly
-  const hideInvestorFunds = isEmployee ? manager?.hideEmployeeInvestorFunds ?? false : false;
-
+  
   const investorsAddedByManager = useMemo(() => {
     if (!manager) return 0;
     return allInvestors.filter(i => {
@@ -129,37 +136,31 @@ export default function InvestorsPage() {
     setNewInvestor((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleAddInvestor = (e: React.FormEvent) => {
+  const handleAddInvestor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newInvestor.name || !newInvestor.capital || !newInvestor.email || !newInvestor.password || !newInvestor.phone) {
-      toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء تعبئة جميع الحقول.' });
-      return;
-    }
-    if (newInvestor.password.length < 6) {
-      toast({ variant: 'destructive', title: 'خطأ', description: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' });
-      return;
-    }
 
-    const status: Investor['status'] = !isDirectAdditionEnabled ? 'معلق' : 'نشط';
-
-    const payload: NewInvestorPayload = {
+    const result = await addInvestor({
       name: newInvestor.name,
       capital: Number(newInvestor.capital),
-      status: status,
       email: newInvestor.email,
       phone: newInvestor.phone,
       password: newInvestor.password,
       investmentType: newInvestor.investmentType,
       installmentProfitShare: Number(newInvestor.installmentProfitShare),
       gracePeriodProfitShare: Number(newInvestor.gracePeriodProfitShare),
-    };
-    
-    addInvestor(payload);
-    setIsAddDialogOpen(false);
-    setNewInvestor({ name: '', capital: '', email: '', phone: '', password: '', investmentType: 'اقساط', installmentProfitShare: String(investorSharePercentage), gracePeriodProfitShare: String(graceInvestorSharePercentage) });
+    });
+
+    if (result.success) {
+      setIsAddDialogOpen(false);
+      setNewInvestor({
+        name: '', capital: '', email: '', phone: '', password: '', investmentType: 'اقساط',
+        installmentProfitShare: String(investorSharePercentage),
+        gracePeriodProfitShare: String(graceInvestorSharePercentage),
+      });
+    }
   };
 
-  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || isEmployee;
+  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || (isEmployee && currentUser?.permissions?.manageInvestors);
   const isAddButtonDisabled = (isOfficeManager || isAssistant || isEmployee) && !canAddMoreInvestors;
       
   if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
@@ -167,7 +168,8 @@ export default function InvestorsPage() {
   }
 
   const getDialogTitle = () => {
-    if (isEmployee || isAssistant) {
+    const isDirectAdditionEnabled = manager?.allowEmployeeSubmissions ?? false;
+    if (isEmployee) {
       return isDirectAdditionEnabled ? 'إضافة مستثمر جديد' : 'رفع طلب إضافة مستثمر جديد';
     }
     return isOfficeManager ? 'إضافة مستثمر جديد وإنشاء حساب' : 'إضافة مستثمر جديد';
@@ -178,6 +180,7 @@ export default function InvestorsPage() {
   };
 
   const getSubmitButtonText = () => {
+    const isDirectAdditionEnabled = manager?.allowEmployeeSubmissions ?? false;
     if (isEmployee) {
       return isDirectAdditionEnabled ? 'حفظ وإضافة' : 'إرسال الطلب للمراجعة';
     }
@@ -188,7 +191,7 @@ export default function InvestorsPage() {
   const AddButton = (
     <Button disabled={isAddButtonDisabled}>
       <PlusCircle className="ml-2 h-4 w-4" />
-      {isEmployee ? (isDirectAdditionEnabled ? 'إضافة مستثمر' : 'رفع طلب إضافة مستثمر') : 'إضافة مستثمر'}
+      {getDialogTitle()}
     </Button>
   );
 
@@ -216,7 +219,6 @@ export default function InvestorsPage() {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        {/* The button is wrapped in a span to allow tooltip on disabled elements */}
                         <span tabIndex={0}>{AddButton}</span>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -377,10 +379,10 @@ export default function InvestorsPage() {
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-4">
-                <InvestorsTable investors={installmentInvestors} hideFunds={hideInvestorFunds} />
+                <InvestorsTable investors={installmentInvestors} hideFunds={hideFunds} />
             </TabsContent>
             <TabsContent value="grace-period" className="mt-4">
-                <InvestorsTable investors={gracePeriodInvestors} hideFunds={hideInvestorFunds} />
+                <InvestorsTable investors={gracePeriodInvestors} hideFunds={hideFunds} />
             </TabsContent>
         </Tabs>
       </main>

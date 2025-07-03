@@ -196,7 +196,9 @@ export function InvestorsTable({
 
   const handleAddTransactionClick = (investor: Investor) => {
     setSelectedInvestor(investor);
-    setTransactionDetails({ amount: '', description: '', type: 'إيداع رأس المال', date: new Date(), withdrawalMethod: 'بنكي', capitalSource: 'installment' });
+    // Smartly default the capital source
+    const defaultSource = investor.investmentType === 'اقساط' || investor.investmentType === 'مهلة' ? investor.investmentType : 'installment';
+    setTransactionDetails({ amount: '', description: '', type: 'إيداع رأس المال', date: new Date(), withdrawalMethod: 'بنكي', capitalSource: defaultSource });
     setIsTransactionDialogOpen(true);
   };
 
@@ -219,7 +221,6 @@ export function InvestorsTable({
     });
 
     setIsTransactionDialogOpen(false);
-    setTransactionDetails({ amount: '', description: '', type: 'إيداع رأس المال', date: new Date(), withdrawalMethod: 'بنكي', capitalSource: 'installment' });
     setSelectedInvestor(null);
   }
 
@@ -227,7 +228,7 @@ export function InvestorsTable({
   const canApprove = role === 'مدير المكتب';
   const canAddTransaction = role === 'مدير المكتب' || role === 'مستثمر';
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
-  const canSendSms = role === 'مدير المكتب' || role === 'مساعد مدير المكتب' || role === 'موظف';
+  const canSendSms = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف' && currentUser?.permissions?.manageInvestors);
   const isWithdrawal = transactionDetails.type.includes('سحب');
 
   return (
@@ -595,23 +596,25 @@ export function InvestorsTable({
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label>محفظة العملية</Label>
-                <RadioGroup
-                    value={transactionDetails.capitalSource}
-                    onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
-                    className="flex gap-4"
-                >
-                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                        <RadioGroupItem value="installment" id="source-install" />
-                        <Label htmlFor="source-install">محفظة الأقساط</Label>
-                    </div>
-                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                        <RadioGroupItem value="grace" id="source-grace" />
-                        <Label htmlFor="source-grace">محفظة المهلة</Label>
-                    </div>
-                </RadioGroup>
-              </div>
+              {selectedInvestor?.investmentType !== 'اقساط' && selectedInvestor?.investmentType !== 'مهلة' && (
+                <div className="space-y-2">
+                  <Label>محفظة العملية</Label>
+                  <RadioGroup
+                      value={transactionDetails.capitalSource}
+                      onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
+                      className="flex gap-4"
+                  >
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                          <RadioGroupItem value="installment" id="source-install" />
+                          <Label htmlFor="source-install">محفظة الأقساط</Label>
+                      </div>
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                          <RadioGroupItem value="grace" id="source-grace" />
+                          <Label htmlFor="source-grace">محفظة المهلة</Label>
+                      </div>
+                  </RadioGroup>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="description">الوصف (السبب)</Label>
                 <Textarea

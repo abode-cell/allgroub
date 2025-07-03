@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -87,7 +88,7 @@ type DataActions = {
   rejectBorrower: (borrowerId: string, reason: string) => void;
   deleteBorrower: (borrowerId: string) => void;
   updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => void;
-  addInvestor: (investor: NewInvestorPayload) => Promise<{ success: boolean; message: string }>;
+  addInvestor: (investor: Omit<NewInvestorPayload, 'status'>) => Promise<{ success: boolean; message: string }>;
   addEmployee: (
     payload: NewUserPayload
   ) => Promise<{ success: boolean; message: string }>;
@@ -145,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_qa_pass_9_stable_final_final';
+export const APP_DATA_KEY = 'appData_v_final_qa_pass_12_stable_final_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -817,41 +818,50 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addInvestor = useCallback(
-    async (investorPayload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
+    async (investorPayload: Omit<NewInvestorPayload, 'status'>): Promise<{ success: boolean; message: string }> => {
       let result = { success: false, message: 'فشل غير متوقع' };
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
         if (!loggedInUser) {
           result = { success: false, message: 'يجب تسجيل الدخول أولاً.' };
+          toast({ variant: 'destructive', title: 'خطأ', description: result.message });
           return d;
         }
       
         if (d.users.some((u) => u.email === investorPayload.email || u.phone === investorPayload.phone)) {
           result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+          toast({ variant: 'destructive', title: 'خطأ', description: result.message });
           return d;
         }
       
         const managerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
         const manager = d.users.find(u => u.id === managerId);
       
-        if (loggedInUser.role === 'مدير المكتب' || loggedInUser.role === 'مساعد مدير المكتب' || loggedInUser.role === 'موظف') {
+        if (manager) {
           const investorsAddedByManager = d.investors.filter(i => {
             const investorUser = d.users.find(u => u.id === i.id);
-            return investorUser?.managedBy === managerId;
+            return investorUser?.managedBy === manager.id;
           }).length;
       
-          if (manager && investorsAddedByManager >= (manager.investorLimit ?? 0)) {
+          if (investorsAddedByManager >= (manager.investorLimit ?? 0)) {
             result = { success: false, message: 'لقد وصل مدير المكتب للحد الأقصى للمستثمرين.' };
+            toast({ variant: 'destructive', title: 'خطأ', description: result.message });
             return d;
           }
         }
       
+        if (!investorPayload.password || investorPayload.password.length < 6) {
+          result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
+          toast({ variant: 'destructive', title: 'خطأ', description: result.message });
+          return d;
+        }
+
         const isDirectAdditionEnabled = manager?.allowEmployeeSubmissions ?? false;
         const status: User['status'] = (loggedInUser.role === 'موظف' && !isDirectAdditionEnabled) ? 'معلق' : 'نشط';
       
         const newId = `user_inv_${Date.now()}`;
       
-        const newInvestorUser: User = {
+        const newUser: User = {
           id: newId,
           name: investorPayload.name,
           email: investorPayload.email,
@@ -901,7 +911,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         toast({ title: 'تمت إضافة المستثمر بنجاح' });
         return {
           ...d,
-          users: [...d.users, newInvestorUser],
+          users: [...d.users, newUser],
           investors: [...d.investors, newInvestorEntry],
           notifications: newNotifications
         };
@@ -918,21 +928,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const loggedInUser = d.users.find(u => u.id === userId);
             if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
                 result = { success: false, message: 'ليس لديك الصلاحية لإضافة موظف.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
 
             const myEmployees = d.users.filter((u) => u.managedBy === loggedInUser.id && u.role === 'موظف');
             if (myEmployees.length >= (loggedInUser.employeeLimit ?? 0)) {
                 result = { success: false, message: 'لقد وصلت للحد الأقصى لعدد الموظفين.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
 
             if (d.users.some((u) => u.email === payload.email || u.phone === payload.phone)) {
                 result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
             if (!payload.password || payload.password.length < 6) {
                 result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
 
@@ -940,6 +954,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const newUser: User = {
                 id: newId, name: payload.name, email: payload.email, phone: payload.phone, password: payload.password,
                 role: 'موظف', status: 'نشط', managedBy: loggedInUser.id, photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString(),
+                permissions: { manageInvestors: true, manageBorrowers: true },
             };
             result = { success: true, message: 'تمت إضافة الموظف بنجاح.' };
             toast({ title: 'نجاح', description: 'تمت إضافة الموظف بنجاح.' });
@@ -957,21 +972,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const loggedInUser = d.users.find(u => u.id === userId);
             if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
                 result = { success: false, message: 'ليس لديك الصلاحية لإضافة مساعد.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
 
             const myAssistants = d.users.filter((u) => u.managedBy === loggedInUser.id && u.role === 'مساعد مدير المكتب');
             if (myAssistants.length >= (loggedInUser.assistantLimit ?? 0)) {
                 result = { success: false, message: 'لقد وصلت للحد الأقصى لعدد المساعدين.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
 
             if (d.users.some((u) => u.email === payload.email || u.phone === payload.phone)) {
                 result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
             if (!payload.password || payload.password.length < 6) {
                 result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
 
@@ -1133,7 +1152,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (u.id === userIdToUpdate) {
                 const updatedUser: User = { ...u, status };
                 if (status === 'نشط' && updatedUser.trialEndsAt) {
-                delete updatedUser.trialEndsAt;
+                  delete updatedUser.trialEndsAt;
                 }
                 return updatedUser;
             }
@@ -1316,6 +1335,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
           toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
           return d;
         }
+
+        if (userToDelete.role === 'مدير النظام') {
+            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف حساب مدير النظام.' });
+            return d;
+        }
+
         const canDelete = loggedInUser.role === 'مدير النظام' || 
                          (loggedInUser.role === 'مدير المكتب' && userToDelete.managedBy === loggedInUser.id);
         

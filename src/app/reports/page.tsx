@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -305,7 +306,7 @@ export default function ReportsPage() {
         <h2 class="section-title">سجل العمليات</h2>
         <table>
             <thead>
-                <tr><th>التاريخ</th><th>النوع</th><th>الوصف</th><th>المبلغ</th></tr>
+                <tr><th>التاريخ</th><th>النوع</th><th>الوصف</th><th>المبلغ</th><th>طريقة السحب</th><th>مصدر رأس المال</th></tr>
             </thead>
             <tbody>
                  ${investor.transactionHistory.length > 0 ? [...investor.transactionHistory].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(tx => {
@@ -314,8 +315,10 @@ export default function ReportsPage() {
                         <td>${tx.type}</td>
                         <td>${tx.description}</td>
                         <td style="color: ${tx.type.includes('إيداع') ? '#28a745' : '#dc3545'}; font-weight: bold;">${tx.type.includes('إيداع') ? '+' : '-'} ${formatCurrency(tx.amount)}</td>
+                        <td>${tx.withdrawalMethod || '-'}</td>
+                        <td>${tx.capitalSource === 'installment' ? 'أقساط' : 'مهلة'}</td>
                     </tr>`;
-                 }).join('') : `<tr><td colspan="4" style="text-align: center; padding: 1rem;">لا يوجد سجل عمليات.</td></tr>`}
+                 }).join('') : `<tr><td colspan="6" style="text-align: center; padding: 1rem;">لا يوجد سجل عمليات.</td></tr>`}
             </tbody>
         </table>
     `;

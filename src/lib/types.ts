@@ -133,9 +133,8 @@ export type UpdatableInvestor = Omit<
 
 export type NewInvestorPayload = {
     name: string;
-    status: Investor['status'];
-    investmentType: Investor['investmentType'];
     capital: number;
+    investmentType: Investor['investmentType'];
     email: string;
     phone: string;
     password: string;
