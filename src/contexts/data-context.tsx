@@ -36,7 +36,7 @@ import {
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
-import { isValid, isPast } from 'date-fns';
+import { isValid, isPast, parseISO } from 'date-fns';
 
 type DataState = {
   currentUser: User | undefined;
@@ -145,7 +145,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_v_stable_final_13_crash_fix';
+const APP_DATA_KEY = 'appData_v_final_crash_fix_stable_2';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'isLoading'> = {
   borrowers: initialBorrowersData,
@@ -207,24 +207,12 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'isL
   };
 };
 
-const processTrialStatuses = (users: User[]): User[] => {
-  const today = new Date();
-  return users.map(user => {
-    if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt) {
-      const trialEndDate = new Date(user.trialEndsAt);
-      if (isValid(trialEndDate) && isPast(trialEndDate)) {
-        return { ...user, status: 'معلق' };
-      }
-    }
-    return user;
-  });
-};
-
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Omit<DataState, 'currentUser' | 'isLoading'>>(initialDataState);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // This effect runs ONCE on mount to load and sanitize data.
     let loadedData;
     try {
       const item = window.localStorage.getItem(APP_DATA_KEY);
@@ -234,14 +222,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       loadedData = initialDataState;
     }
     
-    const usersWithProcessedTrials = processTrialStatuses(loadedData.users);
-    const finalData = { ...loadedData, users: usersWithProcessedTrials };
-    
-    setData(finalData);
+    setData(loadedData);
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
+    // This effect runs to SAVE data, only when it has been initialized.
     if (!isLoading) {
       try {
         window.localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));

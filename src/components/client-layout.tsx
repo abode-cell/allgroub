@@ -2,7 +2,6 @@
 
 import { useAuth } from '@/contexts/auth-context';
 import { AppHeader } from './app-header';
-import { Skeleton } from './ui/skeleton';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useDataState } from '@/contexts/data-context';
@@ -12,7 +11,6 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
     const { userId } = useAuth();
     const { currentUser } = useDataState();
     const router = useRouter();
-    const pathname = usePathname();
     
     useEffect(() => {
         if (!userId) {
@@ -20,27 +18,6 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
         }
     }, [userId, router]);
     
-    useEffect(() => {
-      if (currentUser) {
-        const role = currentUser.role;
-        const isSystemAdmin = role === 'مدير النظام';
-  
-        const adminRestrictedPages = [
-          '/borrowers',
-          '/investors',
-          '/import',
-          '/my-requests',
-          '/calculator',
-          '/reports',
-          '/requests',
-        ];
-  
-        if (isSystemAdmin && adminRestrictedPages.some(p => pathname.startsWith(p))) {
-          router.replace('/dashboard');
-        }
-      }
-    }, [currentUser, pathname, router]);
-
     if (!currentUser) {
         return <PageLoader />;
     }
