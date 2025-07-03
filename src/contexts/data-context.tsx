@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_production_ready_v15_final_final';
+export const APP_DATA_KEY = 'appData_v_final_production_ready_v16_final_final_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -1392,9 +1392,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 }
             }
         } else { // Employee or Assistant
-            const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === userIdToDelete && b.status === 'معلق');
-            if (activeLoansSubmitted) {
-                blockingReason = `لا يمكن الحذف لوجود طلبات قروض معلقة قدمها المستخدم "${userToDelete.name}".`;
+            const hasSubmittedLoans = d.borrowers.some(b => b.submittedBy === userIdToDelete);
+            if (hasSubmittedLoans) {
+                blockingReason = `لا يمكن الحذف لوجود قروض مرتبطة بهذا المستخدم "${userToDelete.name}".`;
             }
         }
     
@@ -1413,7 +1413,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             };
           }
           return b;
-        }).filter(b => b.submittedBy !== userIdToDelete);
+        });
 
         toast({ variant: 'destructive', title: 'اكتمل الحذف', description: `تم حذف المستخدم "${userToDelete.name}" بنجاح.` });
         return { ...d, users: newUsers, investors: newInvestors, borrowers: newBorrowers };

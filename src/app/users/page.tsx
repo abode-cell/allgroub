@@ -133,34 +133,39 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
   const { updateUserStatus } = useDataActions();
   const { currentUser } = useDataState();
 
-  if (!currentUser || user.id === currentUser.id || user.role === 'مدير النظام') {
-    return null;
-  }
+  if (!currentUser) return null;
 
-  const canEdit =
-    currentUser.role === 'مدير النظام' ||
-    (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) ||
-    (currentUser.role === 'مساعد مدير المكتب' &&
-      currentUser.permissions?.accessSettings &&
-      user.managedBy === currentUser.managedBy &&
-      user.role === 'موظف');
+  // Refactored permissions logic for clarity and security
+  const canEditCredentials = useMemo(() => {
+    if (user.id === currentUser.id || user.role === 'مدير النظام') return false;
+    if (currentUser.role === 'مدير النظام') return true;
+    if (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) return true;
+    if (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.accessSettings && user.managedBy === currentUser.managedBy && user.role === 'موظف') return true;
+    return false;
+  }, [currentUser, user]);
 
-  const canDelete =
-    currentUser.role === 'مدير النظام' ||
-    (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id);
+  const canDeleteUser = useMemo(() => {
+    if (user.id === currentUser.id || user.role === 'مدير النظام') return false;
+    if (currentUser.role === 'مدير النظام') return true;
+    if (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) return true;
+    return false;
+  }, [currentUser, user]);
 
-  const canUpdateStatus =
-    currentUser.role === 'مدير النظام' ||
-    (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) ||
-    (currentUser.role === 'مساعد مدير المكتب' && user.managedBy === currentUser.managedBy && user.role === 'موظف');
+  const canUpdateUserStatus = useMemo(() => {
+    if (user.id === currentUser.id || user.role === 'مدير النظام') return false;
+    if (currentUser.role === 'مدير النظام') return true;
+    if (currentUser.role === 'مدير المكتب' && user.managedBy === currentUser.id) return true;
+    if (currentUser.role === 'مساعد مدير المكتب' && user.managedBy === currentUser.managedBy && user.role === 'موظف') return true;
+    return false;
+  }, [currentUser, user]);
 
-  if (!canEdit && !canDelete && !canUpdateStatus) {
+  if (!canEditCredentials && !canDeleteUser && !canUpdateUserStatus) {
     return null;
   }
   
   return (
     <div className="flex items-center gap-2 justify-start">
-        {canUpdateStatus && (
+        {canUpdateUserStatus && (
           user.status === 'معلق' ? (
             <Button size="sm" variant="outline" onClick={() => updateUserStatus(user.id, 'نشط')}>
               <Check className="ml-1 h-4 w-4" />
@@ -173,7 +178,7 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
             </Button>
           )
         )}
-        {(canEdit || canDelete) && (
+        {(canEditCredentials || canDeleteUser) && (
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -182,13 +187,13 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                     {canEdit && (
+                     {canEditCredentials && (
                         <DropdownMenuItem onSelect={() => onEditClick(user)}>
                             <Edit className="ml-2 h-4 w-4" />
                             <span>تعديل بيانات الدخول</span>
                         </DropdownMenuItem>
                      )}
-                     {canDelete && (
+                     {canDeleteUser && (
                         <DropdownMenuItem
                             className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                             onClick={() => onDeleteClick(user)}
