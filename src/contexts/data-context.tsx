@@ -90,12 +90,7 @@ type DataActions = {
   updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => void;
   handlePartialPayment: (borrowerId: string, paidAmount: number) => void;
   addInvestor: (investor: Omit<NewInvestorPayload, 'status'>) => Promise<{ success: boolean; message: string }>;
-  addEmployee: (
-    payload: NewUserPayload
-  ) => Promise<{ success: boolean; message: string }>;
-  addAssistant: (
-    payload: NewUserPayload
-  ) => Promise<{ success: boolean; message: string }>;
+  addNewSubordinateUser: (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب') => Promise<{ success: boolean; message: string }>;
   updateInvestor: (investor: UpdatableInvestor) => void;
   approveInvestor: (investorId: string) => void;
   rejectInvestor: (investorId: string, reason: string) => void;
@@ -147,7 +142,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_secure_v5_stable';
+export const APP_DATA_KEY = 'appData_v_final_secure_v_ultimate';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -1003,21 +998,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [userId, toast]
   );
-
-  const addEmployee = useCallback(
-    async (payload: NewUserPayload): Promise<{ success: boolean; message: string }> => {
+  
+  const addNewSubordinateUser = useCallback(
+    async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean; message: string }> => {
         let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
         setData(d => {
             const loggedInUser = d.users.find(u => u.id === userId);
             if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
-                result = { success: false, message: 'ليس لديك الصلاحية لإضافة موظف.' };
+                result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
                 toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
 
-            const myEmployees = d.users.filter((u) => u.managedBy === loggedInUser.id && u.role === 'موظف');
-            if (myEmployees.length >= (loggedInUser.employeeLimit ?? 0)) {
-                result = { success: false, message: 'لقد وصلت للحد الأقصى لعدد الموظفين.' };
+            const isEmployee = role === 'موظف';
+            const limit = isEmployee ? loggedInUser.employeeLimit : loggedInUser.assistantLimit;
+            const currentCount = d.users.filter(u => u.managedBy === loggedInUser.id && u.role === role).length;
+
+            if (currentCount >= (limit ?? 0)) {
+                result = { success: false, message: `لقد وصلت للحد الأقصى لعدد ${isEmployee ? 'الموظفين' : 'المساعدين'}.` };
                 toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
@@ -1033,58 +1031,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return d;
             }
 
-            const newId = `user_emp_${Date.now()}`;
+            const newId = `user_${isEmployee ? 'emp' : 'asst'}_${Date.now()}`;
             const newUser: User = {
                 id: newId, name: payload.name, email: payload.email, phone: payload.phone, password: payload.password,
-                role: 'موظف', status: 'نشط', managedBy: loggedInUser.id, photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString(),
-                permissions: { manageInvestors: true, manageBorrowers: true },
+                role: role, status: 'نشط', managedBy: loggedInUser.id, photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString(),
+                permissions: isEmployee ? { manageInvestors: true, manageBorrowers: true } : { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false },
             };
-            result = { success: true, message: 'تمت إضافة الموظف بنجاح.' };
-            toast({ title: 'نجاح', description: 'تمت إضافة الموظف بنجاح.' });
-            return {...d, users: [...d.users, newUser] };
-        });
-        return result;
-    },
-    [userId, toast]
-  );
-
-  const addAssistant = useCallback(
-    async (payload: NewUserPayload): Promise<{ success: boolean; message: string }> => {
-        let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
-        setData(d => {
-            const loggedInUser = d.users.find(u => u.id === userId);
-            if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
-                result = { success: false, message: 'ليس لديك الصلاحية لإضافة مساعد.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
-
-            const myAssistants = d.users.filter((u) => u.managedBy === loggedInUser.id && u.role === 'مساعد مدير المكتب');
-            if (myAssistants.length >= (loggedInUser.assistantLimit ?? 0)) {
-                result = { success: false, message: 'لقد وصلت للحد الأقصى لعدد المساعدين.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
-
-            if (d.users.some((u) => u.email === payload.email || u.phone === payload.phone)) {
-                result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
-            if (!payload.password || payload.password.length < 6) {
-                result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
-
-            const newId = `user_asst_${Date.now()}`;
-            const newUser: User = {
-                id: newId, name: payload.name, email: payload.email, phone: payload.phone, password: payload.password,
-                role: 'مساعد مدير المكتب', status: 'نشط', managedBy: loggedInUser.id, photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString(),
-                permissions: { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false },
-            };
-            result = { success: true, message: 'تمت إضافة المساعد بنجاح.' };
-            toast({ title: 'نجاح', description: 'تمت إضافة المساعد بنجاح.' });
+            result = { success: true, message: `تمت إضافة ${isEmployee ? 'الموظف' : 'المساعد'} بنجاح.` };
+            toast({ title: 'نجاح', description: result.message });
             return {...d, users: [...d.users, newUser] };
         });
         return result;
@@ -1609,8 +1563,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       rejectBorrower,
       deleteBorrower,
       addInvestor,
-      addEmployee,
-      addAssistant,
+      addNewSubordinateUser,
       updateInvestor,
       approveInvestor,
       rejectInvestor,
@@ -1650,8 +1603,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       rejectBorrower,
       deleteBorrower,
       addInvestor,
-      addEmployee,
-      addAssistant,
+      addNewSubordinateUser,
       updateInvestor,
       approveInvestor,
       rejectInvestor,

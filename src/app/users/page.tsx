@@ -207,7 +207,7 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
 
 export default function UsersPage() {
   const { currentUser, users, investors } = useDataState();
-  const { updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, addEmployee, addAssistant, updateUserCredentials } =
+  const { updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, addNewSubordinateUser, updateUserCredentials } =
     useDataActions();
   const router = useRouter();
   const { toast } = useToast();
@@ -224,6 +224,7 @@ export default function UsersPage() {
     email: '',
     phone: '',
     password: '',
+    confirmPassword: '',
   });
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
@@ -353,12 +354,19 @@ export default function UsersPage() {
   const handleAddNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addUserForm.role) return;
+
+    if (addUserForm.password !== addUserForm.confirmPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'خطأ في التحقق',
+        description: 'كلمتا المرور غير متطابقتين. يرجى التأكد.',
+      });
+      return;
+    }
     
     setIsSubmittingNewUser(true);
     const { name, email, phone, password } = addUserForm;
-    const result = addUserForm.role === 'موظف' 
-      ? await addEmployee({ name, email, phone, password })
-      : await addAssistant({ name, email, phone, password });
+    const result = await addNewSubordinateUser({ name, email, phone, password }, addUserForm.role);
       
     setIsSubmittingNewUser(false);
     if (result.success) {
@@ -949,6 +957,10 @@ export default function UsersPage() {
               <div className="space-y-2">
                 <Label htmlFor="password">كلمة المرور</Label>
                 <Input id="password" type="password" value={addUserForm.password} onChange={handleInputChange} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">تأكيد كلمة المرور</Label>
+                <Input id="confirmPassword" type="password" value={addUserForm.confirmPassword} onChange={handleInputChange} required />
               </div>
             </div>
             <DialogFooter>

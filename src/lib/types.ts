@@ -34,6 +34,7 @@ export type NewUserPayload = {
   email: string;
   phone: string;
   password: string;
+  confirmPassword?: string;
 };
 
 export type User = {
