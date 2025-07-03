@@ -14,7 +14,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     
     useEffect(() => {
-        // If auth is loaded and there's no user, redirect to login.
+        // This should theoretically not be hit if ClientLayout logic is correct, but serves as a final safety net.
         if (!userId) {
             router.replace('/login');
         }
@@ -30,7 +30,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
     }, [isDataLoading, userId, currentUser, signOutUser]);
     
     // While data is loading OR if the currentUser object is not yet available for a valid userId, show loader.
-    if (isDataLoading || !currentUser) {
+    if (!currentUser) {
         return <PageLoader />;
     }
 
@@ -48,30 +48,33 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { userId, loading: authLoading } = useAuth();
-  const { isLoading: isDataLoading } = useDataState();
+  const { isLoading: isDataLoading, currentUser } = useDataState();
   
   const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
-
-  useEffect(() => {
-    // If auth has finished loading and we have a user, redirect from public pages to the dashboard.
-    if (!authLoading && userId && isPublicPage) {
-        router.replace('/dashboard');
-    }
-  },[userId, authLoading, isPublicPage, router]);
-
-  // The initial loading phase for the entire app.
-  // It waits for both authentication and core data to be resolved.
   const isAppLoading = authLoading || isDataLoading;
 
-  // Show a loader for public pages too during the initial check, to prevent flashes of content.
-  if (isAppLoading && (isPublicPage || !userId)) {
+  useEffect(() => {
+    // If auth has finished loading and we have a valid user, redirect from public pages to the dashboard.
+    // The `currentUser` check ensures we don't redirect with an invalid session.
+    if (!isAppLoading && userId && currentUser && isPublicPage) {
+        router.replace('/dashboard');
+    }
+  },[userId, currentUser, isAppLoading, isPublicPage, router]);
+  
+  // The critical change: Always show a loader until both auth and data state are fully resolved.
+  // This prevents race conditions on public pages like login/signup where they might get incomplete data.
+  if (isAppLoading) {
       return <PageLoader />;
   }
 
+  // After loading, if the page is public, render it.
+  // Redirection for logged-in users is handled by the useEffect above.
   if (isPublicPage) {
     return <>{children}</>;
   }
   
-  // If it's a protected page, userId must be present. If not, the ProtectedLayout will handle redirection.
+  // If it's a protected page, render the ProtectedLayout.
+  // It contains its own logic to handle invalid sessions and redirect if necessary.
   return <ProtectedLayout>{children}</ProtectedLayout>;
 }
+
