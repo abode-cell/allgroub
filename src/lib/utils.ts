@@ -9,11 +9,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
+  new Intl.NumberFormat('ar-SA', {
     style: 'currency',
     currency: 'SAR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
 
 export type BorrowerStatusDetails = {

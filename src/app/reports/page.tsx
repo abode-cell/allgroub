@@ -254,16 +254,13 @@ export default function ReportsPage() {
   const handleExportInvestors = () => {
     if (!currentUser) return;
     const title = "تقرير المستثمرين";
-    const columns = ["اسم المستثمر", "نوع الاستثمار", "إجمالي الاستثمار", "الأموال النشطة", "الأموال الخاملة", "الأموال المتعثرة", "الحالة"];
+    const columns = ["اسم المستثمر", "رأس مال الأقساط", "رأس مال المهلة", "إجمالي رأس المال", "الحالة"];
     const rows = investorsWithFinancials.map(investor => {
-        const idleFunds = investor.idleInstallmentCapital + investor.idleGraceCapital;
         return [
             investor.name,
-            investor.investmentType,
+            investor.totalInstallmentCapital,
+            investor.totalGraceCapital,
             investor.totalCapitalInSystem,
-            investor.activeCapital,
-            idleFunds,
-            investor.defaultedFunds,
             investor.status
         ];
     });
@@ -274,8 +271,13 @@ export default function ReportsPage() {
     if (!currentUser) return;
 
     const financials = calculateInvestorFinancials(investor, borrowers);
-    const { totalCapitalInSystem, activeCapital, idleInstallmentCapital, idleGraceCapital, defaultedFunds } = financials;
-    const idleFunds = idleInstallmentCapital + idleGraceCapital;
+    const { 
+        totalInstallmentCapital, totalGraceCapital,
+        activeInstallmentCapital, activeGraceCapital,
+        idleInstallmentCapital, idleGraceCapital,
+        defaultedInstallmentFunds, defaultedGraceFunds,
+    } = financials;
+
     const fundedLoans = borrowers.filter(b => 
         b.fundedBy?.some(f => f.investorId === investor.id)
     );
@@ -286,23 +288,34 @@ export default function ReportsPage() {
         <style>
             .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; }
             .summary-card { padding: 1rem; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9; }
-            .summary-card h3 { margin: 0 0 0.5rem 0; color: #555; font-size: 1rem; }
-            .summary-card p { margin: 0; font-size: 1.5rem; font-weight: bold; }
+            .summary-card h3 { margin: 0 0 0.5rem 0; color: #555; font-size: 1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; }
+            .summary-card p { margin: 0.25rem 0; font-size: 1rem; display: flex; justify-content: space-between; }
+            .summary-card p span:last-child { font-weight: bold; }
             .section-title { font-size: 1.5rem; color: #0F2C59; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; }
         </style>
 
         <h2 class="section-title">الملخص المالي</h2>
         <div class="summary-grid">
-            <div class="summary-card"><h3>إجمالي الاستثمار</h3><p>${formatCurrency(totalCapitalInSystem)}</p></div>
-            <div class="summary-card"><h3>الأموال النشطة</h3><p style="color: #28a745;">${formatCurrency(activeCapital)}</p></div>
-            <div class="summary-card"><h3>الأموال الخاملة</h3><p>${formatCurrency(idleFunds)}</p></div>
-            <div class="summary-card"><h3>الأموال المتعثرة</h3><p style="color: #dc3545;">${formatCurrency(defaultedFunds)}</p></div>
+            <div class="summary-card">
+              <h3>محفظة الأقساط</h3>
+              <p><span>إجمالي رأس المال:</span> <span>${formatCurrency(totalInstallmentCapital)}</span></p>
+              <p><span>الأموال النشطة:</span> <span style="color: #28a745;">${formatCurrency(activeInstallmentCapital)}</span></p>
+              <p><span>الأموال الخاملة:</span> <span>${formatCurrency(idleInstallmentCapital)}</span></p>
+              <p><span>الأموال المتعثرة:</span> <span style="color: #dc3545;">${formatCurrency(defaultedInstallmentFunds)}</span></p>
+            </div>
+             <div class="summary-card">
+              <h3>محفظة المهلة</h3>
+              <p><span>إجمالي رأس المال:</span> <span>${formatCurrency(totalGraceCapital)}</span></p>
+              <p><span>الأموال النشطة:</span> <span style="color: #28a745;">${formatCurrency(activeGraceCapital)}</span></p>
+              <p><span>الأموال الخاملة:</span> <span>${formatCurrency(idleGraceCapital)}</span></p>
+              <p><span>الأموال المتعثرة:</span> <span style="color: #dc3545;">${formatCurrency(defaultedGraceFunds)}</span></p>
+            </div>
         </div>
 
         <h2 class="section-title">القروض الممولة (${fundedLoans.length})</h2>
         <table>
             <thead>
-                <tr><th>اسم المقترض</th><th>مبلغ التمويل</th><th>تاريخ الاستحقاق</th><th>الحالة</th></tr>
+                <tr><th>اسم المقترض</th><th>نوع القرض</th><th>مبلغ التمويل</th><th>تاريخ الاستحقاق</th><th>الحالة</th></tr>
             </thead>
             <tbody>
                 ${fundedLoans.length > 0 ? fundedLoans.map(loan => {
@@ -310,11 +323,12 @@ export default function ReportsPage() {
                     const statusDetails = getBorrowerStatus(loan, new Date());
                     return `<tr>
                         <td>${loan.name}</td>
+                        <td>${loan.loanType}</td>
                         <td>${formatCurrency(fundingAmount)}</td>
                         <td>${loan.dueDate}</td>
                         <td>${statusDetails.text}</td>
                     </tr>`;
-                }).join('') : `<tr><td colspan="4" style="text-align: center; padding: 1rem;">لا توجد قروض ممولة.</td></tr>`}
+                }).join('') : `<tr><td colspan="5" style="text-align: center; padding: 1rem;">لا توجد قروض ممولة.</td></tr>`}
             </tbody>
         </table>
         
@@ -430,8 +444,12 @@ export default function ReportsPage() {
                     const installmentLoansFunded = fundedLoans.filter(l => l.loanType === 'اقساط');
                     const gracePeriodLoansFunded = fundedLoans.filter(l => l.loanType === 'مهلة');
 
-                    const { totalCapitalInSystem, activeCapital, idleInstallmentCapital, idleGraceCapital, defaultedFunds } = investor;
-                    const idleFunds = idleInstallmentCapital + idleGraceCapital;
+                    const {
+                        totalInstallmentCapital, totalGraceCapital,
+                        activeInstallmentCapital, activeGraceCapital,
+                        idleInstallmentCapital, idleGraceCapital,
+                        defaultedInstallmentFunds, defaultedGraceFunds
+                    } = investor;
 
                     return (
                         <AccordionItem value={investor.id} key={investor.id}>
@@ -442,22 +460,20 @@ export default function ReportsPage() {
                             </div>
                         </AccordionTrigger>
                         <AccordionContent className="space-y-6 bg-muted/30 p-4">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div className="p-3 rounded-md border bg-background shadow-sm">
-                                    <p className="text-muted-foreground">إجمالي الاستثمار</p>
-                                    <p className="font-bold text-lg">{formatCurrency(totalCapitalInSystem)}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div className="p-3 rounded-md border bg-background shadow-sm space-y-1">
+                                    <h5 className="font-semibold text-center pb-2 border-b">محفظة الأقساط</h5>
+                                    <p className="flex justify-between"><span>إجمالي رأس المال:</span> <span className='font-bold'>{formatCurrency(totalInstallmentCapital)}</span></p>
+                                    <p className="flex justify-between"><span>الأموال النشطة:</span> <span className='font-bold text-green-600'>{formatCurrency(activeInstallmentCapital)}</span></p>
+                                    <p className="flex justify-between"><span>الأموال الخاملة:</span> <span className='font-bold'>{formatCurrency(idleInstallmentCapital)}</span></p>
+                                    <p className="flex justify-between"><span>الأموال المتعثرة:</span> <span className='font-bold text-destructive'>{formatCurrency(defaultedInstallmentFunds)}</span></p>
                                 </div>
-                                <div className="p-3 rounded-md border bg-background shadow-sm">
-                                    <p className="text-muted-foreground">الأموال النشطة</p>
-                                    <p className="font-bold text-lg text-green-600">{formatCurrency(activeCapital)}</p>
-                                </div>
-                                <div className="p-3 rounded-md border bg-background shadow-sm">
-                                    <p className="text-muted-foreground">الأموال الخاملة</p>
-                                    <p className="font-bold text-lg">{formatCurrency(idleFunds)}</p>
-                                </div>
-                                <div className="p-3 rounded-md border bg-background shadow-sm">
-                                    <p className="text-muted-foreground">الأموال المتعثرة</p>
-                                    <p className="font-bold text-lg text-destructive">{formatCurrency(defaultedFunds)}</p>
+                                <div className="p-3 rounded-md border bg-background shadow-sm space-y-1">
+                                    <h5 className="font-semibold text-center pb-2 border-b">محفظة المهلة</h5>
+                                    <p className="flex justify-between"><span>إجمالي رأس المال:</span> <span className='font-bold'>{formatCurrency(totalGraceCapital)}</span></p>
+                                    <p className="flex justify-between"><span>الأموال النشطة:</span> <span className='font-bold text-green-600'>{formatCurrency(activeGraceCapital)}</span></p>
+                                    <p className="flex justify-between"><span>الأموال الخاملة:</span> <span className='font-bold'>{formatCurrency(idleGraceCapital)}</span></p>
+                                    <p className="flex justify-between"><span>الأموال المتعثرة:</span> <span className='font-bold text-destructive'>{formatCurrency(defaultedGraceFunds)}</span></p>
                                 </div>
                             </div>
                             

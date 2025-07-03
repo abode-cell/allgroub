@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ultimate_final_v7_final_secure';
+export const APP_DATA_KEY = 'appData_v_ultimate_final_v8_final_secure';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -168,13 +168,18 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'vis
     permissions: u.permissions || {},
   }));
 
-  const investors = (data.investors || []).map((i: any) => ({
-    ...i,
-    transactionHistory: i.transactionHistory || [],
-    fundedLoanIds: i.fundedLoanIds || [],
-    installmentProfitShare: i.installmentProfitShare ?? initialDataState.investorSharePercentage,
-    gracePeriodProfitShare: i.gracePeriodProfitShare ?? initialDataState.graceInvestorSharePercentage,
-  }));
+  const investors = (data.investors || []).map((i: any) => {
+    const newInvestor = {
+      ...i,
+      transactionHistory: i.transactionHistory || [],
+      fundedLoanIds: i.fundedLoanIds || [],
+      installmentProfitShare: i.installmentProfitShare ?? initialDataState.investorSharePercentage,
+      gracePeriodProfitShare: i.gracePeriodProfitShare ?? initialDataState.graceInvestorSharePercentage,
+    };
+    // Clean up deprecated property
+    delete newInvestor.investmentType;
+    return newInvestor;
+  });
 
   const borrowers = (data.borrowers || []).map((b: any) => ({
     ...b,
@@ -545,8 +550,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const currentInvestorState = updatedInvestorsMap.get(invId);
             if (!currentInvestorState) continue;
             
-            const freshFinancials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
-            const availableCapital = loanToApprove.loanType === 'اقساط' ? freshFinancials.idleInstallmentCapital : freshFinancials.idleGraceCapital;
+            const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
+            const availableCapital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
             
             const contribution = Math.min(availableCapital, remainingAmountToFund);
             if (contribution > 0) {
@@ -858,15 +863,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (updatedInvestor: UpdatableInvestor) => {
       setData(d => {
         const existingInvestor = d.investors.find(i => i.id === updatedInvestor.id);
-        if (existingInvestor && existingInvestor.investmentType !== updatedInvestor.investmentType) {
-            toast({
-                variant: 'destructive',
-                title: 'خطأ فادح',
-                description: 'لا يمكن تغيير نوع استثمار المستثمر بعد إنشائه. هذا الإجراء تم منعه لحماية سلامة البيانات.',
-            });
-            console.error(`SECURITY: Blocked attempt to change investmentType for investor ${updatedInvestor.id}`);
-            return d;
-        }
+        if (!existingInvestor) return d;
         
         return ({...d, investors: d.investors.map((i) =>
             i.id === updatedInvestor.id ? { ...i, ...updatedInvestor } : i
@@ -960,6 +957,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
       
+        const installmentCapital = Number(investorPayload.installmentCapital) || 0;
+        const graceCapital = Number(investorPayload.graceCapital) || 0;
+
+        if (installmentCapital <= 0 && graceCapital <= 0) {
+           result = { success: false, message: 'يجب إدخال رأس مال واحد على الأقل.' };
+           toast({ variant: 'destructive', title: 'خطأ', description: result.message });
+           return d;
+        }
+
         const managerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
         const manager = d.users.find(u => u.id === managerId);
       
@@ -999,21 +1005,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
           registrationDate: new Date().toISOString(),
           managedBy: managerId,
         };
+        
+        const transactionHistory: Transaction[] = [];
+
+        if (installmentCapital > 0) {
+            transactionHistory.push({
+                id: `tx_init_inst_${newId}`,
+                date: new Date().toISOString(),
+                type: 'إيداع رأس المال',
+                amount: installmentCapital,
+                description: 'إيداع تأسيسي - محفظة الأقساط',
+                capitalSource: 'installment',
+            });
+        }
+        if (graceCapital > 0) {
+             transactionHistory.push({
+                id: `tx_init_grace_${newId}`,
+                date: new Date().toISOString(),
+                type: 'إيداع رأس المال',
+                amount: graceCapital,
+                description: 'إيداع تأسيسي - محفظة المهلة',
+                capitalSource: 'grace',
+            });
+        }
       
         const newInvestorEntry: Investor = {
           id: newId,
           name: investorPayload.name,
-          investmentType: investorPayload.investmentType,
           status: status,
           date: new Date().toISOString(),
-          transactionHistory: [{
-            id: `tx_init_${newId}_${crypto.randomUUID()}`,
-            date: new Date().toISOString(),
-            type: 'إيداع رأس المال',
-            amount: investorPayload.capital,
-            description: 'إيداع تأسيسي للحساب',
-            capitalSource: investorPayload.investmentType,
-          }],
+          transactionHistory: transactionHistory,
           fundedLoanIds: [],
           submittedBy: loggedInUser.id,
           isNotified: false,

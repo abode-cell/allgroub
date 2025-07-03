@@ -29,8 +29,6 @@ import {
 } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -84,11 +82,11 @@ export default function InvestorsPage() {
   
   const getInitialNewInvestorState = () => ({
     name: '',
-    capital: '',
+    installmentCapital: '',
+    graceCapital: '',
     email: '',
     phone: '',
     password: '',
-    investmentType: 'اقساط' as 'اقساط' | 'مهلة',
     installmentProfitShare: String(investorSharePercentage),
     gracePeriodProfitShare: String(graceInvestorSharePercentage),
   });
@@ -104,8 +102,6 @@ export default function InvestorsPage() {
     }));
   }, [investorSharePercentage, graceInvestorSharePercentage]);
 
-  const installmentInvestors = useMemo(() => investors.filter(i => i.investmentType === 'اقساط'), [investors]);
-  const gracePeriodInvestors = useMemo(() => investors.filter(i => i.investmentType === 'مهلة'), [investors]);
 
   const isEmployee = role === 'موظف';
   const isOfficeManager = role === 'مدير المكتب';
@@ -131,13 +127,25 @@ export default function InvestorsPage() {
   const handleAddInvestor = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const installmentCapital = Number(newInvestor.installmentCapital) || 0;
+    const graceCapital = Number(newInvestor.graceCapital) || 0;
+
+    if (installmentCapital <= 0 && graceCapital <= 0) {
+        toast({
+            variant: 'destructive',
+            title: 'خطأ',
+            description: 'يجب إدخال رأس مال واحد على الأقل للمستثمر.'
+        });
+        return;
+    }
+
     const result = await addInvestor({
       name: newInvestor.name,
-      capital: Number(newInvestor.capital),
+      installmentCapital: installmentCapital,
+      graceCapital: graceCapital,
       email: newInvestor.email,
       phone: newInvestor.phone,
       password: newInvestor.password,
-      investmentType: newInvestor.investmentType,
       installmentProfitShare: Number(newInvestor.installmentProfitShare),
       gracePeriodProfitShare: Number(newInvestor.gracePeriodProfitShare),
     });
@@ -222,7 +230,7 @@ export default function InvestorsPage() {
                   AddButton
                 )}
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-md">
                 <form onSubmit={handleAddInvestor}>
                   <DialogHeader>
                     <DialogTitle>{getDialogTitle()}</DialogTitle>
@@ -243,34 +251,29 @@ export default function InvestorsPage() {
                       />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right">نوع الاستثمار</Label>
-                        <RadioGroup
-                          value={newInvestor.investmentType}
-                          onValueChange={(value: 'اقساط' | 'مهلة') => setNewInvestor(p => ({...p, investmentType: value}))}
-                          className="col-span-3 flex gap-4 rtl:space-x-reverse"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="اقساط" id="inv-r1" />
-                            <Label htmlFor="inv-r1">أقساط</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="مهلة" id="inv-r2" />
-                            <Label htmlFor="inv-r2">مهلة</Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="capital" className="text-right">
-                        رأس المال
+                      <Label htmlFor="installmentCapital" className="text-right">
+                        رأس مال الأقساط
                       </Label>
                       <Input
-                        id="capital"
+                        id="installmentCapital"
                         type="number"
-                        placeholder="مبلغ الاستثمار"
+                        placeholder="0"
                         className="col-span-3"
-                        value={newInvestor.capital}
+                        value={newInvestor.installmentCapital}
                         onChange={handleInputChange}
-                        required
+                      />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="graceCapital" className="text-right">
+                        رأس مال المهلة
+                      </Label>
+                      <Input
+                        id="graceCapital"
+                        type="number"
+                        placeholder="0"
+                        className="col-span-3"
+                        value={newInvestor.graceCapital}
+                        onChange={handleInputChange}
                       />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -359,22 +362,7 @@ export default function InvestorsPage() {
             </Dialog>
           )}
         </div>
-        <Tabs defaultValue="installments" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="installments">
-                  مستثمرو الأقساط ({installmentInvestors.length})
-                </TabsTrigger>
-                <TabsTrigger value="grace-period">
-                  مستثمرو المهلة ({gracePeriodInvestors.length})
-                </TabsTrigger>
-            </TabsList>
-            <TabsContent value="installments" className="mt-4">
-                <InvestorsTable investors={installmentInvestors} hideFunds={hideFunds} />
-            </TabsContent>
-            <TabsContent value="grace-period" className="mt-4">
-                <InvestorsTable investors={gracePeriodInvestors} hideFunds={hideFunds} />
-            </TabsContent>
-        </Tabs>
+        <InvestorsTable investors={investors} hideFunds={hideFunds} />
       </main>
     </div>
   );

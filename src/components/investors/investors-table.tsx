@@ -206,9 +206,7 @@ export function InvestorsTable({
 
   const handleAddTransactionClick = (investor: Investor) => {
     setSelectedInvestor(investor);
-    // Smartly default the capital source
-    const defaultSource = investor.investmentType === 'اقساط' || investor.investmentType === 'مهلة' ? investor.investmentType : 'installment';
-    setTransactionDetails({ amount: '', description: '', type: 'إيداع رأس المال', date: new Date(), withdrawalMethod: 'بنكي', capitalSource: defaultSource });
+    setTransactionDetails({ amount: '', description: '', type: 'إيداع رأس المال', date: new Date(), withdrawalMethod: 'بنكي', capitalSource: 'installment' });
     setIsTransactionDialogOpen(true);
   };
 
@@ -358,7 +356,7 @@ export function InvestorsTable({
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) setSelectedInvestor(null); setIsEditDialogOpen(open); }}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>تعديل المستثمر</DialogTitle>
             <DialogDescription asChild>
@@ -450,30 +448,20 @@ export function InvestorsTable({
               <div className="grid gap-6 pt-4 text-sm">
                 <div>
                     <h4 className="font-semibold text-base mb-2">الملخص المالي</h4>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
-                        <div>
-                            <span className='text-muted-foreground'>إجمالي رأس المال:</span>
-                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(financials.totalCapitalInSystem)}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-3 rounded-md border bg-muted/50 space-y-2">
+                            <h5 className="font-semibold text-center pb-2 border-b">محفظة الأقساط</h5>
+                            <div className="flex justify-between"><span>إجمالي رأس المال:</span> <span className='font-bold'>{hideFunds ? '*****' : formatCurrency(financials.totalInstallmentCapital)}</span></div>
+                            <div className="flex justify-between"><span>الأموال النشطة:</span> <span className='font-bold text-green-600'>{hideFunds ? '*****' : formatCurrency(financials.activeInstallmentCapital)}</span></div>
+                            <div className="flex justify-between"><span>الأموال الخاملة:</span> <span className='font-bold'>{hideFunds ? '*****' : formatCurrency(financials.idleInstallmentCapital)}</span></div>
+                            <div className="flex justify-between"><span>الأموال المتعثرة:</span> <span className='font-bold text-destructive'>{hideFunds ? '*****' : formatCurrency(financials.defaultedInstallmentFunds)}</span></div>
                         </div>
-                        <div>
-                            <span className='text-muted-foreground'>الأموال النشطة:</span>
-                            <span className='font-bold text-base float-left text-green-600'>{hideFunds ? '*****' : formatCurrency(financials.activeCapital)}</span>
-                        </div>
-                        <div>
-                            <span className='text-muted-foreground'>الأموال الخاملة:</span>
-                            <span className='font-bold text-base float-left'>{hideFunds ? '*****' : formatCurrency(financials.idleInstallmentCapital + financials.idleGraceCapital)}</span>
-                        </div>
-                        <div>
-                            <span className='text-muted-foreground'>الأموال المتعثرة:</span>
-                            <span className='font-bold text-base float-left text-destructive'>{hideFunds ? '*****' : formatCurrency(financials.defaultedFunds)}</span>
-                        </div>
-                         <div>
-                            <span className='text-muted-foreground'>حصة ربح الأقساط:</span>
-                            <span className='font-bold text-base float-left'>{selectedInvestor.installmentProfitShare ?? 0}%</span>
-                        </div>
-                        <div>
-                            <span className='text-muted-foreground'>حصة ربح المهلة:</span>
-                            <span className='font-bold text-base float-left'>{selectedInvestor.gracePeriodProfitShare ?? 0}%</span>
+                        <div className="p-3 rounded-md border bg-muted/50 space-y-2">
+                             <h5 className="font-semibold text-center pb-2 border-b">محفظة المهلة</h5>
+                            <div className="flex justify-between"><span>إجمالي رأس المال:</span> <span className='font-bold'>{hideFunds ? '*****' : formatCurrency(financials.totalGraceCapital)}</span></div>
+                            <div className="flex justify-between"><span>الأموال النشطة:</span> <span className='font-bold text-green-600'>{hideFunds ? '*****' : formatCurrency(financials.activeGraceCapital)}</span></div>
+                            <div className="flex justify-between"><span>الأموال الخاملة:</span> <span className='font-bold'>{hideFunds ? '*****' : formatCurrency(financials.idleGraceCapital)}</span></div>
+                            <div className="flex justify-between"><span>الأموال المتعثرة:</span> <span className='font-bold text-destructive'>{hideFunds ? '*****' : formatCurrency(financials.defaultedGraceFunds)}</span></div>
                         </div>
                     </div>
                 </div>
@@ -551,7 +539,7 @@ export function InvestorsTable({
       </Dialog>
 
       <Dialog open={isTransactionDialogOpen} onOpenChange={(open) => { if(!open) setSelectedInvestor(null); setIsTransactionDialogOpen(open)}}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-md">
           <form onSubmit={handleConfirmTransaction}>
             <DialogHeader>
               <DialogTitle>عملية مالية جديدة لـ {selectedInvestor?.name}</DialogTitle>
@@ -634,39 +622,37 @@ export function InvestorsTable({
                   required
                 />
               </div>
-              {selectedInvestor?.investmentType !== 'اقساط' && selectedInvestor?.investmentType !== 'مهلة' && (
-                <div className="space-y-2">
-                  <Label>محفظة العملية</Label>
-                  <RadioGroup
-                      value={transactionDetails.capitalSource}
-                      onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
-                      className="flex gap-4"
-                  >
-                     {isWithdrawal ? (
-                        availableWithdrawalSources.map(source => (
-                          <div className="flex items-center space-x-2 rtl:space-x-reverse" key={source.value}>
-                            <RadioGroupItem value={source.value} id={`source-${source.value}`} />
-                            <Label htmlFor={`source-${source.value}`}>{source.label}</Label>
-                          </div>
-                        ))
-                     ) : (
-                        <>
-                           <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                <RadioGroupItem value="installment" id="source-install" />
-                                <Label htmlFor="source-install">محفظة الأقساط</Label>
-                            </div>
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                <RadioGroupItem value="grace" id="source-grace" />
-                                <Label htmlFor="source-grace">محفظة المهلة</Label>
-                            </div>
-                        </>
-                     )}
-                  </RadioGroup>
-                  {isWithdrawal && availableWithdrawalSources.length === 0 && (
-                     <p className='text-xs text-destructive text-center p-2'>لا يوجد رصيد متاح للسحب.</p>
-                  )}
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label>محفظة العملية</Label>
+                <RadioGroup
+                    value={transactionDetails.capitalSource}
+                    onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
+                    className="flex gap-4"
+                >
+                    {isWithdrawal ? (
+                    availableWithdrawalSources.map(source => (
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse" key={source.value}>
+                        <RadioGroupItem value={source.value} id={`source-${source.value}`} />
+                        <Label htmlFor={`source-${source.value}`}>{source.label}</Label>
+                        </div>
+                    ))
+                    ) : (
+                    <>
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                            <RadioGroupItem value="installment" id="source-install" />
+                            <Label htmlFor="source-install">محفظة الأقساط</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                            <RadioGroupItem value="grace" id="source-grace" />
+                            <Label htmlFor="source-grace">محفظة المهلة</Label>
+                        </div>
+                    </>
+                    )}
+                </RadioGroup>
+                {isWithdrawal && availableWithdrawalSources.length === 0 && (
+                    <p className='text-xs text-destructive text-center p-2'>لا يوجد رصيد متاح للسحب.</p>
+                )}
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="description">الوصف (السبب)</Label>
                 <Textarea

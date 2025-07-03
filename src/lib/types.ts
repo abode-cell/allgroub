@@ -117,7 +117,6 @@ export type Transaction = {
 export type Investor = {
   id:string;
   name: string;
-  investmentType: 'اقساط' | 'مهلة';
   date: string;
   status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض';
   transactionHistory: Transaction[];
@@ -140,8 +139,8 @@ export type UpdatableInvestor = Omit<
 
 export type NewInvestorPayload = {
     name: string;
-    capital: number;
-    investmentType: Investor['investmentType'];
+    installmentCapital: number;
+    graceCapital: number;
     email: string;
     phone: string;
     password: string;

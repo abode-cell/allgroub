@@ -75,6 +75,12 @@ export function calculateInvestorFinancials(investor: Investor, allBorrowers: Bo
   const idleGraceCapital = totalGraceCapital - activeGraceCapital - defaultedGraceFunds;
   
   return {
+    totalInstallmentCapital,
+    totalGraceCapital,
+    activeInstallmentCapital,
+    activeGraceCapital,
+    defaultedInstallmentFunds,
+    defaultedGraceFunds,
     idleInstallmentCapital: Math.max(0, idleInstallmentCapital),
     idleGraceCapital: Math.max(0, idleGraceCapital),
     activeCapital,

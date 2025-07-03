@@ -240,8 +240,9 @@ export default function LandingPage() {
 
             {/* Footer */}
             <footer className="w-full bg-muted border-t">
-                <div className="container mx-auto py-6 text-center text-muted-foreground">
-                    &copy; {new Date().getFullYear()} مجموعة عال. جميع الحقوق محفوظة.
+                <div className="container mx-auto py-6 text-center text-muted-foreground flex flex-col gap-2">
+                    <p className="font-medium">تم انشاء الموقع بأيدي سعودية</p>
+                    <p className="text-xs">&copy; {new Date().getFullYear()} مجموعة عال. جميع الحقوق محفوظة.</p>
                 </div>
             </footer>
         </div>
