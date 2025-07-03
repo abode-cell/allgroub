@@ -25,13 +25,13 @@ const statusColors: { [key: string]: string } = {
   'مسدد بالكامل': 'hsl(var(--chart-2))',
 };
 
-const statusTranslations: { [key: string]: string } = {
-    'منتظم': 'Regular',
-    'متأخر': 'Late',
-    'متعثر': 'Defaulted',
-    'معلق': 'Suspended',
-    'مسدد بالكامل': 'Paid Off'
-}
+const getChartDisplayStatus = (borrower: Borrower): string => {
+    if (borrower.status === 'معلق') return 'معلق';
+    if (borrower.status === 'مسدد بالكامل' || borrower.paymentStatus === 'تم السداد') return 'مسدد بالكامل';
+    if (borrower.status === 'متعثر' || borrower.paymentStatus === 'متعثر' || borrower.paymentStatus === 'تم اتخاذ الاجراءات القانونيه') return 'متعثر';
+    if (borrower.paymentStatus === 'متأخر بقسط' || borrower.paymentStatus === 'متأخر بقسطين') return 'متأخر';
+    return 'منتظم';
+};
 
 
 export function LoansStatusChart({ borrowers }: { borrowers: Borrower[] }) {
@@ -53,13 +53,14 @@ export function LoansStatusChart({ borrowers }: { borrowers: Borrower[] }) {
 
   const chartData = Object.entries(
     borrowers.reduce((acc, borrower) => {
-      acc[borrower.status] = (acc[borrower.status] || 0) + 1;
+      const displayStatus = getChartDisplayStatus(borrower);
+      acc[displayStatus] = (acc[displayStatus] || 0) + 1;
       return acc;
     }, {} as { [key: string]: number })
-  ).map(([name, value]) => ({ name, value, fill: statusColors[name] }));
+  ).map(([name, value]) => ({ name, value, fill: statusColors[name] || 'hsl(var(--muted))' }));
   
   const chartConfig = chartData.reduce((acc, item) => {
-      acc[statusTranslations[item.name]] = {
+      acc[item.name] = {
           label: item.name,
           color: item.fill,
       };

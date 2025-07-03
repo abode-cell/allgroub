@@ -1,4 +1,3 @@
-
 'use client';
 
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
@@ -89,7 +88,7 @@ export function DailySummary() {
             const pendingRequestsCount = pendingBorrowerRequests.length + pendingInvestorRequests.length;
 
 
-            const defaultedLoansCount = filteredBorrowers.filter(b => b.status === 'متعثر').length;
+            const defaultedLoansCount = filteredBorrowers.filter(b => b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه').length;
             const totalNetProfit = metrics.installments.netProfit + metrics.gracePeriod.netProfit;
             const idleCapital = metrics.idleFunds.totalIdleFunds;
             const activeCapital = metrics.capital.total - idleCapital;
