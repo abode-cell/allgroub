@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v25-final-cascade-deletefix';
+export const APP_DATA_KEY = 'appData-v27-final-hydration-fix';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -1589,7 +1589,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
 
-        // Prevent deletion if the user is a manager with subordinates or investors.
+        // Prevent deletion if the user is a manager with subordinates.
         if (userToDelete.role === 'مدير المكتب') {
             if (users.some(u => u.managedBy === userIdToDelete)) {
                 toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير مستخدمين. يرجى حذف الموظفين والمساعدين المرتبطين به أولاً.` });

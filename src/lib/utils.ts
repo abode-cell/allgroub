@@ -3,7 +3,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Borrower } from "./types"
-import { differenceInDays, addMonths, isValid } from "date-fns";
+import { differenceInDays, addMonths, isPast, isValid } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

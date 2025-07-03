@@ -736,13 +736,14 @@ export function BorrowersTable({
                     id="dueDate-edit"
                     type="date"
                     value={selectedBorrower.dueDate}
+                    readOnly={selectedBorrower.status !== 'معلق'}
+                    className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                     onChange={(e) =>
                       setSelectedBorrower({
                         ...selectedBorrower,
                         dueDate: e.target.value,
                       })
                     }
-                    className="col-span-3"
                   />
                 </div>
               </div>
