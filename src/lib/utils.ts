@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Borrower } from "./types"
-import { differenceInDays } from "date-fns";
+import { differenceInDays, addMonths } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -36,4 +36,56 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
   }
   
   return { text: `متبقي ${daysDiff} يوم`, variant: 'default' };
+};
+
+export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text: string; isOverdue: boolean } => {
+    today.setHours(0, 0, 0, 0);
+
+    if (borrower.status === 'مسدد بالكامل' || borrower.paymentStatus === 'تم السداد') {
+        return { text: 'مسدد', isOverdue: false };
+    }
+    
+    if (borrower.status === 'مرفوض' || borrower.status === 'معلق') {
+        return { text: '-', isOverdue: false };
+    }
+
+    if (borrower.loanType === 'مهلة') {
+        const dueDate = new Date(borrower.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        const daysDiff = differenceInDays(dueDate, today);
+
+        if (daysDiff < 0) {
+            return { text: `متأخر ${Math.abs(daysDiff)} يوم`, isOverdue: true };
+        }
+        return { text: `${daysDiff} يوم`, isOverdue: false };
+    }
+
+    if (borrower.loanType === 'اقساط') {
+        if (!borrower.term || !borrower.installments) {
+            return { text: '-', isOverdue: false };
+        }
+        
+        const startDate = new Date(borrower.date);
+        
+        // Find the first unpaid installment
+        const nextInstallment = [...borrower.installments]
+            .filter(i => i.status === 'لم يسدد بعد' || i.status === 'متأخر')
+            .sort((a, b) => a.month - b.month)[0];
+
+        if (!nextInstallment) {
+            return { text: 'مسدد', isOverdue: false };
+        }
+        
+        const nextPaymentDate = addMonths(startDate, nextInstallment.month);
+        nextPaymentDate.setHours(0, 0, 0, 0);
+
+        const daysDiff = differenceInDays(nextPaymentDate, today);
+
+        if (daysDiff < 0) {
+            return { text: `متأخر ${Math.abs(daysDiff)} يوم`, isOverdue: true };
+        }
+        return { text: `${daysDiff} يوم`, isOverdue: false };
+    }
+    
+    return { text: '-', isOverdue: false };
 };

@@ -73,6 +73,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
+import { RemainingDays } from './remaining-days';
 
 type Payment = {
   month: number;
@@ -323,6 +324,7 @@ export function BorrowersTable({
                 <TableHead className="text-center">المستثمر</TableHead>
                 <TableHead className="text-center">حالة السداد</TableHead>
                 <TableHead>تاريخ الاستحقاق</TableHead>
+                <TableHead className="text-center">الأيام المتبقية</TableHead>
                 <TableHead className="text-left">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -402,6 +404,9 @@ export function BorrowersTable({
                       </div>
                     </TableCell>
                     <TableCell>{borrower.dueDate}</TableCell>
+                    <TableCell className="text-center">
+                      <RemainingDays borrower={borrower} />
+                    </TableCell>
                     <TableCell className="text-left flex items-center justify-start">
                        {borrower.isNotified && (
                           <TooltipProvider>
@@ -471,7 +476,7 @@ export function BorrowersTable({
               })
             ) : (
                 <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center">
+                    <TableCell colSpan={isGracePeriodTable ? 9 : 8} className="h-24 text-center">
                       لا توجد قروض لعرضها.
                     </TableCell>
                 </TableRow>
