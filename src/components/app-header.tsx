@@ -21,6 +21,9 @@ import {
 import { useState } from 'react';
 import { ThemeToggle } from './theme-toggle';
 import { Logo } from './logo';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getInitials } from '@/lib/utils';
+
 
 function NavLinks({ menuItems }: { menuItems: MenuItem[] }) {
   const pathname = usePathname();
@@ -44,22 +47,12 @@ function NavLinks({ menuItems }: { menuItems: MenuItem[] }) {
   );
 }
 
-const UserMenuIcon = () => (
-    <div className="h-10 w-10 rounded-full flex items-center justify-center bg-card border">
-        <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="text-primary h-6 w-6"
-        >
-            <path d="M12 2L4.5 17.5H19.5L12 2Z" fill="currentColor" fillOpacity="0.1" />
-            <path d="M12 2L2 22H22L12 2Z" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M12 11.5L8 19.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M12 11.5L16 19.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-    </div>
+const UserMenuIcon = ({ userName }: { userName: string }) => (
+    <Avatar className="h-10 w-10 border-2 border-primary/20">
+      <AvatarFallback className="bg-primary/10 text-primary font-bold">
+        {getInitials(userName)}
+      </AvatarFallback>
+    </Avatar>
 );
 
 
@@ -107,7 +100,7 @@ export function AppHeader() {
                                 <p className="font-semibold text-sm">{currentUser?.name}</p>
                                 <p className="text-xs text-muted-foreground">{currentUser?.role}</p>
                             </div>
-                            <UserMenuIcon />
+                            <UserMenuIcon userName={currentUser?.name || ''} />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -173,7 +166,7 @@ export function AppHeader() {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                          <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
-                            <UserMenuIcon />
+                            <UserMenuIcon userName={currentUser?.name || ''} />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56" align="end" forceMount>

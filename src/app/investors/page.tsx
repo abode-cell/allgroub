@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle } from 'lucide-react';
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import type { Investor, NewInvestorPayload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -79,6 +79,7 @@ export default function InvestorsPage() {
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const getInitialNewInvestorState = () => ({
     name: '',
@@ -126,6 +127,7 @@ export default function InvestorsPage() {
 
   const handleAddInvestor = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     const installmentCapital = Number(newInvestor.installmentCapital) || 0;
     const graceCapital = Number(newInvestor.graceCapital) || 0;
@@ -136,10 +138,11 @@ export default function InvestorsPage() {
             title: 'خطأ',
             description: 'يجب إدخال رأس مال واحد على الأقل للمستثمر.'
         });
+        setIsSubmitting(false);
         return;
     }
 
-    const result = await addInvestor({
+    addInvestor({
       name: newInvestor.name,
       installmentCapital: installmentCapital,
       graceCapital: graceCapital,
@@ -148,12 +151,14 @@ export default function InvestorsPage() {
       password: newInvestor.password,
       installmentProfitShare: Number(newInvestor.installmentProfitShare),
       gracePeriodProfitShare: Number(newInvestor.gracePeriodProfitShare),
+    }).then(result => {
+        if (result.success) {
+            setIsAddDialogOpen(false);
+            // Resetting the form is handled by onOpenChange now
+        }
+    }).finally(() => {
+        setIsSubmitting(false);
     });
-
-    if (result.success) {
-      setIsAddDialogOpen(false);
-      // Resetting the form is handled by onOpenChange now
-    }
   };
 
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || (isEmployee && currentUser?.permissions?.manageInvestors);
@@ -355,7 +360,10 @@ export default function InvestorsPage() {
                         إلغاء
                       </Button>
                     </DialogClose>
-                    <Button type="submit">{getSubmitButtonText()}</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                      {getSubmitButtonText()}
+                    </Button>
                   </DialogFooter>
                 </form>
               </DialogContent>

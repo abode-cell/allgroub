@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -116,6 +116,7 @@ export default function BorrowersPage() {
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newBorrower, setNewBorrower] = useState<{
     name: string;
     phone: string;
@@ -166,6 +167,7 @@ export default function BorrowersPage() {
   };
 
   const proceedToAddBorrower = (finalAmount?: number) => {
+    setIsSubmitting(true);
     const isInstallments = newBorrower.loanType === 'اقساط';
     const finalStatus = isPendingRequest ? 'معلق' : 'منتظم';
 
@@ -176,19 +178,25 @@ export default function BorrowersPage() {
       term: Number(newBorrower.term) || 0,
       status: finalStatus,
       discount: Number(newBorrower.discount) || 0,
-    }, finalStatus === 'معلق' ? [] : selectedInvestors);
-
-    setIsAddDialogOpen(false);
-    resetForm();
-    setIsInsufficientFundsDialogOpen(false);
+    }, finalStatus === 'معلق' ? [] : selectedInvestors).then(result => {
+        if(result.success) {
+            setIsAddDialogOpen(false);
+            resetForm();
+        }
+    }).finally(() => {
+        setIsSubmitting(false);
+        setIsInsufficientFundsDialogOpen(false);
+    });
   };
 
   const handleAddBorrower = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const isInstallments = newBorrower.loanType === 'اقساط';
     const rateForValidation = (isEmployee || isAssistant) && isInstallments ? baseInterestRate : newBorrower.rate;
 
     if (!newBorrower.name || !newBorrower.amount || !newBorrower.phone || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
+      setIsSubmitting(false);
       return;
     }
     
@@ -203,6 +211,7 @@ export default function BorrowersPage() {
             title: 'خطأ',
             description: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.'
         });
+        setIsSubmitting(false);
         return;
     }
     
@@ -218,6 +227,7 @@ export default function BorrowersPage() {
     if (totalAvailableFromSelected < loanAmount) {
       setAvailableFunds(totalAvailableFromSelected);
       setIsInsufficientFundsDialogOpen(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -511,7 +521,10 @@ export default function BorrowersPage() {
                       إلغاء
                     </Button>
                   </DialogClose>
-                  <Button type="submit">{getSubmitButtonText()}</Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                    {getSubmitButtonText()}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>

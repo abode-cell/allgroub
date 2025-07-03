@@ -80,7 +80,7 @@ type DataActions = {
       'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'
     >,
     investorIds: string[]
-  ) => void;
+  ) => Promise<{ success: boolean; message: string }>;
   updateBorrower: (borrower: Borrower) => void;
   updateBorrowerPaymentStatus: (
     borrowerId: string,
@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_11';
+export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_12';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -414,7 +414,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           password: credentials.password,
           role: 'مدير المكتب',
           status: 'معلق',
-          photoURL: 'https://placehold.co/40x40.png',
+          photoURL: `https://placehold.co/40x40.png`,
           registrationDate: new Date().toISOString(),
           trialEndsAt: trialEndsAt.toISOString(),
           investorLimit: 3,
@@ -696,22 +696,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const addBorrower = useCallback(
-    (borrower, investorIds) => {
+    async (borrower: Omit<
+      Borrower,
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'
+    >,
+    investorIds: string[]
+  ): Promise<{ success: boolean; message: string }> => {
+        let result: { success: boolean; message: string } = { success: false, message: 'فشل غير متوقع' };
         setData(d => {
             const loggedInUser = d.users.find(u => u.id === userId);
             if (!loggedInUser) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'يجب أن تكون مسجلاً للدخول.' });
+                result = { success: false, message: 'يجب أن تكون مسجلاً للدخول.' };
+                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
 
             if (borrower.loanType === 'اقساط' && (!borrower.rate || borrower.rate <= 0 || !borrower.term || borrower.term <= 0)) {
-                toast({ variant: 'destructive', title: 'بيانات غير مكتملة', description: 'قروض الأقساط يجب أن تحتوي على فائدة ومدة صحيحة.' });
+                result = { success: false, message: 'قروض الأقساط يجب أن تحتوي على فائدة ومدة صحيحة.' };
+                toast({ variant: 'destructive', title: 'بيانات غير مكتملة', description: result.message });
                 return d;
             }
 
             const isPending = borrower.status === 'معلق';
             if (!isPending && investorIds.length === 0) {
-                toast({ variant: 'destructive', title: 'خطأ في التمويل', description: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' });
+                 result = { success: false, message: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' };
+                toast({ variant: 'destructive', title: 'خطأ في التمويل', description: result.message });
                 return d;
             }
             
@@ -786,9 +795,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
             }
 
-            toast({ title: 'تمت إضافة القرض بنجاح' });
+            result = { success: true, message: 'تمت إضافة القرض بنجاح.' };
+            toast({ title: result.message });
             return { ...d, borrowers: newBorrowers, investors: newInvestorsData, notifications: newNotifications };
         });
+        return result;
     },
     [userId, toast]
   );
@@ -1018,7 +1029,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           password: investorPayload.password,
           role: 'مستثمر',
           status: status,
-          photoURL: 'https://placehold.co/40x40.png',
+          photoURL: `https://placehold.co/40x40.png`,
           registrationDate: new Date().toISOString(),
           managedBy: managerId,
         };
@@ -1121,7 +1132,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const newId = `user_${isEmployee ? 'emp' : 'asst'}_${Date.now()}`;
             const newUser: User = {
                 id: newId, name: payload.name, email: payload.email, phone: payload.phone, password: payload.password,
-                role: role, status: 'نشط', managedBy: loggedInUser.id, photoURL: 'https://placehold.co/40x40.png', registrationDate: new Date().toISOString(),
+                role: role, status: 'نشط', managedBy: loggedInUser.id, photoURL: `https://placehold.co/40x40.png`, registrationDate: new Date().toISOString(),
                 permissions: isEmployee ? { manageInvestors: true, manageBorrowers: true } : { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false },
             };
             result = { success: true, message: `تمت إضافة ${isEmployee ? 'الموظف' : 'المساعد'} بنجاح.` };
