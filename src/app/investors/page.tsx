@@ -166,6 +166,9 @@ export default function InvestorsPage() {
   if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
     return <PageSkeleton />;
   }
+  
+  const managerForSettings = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
+  const hideFunds = (isEmployee || isAssistant) ? managerForSettings?.hideEmployeeInvestorFunds ?? false : false;
 
   const getDialogTitle = () => {
     const isDirectAdditionEnabled = manager?.allowEmployeeSubmissions ?? false;

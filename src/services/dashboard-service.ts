@@ -120,6 +120,13 @@ function getFilteredData(input: CalculationInput) {
 
 function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor[], config: CalculationInput['config']) {
     const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
+    if (installmentLoans.length === 0) {
+        return {
+            loans: [], loansGranted: 0, defaultedFunds: 0, defaultRate: 0, defaultedProfits: 0,
+            netProfit: 0, totalInstitutionProfit: 0, totalInvestorsProfit: 0,
+            investorProfitsArray: [], dueDebts: 0, profitableLoansForAccordion: []
+        };
+    }
     const installmentLoansGranted = installmentLoans.reduce((acc, b) => acc + b.amount, 0);
     const installmentDefaultedLoans = installmentLoans.filter(b => 
         b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه'
@@ -128,7 +135,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     const installmentDefaultRate = installmentLoansGranted > 0 ? (installmentDefaultedFunds / installmentLoansGranted) * 100 : 0;
     
     const defaultedProfits = installmentDefaultedLoans.reduce((acc, loan) => {
-        if (!loan.rate || !loan.term) return acc;
+        if (!loan.rate || !loan.term || loan.rate <= 0 || loan.term <= 0) return acc;
         const totalInterest = loan.amount * (loan.rate / 100) * loan.term;
         return acc + totalInterest;
     }, 0);
@@ -144,7 +151,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
 
     profitableInstallmentLoans.forEach(loan => {
         const fundedBy = loan.fundedBy || [];
-        if (!loan.rate || !loan.term || fundedBy.length === 0) return;
+        if (!loan.rate || !loan.term || loan.rate <= 0 || loan.term <= 0 || fundedBy.length === 0) return;
         
         fundedBy.forEach(funder => {
             const investorDetails = investorMap.get(funder.investorId);
@@ -182,7 +189,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
         .reduce((acc, b) => acc + b.amount, 0);
     
     const profitableInstallmentLoansForAccordion = profitableInstallmentLoans.map(loan => {
-        if (!loan.rate || !loan.term) return null;
+        if (!loan.rate || !loan.term || loan.rate <= 0 || loan.term <= 0) return null;
         
         const fundedBy = loan.fundedBy || [];
         let totalInstitutionProfitOnLoan = 0;
@@ -228,6 +235,13 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
 
 function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[], config: CalculationInput['config']) {
     const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
+     if (gracePeriodLoans.length === 0) {
+        return {
+            loans: [], loansGranted: 0, defaultedFunds: 0, defaultRate: 0, defaultedProfits: 0,
+            totalDiscounts: 0, dueDebts: 0, netProfit: 0, totalInstitutionProfit: 0,
+            totalInvestorsProfit: 0, investorProfitsArray: [], profitableLoansForAccordion: []
+        };
+    }
     const profitableLoans = gracePeriodLoans.filter(
       b => b.status === 'منتظم' || b.status === 'متأخر' || b.status === 'مسدد بالكامل' || b.paymentStatus === 'تم السداد'
     );
@@ -241,6 +255,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     const totalDiscounts = gracePeriodLoans.reduce((acc, b) => acc + (b.discount || 0), 0);
     
     const defaultedProfits = defaultedLoans.reduce((acc, loan) => {
+        if (config.graceTotalProfitPercentage <= 0) return acc;
         const totalProfit = loan.amount * (config.graceTotalProfitPercentage / 100);
         return acc + totalProfit;
     }, 0);
@@ -263,7 +278,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
 
     profitableLoans.forEach(loan => {
         const fundedBy = loan.fundedBy || [];
-        if (fundedBy.length === 0) return;
+        if (fundedBy.length === 0 || config.graceTotalProfitPercentage <= 0) return;
 
         fundedBy.forEach(funder => {
             const investorDetails = investorMap.get(funder.investorId);
@@ -289,7 +304,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
 
      const profitableLoansForAccordion = profitableLoans.map(loan => {
         const fundedBy = loan.fundedBy || [];
-        if (fundedBy.length === 0) return null;
+        if (fundedBy.length === 0 || config.graceTotalProfitPercentage <= 0) return null;
         
         let totalInstitutionProfitOnLoan = 0;
         let totalInvestorProfitOnLoan = 0;

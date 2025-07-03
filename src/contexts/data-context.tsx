@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_qa_pass_14_stable_final_final_final';
+export const APP_DATA_KEY = 'appData_v_perfected_final_1';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -1337,10 +1337,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
 
-        if (userToDelete.id === loggedInUser.id) {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف حسابك الخاص.' });
-            return d;
-        }
         if (userToDelete.role === 'مدير النظام') {
             toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف حساب مدير النظام.' });
             return d;
@@ -1358,12 +1354,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const userMap = new Map(d.users.map(u => [u.id, u]));
         const idsToDelete = new Set<string>([userIdToDelete]);
         if (userToDelete.role === 'مدير المكتب') {
-          d.users.forEach((u) => {
-            if (u.managedBy === userIdToDelete) idsToDelete.add(u.id);
+          const managedEmployees = d.users.filter(u => u.managedBy === userIdToDelete && u.role === 'موظف');
+          const managedAssistants = d.users.filter(u => u.managedBy === userIdToDelete && u.role === 'مساعد مدير المكتب');
+          const managedInvestors = d.investors.filter(i => {
+              const invUser = userMap.get(i.id);
+              return invUser?.managedBy === userIdToDelete;
           });
+
+          if (managedEmployees.length > 0 || managedAssistants.length > 0 || managedInvestors.length > 0) {
+              blockingReason = `لا يمكن حذف هذا المدير لأنه يدير ${managedEmployees.length} موظف/مساعد و ${managedInvestors.length} مستثمر. يرجى حذفهم أولاً.`;
+          }
         }
         
         idsToDelete.forEach(id => {
+            if(blockingReason) return;
             const user = userMap.get(id);
             if (!user) return;
             
@@ -1384,7 +1388,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
     
         if (blockingReason) {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: blockingReason });
+            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: blockingReason, duration: 5000 });
             return d;
         }
         
@@ -1411,7 +1415,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
     
         const newUsers = d.users.filter((u) => !idsToDelete.has(u.id));
-        const newInvestors = d.investors.filter((i) => !investorIdsToDelete.has(i.id));
+        const newInvestors = d.investors.filter((i) => !idsToDelete.has(i.id));
         
         const numDeleted = idsToDelete.size;
         const toastMessage =
