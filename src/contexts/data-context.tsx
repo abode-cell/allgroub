@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_production_ready_v10_final_final';
+export const APP_DATA_KEY = 'appData_v_final_production_ready_v15_final_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -469,9 +469,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        const newBorrowers = d.borrowers.map((b) =>
-          b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus, lastStatusChange: new Date().toISOString() } : b
-        );
+        const newBorrowers = d.borrowers.map((b) => {
+          if (b.id === borrowerId) {
+            const updatedBorrower = { 
+              ...b, 
+              paymentStatus: newPaymentStatus, 
+              lastStatusChange: new Date().toISOString() 
+            };
+            
+            if (newPaymentStatus === 'تم السداد') {
+              updatedBorrower.paidOffDate = new Date().toISOString();
+            } else {
+              delete updatedBorrower.paidOffDate;
+            }
+            return updatedBorrower;
+          }
+          return b;
+        });
         
         const toastMessage = newPaymentStatus ? `تم تحديث حالة القرض إلى "${newPaymentStatus}".` : `تمت إزالة حالة السداد للقرض.`;
         toast({ title: 'اكتمل تحديث حالة السداد', description: toastMessage });

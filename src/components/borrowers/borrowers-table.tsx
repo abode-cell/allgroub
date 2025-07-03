@@ -73,7 +73,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
-import { RemainingDays } from './remaining-days';
+import { LoanStatusInfo } from './remaining-days';
 import { useToast } from '@/hooks/use-toast';
 
 type Payment = {
@@ -344,7 +344,7 @@ export function BorrowersTable({
                 <TableHead className="text-center">المستثمر</TableHead>
                 <TableHead className="text-center">حالة السداد</TableHead>
                 <TableHead>تاريخ الاستحقاق</TableHead>
-                <TableHead className="text-center">الأيام المتبقية</TableHead>
+                <TableHead className="text-center">المدة المتبقية / تاريخ السداد</TableHead>
                 <TableHead className="text-left">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -427,7 +427,7 @@ export function BorrowersTable({
                     </TableCell>
                     <TableCell>{borrower.dueDate}</TableCell>
                     <TableCell className="text-center">
-                      <RemainingDays borrower={borrower} />
+                      <LoanStatusInfo borrower={borrower} />
                     </TableCell>
                     <TableCell className="text-left flex items-center justify-start">
                        {borrower.isNotified && (
