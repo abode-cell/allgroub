@@ -332,7 +332,7 @@ export default function BorrowersPage() {
                 </Tooltip>
               </TooltipProvider>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
+            <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => { if (isSubmitting) e.preventDefault(); }}>
               <form onSubmit={handleAddBorrower}>
                 <DialogHeader>
                   <DialogTitle>{getDialogTitle()}</DialogTitle>

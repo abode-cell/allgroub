@@ -144,13 +144,16 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
 
     const isSystemAdmin = currentUser.role === 'مدير النظام';
     const isOfficeManager = currentUser.role === 'مدير المكتب';
-    const isAssistant = currentUser.role === 'مساعد مدير المكتب';
     
     // A subordinate cannot edit their manager
     if(user.id === currentUser.managedBy) return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
 
-    const canEdit = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && currentUser.permissions?.manageEmployeePermissions && user.managedBy === currentUser.managedBy && user.role === 'موظف');
+    // Only direct manager or system admin can edit credentials
+    const canEdit = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
+
     const canDelete = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
+    
+    const isAssistant = currentUser.role === 'مساعد مدير المكتب';
     const canUpdateStatus = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && currentUser.permissions?.manageEmployeePermissions && user.managedBy === currentUser.managedBy && user.role === 'موظف');
     
     return { canEditCredentials: canEdit, canDeleteUser: canDelete, canUpdateUserStatus: canUpdateStatus };
