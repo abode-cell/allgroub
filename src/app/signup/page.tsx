@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { Logo } from '@/components/logo';
 
 
 export default function SignUpPage() {
@@ -76,49 +77,9 @@ export default function SignUpPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-       <Link href="/" className="flex flex-col items-center gap-2 mb-6 text-foreground hover:text-primary transition-colors">
-          <div className="flex items-center gap-3">
-             <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-primary h-12 w-12"
-            >
-                <path
-                    d="M12 2L4.5 17.5H19.5L12 2Z"
-                    fill="currentColor"
-                    fillOpacity="0.1"
-                />
-                <path
-                    d="M12 2L2 22H22L12 2Z"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-                <path
-                    d="M12 11.5L8 19.5"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-                <path
-                    d="M12 11.5L16 19.5"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-            </svg>
-            <span className="font-bold text-3xl">مجموعة عال</span>
-          </div>
-          <p className="text-sm text-muted-foreground tracking-wide">
-            إدارة • تمويل • تطوير • وأكثر...
-          </p>
-        </Link>
+       <div className="mb-6">
+        <Logo />
+       </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">إنشاء حساب مدير مكتب</CardTitle>

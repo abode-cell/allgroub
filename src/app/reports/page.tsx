@@ -20,7 +20,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { exportToPrintableHtml } from '@/lib/html-export';
-import { getBorrowerStatus } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import {
   DropdownMenu,
@@ -337,7 +336,7 @@ export default function ReportsPage() {
                         <td>${tx.description}</td>
                         <td style="color: ${tx.type.includes('إيداع') ? '#28a745' : '#dc3545'}; font-weight: bold;">${tx.type.includes('إيداع') ? '+' : '-'} ${formatCurrency(tx.amount)}</td>
                         <td>${tx.withdrawalMethod || '-'}</td>
-                        <td>${tx.capitalSource === 'installment' ? 'أقساط' : 'مهلة'}</td>
+                        <td>${tx.capitalSource === 'installment' ? 'أقساط' : (tx.capitalSource === 'grace' ? 'مهلة' : '-')}</td>
                     </tr>`;
                  }).join('') : `<tr><td colspan="6" style="text-align: center; padding: 1rem;">لا يوجد سجل عمليات.</td></tr>`}
             </tbody>
@@ -345,7 +344,7 @@ export default function ReportsPage() {
     `;
 
     exportToPrintableHtml(title, currentUser, { htmlBody });
-};
+  };
 
 
   if (!currentUser || !hasAccess) {

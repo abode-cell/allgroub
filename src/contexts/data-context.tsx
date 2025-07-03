@@ -38,7 +38,7 @@ import {
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
-import { isValid, isPast, parseISO } from 'date-fns';
+import { isPast } from 'date-fns';
 
 type DataState = {
   currentUser: User | undefined;
@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_production_ready';
+export const APP_DATA_KEY = 'appData_v_final_production_ready_v3';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,

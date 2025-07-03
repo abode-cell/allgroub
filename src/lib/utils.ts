@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Borrower } from "./types"
@@ -12,6 +13,12 @@ export type BorrowerStatusDetails = {
   variant: 'success' | 'default' | 'secondary' | 'destructive' | 'outline';
 };
 
+const normalizeDate = (date: Date): Date => {
+    const newDate = new Date(date);
+    newDate.setHours(0, 0, 0, 0);
+    return newDate;
+}
+
 export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStatusDetails => {
   // First, check for statuses that are absolute and not based on time.
   if (borrower.status === 'معلق') return { text: 'طلب معلق', variant: 'secondary' };
@@ -24,22 +31,21 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
   
   // For all other cases, including when paymentStatus is undefined or any other ongoing status,
   // we calculate the status based on the due date.
-  const todayDate = new Date(today);
-  todayDate.setHours(0, 0, 0, 0);
+  const todayDate = normalizeDate(today);
 
   if (!borrower.dueDate) {
     return { text: 'لا يوجد تاريخ', variant: 'secondary' };
   }
+  
   const dueDate = new Date(borrower.dueDate);
-
   if (!isValid(dueDate)) { // Use isValid from date-fns for robust check
     console.error(`Invalid dueDate for borrower ${borrower.id}: ${borrower.dueDate}`);
     return { text: 'تاريخ غير صالح', variant: 'destructive' };
   }
 
-  dueDate.setHours(0, 0, 0, 0);
+  const normalizedDueDate = normalizeDate(dueDate);
   
-  const daysDiff = differenceInDays(dueDate, todayDate);
+  const daysDiff = differenceInDays(normalizedDueDate, todayDate);
 
   if (daysDiff < 0) {
       return { text: `متأخر ${Math.abs(daysDiff)} يوم`, variant: 'destructive' };
@@ -49,7 +55,7 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
 };
 
 export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text: string; isOverdue: boolean } => {
-    today.setHours(0, 0, 0, 0);
+    const todayDate = normalizeDate(today);
 
     if (borrower.status === 'مسدد بالكامل' || borrower.paymentStatus === 'تم السداد') {
         return { text: 'مسدد', isOverdue: false };
@@ -64,9 +70,8 @@ export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text
     }
 
     if (borrower.loanType === 'مهلة') {
-        const dueDate = new Date(borrower.dueDate);
-        dueDate.setHours(0, 0, 0, 0);
-        const daysDiff = differenceInDays(dueDate, today);
+        const dueDate = normalizeDate(new Date(borrower.dueDate));
+        const daysDiff = differenceInDays(dueDate, todayDate);
 
         if (daysDiff < 0) {
             return { text: `متأخر ${Math.abs(daysDiff)} يوم`, isOverdue: true };
@@ -90,14 +95,13 @@ export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text
             return { text: 'مسدد', isOverdue: false };
         }
         
-        const nextPaymentDate = addMonths(startDate, nextInstallment.month);
-        nextPaymentDate.setHours(0, 0, 0, 0);
+        const nextPaymentDate = normalizeDate(addMonths(startDate, nextInstallment.month));
 
         if (!isValid(nextPaymentDate)) {
              return { text: 'تاريخ غير صالح', isOverdue: true };
         }
 
-        const daysDiff = differenceInDays(nextPaymentDate, today);
+        const daysDiff = differenceInDays(nextPaymentDate, todayDate);
 
         if (daysDiff < 0) {
             return { text: `متأخر ${Math.abs(daysDiff)} يوم`, isOverdue: true };
