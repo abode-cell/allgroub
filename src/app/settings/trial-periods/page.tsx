@@ -151,14 +151,10 @@ export default function TrialPeriodsPage() {
                                           )}
                                       </TableCell>
                                       <TableCell className="text-left">
-                                          {user.hasExpired && user.status === 'معلق' ? (
-                                              <Button size="sm" onClick={() => updateUserStatus(user.id, 'نشط')}>
-                                                  <CheckCircle className="ml-2 h-4 w-4" />
-                                                  تفعيل الحساب
-                                              </Button>
-                                          ) : (
-                                              <span className="text-sm text-muted-foreground">-</span>
-                                          )}
+                                        <Button size="sm" onClick={() => updateUserStatus(user.id, 'نشط')}>
+                                            <CheckCircle className="ml-2 h-4 w-4" />
+                                            تفعيل الحساب
+                                        </Button>
                                       </TableCell>
                                   </TableRow>
                               ))
