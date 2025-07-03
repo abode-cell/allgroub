@@ -88,6 +88,7 @@ export default function InvestorsPage() {
     email: '',
     phone: '',
     password: '',
+    confirmPassword: '',
     installmentProfitShare: String(investorSharePercentage),
     gracePeriodProfitShare: String(graceInvestorSharePercentage),
   });
@@ -128,6 +129,16 @@ export default function InvestorsPage() {
   const handleAddInvestor = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    if (newInvestor.password !== newInvestor.confirmPassword) {
+        toast({
+            variant: 'destructive',
+            title: 'خطأ في التحقق',
+            description: 'كلمتا المرور غير متطابقتين. يرجى التأكد.',
+        });
+        setIsSubmitting(false);
+        return;
+    }
 
     const installmentCapital = Number(newInvestor.installmentCapital) || 0;
     const graceCapital = Number(newInvestor.graceCapital) || 0;
@@ -319,6 +330,20 @@ export default function InvestorsPage() {
                         placeholder="كلمة مرور مؤقتة (6+ أحرف)"
                         className="col-span-3"
                         value={newInvestor.password}
+                        onChange={handleInputChange}
+                        required
+                        />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="confirmPassword" className="text-right">
+                        تأكيد كلمة المرور
+                        </Label>
+                        <Input
+                        id="confirmPassword"
+                        type="password"
+                        placeholder="تأكيد كلمة المرور"
+                        className="col-span-3"
+                        value={newInvestor.confirmPassword}
                         onChange={handleInputChange}
                         required
                         />

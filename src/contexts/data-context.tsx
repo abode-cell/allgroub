@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_30';
+export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_32';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -401,9 +401,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         systemAdmin = d.users.find((u) => u.role === 'مدير النظام');
-        const trialDays = systemAdmin?.defaultTrialPeriodDays ?? 14;
-        const trialEndsAt = new Date();
-        trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
         const managerId = `user_${Date.now()}`;
         newManager = {
@@ -416,7 +413,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           status: 'معلق',
           photoURL: `https://placehold.co/40x40.png`,
           registrationDate: new Date().toISOString(),
-          trialEndsAt: trialEndsAt.toISOString(),
           investorLimit: 3,
           employeeLimit: 1,
           assistantLimit: 1,
@@ -1336,12 +1332,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return d;
         }
 
+        const systemAdmin = d.users.find(u => u.role === 'مدير النظام');
 
         const newUsers = d.users.map((u) => {
             if (u.id === userIdToUpdate) {
                 const updatedUser: User = { ...u, status, lastStatusChange: new Date().toISOString() };
-                if (status === 'نشط' && updatedUser.trialEndsAt) {
-                  delete updatedUser.trialEndsAt;
+                
+                // If activating a pending manager for the first time, set their trial period.
+                if(updatedUser.role === 'مدير المكتب' && userToUpdate.status === 'معلق' && status === 'نشط' && !updatedUser.trialEndsAt) {
+                    const trialDays = systemAdmin?.defaultTrialPeriodDays ?? 14;
+                    const trialEndsAt = new Date();
+                    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+                    updatedUser.trialEndsAt = trialEndsAt.toISOString();
+                } else if (status === 'نشط' && updatedUser.role === 'مدير المكتب' && updatedUser.trialEndsAt && isPast(new Date(updatedUser.trialEndsAt))) {
+                    // If re-activating an expired trial manager, clear the old expiry date.
+                    delete updatedUser.trialEndsAt;
                 }
                 return updatedUser;
             }

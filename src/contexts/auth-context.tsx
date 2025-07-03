@@ -57,16 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
     }
     
-    // Check for expired trial first for office managers, but only if they are not already 'نشط'
-    if (userToSignIn.role === 'مدير المكتب' && userToSignIn.status !== 'نشط' && userToSignIn.trialEndsAt) {
-        const trialEndDate = new Date(userToSignIn.trialEndsAt);
-        if (isPast(trialEndDate)) {
-             const contactInfo = [supportInfo.email, supportInfo.phone].filter(Boolean).join(' أو ');
-             const message = `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
-             return { success: false, message };
-        }
-    }
-
+    // Check status first, as it's the most definitive state.
     if (userToSignIn.status === 'معلق') {
       if (userToSignIn.role === 'مدير المكتب') {
         const contactInfo = [supportInfo.email, supportInfo.phone].filter(Boolean).join(' أو ');
@@ -78,6 +69,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     if (userToSignIn.status === 'مرفوض') {
        return { success: false, message: 'تم رفض طلب انضمام هذا الحساب. يرجى التواصل مع مديرك.' };
+    }
+
+    // Now, check for expired trial for office managers whose status is not 'نشط' (which implies it's suspended due to trial end)
+    if (userToSignIn.role === 'مدير المكتب' && userToSignIn.status !== 'نشط' && userToSignIn.trialEndsAt) {
+        const trialEndDate = new Date(userToSignIn.trialEndsAt);
+        if (isPast(trialEndDate)) {
+             const contactInfo = [supportInfo.email, supportInfo.phone].filter(Boolean).join(' أو ');
+             const message = `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
+             return { success: false, message };
+        }
     }
 
     if (userToSignIn.password !== password) {
