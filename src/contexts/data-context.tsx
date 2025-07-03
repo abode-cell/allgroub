@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ultimate_final_v9_final_secure_robust';
+export const APP_DATA_KEY = 'appData_v_FINAL';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -1168,11 +1168,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
           result = { success: false, message: 'لم يتم العثور على المستخدم.' };
           return d;
         }
+
+        const newUsers = d.users.map((u) => (u.id === loggedInUser.id ? { ...u, ...updates } : u));
+        const newInvestors = d.investors.map((i) => {
+          if (i.id === loggedInUser.id && updates.name) {
+              return { ...i, name: updates.name };
+          }
+          return i;
+        });
+
         result = { success: true, message: 'تم تحديث معلوماتك بنجاح.' };
         toast({ title: 'نجاح', description: 'تم تحديث معلوماتك بنجاح.' });
         return {
           ...d,
-          users: d.users.map((u) => (u.id === loggedInUser.id ? { ...u, ...updates } : u)),
+          users: newUsers,
+          investors: newInvestors
         };
       });
       return result;
@@ -1317,9 +1327,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return d;
         }
 
+        if (userIdToChange === loggedInUser.id) {
+          toast({ variant: 'destructive', title: 'خطأ', description: 'لا يمكنك تغيير دورك الخاص.' });
+          return d;
+        }
+        
         const userToChange = d.users.find((u) => u.id === userIdToChange);
         if (!userToChange) {
           toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
+          return d;
+        }
+
+        if (userToChange.role === 'مدير النظام') {
+          toast({ variant: 'destructive', title: 'خطأ', description: 'لا يمكن تغيير دور مدير نظام آخر.' });
           return d;
         }
 

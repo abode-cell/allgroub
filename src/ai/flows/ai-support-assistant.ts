@@ -18,7 +18,7 @@ const AiSupportInputSchema = z.object({
 export type AiSupportInput = z.infer<typeof AiSupportInputSchema>;
 
 const AiSupportOutputSchema = z.object({
-  solution: z.string().describe("A detailed, step-by-step solution written in Arabic. It should explain the likely cause and provide a clear fix, including code snippets if necessary. The tone should be helpful and professional, like an expert software engineer partner."),
+  solution: z.string().describe("حل مفصل وخطوة بخطوة مكتوب باللغة العربية. يجب أن يشرح السبب المحتمل ويقدم إصلاحًا واضحًا، بما في ذلك مقتطفات من التعليمات البرمجية إذا لزم الأمر. يجب أن تكون النبرة مفيدة ومهنية، مثل شريك مهندس برمجيات خبير."),
 });
 export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
 

@@ -135,7 +135,7 @@ export default function AiSupportPage() {
                     </AlertDescription>
                   </Alert>
                   <div className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap p-4 bg-muted rounded-md border">
-                    <p>{state.solution}</p>
+                    {state.solution}
                   </div>
                 </div>
               ) : (

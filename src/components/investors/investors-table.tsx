@@ -11,8 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone, Edit } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { CalendarIcon, MoreHorizontal, CheckCircle, TrendingUp, MessageSquareText, PlusCircle, AlertCircle, Mail, Phone, Edit, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -238,6 +238,8 @@ export function InvestorsTable({
   const canRequestIncrease = role === 'مدير المكتب' || role === 'مستثمر';
   const canSendSms = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف' && currentUser?.permissions?.manageInvestors);
   const isWithdrawal = transactionDetails.type.includes('سحب');
+  const affectsCapital = transactionDetails.type === 'إيداع رأس المال' || transactionDetails.type === 'سحب من رأس المال';
+
 
   return (
     <>
@@ -622,37 +624,39 @@ export function InvestorsTable({
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label>محفظة العملية</Label>
-                <RadioGroup
-                    value={transactionDetails.capitalSource}
-                    onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
-                    className="flex gap-4"
-                >
-                    {isWithdrawal ? (
-                    availableWithdrawalSources.map(source => (
-                        <div className="flex items-center space-x-2 rtl:space-x-reverse" key={source.value}>
-                        <RadioGroupItem value={source.value} id={`source-${source.value}`} />
-                        <Label htmlFor={`source-${source.value}`}>{source.label}</Label>
-                        </div>
-                    ))
-                    ) : (
-                    <>
-                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                            <RadioGroupItem value="installment" id="source-install" />
-                            <Label htmlFor="source-install">محفظة الأقساط</Label>
-                        </div>
-                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                            <RadioGroupItem value="grace" id="source-grace" />
-                            <Label htmlFor="source-grace">محفظة المهلة</Label>
-                        </div>
-                    </>
+              {affectsCapital && (
+                 <div className="space-y-2">
+                    <Label>محفظة العملية</Label>
+                    <RadioGroup
+                        value={transactionDetails.capitalSource}
+                        onValueChange={(value: 'installment' | 'grace') => setTransactionDetails(prev => ({...prev, capitalSource: value}))}
+                        className="flex gap-4"
+                    >
+                        {isWithdrawal ? (
+                        availableWithdrawalSources.map(source => (
+                            <div className="flex items-center space-x-2 rtl:space-x-reverse" key={source.value}>
+                            <RadioGroupItem value={source.value} id={`source-${source.value}`} />
+                            <Label htmlFor={`source-${source.value}`}>{source.label}</Label>
+                            </div>
+                        ))
+                        ) : (
+                        <>
+                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                                <RadioGroupItem value="installment" id="source-install" />
+                                <Label htmlFor="source-install">محفظة الأقساط</Label>
+                            </div>
+                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                                <RadioGroupItem value="grace" id="source-grace" />
+                                <Label htmlFor="source-grace">محفظة المهلة</Label>
+                            </div>
+                        </>
+                        )}
+                    </RadioGroup>
+                    {isWithdrawal && availableWithdrawalSources.length === 0 && (
+                        <p className='text-xs text-destructive text-center p-2'>لا يوجد رصيد متاح للسحب.</p>
                     )}
-                </RadioGroup>
-                {isWithdrawal && availableWithdrawalSources.length === 0 && (
-                    <p className='text-xs text-destructive text-center p-2'>لا يوجد رصيد متاح للسحب.</p>
-                )}
-              </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="description">الوصف (السبب)</Label>
                 <Textarea
