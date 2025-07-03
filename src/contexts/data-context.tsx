@@ -137,7 +137,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v55-final-final-check-11-final-final';
+export const APP_DATA_KEY = 'appData-v55-final-final-check-11-final-final-final';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -276,25 +276,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!currentUser) return [];
     const { role, id } = currentUser;
     const allUsers = data.users;
-    
-    // System admin can see everyone.
+
     if (role === 'مدير النظام') {
-      return allUsers;
+      return allUsers.filter(u => u.status !== 'محذوف');
     }
     
-    // Investor can only see their manager.
     if (role === 'مستثمر') {
       const manager = allUsers.find(u => u.id === currentUser.managedBy);
       return manager ? [currentUser, manager] : [currentUser];
     }
     
-    // Office staff (manager, assistant, employee) can see their own team.
     const managerId = role === 'مدير المكتب' ? id : currentUser.managedBy;
     if (managerId) {
-        return allUsers.filter(u => u.id === managerId || u.managedBy === managerId);
+        const teamUsers = allUsers.filter(u => u.id === managerId || u.managedBy === managerId);
+        return teamUsers.filter(u => u.status !== 'محذوف');
     }
 
-    // Default to only seeing self if no other rule matches.
     return [currentUser];
   }, [currentUser, data.users]);
 
@@ -482,7 +479,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const originalBorrower = d.borrowers.find(b => b.id === updatedBorrower.id);
         if (!originalBorrower) return d;
         
-        // Security check: if user is employee or assistant, do they have permission?
         if(loggedInUser.role === 'موظف' && !loggedInUser.permissions?.manageBorrowers) {
             const manager = d.users.find(u => u.id === loggedInUser.managedBy);
             if (!manager?.allowEmployeeLoanEdits) {
@@ -562,7 +558,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             
             if (newPaymentStatus === 'تم السداد') {
               updatedBorrower.paidOffDate = new Date().toISOString();
-              // Synchronize installment statuses
               if (updatedBorrower.loanType === 'اقساط' && updatedBorrower.installments) {
                 updatedBorrower.installments = updatedBorrower.installments.map(inst => ({ ...inst, status: 'تم السداد' }));
               }
@@ -587,7 +582,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (borrowerId: string, investorIds: string[]) => {
       setData(d => {
         const loanToApprove = d.borrowers.find((b) => b.id === borrowerId);
-        if (!loanToApprove) return d;
+        if (!loanToApprove) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+            return d;
+        }
+        if (loanToApprove.status !== 'معلق') {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+            return d;
+        }
 
         let totalFundedAmount = 0;
         let remainingAmountToFund = loanToApprove.amount;
@@ -601,7 +603,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const currentInvestorState = updatedInvestorsMap.get(invId);
             if (!currentInvestorState) continue;
             
-            // Recalculate financials in this exact moment to ensure accuracy
             const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
             const availableCapital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
             
@@ -628,7 +629,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 ...b, 
                 status: 'منتظم', 
                 fundedBy: fundedByDetails,
-                amount: totalFundedAmount, // The amount might be reduced if funds were insufficient
+                amount: totalFundedAmount,
             };
             return approvedBorrower;
           }
@@ -669,6 +670,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const rejectBorrower = useCallback(
     (borrowerId: string, reason: string) => {
       setData(d => {
+        const loanToReject = d.borrowers.find((b) => b.id === borrowerId);
+        if (!loanToReject) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+            return d;
+        }
+        if (loanToReject.status !== 'معلق') {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+            return d;
+        }
+
         let rejectedBorrower: Borrower | null = null;
         const newBorrowers = d.borrowers.map((b) => {
           if (b.id === borrowerId) {
@@ -745,7 +756,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return d;
             }
 
-            // Centralized permission check
             if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageBorrowers) {
                 result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
                 toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
@@ -949,6 +959,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const approveInvestor = useCallback(
     (investorId: string) => {
       setData(d => {
+        const investorToApprove = d.investors.find((inv) => inv.id === investorId);
+        if (!investorToApprove) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
+            return d;
+        }
+        if (investorToApprove.status !== 'معلق') {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+            return d;
+        }
+
         let approvedInvestor: Investor | null = null;
         const newInvestors = d.investors.map((i) => {
           if (i.id === investorId) {
@@ -982,6 +1002,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const rejectInvestor = useCallback(
     (investorId: string, reason: string) => {
       setData(d => {
+        const investorToReject = d.investors.find((inv) => inv.id === investorId);
+        if (!investorToReject) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
+            return d;
+        }
+        if (investorToReject.status !== 'معلق') {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+            return d;
+        }
+
         let rejectedInvestor: Investor | null = null;
         const newInvestors = d.investors.map((i) => {
           if (i.id === investorId) {
@@ -1023,7 +1053,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
 
-        // Centralized permission check
         if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageInvestors) {
            result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
            toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
@@ -1339,7 +1368,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (userToUpdate.lastStatusChange) {
             const lastChangeTime = new Date(userToUpdate.lastStatusChange).getTime();
             const now = new Date().getTime();
-            if (now - lastChangeTime < 5000) { // 5 second cooldown
+            if (now - lastChangeTime < 5000) {
                 toast({
                     variant: 'destructive',
                     title: 'الرجاء الانتظار',
@@ -1364,6 +1393,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير حالة هذا المستخدم.' });
             return d;
         }
+        
+        if (loggedInUser.role === 'مساعد مدير المكتب' && userToUpdate.role === 'مدير المكتب') {
+            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'لا يمكنك تغيير حالة مديرك.' });
+            return d;
+        }
 
         const systemAdmin = d.users.find(u => u.role === 'مدير النظام');
 
@@ -1371,13 +1405,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (u.id === userIdToUpdate) {
                 const updatedUser: User = { ...u, status, lastStatusChange: new Date().toISOString() };
                 
-                if(updatedUser.role === 'مدير المكتب' && userToUpdate.status === 'معلق' && status === 'نشط' && !updatedUser.trialEndsAt) {
-                    const trialDays = systemAdmin?.defaultTrialPeriodDays ?? 14;
-                    const trialEndsAt = new Date();
-                    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
-                    updatedUser.trialEndsAt = trialEndsAt.toISOString();
-                } else if (status === 'نشط' && updatedUser.role === 'مدير المكتب' && updatedUser.trialEndsAt && isPast(new Date(updatedUser.trialEndsAt))) {
-                    delete updatedUser.trialEndsAt;
+                if (updatedUser.role === 'مدير المكتب' && userToUpdate.status === 'معلق' && status === 'نشط') {
+                    if (!userToUpdate.trialEndsAt) { 
+                        const trialDays = systemAdmin?.defaultTrialPeriodDays ?? 14;
+                        const trialEndsAt = new Date();
+                        trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+                        updatedUser.trialEndsAt = trialEndsAt.toISOString();
+                    } 
+                    else if (isPast(new Date(userToUpdate.trialEndsAt))) {
+                        delete updatedUser.trialEndsAt;
+                    }
                 }
                 return updatedUser;
             }
@@ -1393,10 +1430,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let newNotifications = d.notifications;
 
         if (userToUpdate.role === 'مدير المكتب') {
+            const managerInvestors = d.investors.filter(inv => {
+                const invUser = d.users.find(u => u.id === inv.id);
+                return invUser?.managedBy === userIdToUpdate;
+            });
+            
              if (isSuspending) {
                 newInvestors = d.investors.map((inv) => {
-                    const investorUser = d.users.find(u => u.id === inv.id);
-                    if (investorUser?.managedBy === userIdToUpdate && inv.status === 'نشط') {
+                    if (managerInvestors.some(mi => mi.id === inv.id) && inv.status === 'نشط') {
                         return { ...inv, status: 'غير نشط' };
                     }
                     return inv;
