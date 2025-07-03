@@ -144,7 +144,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_v_stable_final_5_sanitized';
+const APP_DATA_KEY = 'appData_v_stable_final_8_sanitized_fixed';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -162,7 +162,14 @@ const initialDataState: Omit<DataState, 'currentUser'> = {
 };
 
 const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser'> => {
+  const defaultUser: Partial<User> = {
+    permissions: {},
+    allowEmployeeLoanEdits: false,
+    allowEmployeeSubmissions: false,
+    hideEmployeeInvestorFunds: false,
+  };
   const users = (data.users || []).map((u: any) => ({
+    ...defaultUser,
     ...u,
     permissions: u.permissions || {},
   }));
@@ -171,6 +178,8 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser'> => {
     ...i,
     transactionHistory: i.transactionHistory || [],
     fundedLoanIds: i.fundedLoanIds || [],
+    installmentProfitShare: i.installmentProfitShare ?? initialDataState.investorSharePercentage,
+    gracePeriodProfitShare: i.gracePeriodProfitShare ?? initialDataState.graceInvestorSharePercentage,
   }));
 
   const borrowers = (data.borrowers || []).map((b: any) => ({
@@ -187,17 +196,23 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser'> => {
     borrowers,
     notifications: data.notifications || [],
     supportTickets: data.supportTickets || [],
+    salaryRepaymentPercentage: data.salaryRepaymentPercentage ?? initialDataState.salaryRepaymentPercentage,
+    baseInterestRate: data.baseInterestRate ?? initialDataState.baseInterestRate,
+    investorSharePercentage: data.investorSharePercentage ?? initialDataState.investorSharePercentage,
+    graceTotalProfitPercentage: data.graceTotalProfitPercentage ?? initialDataState.graceTotalProfitPercentage,
+    graceInvestorSharePercentage: data.graceInvestorSharePercentage ?? initialDataState.graceInvestorSharePercentage,
+    supportEmail: data.supportEmail ?? initialDataState.supportEmail,
+    supportPhone: data.supportPhone ?? initialDataState.supportPhone,
   };
-
+  
   return sanitizedData;
 };
 
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Omit<DataState, 'currentUser'>>(initialDataState);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Effect 1: Load data from localStorage. Runs ONLY once on mount.
   useEffect(() => {
     if (typeof window !== 'undefined') {
       let loadedData = initialDataState;
@@ -208,18 +223,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
           loadedData = sanitizeAndMigrateData(parsed);
         }
       } catch (error) {
-        console.warn(`Error reading localStorage key “${APP_DATA_KEY}”. Using initial data.`, error);
+        console.warn(`Error reading or parsing localStorage key “${APP_DATA_KEY}”. Using initial data.`, error);
         loadedData = initialDataState;
       } finally {
         setData(loadedData);
-        setIsInitialLoad(false);
+        setIsDataLoaded(true);
       }
     }
   }, []);
 
-  // Effect 2: Save data to localStorage whenever it changes.
   useEffect(() => {
-    if (isInitialLoad) return;
+    if (!isDataLoaded) return;
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
@@ -227,15 +241,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.warn(`Error setting localStorage key “${APP_DATA_KEY}”:`, error);
       }
     }
-  }, [data, isInitialLoad]);
+  }, [data, isDataLoaded]);
 
   const { userId } = useAuth();
   const { toast } = useToast();
 
   const currentUser = useMemo(() => {
-    if (!userId) return undefined;
+    if (!userId || !isDataLoaded) return undefined;
     return data.users.find((u) => u.id === userId);
-  }, [data.users, userId]);
+  }, [data.users, userId, isDataLoaded]);
 
 
   const addNotification = useCallback(
@@ -942,7 +956,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const investor = d.investors.find(i => i.id === investorId);
         if (!investor) return d;
         
-        // On withdrawal, check for sufficient funds
         if (transaction.type.includes('سحب')) {
             const financials = calculateInvestorFinancials(investor, d.borrowers);
             const availableCapital = transaction.capitalSource === 'installment' ? financials.installmentCapital : financials.gracePeriodCapital;
@@ -1445,6 +1458,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, data]
   );
 
+  if (!isDataLoaded) {
+    return null;
+  }
+
   return (
     <DataStateContext.Provider value={state}>
       <DataActionsContext.Provider value={actions}>
@@ -1469,3 +1486,5 @@ export function useDataActions() {
   }
   return context;
 }
+
+    

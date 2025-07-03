@@ -23,7 +23,7 @@ export type DashboardMetricsOutput = ReturnType<typeof calculateAllDashboardMetr
 
 
 export function calculateInvestorFinancials(investor: Investor, allBorrowers: Borrower[]) {
-  const { deposits, withdrawals } = investor.transactionHistory.reduce(
+  const { deposits, withdrawals } = (investor.transactionHistory || []).reduce(
     (acc, tx) => {
       if (tx.type.includes('إيداع')) acc.deposits += tx.amount;
       else if (tx.type.includes('سحب')) acc.withdrawals += tx.amount;
@@ -77,10 +77,7 @@ function getFilteredData(input: CalculationInput) {
     const userMap = new Map(users.map(u => [u.id, u]));
 
     if (role === 'مدير النظام' || role === 'مستثمر') {
-        const officeManagerIds = new Set(users.filter(u => u.role === 'مدير المكتب').map(m => m.id));
-        const relevantInvestorUsers = users.filter(u => u.role === 'مستثمر' && u.managedBy && officeManagerIds.has(u.managedBy));
-        const relevantInvestorIds = new Set(relevantInvestorUsers.map(u => u.id));
-        return { filteredBorrowers: borrowers, filteredInvestors: investors.filter(i => relevantInvestorIds.has(i.id)) };
+        return { filteredBorrowers: borrowers, filteredInvestors: investors };
     }
 
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
@@ -399,13 +396,11 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
     }
     
     if (role === 'مستثمر') {
-        // Investor dashboard logic is self-contained and simple, can remain in component for now.
         return {
             role: 'مستثمر' as const,
         };
     }
 
-    // For Office Manager, Assistant, Employee
     const { filteredBorrowers, filteredInvestors } = getFilteredData(input);
     
     const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
@@ -427,3 +422,5 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
         idleFunds: calculateIdleFundsMetrics(filteredInvestors, borrowers),
     };
 }
+
+    
