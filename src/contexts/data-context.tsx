@@ -145,7 +145,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_qa_pass_6_stable_final';
+export const APP_DATA_KEY = 'appData_v_final_qa_pass_7_stable_final';
 
 const initialDataState: Omit<DataState, 'currentUser'> = {
   borrowers: initialBorrowersData,
@@ -454,19 +454,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setData(d => {
         const borrower = d.borrowers.find((b) => b.id === borrowerId);
         if (!borrower) return d;
-
-        if (borrower.lastStatusChange) {
-          const lastChangeTime = new Date(borrower.lastStatusChange).getTime();
-          const now = new Date().getTime();
-          if (now - lastChangeTime < 60 * 1000) {
-            toast({
-              variant: 'destructive',
-              title: 'الرجاء الانتظار',
-              description: 'يجب الانتظار دقيقة واحدة قبل تغيير حالة هذا القرض مرة أخرى.',
-            });
-            return d;
-          }
-        }
         
         const newBorrowers = d.borrowers.map((b) =>
           b.id === borrowerId ? { ...b, paymentStatus: newPaymentStatus, lastStatusChange: new Date().toISOString() } : b
@@ -1276,12 +1263,56 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return d;
         }
         
+        // Comprehensive check for any active relationships
+        let blockingReason = '';
+
+        // 1. Check if user is an investor with active funds
+        if(userToDelete.role === 'مستثمر') {
+            const investorData = d.investors.find(i => i.id === userIdToDelete);
+            if(investorData) {
+                const financials = calculateInvestorFinancials(investorData, d.borrowers);
+                if (financials.activeCapital > 0) {
+                    blockingReason = 'لا يمكن حذف المستثمر لوجود أموال نشطة مرتبطة به.';
+                }
+            }
+        }
+        
+        // 2. Check if user submitted any active loans
         const activeLoansSubmitted = d.borrowers.some(b => b.submittedBy === userIdToDelete && (b.status === 'منتظم' || b.status === 'متأخر'));
         if (activeLoansSubmitted) {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف المستخدم لوجود قروض نشطة مرتبطة به.' });
-            return d;
+            blockingReason = 'لا يمكن حذف المستخدم لوجود قروض نشطة قام بتقديمها.';
+        }
+
+        // 3. If user is a manager, check all their managed accounts
+        if (userToDelete.role === 'مدير المكتب') {
+            const managedUserIds = d.users.filter(u => u.managedBy === userIdToDelete).map(u => u.id);
+            const managedInvestorIds = d.investors.filter(i => {
+                const iUser = d.users.find(u => u.id === i.id);
+                return iUser?.managedBy === userIdToDelete;
+            }).map(i => i.id);
+
+            if (d.borrowers.some(b => b.submittedBy && managedUserIds.includes(b.submittedBy) && (b.status === 'منتظم' || b.status === 'متأخر'))) {
+                blockingReason = 'لا يمكن حذف المدير لوجود قروض نشطة قدمها أحد موظفيه.';
+            }
+
+            for (const investorId of managedInvestorIds) {
+                const investorData = d.investors.find(i => i.id === investorId);
+                 if(investorData) {
+                    const financials = calculateInvestorFinancials(investorData, d.borrowers);
+                    if (financials.activeCapital > 0) {
+                        blockingReason = `لا يمكن حذف المدير لأن المستثمر "${investorData.name}" لديه أموال نشطة.`;
+                        break;
+                    }
+                }
+            }
         }
     
+        if (blockingReason) {
+            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: blockingReason });
+            return d;
+        }
+        
+        // Proceed with deletion if no blocking reasons found
         let idsToDelete = new Set<string>([userIdToDelete]);
         let investorIdsToDelete = new Set<string>();
         const userMap = new Map(d.users.map(u => [u.id, u]));

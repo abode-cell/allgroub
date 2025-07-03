@@ -74,6 +74,7 @@ import { cn } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
 import { RemainingDays } from './remaining-days';
+import { useToast } from '@/hooks/use-toast';
 
 type Payment = {
   month: number;
@@ -150,6 +151,7 @@ export function BorrowersTable({
 }) {
   const { currentUser, investors, users } = useDataState();
   const { updateBorrower, approveBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified, updateInstallmentStatus, deleteBorrower } = useDataActions();
+  const { toast } = useToast();
   const role = currentUser?.role;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -308,6 +310,22 @@ export function BorrowersTable({
     setSelectedBorrower(updatedBorrower);
     setPaymentSchedule(generatePaymentSchedule(updatedBorrower));
   };
+  
+  const handlePaymentStatusChange = (borrower: Borrower, newPaymentStatus?: BorrowerPaymentStatus) => {
+      if (borrower.lastStatusChange) {
+        const lastChangeTime = new Date(borrower.lastStatusChange).getTime();
+        const now = new Date().getTime();
+        if (now - lastChangeTime < 60 * 1000) {
+          toast({
+            variant: 'destructive',
+            title: 'الرجاء الانتظار',
+            description: 'يجب الانتظار دقيقة واحدة قبل تغيير حالة هذا القرض مرة أخرى.',
+          });
+          return;
+        }
+      }
+      updateBorrowerPaymentStatus(borrower.id, newPaymentStatus);
+  };
 
 
   return (
@@ -383,9 +401,9 @@ export function BorrowersTable({
                             value={borrower.paymentStatus || 'none'}
                             onValueChange={(value: string) => {
                                 if (value === 'none') {
-                                    updateBorrowerPaymentStatus(borrower.id, undefined);
+                                    handlePaymentStatusChange(borrower, undefined);
                                 } else {
-                                    updateBorrowerPaymentStatus(borrower.id, value as BorrowerPaymentStatus);
+                                    handlePaymentStatusChange(borrower, value as BorrowerPaymentStatus);
                                 }
                             }}
                             disabled={!canUpdatePaymentStatus || borrower.status === 'معلق'}

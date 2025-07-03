@@ -490,7 +490,9 @@ export default function UsersPage() {
                                 <div className="rounded-md border bg-background p-2">
                                      <h5 className="font-medium text-sm p-2 flex items-center gap-2"><PiggyBank className="h-4 w-4 text-muted-foreground" /> المستثمرون ({managerInvestors.length})</h5>
                                      {managerInvestors.length > 0 ? (
-                                        <p className="text-xs text-muted-foreground px-2">{managerInvestors.map(i => i.name).join(', ')}</p>
+                                        <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
+                                          {managerInvestors.map(i => <li key={i.id}>{i.name}</li>)}
+                                        </ul>
                                      ) : (
                                         <p className="text-xs text-center text-muted-foreground py-2">لا يوجد مستثمرون مرتبطون.</p>
                                      )}
@@ -498,7 +500,9 @@ export default function UsersPage() {
                                 <div className="rounded-md border bg-background p-2">
                                     <h5 className="font-medium text-sm p-2 flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground" /> الموظفون ({employees.length})</h5>
                                      {employees.length > 0 ? (
-                                         <p className="text-xs text-muted-foreground px-2">{employees.map(e => e.name).join(', ')}</p>
+                                         <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
+                                            {employees.map(e => <li key={e.id}>{e.name}</li>)}
+                                         </ul>
                                     ) : (
                                         <p className="text-xs text-center text-muted-foreground py-2">لا يوجد موظفون مرتبطون.</p>
                                     )}
@@ -506,7 +510,9 @@ export default function UsersPage() {
                                 <div className="rounded-md border bg-background p-2">
                                     <h5 className="font-medium text-sm p-2 flex items-center gap-2"><UserCog className="h-4 w-4 text-muted-foreground" /> المساعدون ({assistants.length})</h5>
                                      {assistants.length > 0 ? (
-                                        <p className="text-xs text-muted-foreground px-2">{assistants.map(a => a.name).join(', ')}</p>
+                                        <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
+                                            {assistants.map(a => <li key={a.id}>{a.name}</li>)}
+                                        </ul>
                                     ) : (
                                         <p className="text-xs text-center text-muted-foreground py-2">لا يوجد مساعدون مرتبطون.</p>
                                     )}
@@ -614,8 +620,10 @@ export default function UsersPage() {
     
     const canEditTeamCredentials = (targetUser: User): boolean => {
         if (!currentUser) return false;
+        // Office Manager can edit their own team
         if (currentUser.role === 'مدير المكتب' && targetUser.managedBy === currentUser.id) return true;
-        if (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.accessSettings && targetUser.managedBy === currentUser.managedBy) return true;
+        // Assistant can edit employees if they have accessSettings permission
+        if (currentUser.role === 'مساعد مدير المكتب' && currentUser.permissions?.accessSettings && targetUser.role === 'موظف' && targetUser.managedBy === currentUser.managedBy) return true;
         return false;
     };
     
