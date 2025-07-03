@@ -26,8 +26,10 @@ import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
 import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
 import { Badge } from '@/components/ui/badge';
 
-// Adjusting the type to handle the different return structures from the service
-type DashboardMetricsOutput = ServiceMetrics;
+// Define explicit types for each dashboard variant from the discriminated union
+type OfficeManagerRoles = 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف';
+type AdminDashboardMetrics = Extract<ServiceMetrics, { role: 'مدير النظام' }>['admin'];
+type OfficeManagerDashboardMetrics = Extract<ServiceMetrics, { role: OfficeManagerRoles }>;
 
 
 const PageSkeleton = () => (
@@ -56,7 +58,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investors }: { metrics: DashboardMetricsOutput['installments'], showSensitiveData: boolean, borrowers: Borrower[], investors: Investor[] }) => {
+const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investors }: { metrics: OfficeManagerDashboardMetrics['installments'], showSensitiveData: boolean, borrowers: Borrower[], investors: Investor[] }) => {
   return (
     <div className="space-y-6">
       <div className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-3", showSensitiveData ? "xl:grid-cols-6" : "xl:grid-cols-4")}>
@@ -201,7 +203,7 @@ const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investor
 };
 
 
-const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, investors }: { metrics: DashboardMetricsOutput['gracePeriod'], showSensitiveData: boolean, config: any, borrowers: Borrower[], investors: Investor[] }) => {
+const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, investors }: { metrics: OfficeManagerDashboardMetrics['gracePeriod'], showSensitiveData: boolean, config: any, borrowers: Borrower[], investors: Investor[] }) => {
     return (
         <div className="space-y-6">
             <div className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-3", showSensitiveData ? "xl:grid-cols-6" : "xl:grid-cols-4")}>
@@ -342,7 +344,7 @@ const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, i
     );
 };
 
-const IdleFundsCard = ({ metrics }: { metrics: DashboardMetricsOutput['idleFunds'] }) => {
+const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['idleFunds'] }) => {
     return (
         <Card>
             <Accordion type="single" collapsible className="w-full">
@@ -394,7 +396,7 @@ const IdleFundsCard = ({ metrics }: { metrics: DashboardMetricsOutput['idleFunds
 };
 
 
-const SystemAdminDashboard = ({ metrics }: { metrics: DashboardMetricsOutput['admin'] }) => {
+const SystemAdminDashboard = ({ metrics }: { metrics: AdminDashboardMetrics }) => {
     const { updateUserStatus } = useDataActions();
     
     return (
@@ -518,7 +520,7 @@ export default function DashboardPage() {
           graceInvestorSharePercentage,
         }
       });
-      return result as DashboardMetricsOutput;
+      return result as ServiceMetrics;
     } catch (error) {
       console.error("Failed to calculate dashboard metrics:", error);
       return null; 
