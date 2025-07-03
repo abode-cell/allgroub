@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -37,7 +36,7 @@ import {
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
-import { isValid } from 'date-fns';
+import { isValid, isPast } from 'date-fns';
 
 type DataState = {
   currentUser: User | undefined;
@@ -53,6 +52,7 @@ type DataState = {
   graceInvestorSharePercentage: number;
   supportEmail: string;
   supportPhone: string;
+  isLoading: boolean;
 };
 
 type DataActions = {
@@ -135,6 +135,7 @@ type DataActions = {
   markInvestorAsNotified: (investorId: string, message: string) => void;
 };
 
+
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
@@ -144,9 +145,9 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-const APP_DATA_KEY = 'appData_v_stable_final_11_safe_guards';
+const APP_DATA_KEY = 'appData_v_stable_final_13_crash_fix';
 
-const initialDataState: Omit<DataState, 'currentUser'> = {
+const initialDataState: Omit<DataState, 'currentUser' | 'isLoading'> = {
   borrowers: initialBorrowersData,
   investors: initialInvestorsData,
   users: initialUsersData,
@@ -161,7 +162,7 @@ const initialDataState: Omit<DataState, 'currentUser'> = {
   supportPhone: '920012345',
 };
 
-const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser'> => {
+const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'isLoading'> => {
   const defaultUser: Partial<User> = {
     permissions: {},
     allowEmployeeLoanEdits: false,
@@ -188,7 +189,7 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser'> => {
     installments: b.installments || [],
   }));
 
-  const sanitizedData = {
+  return {
     ...initialDataState,
     ...data,
     users,
@@ -204,52 +205,59 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser'> => {
     supportEmail: data.supportEmail ?? initialDataState.supportEmail,
     supportPhone: data.supportPhone ?? initialDataState.supportPhone,
   };
-  
-  return sanitizedData;
 };
 
-
-export function DataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<Omit<DataState, 'currentUser'>>(initialDataState);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      let loadedData = initialDataState;
-      try {
-        const item = window.localStorage.getItem(APP_DATA_KEY);
-        if (item) {
-          const parsed = JSON.parse(item);
-          loadedData = sanitizeAndMigrateData(parsed);
-        }
-      } catch (error) {
-        console.warn(`Error reading or parsing localStorage key “${APP_DATA_KEY}”. Using initial data.`, error);
-        loadedData = initialDataState;
-      } finally {
-        setData(loadedData);
-        setIsDataLoaded(true);
+const processTrialStatuses = (users: User[]): User[] => {
+  const today = new Date();
+  return users.map(user => {
+    if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt) {
+      const trialEndDate = new Date(user.trialEndsAt);
+      if (isValid(trialEndDate) && isPast(trialEndDate)) {
+        return { ...user, status: 'معلق' };
       }
     }
+    return user;
+  });
+};
+
+export function DataProvider({ children }: { children: ReactNode }) {
+  const [data, setData] = useState<Omit<DataState, 'currentUser' | 'isLoading'>>(initialDataState);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let loadedData;
+    try {
+      const item = window.localStorage.getItem(APP_DATA_KEY);
+      loadedData = item ? sanitizeAndMigrateData(JSON.parse(item)) : initialDataState;
+    } catch (error) {
+      console.warn(`Error reading localStorage. Using initial data.`, error);
+      loadedData = initialDataState;
+    }
+    
+    const usersWithProcessedTrials = processTrialStatuses(loadedData.users);
+    const finalData = { ...loadedData, users: usersWithProcessedTrials };
+    
+    setData(finalData);
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    if (!isDataLoaded) return;
-    if (typeof window !== 'undefined') {
+    if (!isLoading) {
       try {
         window.localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
       } catch (error) {
-        console.warn(`Error setting localStorage key “${APP_DATA_KEY}”:`, error);
+        console.warn(`Error setting localStorage:`, error);
       }
     }
-  }, [data, isDataLoaded]);
+  }, [data, isLoading]);
 
   const { userId } = useAuth();
   const { toast } = useToast();
 
   const currentUser = useMemo(() => {
-    if (!userId || !isDataLoaded) return undefined;
+    if (isLoading || !userId) return undefined;
     return data.users.find((u) => u.id === userId);
-  }, [data.users, userId, isDataLoaded]);
+  }, [data.users, userId, isLoading]);
 
 
   const addNotification = useCallback(
@@ -1454,12 +1462,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     () => ({
       currentUser,
       ...data,
+      isLoading,
     }),
-    [currentUser, data]
+    [currentUser, data, isLoading]
   );
-
-  if (!isDataLoaded) {
-    return null;
+  
+  if (isLoading) {
+    return null; // Or a full-page loader
   }
 
   return (
@@ -1486,5 +1495,3 @@ export function useDataActions() {
   }
   return context;
 }
-
-    
