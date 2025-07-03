@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_12';
+export const APP_DATA_KEY = 'appData_v_ULTIMATE_FINAL_15';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -846,23 +846,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const remainingAmount = originalBorrower.amount - paidAmount;
         const newLoanId = `bor_rem_${Date.now()}`;
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-
+        
         const newRemainingLoan: Borrower = {
             id: newLoanId,
             name: `${originalBorrower.name} (مبلغ متبقٍ)`,
             phone: originalBorrower.phone,
             amount: remainingAmount,
-            rate: 0, 
+            rate: 0,
             term: 0,
             date: new Date().toISOString(),
             loanType: 'مهلة',
-            status: 'متأخر',
-            dueDate: yesterday.toISOString().split('T')[0],
+            status: 'معلق',
+            dueDate: new Date().toISOString().split('T')[0], // Placeholder, should be edited by manager
             submittedBy: originalBorrower.submittedBy,
-            fundedBy: originalBorrower.fundedBy,
-            paymentStatus: 'متعثر',
             isNotified: false,
             originalLoanId: originalBorrower.id,
         };
@@ -881,7 +877,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newBorrowers = d.borrowers.map(b => b.id === borrowerId ? updatedOriginalBorrower : b);
         newBorrowers.push(newRemainingLoan);
         
-        toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء قرض بالمبلغ المتبقي.' });
+        toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء طلب قرض جديد بالمبلغ المتبقي.' });
 
         return { ...d, borrowers: newBorrowers };
     });
@@ -1097,7 +1093,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   
   const addNewSubordinateUser = useCallback(
-    async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean; message: string }> => {
+    async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
         let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
         setData(d => {
             const loggedInUser = d.users.find(u => u.id === userId);

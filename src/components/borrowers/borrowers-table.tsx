@@ -184,7 +184,9 @@ export function BorrowersTable({
   const gracePaymentOptions: BorrowerPaymentStatus[] = ['مسدد جزئي', 'تم الإمهال', 'متعثر', 'تم اتخاذ الاجراءات القانونيه', 'تم السداد'];
 
   const handleEditClick = (borrower: Borrower) => {
-    setSelectedBorrower({ ...borrower });
+    // Always get the freshest data from the source when opening
+    const freshBorrower = borrowers.find(b => b.id === borrower.id);
+    setSelectedBorrower(freshBorrower ? { ...freshBorrower } : null);
     setIsEditDialogOpen(true);
   };
   
@@ -543,7 +545,7 @@ export function BorrowersTable({
           <DialogHeader>
             <DialogTitle>تسجيل سداد جزئي لـ {borrowerForPartialPayment?.name}</DialogTitle>
             <DialogDescription>
-              إجمالي مبلغ القرض هو {formatCurrency(borrowerForPartialPayment?.amount ?? 0)}. أدخل المبلغ الذي تم سداده. سيتم إنشاء قرض جديد بالمبلغ المتبقي.
+              إجمالي مبلغ القرض هو {formatCurrency(borrowerForPartialPayment?.amount ?? 0)}. أدخل المبلغ الذي تم سداده. سيتم إنشاء طلب قرض جديد بالمبلغ المتبقي للموافقة عليه.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
