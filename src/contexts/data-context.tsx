@@ -138,7 +138,7 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData_v_FINAL';
+export const APP_DATA_KEY = 'appData_v_FINAL_3';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
@@ -1211,7 +1211,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const canEdit = isSystemAdmin || 
                         (isOfficeManager && userToUpdate.managedBy === loggedInUser.id) ||
-                        (isAssistant && loggedInUser.permissions?.accessSettings && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف');
+                        (isAssistant && loggedInUser.permissions?.manageEmployeePermissions && userToUpdate.managedBy === loggedInUser.managedBy && userToUpdate.role === 'موظف');
         
         if (!canEdit || userToUpdate.role === 'مدير النظام') {
             result = { success: false, message: 'ليس لديك الصلاحية لتعديل هذا المستخدم.' };
@@ -1439,7 +1439,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateAssistantPermission = useCallback(
-    (assistantId, key, value) => {
+    (assistantId: string, key: PermissionKey, value: boolean) => {
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
         if (loggedInUser?.role !== 'مدير المكتب') {

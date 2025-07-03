@@ -151,9 +151,9 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
     // A subordinate cannot edit their manager
     if(user.id === currentUser.managedBy) return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
 
-    const canEdit = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && currentUser.permissions?.accessSettings && user.managedBy === currentUser.managedBy && user.role === 'موظف');
+    const canEdit = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && currentUser.permissions?.manageEmployeePermissions && user.managedBy === currentUser.managedBy && user.role === 'موظف');
     const canDelete = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
-    const canUpdateStatus = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && user.managedBy === currentUser.managedBy && user.role === 'موظف');
+    const canUpdateStatus = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id) || (isAssistant && currentUser.permissions?.manageEmployeePermissions && user.managedBy === currentUser.managedBy && user.role === 'موظف');
     
     return { canEditCredentials: canEdit, canDeleteUser: canDelete, canUpdateUserStatus: canUpdateStatus };
   }, [currentUser, user]);
@@ -249,6 +249,26 @@ export default function UsersPage() {
     }
   }, [currentUser, canViewPage, router]);
 
+  const officeManagers = useMemo(() => users.filter((u) => u.role === 'مدير المكتب'), [users]);
+  const otherUsers = useMemo(() => users.filter(
+    (u) => u.role === 'مدير النظام'
+  ), [users]);
+
+  // Sync editableLimits state when the underlying user data changes
+  useEffect(() => {
+    officeManagers.forEach(manager => {
+      setEditableLimits(prev => ({
+        ...prev,
+        [manager.id]: {
+          investorLimit: String(manager.investorLimit ?? 10),
+          employeeLimit: String(manager.employeeLimit ?? 5),
+          assistantLimit: String(manager.assistantLimit ?? 2),
+        }
+      }));
+    });
+  }, [officeManagers]);
+
+
   const handleRoleChange = (userId: string, newRole: UserRole) => {
     if (userId === currentUser?.id) {
         toast({
@@ -277,7 +297,7 @@ export default function UsersPage() {
     setEditCredsForm(prev => ({ ...prev, [id]: value }));
   };
   
-  const handleSaveCredentials = async (e: React.FormEvent) => {
+  const handleSaveCredentials = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userToEdit) return;
     setIsCredsSubmitting(true);
@@ -291,10 +311,11 @@ export default function UsersPage() {
     }
 
     if (Object.keys(updates).length > 0) {
-      const result = await updateUserCredentials(userToEdit.id, updates);
-      if (result.success) {
-        setIsEditCredsDialogOpen(false);
-      }
+        updateUserCredentials(userToEdit.id, updates).then(result => {
+            if (result.success) {
+                setIsEditCredsDialogOpen(false);
+            }
+        });
     } else {
       setIsEditCredsDialogOpen(false); // Close if no changes were made
     }
@@ -312,7 +333,7 @@ export default function UsersPage() {
   const handleAccordionChange = (value: string) => {
     if (value) {
       const manager = officeManagers.find((m) => m.id === value);
-      if (manager && !editableLimits[manager.id]) {
+      if (manager) {
         setEditableLimits((prev) => ({
           ...prev,
           [manager.id]: {
@@ -355,7 +376,7 @@ export default function UsersPage() {
     setAddUserForm((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleAddNewUser = async (e: React.FormEvent) => {
+  const handleAddNewUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!addUserForm.role) return;
 
@@ -370,18 +391,13 @@ export default function UsersPage() {
     
     setIsSubmittingNewUser(true);
     const { name, email, phone, password } = addUserForm;
-    const result = await addNewSubordinateUser({ name, email, phone, password }, addUserForm.role);
-      
+    addNewSubordinateUser({ name, email, phone, password }, addUserForm.role).then(result => {
+        if (result.success) {
+          setIsAddUserDialogOpen(false);
+        }
+    });
     setIsSubmittingNewUser(false);
-    if (result.success) {
-      setIsAddUserDialogOpen(false);
-    }
   };
-
-  const officeManagers = useMemo(() => users.filter((u) => u.role === 'مدير المكتب'), [users]);
-  const otherUsers = useMemo(() => users.filter(
-    (u) => u.role === 'مدير النظام'
-  ), [users]);
 
   const myEmployees = useMemo(() => {
     if (!currentUser) return [];
@@ -864,6 +880,7 @@ export default function UsersPage() {
                             <Switch
                                 id="allow-loan-edits"
                                 checked={managerForSettings?.allowEmployeeLoanEdits ?? false}
+                                disabled={role !== 'مدير المكتب' && !(currentUser.permissions?.manageEmployeePermissions)}
                                 onCheckedChange={(checked) => {
                                     if (managerIdForSettings) {
                                         updateManagerSettings(managerIdForSettings, { allowEmployeeLoanEdits: checked });

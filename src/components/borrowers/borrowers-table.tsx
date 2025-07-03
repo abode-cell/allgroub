@@ -22,6 +22,7 @@ import {
   Edit,
   CalendarDays,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -76,6 +77,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { LoanStatusInfo } from './remaining-days';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
+import Link from 'next/link';
 
 type Payment = {
   month: number;
@@ -226,10 +228,6 @@ export function BorrowersTable({
     updateBorrower(selectedBorrower);
     setIsEditDialogOpen(false);
     setSelectedBorrower(null);
-  };
-  
-  const handleApproveClick = (borrower: Borrower) => {
-    toast({ title: 'إجراء غير مدعوم هنا', description: 'يرجى الموافقة على الطلبات من صفحة الطلبات.' });
   };
   
   const handleConfirmPartialPayment = () => {
@@ -493,11 +491,11 @@ export function BorrowersTable({
                             </DropdownMenuItem>
                           )}
                           {canApprove && borrower.status === 'معلق' && (
-                            <DropdownMenuItem
-                              onSelect={() => handleApproveClick(borrower)}
-                            >
-                              <CheckCircle className="ml-2 h-4 w-4" />
-                              الموافقة على الطلب
+                            <DropdownMenuItem asChild>
+                              <Link href="/requests" className="flex items-center w-full cursor-pointer">
+                                  <ExternalLink className="ml-2 h-4 w-4" />
+                                  <span>الموافقة من صفحة الطلبات</span>
+                              </Link>
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem

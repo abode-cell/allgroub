@@ -34,7 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Textarea } from '@/components/ui/textarea';
-import type { Investor, Transaction, TransactionType, WithdrawalMethod, UpdatableInvestor } from '@/lib/types';
+import type { Investor, Transaction, TransactionType, WithdrawalMethod, UpdatableInvestor, NewInvestorPayload } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -485,6 +485,20 @@ export function InvestorsTable({
                         </div>
                     </div>
                 )}
+                 <div>
+                    <h4 className="font-semibold text-base mb-2 mt-2">حصص الأرباح</h4>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
+                        <div className='flex items-center gap-2'>
+                            <span className='text-muted-foreground'>ربح الأقساط:</span>
+                            <span className='font-bold float-left text-primary'>{selectedInvestor.installmentProfitShare ?? investorSharePercentage}%</span>
+                        </div>
+                        <div className='flex items-center gap-2'>
+                           <span className='text-muted-foreground'>ربح المهلة:</span>
+                           <span className='font-bold float-left text-primary'>{selectedInvestor.gracePeriodProfitShare ?? graceInvestorSharePercentage}%</span>
+                        </div>
+                    </div>
+                 </div>
+
 
                 <div>
                     <h4 className="font-semibold text-base mb-2 mt-2">سجل العمليات</h4>

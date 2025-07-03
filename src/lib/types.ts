@@ -11,8 +11,7 @@ export type PermissionKey =
   | 'useCalculator'
   | 'accessSettings'
   | 'manageEmployeePermissions'
-  | 'viewIdleFundsReport'
-  | 'allowEmployeeLoanEdits';
+  | 'viewIdleFundsReport';
 
 export type Permissions = {
   [key in PermissionKey]?: boolean;
