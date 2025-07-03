@@ -52,6 +52,7 @@ import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/toolti
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { formatCurrency } from '@/lib/utils';
 
 
 type InvestorsTableProps = {
@@ -73,17 +74,11 @@ const transactionTypeVariant: { [key in TransactionType]: 'default' | 'secondary
     'سحب من رأس المال': 'destructive',
 };
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
-
 export function InvestorsTable({
   investors,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { currentUser, borrowers, users, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
+  const { currentUser, borrowers, visibleUsers: users, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
   const { updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified } = useDataActions();
   const { toast } = useToast();
   const role = currentUser?.role;

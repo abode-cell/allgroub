@@ -75,6 +75,7 @@ import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
 import { LoanStatusInfo } from './remaining-days';
 import { useToast } from '@/hooks/use-toast';
+import { formatCurrency } from '@/lib/utils';
 
 type Payment = {
   month: number;
@@ -137,19 +138,12 @@ const installmentStatusBgColor: { [key in InstallmentStatus]: string } = {
 };
 
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
-
-
 export function BorrowersTable({
   borrowers,
 }: {
   borrowers: Borrower[];
 }) {
-  const { currentUser, investors, users } = useDataState();
+  const { currentUser, investors, visibleUsers: users } = useDataState();
   const { updateBorrower, updateBorrowerPaymentStatus, markBorrowerAsNotified, updateInstallmentStatus, deleteBorrower, handlePartialPayment } = useDataActions();
   const { toast } = useToast();
   const role = currentUser?.role;

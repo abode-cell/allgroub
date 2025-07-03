@@ -47,7 +47,7 @@ const PageSkeleton = () => (
 
 export default function InvestorsPage() {
   const { addInvestor } = useDataActions();
-  const { investors: allInvestors, users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
+  const { investors: allInvestors, visibleUsers: users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
   

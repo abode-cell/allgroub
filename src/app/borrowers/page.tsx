@@ -52,6 +52,7 @@ import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { formatCurrency } from '@/lib/utils';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -67,18 +68,9 @@ const PageSkeleton = () => (
 );
 
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-
-
 export default function BorrowersPage() {
   const { addBorrower } = useDataActions();
-  const { borrowers: allBorrowers, investors: allInvestors, users, baseInterestRate, currentUser } = useDataState();
+  const { borrowers: allBorrowers, investors: allInvestors, visibleUsers: users, baseInterestRate, currentUser } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
 

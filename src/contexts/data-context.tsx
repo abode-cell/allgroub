@@ -39,12 +39,14 @@ import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
 import { isPast } from 'date-fns';
+import { formatCurrency } from '@/lib/utils';
 
 type DataState = {
   currentUser: User | undefined;
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
+  visibleUsers: User[];
   supportTickets: SupportTicket[];
   notifications: Notification[];
   salaryRepaymentPercentage: number;
@@ -136,15 +138,9 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
+export const APP_DATA_KEY = 'appData_v_ultimate_final_v7_final_secure';
 
-export const APP_DATA_KEY = 'appData_v_ultimate_final_v5_final_check';
-
-const initialDataState: Omit<DataState, 'currentUser'> = {
+const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   borrowers: initialBorrowersData,
   investors: initialInvestorsData,
   users: initialUsersData,
@@ -159,7 +155,7 @@ const initialDataState: Omit<DataState, 'currentUser'> = {
   supportPhone: '920012345',
 };
 
-const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser'> => {
+const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'visibleUsers'> => {
   const defaultUser: Partial<User> = {
     permissions: {},
     allowEmployeeLoanEdits: false,
@@ -233,6 +229,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!userId) return undefined;
     return data.users.find((u) => u.id === userId);
   }, [data.users, userId]);
+  
+  const visibleUsers = useMemo(() => {
+    if (!currentUser) return [];
+
+    const { role, id, managedBy } = currentUser;
+    const allUsers = data.users;
+
+    switch (role) {
+        case 'مدير النظام':
+            return allUsers;
+        case 'مدير المكتب':
+            return allUsers.filter(u =>
+                u.role === 'مدير النظام' || // can see admin
+                u.id === id || // can see self
+                u.managedBy === id // can see their team
+            );
+        case 'مساعد مدير المكتب':
+        case 'موظف':
+            if (!managedBy) return [currentUser];
+            return allUsers.filter(u =>
+                u.id === managedBy || // can see their manager
+                u.id === id || // can see self
+                u.managedBy === managedBy // can see their colleagues
+            );
+        case 'مستثمر':
+             if (!managedBy) return [currentUser];
+             return allUsers.filter(u =>
+                u.id === managedBy || // can see their manager
+                u.id === id // can see self
+             );
+        default:
+            return [];
+    }
+  }, [currentUser, data.users]);
 
 
   const addNotification = useCallback(
@@ -826,9 +856,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateInvestor = useCallback(
     (updatedInvestor: UpdatableInvestor) => {
-      setData(d => ({...d, investors: d.investors.map((i) =>
-        i.id === updatedInvestor.id ? { ...i, ...updatedInvestor } : i
-      )}));
+      setData(d => {
+        const existingInvestor = d.investors.find(i => i.id === updatedInvestor.id);
+        if (existingInvestor && existingInvestor.investmentType !== updatedInvestor.investmentType) {
+            toast({
+                variant: 'destructive',
+                title: 'خطأ فادح',
+                description: 'لا يمكن تغيير نوع استثمار المستثمر بعد إنشائه. هذا الإجراء تم منعه لحماية سلامة البيانات.',
+            });
+            console.error(`SECURITY: Blocked attempt to change investmentType for investor ${updatedInvestor.id}`);
+            return d;
+        }
+        
+        return ({...d, investors: d.investors.map((i) =>
+            i.id === updatedInvestor.id ? { ...i, ...updatedInvestor } : i
+        )})
+      });
       toast({ title: 'تم تحديث المستثمر' });
     },
     [toast]
@@ -1636,9 +1679,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const state: DataState = useMemo(
     () => ({
       currentUser,
+      visibleUsers,
       ...data,
     }),
-    [currentUser, data]
+    [currentUser, visibleUsers, data]
   );
 
   return (

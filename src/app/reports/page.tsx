@@ -30,7 +30,7 @@ import {
 import { calculateInvestorFinancials } from '@/services/dashboard-service';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Users } from 'lucide-react';
-import { getBorrowerStatus } from '@/lib/utils';
+import { getBorrowerStatus, formatCurrency } from '@/lib/utils';
 
 
 const PageSkeleton = () => (
@@ -45,12 +45,6 @@ const PageSkeleton = () => (
     </div>
 );
 
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
 
 const statusVariant: {
   [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
@@ -116,7 +110,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { borrowers: allBorrowers, investors: allInvestors, currentUser, users } = useDataState();
+  const { borrowers: allBorrowers, investors: allInvestors, currentUser, visibleUsers: users } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;
