@@ -146,7 +146,7 @@ const formatCurrency = (value: number) =>
     currency: 'SAR',
   }).format(value);
 
-export const APP_DATA_KEY = 'appData_v_final_qa_pass_1';
+export const APP_DATA_KEY = 'appData_v_final_qa_pass_3';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'isLoading'> = {
   borrowers: initialBorrowersData,
@@ -557,21 +557,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return d;
         }
 
-        const newInvestors = d.investors.map(inv => {
-            const fundedLoanIds = inv.fundedLoanIds || [];
-            if (fundedLoanIds.includes(borrowerId)) {
-                return { ...inv, fundedLoanIds: fundedLoanIds.filter(id => id !== borrowerId) };
-            }
-            return inv;
-        });
+        // Critical business rule: Only pending or rejected loans can be deleted.
+        if (borrowerToDelete.status !== 'معلق' && borrowerToDelete.status !== 'مرفوض') {
+            toast({
+                variant: 'destructive',
+                title: 'لا يمكن الحذف',
+                description: 'لا يمكن حذف قرض تمت معالجته. يمكن حذف الطلبات المعلقة أو المرفوضة فقط.',
+            });
+            return d;
+        }
+        
+        // At this point, the loan should not have any funding attached, so no need to refund investors.
+        // The check for fundedBy is a safety net for inconsistent data, but should ideally not be triggered.
+        if (borrowerToDelete.fundedBy && borrowerToDelete.fundedBy.length > 0) {
+             console.error(`Attempting to delete loan ${borrowerId} which is ${borrowerToDelete.status} but has funding. This should not happen.`);
+        }
 
         const newBorrowers = d.borrowers.filter(b => b.id !== borrowerId);
+        
         toast({
-            variant: 'destructive',
             title: 'تم الحذف',
-            description: `تم حذف القرض "${borrowerToDelete.name}" بنجاح.`
+            description: `تم حذف طلب القرض "${borrowerToDelete.name}" بنجاح.`
         });
-        return { ...d, borrowers: newBorrowers, investors: newInvestors };
+        
+        return { ...d, borrowers: newBorrowers };
     });
   }, [toast]);
 

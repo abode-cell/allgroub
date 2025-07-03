@@ -337,6 +337,8 @@ export function BorrowersTable({
                   const isTerminalStatus = borrower.status === 'مرفوض';
                   const isEditableStatus = !isTerminalStatus;
                   const paymentOptions = borrower.loanType === 'اقساط' ? installmentPaymentOptions : gracePaymentOptions;
+                  const canBeDeleted = borrower.status === 'معلق' || borrower.status === 'مرفوض';
+
 
                   return (
                   <TableRow key={borrower.id}>
@@ -463,7 +465,7 @@ export function BorrowersTable({
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive focus:bg-destructive/10"
                             onSelect={() => handleDeleteClick(borrower)}
-                            disabled={!canDelete}
+                            disabled={!canDelete || !canBeDeleted}
                           >
                             <Trash2 className="ml-2 h-4 w-4" />
                             حذف القرض
@@ -537,6 +539,7 @@ export function BorrowersTable({
                   type="number"
                   value={selectedBorrower.amount}
                    readOnly={selectedBorrower.status !== 'معلق'}
+                   className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50')}
                   onChange={(e) =>
                     setSelectedBorrower({
                       ...selectedBorrower,
@@ -550,6 +553,7 @@ export function BorrowersTable({
                     <Label className="text-right">نوع التمويل</Label>
                     <RadioGroup
                         value={selectedBorrower.loanType}
+                        disabled={selectedBorrower.status !== 'معلق'}
                         onValueChange={(value) => {
                           const newType = value as 'اقساط' | 'مهلة';
                           setSelectedBorrower(prev => {
@@ -594,6 +598,8 @@ export function BorrowersTable({
                       type="number"
                       step="0.1"
                       value={selectedBorrower.rate}
+                      readOnly={selectedBorrower.status !== 'معلق'}
+                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,
@@ -611,6 +617,8 @@ export function BorrowersTable({
                       id="term-edit"
                       type="number"
                       value={selectedBorrower.term}
+                      readOnly={selectedBorrower.status !== 'معلق'}
+                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,
@@ -631,6 +639,8 @@ export function BorrowersTable({
                       id="discount-edit"
                       type="number"
                       value={selectedBorrower.discount || ''}
+                      readOnly={selectedBorrower.status !== 'معلق'}
+                      className={cn(selectedBorrower.status !== 'معلق' && 'bg-muted/50')}
                       onChange={(e) =>
                         setSelectedBorrower({
                           ...selectedBorrower,
@@ -919,7 +929,7 @@ export function BorrowersTable({
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد أنك تريد حذف قرض "{borrowerToDelete?.name}"؟ سيؤدي هذا الإجراء إلى إرجاع أي أموال ممولة إلى المستثمرين ولا يمكن التراجع عنه.
+              هل أنت متأكد أنك تريد حذف طلب قرض "{borrowerToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
