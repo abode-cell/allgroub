@@ -47,18 +47,18 @@ export function DailySummary() {
               return;
           }
 
-          const newSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
-          const totalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
+          const adminNewSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
+          const adminTotalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
 
           const result = await generateDailySummary({
             userName: currentUser.name,
             userRole: currentUser.role,
-            totalUsersCount: metrics.admin.totalUsersCount,
-            activeManagersCount: metrics.admin.activeManagersCount,
-            pendingActivationsCount: metrics.admin.pendingManagersCount,
-            totalCapitalInSystem: metrics.admin.totalCapital,
-            totalActiveLoansCount: totalActiveLoansCount,
-            newSupportTicketsCount: newSupportTicketsCount,
+            adminTotalUsersCount: metrics.admin.totalUsersCount,
+            adminActiveManagersCount: metrics.admin.activeManagersCount,
+            adminPendingActivationsCount: metrics.admin.pendingManagersCount,
+            adminTotalCapitalInSystem: metrics.admin.totalCapital,
+            adminTotalActiveLoansCount: adminTotalActiveLoansCount,
+            adminNewSupportTicketsCount: adminNewSupportTicketsCount,
           });
           if (result.summary) setSummary(result.summary);
           else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
@@ -71,10 +71,10 @@ export function DailySummary() {
             }
 
             const { filteredBorrowers, filteredInvestors } = metrics;
-            const newBorrowersCount = filteredBorrowers.length;
-            const newInvestorsCount = filteredInvestors.length;
-            const totalLoansGranted = filteredBorrowers.reduce((acc, b) => acc + b.amount, 0);
-            const totalNewInvestments = filteredInvestors.reduce((total, investor) => {
+            const officeManagerTotalBorrowers = filteredBorrowers.length;
+            const officeManagerTotalInvestors = filteredInvestors.length;
+            const officeManagerTotalLoansGranted = filteredBorrowers.reduce((acc, b) => acc + b.amount, 0);
+            const officeManagerTotalInvestments = filteredInvestors.reduce((total, investor) => {
                 const capitalDeposits = investor.transactionHistory
                   .filter(tx => tx.type === 'إيداع رأس المال')
                   .reduce((sum, tx) => sum + tx.amount, 0);
@@ -97,10 +97,10 @@ export function DailySummary() {
             const result = await generateDailySummary({
               userName: currentUser.name,
               userRole: currentUser.role,
-              newBorrowersCount,
-              newInvestorsCount,
-              totalLoansGranted,
-              totalNewInvestments,
+              officeManagerTotalBorrowers,
+              officeManagerTotalInvestors,
+              officeManagerTotalLoansGranted,
+              officeManagerTotalInvestments,
               pendingRequestsCount,
               defaultedLoansCount,
               totalNetProfit,

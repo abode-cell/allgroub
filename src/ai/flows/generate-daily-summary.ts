@@ -14,25 +14,25 @@ import {z} from 'genkit';
 const GenerateDailySummaryInputSchema = z.object({
   userName: z.string().optional().describe('The name of the user requesting the summary.'),
   userRole: z.string().optional().describe('The role of the user.'),
-  
-  // Financial fields for Office Manager
-  newBorrowersCount: z.number().optional().describe('The total number of borrowers.'),
-  newInvestorsCount: z.number().optional().describe('The total number of investors.'),
-  totalLoansGranted: z.number().optional().describe('The total amount of all loans granted.'),
-  totalNewInvestments: z.number().optional().describe('The total amount of all investments received.'),
+
+  // Fields for Office Manager
+  officeManagerTotalBorrowers: z.number().optional().describe("The total number of borrowers managed by this office."),
+  officeManagerTotalInvestors: z.number().optional().describe("The total number of investors managed by this office."),
+  officeManagerTotalLoansGranted: z.number().optional().describe("The total amount of all loans granted by this office."),
+  officeManagerTotalInvestments: z.number().optional().describe("The total amount of all investments received by this office."),
   pendingRequestsCount: z.number().optional().describe('The number of pending requests that need review.'),
   defaultedLoansCount: z.number().optional().describe('Number of loans that defaulted.'),
   totalNetProfit: z.number().optional().describe('Total net profit generated.'),
   idleCapital: z.number().optional().describe('Total idle capital available for investment.'),
   activeCapital: z.number().optional().describe('Total capital currently active in loans.'),
   
-  // System fields for System Admin
-  totalUsersCount: z.number().optional().describe('The total number of users in the system.'),
-  activeManagersCount: z.number().optional().describe('The number of active office managers.'),
-  pendingActivationsCount: z.number().optional().describe('The number of office managers pending activation.'),
-  totalCapitalInSystem: z.number().optional().describe('The total capital across all investors in the system.'),
-  totalActiveLoansCount: z.number().optional().describe('The total number of active loans in the system.'),
-  newSupportTicketsCount: z.number().optional().describe('The number of new unread support tickets.'),
+  // Fields for System Admin
+  adminTotalUsersCount: z.number().optional().describe('The total number of users in the system.'),
+  adminActiveManagersCount: z.number().optional().describe('The number of active office managers.'),
+  adminPendingActivationsCount: z.number().optional().describe('The number of office managers pending activation.'),
+  adminTotalCapitalInSystem: z.number().optional().describe('The total capital across all investors in the system.'),
+  adminTotalActiveLoansCount: z.number().optional().describe('The total number of active loans in the system.'),
+  adminNewSupportTicketsCount: z.number().optional().describe('The number of new unread support tickets.'),
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
@@ -56,29 +56,29 @@ const prompt = ai.definePrompt({
 مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
 
-{{#if totalUsersCount}}
+{{#if adminTotalUsersCount}}
 أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا شاملاً عن صحة المنصة وأدائها.
 
 **نظرة عامة على النظام**
-* **إجمالي المستخدمين:** **{{{totalUsersCount}}}** مستخدم
-* **مدراء المكاتب النشطون:** **{{{activeManagersCount}}}** مدير
-* **الحسابات التي تنتظر التفعيل:** **{{{pendingActivationsCount}}}** طلب
+* **إجمالي المستخدمين:** **{{{adminTotalUsersCount}}}** مستخدم
+* **مدراء المكاتب النشطون:** **{{{adminActiveManagersCount}}}** مدير
+* **الحسابات التي تنتظر التفعيل:** **{{{adminPendingActivationsCount}}}** طلب
 
 **النشاط المالي**
-* **إجمالي رأس المال في النظام:** **{{{totalCapitalInSystem}}}** ريال
-* **إجمالي القروض النشطة:** **{{{totalActiveLoansCount}}}** قرض
+* **إجمالي رأس المال في النظام:** **{{{adminTotalCapitalInSystem}}}** ريال
+* **إجمالي القروض النشطة:** **{{{adminTotalActiveLoansCount}}}** قرض
 
 **الدعم الفني**
-* **طلبات الدعم الجديدة:** **{{{newSupportTicketsCount}}}** طلب
+* **طلبات الدعم الجديدة:** **{{{adminNewSupportTicketsCount}}}** طلب
 
 {{else}}
 أنت تتحدث إلى مدير مكتب. قدم ملخصًا مفصلاً عن الأداء المالي والتشغيلي لمكتبه.
 
 **نظرة عامة على النشاط**
-* **إجمالي المقترضين:** **{{{newBorrowersCount}}}** مقترض
-* **إجمالي المستثمرين:** **{{{newInvestorsCount}}}** مستثمر
-* **إجمالي مبالغ القروض:** **{{{totalLoansGranted}}}** ريال
-* **إجمالي مبالغ الاستثمارات:** **{{{totalNewInvestments}}}** ريال
+* **إجمالي المقترضين:** **{{{officeManagerTotalBorrowers}}}** مقترض
+* **إجمالي المستثمرين:** **{{{officeManagerTotalInvestors}}}** مستثمر
+* **إجمالي مبالغ القروض:** **{{{officeManagerTotalLoansGranted}}}** ريال
+* **إجمالي مبالغ الاستثمارات:** **{{{officeManagerTotalInvestments}}}** ريال
 * **الطلبات المعلقة للمراجعة:** **{{{pendingRequestsCount}}}** طلب
 
 **أداء المحفظة**
