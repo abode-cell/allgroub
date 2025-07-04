@@ -13,6 +13,7 @@ import {z} from 'genkit';
 const GenerateDailySummaryInputSchema = z.object({
   userName: z.string().optional().describe('The name of the user requesting the summary.'),
   userRole: z.string().optional().describe('The role of the user.'),
+  isAdmin: z.boolean().optional().describe('A flag indicating if the user is a system admin.'),
 
   // Fields for Office Manager
   officeManagerTotalBorrowers: z.number().optional().describe("The total number of borrowers managed by this office."),
@@ -48,14 +49,14 @@ export async function generateDailySummary(
 
 const prompt = ai.definePrompt({
   name: 'generateDailySummaryPrompt',
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
 مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
 
-{{#if adminTotalUsersCount}}
+{{#if isAdmin}}
 أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا شاملاً عن صحة المنصة وأدائها.
 
 **نظرة عامة على النظام**

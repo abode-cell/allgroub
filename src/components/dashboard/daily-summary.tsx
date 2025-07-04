@@ -52,6 +52,7 @@ export function DailySummary() {
           const result = await generateDailySummary({
             userName: currentUser.name,
             userRole: currentUser.role,
+            isAdmin: true,
             adminTotalUsersCount: metrics.admin.totalUsersCount,
             adminActiveManagersCount: metrics.admin.activeManagersCount,
             adminPendingActivationsCount: metrics.admin.pendingManagersCount,
