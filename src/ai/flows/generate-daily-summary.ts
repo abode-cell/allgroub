@@ -16,10 +16,10 @@ const GenerateDailySummaryInputSchema = z.object({
   userRole: z.string().optional().describe('The role of the user.'),
   
   // Financial fields for Office Manager
-  newBorrowersCount: z.number().optional().describe('The number of new borrowers added today.'),
-  newInvestorsCount: z.number().optional().describe('The number of new investors added today.'),
-  totalLoansGranted: z.number().optional().describe('The total amount of new loans granted today.'),
-  totalNewInvestments: z.number().optional().describe('The total amount of new investments received today.'),
+  newBorrowersCount: z.number().optional().describe('The total number of borrowers.'),
+  newInvestorsCount: z.number().optional().describe('The total number of investors.'),
+  totalLoansGranted: z.number().optional().describe('The total amount of all loans granted.'),
+  totalNewInvestments: z.number().optional().describe('The total amount of all investments received.'),
   pendingRequestsCount: z.number().optional().describe('The number of pending requests that need review.'),
   defaultedLoansCount: z.number().optional().describe('Number of loans that defaulted.'),
   totalNetProfit: z.number().optional().describe('Total net profit generated.'),
@@ -32,7 +32,7 @@ const GenerateDailySummaryInputSchema = z.object({
   pendingActivationsCount: z.number().optional().describe('The number of office managers pending activation.'),
   totalCapitalInSystem: z.number().optional().describe('The total capital across all investors in the system.'),
   totalActiveLoansCount: z.number().optional().describe('The total number of active loans in the system.'),
-  newSupportTicketsCount: z.number().optional().describe('The number of new support tickets received.'),
+  newSupportTicketsCount: z.number().optional().describe('The number of new unread support tickets.'),
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
