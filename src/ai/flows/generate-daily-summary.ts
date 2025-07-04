@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to generate a daily summary for the dashboard.
@@ -47,16 +48,14 @@ export async function generateDailySummary(
   return generateDailySummaryFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateDailySummaryPrompt',
+const adminSummaryPrompt = ai.definePrompt({
+  name: 'adminSummaryPrompt',
   model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
 مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
-
-{{#if isAdmin}}
 أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا شاملاً عن صحة المنصة وأدائها.
 
 **نظرة عامة على النظام**
@@ -70,8 +69,17 @@ const prompt = ai.definePrompt({
 
 **الدعم الفني**
 * **طلبات الدعم الجديدة:** **{{{adminNewSupportTicketsCount}}}** طلب
+`,
+});
 
-{{else}}
+const officeManagerSummaryPrompt = ai.definePrompt({
+  name: 'officeManagerSummaryPrompt',
+  model: 'googleai/gemini-1.5-flash-latest',
+  input: {schema: GenerateDailySummaryInputSchema},
+  output: {schema: GenerateDailySummaryOutputSchema},
+  prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
+مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
+استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
 أنت تتحدث إلى مدير مكتب. قدم ملخصًا مفصلاً عن الأداء المالي والتشغيلي لمكتبه.
 
 **نظرة عامة على النشاط**
@@ -86,9 +94,9 @@ const prompt = ai.definePrompt({
 * **القروض المتعثرة:** **{{{officeManagerDefaultedLoansCount}}}** قرض
 * **رأس المال النشط:** **{{{officeManagerActiveCapital}}}** ريال
 * **رأس المال الخامل:** **{{{officeManagerIdleCapital}}}** ريال
-{{/if}}
 `,
 });
+
 
 const generateDailySummaryFlow = ai.defineFlow(
   {
@@ -97,12 +105,16 @@ const generateDailySummaryFlow = ai.defineFlow(
     outputSchema: GenerateDailySummaryOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    if (!output) {
-      // This should be caught by the client and displayed as a proper error.
-      // Returning an object with an empty string is safer than crashing.
+    let result;
+    if (input.isAdmin) {
+      result = await adminSummaryPrompt(input);
+    } else {
+      result = await officeManagerSummaryPrompt(input);
+    }
+
+    if (!result.output) {
       return { summary: '' };
     }
-    return output;
+    return result.output;
   }
 );
