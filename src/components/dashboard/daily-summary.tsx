@@ -1,4 +1,3 @@
-
 'use client';
 
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
@@ -101,11 +100,11 @@ export function DailySummary() {
               officeManagerTotalInvestors,
               officeManagerTotalLoansGranted,
               officeManagerTotalInvestments,
-              pendingRequestsCount,
-              defaultedLoansCount,
-              totalNetProfit,
-              idleCapital,
-              activeCapital,
+              officeManagerPendingRequestsCount: pendingRequestsCount,
+              officeManagerDefaultedLoansCount: defaultedLoansCount,
+              officeManagerTotalNetProfit: totalNetProfit,
+              officeManagerIdleCapital: idleCapital,
+              officeManagerActiveCapital: activeCapital,
             });
             if (result.summary) setSummary(result.summary);
             else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
