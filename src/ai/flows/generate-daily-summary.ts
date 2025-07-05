@@ -21,24 +21,10 @@ const GenerateDailySummaryOutputSchema = z.object({
 });
 export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
 
-export async function generateDailySummary(
-  input: GenerateDailySummaryInput
-): Promise<GenerateDailySummaryOutput> {
-  const result = await generateDailySummaryFlow(input);
-  // The flow now handles the null case, so we can be more confident in the result.
-  if (!result || !result.summary) {
-    // This provides a fallback if the AI returns an empty summary.
-    return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.' };
-  }
-  return result;
-}
-
 const dailySummaryPrompt = ai.definePrompt({
   name: 'dailySummaryPrompt',
-  // Using the same, proven model as the AI Support Assistant.
   model: 'googleai/gemini-2.0-flash', 
   input: {schema: GenerateDailySummaryInputSchema},
-  // Providing a structured output schema is more reliable.
   output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `
 You are a professional financial analyst. Your task is to take the following structured text context and transform it into a professional and engaging daily summary in Arabic, using Markdown formatting.
@@ -66,15 +52,34 @@ const generateDailySummaryFlow = ai.defineFlow(
     outputSchema: GenerateDailySummaryOutputSchema,
   },
   async (input) => {
-    // Destructuring 'output' is the standard way to get schema-validated results.
-    const {output} = await dailySummaryPrompt(input);
-    
-    // If the output is null (e.g., parsing failed, or model returned nothing),
-    // we return a safe, empty object instead of crashing. This is a critical fix.
-    if (!output) {
+    try {
+      const {output} = await dailySummaryPrompt(input);
+      // If the output is null (e.g., parsing failed, or model returned nothing),
+      // we return a safe, empty object instead of crashing. This is a critical fix.
+      if (!output || !output.summary) {
+        return { summary: '' };
+      }
+      return output;
+    } catch (error) {
+      // Log the actual error for debugging, but don't let the flow crash.
+      console.error("An error occurred within the generateDailySummaryFlow:", error);
+      // Return a predictable empty state on any failure.
       return { summary: '' };
     }
-
-    return output;
   }
 );
+
+export async function generateDailySummary(
+  input: GenerateDailySummaryInput
+): Promise<GenerateDailySummaryOutput> {
+  // The flow is now fortified with a try-catch, so it won't throw exceptions.
+  // It will return an empty summary on any failure.
+  const result = await generateDailySummaryFlow(input);
+
+  // If the result from the flow is empty, return the user-facing error message.
+  if (!result || !result.summary) {
+    return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.' };
+  }
+  
+  return result;
+}
