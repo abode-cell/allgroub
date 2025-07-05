@@ -383,8 +383,8 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBo
         };
     }
     
-    const officeManagerIds = new Set(officeManagers.map(m => m.id));
     const userMap = new Map(users.map(u => [u.id, u]));
+    const officeManagerIds = new Set(officeManagers.map(m => m.id));
 
     const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
     const activeManagersCount = officeManagers.length - pendingManagers.length;
@@ -482,3 +482,5 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
         idleFunds: calculateIdleFundsMetrics(filteredInvestors, borrowers),
     };
 }
+
+    
