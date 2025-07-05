@@ -1,4 +1,3 @@
-
 'use client';
 
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
@@ -10,6 +9,7 @@ import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { useDataState } from '@/contexts/data-context';
 import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
+import { formatCurrency } from '@/lib/utils';
 
 export function DailySummary() {
   const [summary, setSummary] = useState('');
@@ -50,6 +50,7 @@ export function DailySummary() {
         }
 
         let result;
+        let context = '';
         if (role === 'مدير النظام') {
           if (metrics.role !== 'مدير النظام') {
               setError('حدث خطأ في حساب المقاييس.');
@@ -59,16 +60,20 @@ export function DailySummary() {
           const adminNewSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
           const adminTotalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
 
+          context = `
+              ملخص مدير النظام:
+              - إجمالي المستخدمين: ${metrics.admin.totalUsersCount}
+              - مدراء المكاتب النشطون: ${metrics.admin.activeManagersCount}
+              - الحسابات التي تنتظر التفعيل: ${metrics.admin.pendingManagersCount}
+              - إجمالي رأس المال في النظام: ${formatCurrency(metrics.admin.totalCapital)}
+              - إجمالي القروض النشطة: ${adminTotalActiveLoansCount}
+              - طلبات الدعم الجديدة: ${adminNewSupportTicketsCount}
+          `;
+
           result = await generateDailySummary({
             userName: currentUser.name,
             userRole: currentUser.role,
-            isAdmin: true,
-            adminTotalUsersCount: metrics.admin.totalUsersCount,
-            adminActiveManagersCount: metrics.admin.activeManagersCount,
-            adminPendingActivationsCount: metrics.admin.pendingManagersCount,
-            adminTotalCapitalInSystem: metrics.admin.totalCapital,
-            adminTotalActiveLoansCount: adminTotalActiveLoansCount,
-            adminNewSupportTicketsCount: adminNewSupportTicketsCount,
+            context: context,
           });
 
         } else { // Office Manager or assistant
@@ -95,25 +100,28 @@ export function DailySummary() {
             const pendingInvestorRequests = allInvestors.filter(i => i.status === 'معلق' && i.submittedBy && employeeIds.includes(i.submittedBy));
             const pendingRequestsCount = pendingBorrowerRequests.length + pendingInvestorRequests.length;
 
-
             const defaultedLoansCount = filteredBorrowers.filter(b => b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه').length;
             const totalNetProfit = metrics.installments.netProfit + metrics.gracePeriod.netProfit;
             const idleCapital = metrics.idleFunds.totalIdleFunds;
             const activeCapital = metrics.capital.total - idleCapital;
             
+            context = `
+              ملخص مدير المكتب:
+              - إجمالي المقترضين: ${officeManagerTotalBorrowers}
+              - إجمالي المستثمرين: ${officeManagerTotalInvestors}
+              - إجمالي مبالغ القروض: ${formatCurrency(officeManagerTotalLoansGranted)}
+              - إجمالي مبالغ الاستثمارات: ${formatCurrency(officeManagerTotalInvestments)}
+              - الطلبات المعلقة للمراجعة: ${pendingRequestsCount}
+              - الأرباح الصافية: ${formatCurrency(totalNetProfit)}
+              - القروض المتعثرة: ${defaultedLoansCount}
+              - رأس المال النشط: ${formatCurrency(activeCapital)}
+              - رأس المال الخامل: ${formatCurrency(idleCapital)}
+            `;
+            
             result = await generateDailySummary({
               userName: currentUser.name,
               userRole: currentUser.role,
-              isAdmin: false,
-              officeManagerTotalBorrowers,
-              officeManagerTotalInvestors,
-              officeManagerTotalLoansGranted,
-              officeManagerTotalInvestments,
-              officeManagerPendingRequestsCount: pendingRequestsCount,
-              officeManagerDefaultedLoansCount: defaultedLoansCount,
-              officeManagerTotalNetProfit: totalNetProfit,
-              officeManagerIdleCapital: idleCapital,
-              officeManagerActiveCapital: activeCapital,
+              context: context,
             });
         }
         
