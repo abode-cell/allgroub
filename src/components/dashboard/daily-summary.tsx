@@ -1,3 +1,4 @@
+
 'use client';
 
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
@@ -31,6 +32,7 @@ export function DailySummary() {
     if (!currentUser) return;
     startTransition(async () => {
       setError('');
+      setSummary('');
       try {
         const metricsInput = {
           borrowers: allBorrowers,
@@ -62,10 +64,10 @@ export function DailySummary() {
 
           context = `
               ملخص مدير النظام:
-              - إجمالي المستخدمين: ${metrics.admin.totalUsersCount}
-              - مدراء المكاتب النشطون: ${metrics.admin.activeManagersCount}
-              - الحسابات التي تنتظر التفعيل: ${metrics.admin.pendingManagersCount}
-              - إجمالي رأس المال في النظام: ${formatCurrency(metrics.admin.totalCapital)}
+              - إجمالي المستخدمين: ${metrics.admin?.totalUsersCount ?? 0}
+              - مدراء المكاتب النشطون: ${metrics.admin?.activeManagersCount ?? 0}
+              - الحسابات التي تنتظر التفعيل: ${metrics.admin?.pendingManagersCount ?? 0}
+              - إجمالي رأس المال في النظام: ${formatCurrency(metrics.admin?.totalCapital ?? 0)}
               - إجمالي القروض النشطة: ${adminTotalActiveLoansCount}
               - طلبات الدعم الجديدة: ${adminNewSupportTicketsCount}
           `;
@@ -82,7 +84,9 @@ export function DailySummary() {
                 return;
             }
 
-            const { filteredBorrowers, filteredInvestors } = metrics;
+            const filteredBorrowers = metrics.filteredBorrowers ?? [];
+            const filteredInvestors = metrics.filteredInvestors ?? [];
+
             const officeManagerTotalBorrowers = filteredBorrowers.length;
             const officeManagerTotalInvestors = filteredInvestors.length;
             const officeManagerTotalLoansGranted = filteredBorrowers.reduce((acc, b) => acc + b.amount, 0);
@@ -101,9 +105,10 @@ export function DailySummary() {
             const pendingRequestsCount = pendingBorrowerRequests.length + pendingInvestorRequests.length;
 
             const defaultedLoansCount = filteredBorrowers.filter(b => b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه').length;
-            const totalNetProfit = metrics.installments.netProfit + metrics.gracePeriod.netProfit;
-            const idleCapital = metrics.idleFunds.totalIdleFunds;
-            const activeCapital = metrics.capital.total - idleCapital;
+            
+            const totalNetProfit = (metrics.installments?.netProfit ?? 0) + (metrics.gracePeriod?.netProfit ?? 0);
+            const idleCapital = metrics.idleFunds?.totalIdleFunds ?? 0;
+            const activeCapital = (metrics.capital?.total ?? 0) - idleCapital;
             
             context = `
               ملخص مدير المكتب:

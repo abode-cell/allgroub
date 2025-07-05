@@ -370,19 +370,6 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
 
 function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBorrowers: Borrower[]) {
     const officeManagers = users.filter(u => u.role === 'مدير المكتب');
-    
-    if (officeManagers.length === 0) {
-        return { 
-            pendingManagers: [], 
-            activeManagersCount: 0, 
-            totalCapital: 0, 
-            installmentCapital: 0, 
-            graceCapital: 0, 
-            totalUsersCount: users.length,
-            pendingManagersCount: 0
-        };
-    }
-    
     const userMap = new Map(users.map(u => [u.id, u]));
     const officeManagerIds = new Set(officeManagers.map(m => m.id));
 
@@ -482,5 +469,3 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
         idleFunds: calculateIdleFundsMetrics(filteredInvestors, borrowers),
     };
 }
-
-    
