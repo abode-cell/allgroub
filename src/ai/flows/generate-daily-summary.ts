@@ -15,53 +15,46 @@ const GenerateDailySummaryInputSchema = z.object({
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
-// The component expects an object with a summary property.
-export type GenerateDailySummaryOutput = {
-  summary: string;
-};
+// This schema defines the expected JSON output from the AI.
+const GenerateDailySummaryOutputSchema = z.object({
+  summary: z.string().describe('A professional and engaging daily summary in Arabic, using Markdown formatting. Use headings, bullet points (*), and bold markers (**) to highlight the most important numbers and activities.'),
+});
+export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
 
 export async function generateDailySummary(
   input: GenerateDailySummaryInput
 ): Promise<GenerateDailySummaryOutput> {
-  const summaryText = await generateDailySummaryFlow(input);
-  if (!summaryText) {
-    throw new Error('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص صالح.');
+  const result = await generateDailySummaryFlow(input);
+  // The flow now handles the null case, so we can be more confident in the result.
+  if (!result || !result.summary) {
+    // This provides a fallback if the AI returns an empty summary.
+    return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.' };
   }
-  return { summary: summaryText };
+  return result;
 }
 
 const dailySummaryPrompt = ai.definePrompt({
   name: 'dailySummaryPrompt',
-  model: 'googleai/gemini-2.0-flash',
+  // Using the same, proven model as the AI Support Assistant.
+  model: 'googleai/gemini-2.0-flash', 
   input: {schema: GenerateDailySummaryInputSchema},
-  // No output schema - we want raw text.
+  // Providing a structured output schema is more reliable.
+  output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `
-مهمتك هي أخذ السياق النصي التالي الذي يحتوي على بيانات منظمة وتحويله إلى ملخص يومي احترافي وجذاب باللغة العربية، باستخدام صيغة ماركداون.
-استخدم العناوين والنقاط (*) والعلامات (**) لتغميق النص لتوضيح الأرقام والأنشطة الأكثر أهمية.
-لا تضف أي عبارات ترحيبية أو ختامية أو مقدمات. ابدأ مباشرة بالملخص.
-الأهم: لا تقم بتغليف إجابتك في أي تنسيق مثل JSON أو \`\`\`json، فقط أعد الملخص كنص ماركداون خام.
+You are a professional financial analyst. Your task is to take the following structured text context and transform it into a professional and engaging daily summary in Arabic, using Markdown formatting.
+Use headings, bullet points (*), and bold markers (**) to highlight the most important numbers and activities.
+Do not add any greetings, closings, or introductions. Start directly with the summary.
+IMPORTANT: You MUST format your response as a JSON object with a single key "summary" containing the Markdown text.
 
-السياق:
+Context:
 {{{context}}}
 `,
   config: {
     safetySettings: [
-      {
-        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-        threshold: 'BLOCK_NONE',
-      },
-      {
-        category: 'HARM_CATEGORY_HATE_SPEECH',
-        threshold: 'BLOCK_NONE',
-      },
-      {
-        category: 'HARM_CATEGORY_HARASSMENT',
-        threshold: 'BLOCK_NONE',
-      },
-      {
-        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-        threshold: 'BLOCK_NONE',
-      },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
     ],
   },
 });
@@ -70,20 +63,18 @@ const generateDailySummaryFlow = ai.defineFlow(
   {
     name: 'generateDailySummaryFlow',
     inputSchema: GenerateDailySummaryInputSchema,
-    outputSchema: z.string(), // The flow now returns a raw string.
+    outputSchema: GenerateDailySummaryOutputSchema,
   },
   async (input) => {
-    // Calling the prompt without an output schema returns the full response object.
-    const llmResponse = await dailySummaryPrompt(input);
+    // Destructuring 'output' is the standard way to get schema-validated results.
+    const {output} = await dailySummaryPrompt(input);
     
-    // We extract the text content.
-    const summaryText = llmResponse.text;
-
-    // We still validate that we got something back.
-    if (!summaryText) {
-      throw new Error('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص صالح.');
+    // If the output is null (e.g., parsing failed, or model returned nothing),
+    // we return a safe, empty object instead of crashing. This is a critical fix.
+    if (!output) {
+      return { summary: '' };
     }
 
-    return summaryText;
+    return output;
   }
 );

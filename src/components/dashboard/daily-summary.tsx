@@ -56,13 +56,16 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
 
         const result = await generateDailySummary({ context: summaryContext });
         
-        if (result && result.summary) {
+        // The flow now returns { summary: '' } on failure, so we check for an empty string.
+        if (result && result.summary && !result.summary.includes('لم يتمكن')) {
             setSummary(result.summary);
         } else {
-          setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص فارغ.');
+          // This will now catch the case where the AI couldn't generate a summary.
+          setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص. قد تكون هناك مشكلة مؤقتة.');
         }
 
       } catch (e: any) {
+        // This catch block is a safety net for unexpected system-level errors.
         console.error("Error calling generateDailySummary:", e);
         const message = e.message || 'حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.';
         setError(message);
