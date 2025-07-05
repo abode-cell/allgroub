@@ -75,7 +75,7 @@ export function DailySummary() {
             const officeManagerTotalInvestors = filteredInvestors.length;
             const officeManagerTotalLoansGranted = filteredBorrowers.reduce((acc, b) => acc + b.amount, 0);
             const officeManagerTotalInvestments = filteredInvestors.reduce((total, investor) => {
-                const capitalDeposits = investor.transactionHistory
+                const capitalDeposits = (investor.transactionHistory || [])
                   .filter(tx => tx.type === 'إيداع رأس المال')
                   .reduce((sum, tx) => sum + tx.amount, 0);
                 return total + capitalDeposits;
@@ -97,6 +97,7 @@ export function DailySummary() {
             const result = await generateDailySummary({
               userName: currentUser.name,
               userRole: currentUser.role,
+              isAdmin: false,
               officeManagerTotalBorrowers,
               officeManagerTotalInvestors,
               officeManagerTotalLoansGranted,
