@@ -35,7 +35,6 @@ const dailySummaryPrompt = ai.definePrompt({
 أنت محلل مالي محترف. مهمتك هي أخذ السياق النصي المنظم التالي وتحويله إلى ملخص يومي احترافي وجذاب باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) والعلامات (**) لتوضيح الأرقام والأنشطة الأكثر أهمية.
 لا تضف أي عبارات ترحيبية أو ختامية أو مقدمات. ابدأ مباشرة بالملخص.
-هام جداً: يجب أن تكون إجابتك بتنسيق كائن JSON يحتوي على مفتاح واحد "summary" وقيمته هي نص الملخص المنسق.
 
 السياق:
 {{{context}}}
@@ -51,16 +50,12 @@ const generateDailySummaryFlow = ai.defineFlow(
   async (input) => {
     try {
       const {output} = await dailySummaryPrompt(input);
-      // If the output is null (e.g., parsing failed, or model returned nothing),
-      // return a user-facing error message within the summary field.
       if (!output || !output.summary) {
         return { summary: 'ERROR:AI_FAILED_TO_GENERATE' };
       }
       return output;
     } catch (error) {
-      // Log the actual error for debugging, but don't let the flow crash.
       console.error("An error occurred within the generateDailySummaryFlow:", error);
-      // Return a predictable, user-facing error message on any failure.
       return { summary: 'ERROR:AI_SYSTEM_FAILURE' };
     }
   }
