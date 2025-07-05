@@ -96,19 +96,23 @@ function getFilteredData(input: CalculationInput) {
     const userMap = new Map(users.map(u => [u.id, u]));
 
     if (role === 'مدير النظام' || role === 'مستثمر') {
-        return { filteredBorrowers: borrowers, filteredInvestors: investors };
+        return { filteredBorrowers: borrowers, filteredInvestors: investors, employeeIds: [] };
     }
 
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
 
     if ((role === 'موظف' || role === 'مساعد مدير المكتب') && !managerId) {
         console.error(`User ${currentUser.id} with role "${role}" has no assigned manager (managedBy). This is a data integrity issue. Returning empty data to prevent a crash.`);
-        return { filteredBorrowers: [], filteredInvestors: [] };
+        return { filteredBorrowers: [], filteredInvestors: [], employeeIds: [] };
     }
 
     const relevantUserIds = new Set<string>();
+    const employeeIds: string[] = [];
     for(const u of users) {
-        if (u.managedBy === managerId || u.id === managerId) {
+        if (u.managedBy === managerId) {
+            relevantUserIds.add(u.id);
+            employeeIds.push(u.id);
+        } else if (u.id === managerId) {
             relevantUserIds.add(u.id);
         }
     }
@@ -120,7 +124,7 @@ function getFilteredData(input: CalculationInput) {
         return investorUser?.managedBy === managerId;
     });
     
-    return { filteredBorrowers, filteredInvestors };
+    return { filteredBorrowers, filteredInvestors, employeeIds };
 }
 
 function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor[], config: CalculationInput['config']) {
@@ -233,6 +237,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     return {
       loans: installmentLoans,
       loansGranted: installmentLoansGranted,
+      defaultedLoans: installmentDefaultedLoans,
       defaultedFunds: installmentDefaultedFunds,
       defaultRate: installmentDefaultRate,
       defaultedProfits,
@@ -251,7 +256,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
         return {
             loans: [], loansGranted: 0, defaultedFunds: 0, defaultRate: 0, defaultedProfits: 0,
             totalDiscounts: 0, dueDebts: 0, netProfit: 0, totalInstitutionProfit: 0,
-            totalInvestorsProfit: 0, investorProfitsArray: [], profitableLoansForAccordion: []
+            totalInvestorsProfit: 0, investorProfitsArray: [], profitableLoansForAccordion: [], defaultedLoans: []
         };
     }
     const profitableLoans = gracePeriodLoans.filter(
@@ -354,9 +359,10 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
 
     return {
         loans: gracePeriodLoans,
-        loansGranted: loansGranted,
-        defaultedFunds: defaultedFunds,
-        defaultRate: defaultRate,
+        loansGranted,
+        defaultedLoans,
+        defaultedFunds,
+        defaultRate,
         defaultedProfits,
         totalDiscounts,
         dueDebts,
@@ -448,7 +454,7 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
         };
     }
 
-    const { filteredBorrowers, filteredInvestors } = getFilteredData(input);
+    const { filteredBorrowers, filteredInvestors, employeeIds } = getFilteredData(input);
     
     const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
         const financials = calculateInvestorFinancials(investor, borrowers);
@@ -458,11 +464,24 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
         return acc;
     }, { total: 0, installments: 0, grace: 0 });
 
+    const totalInvestments = filteredInvestors.reduce((total, investor) => {
+        const capitalDeposits = (investor.transactionHistory || [])
+          .filter(tx => tx.type === 'إيداع رأس المال')
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        return total + capitalDeposits;
+    }, 0);
+
+    const pendingBorrowerRequests = borrowers.filter(b => b.status === 'معلق' && b.submittedBy && employeeIds.includes(b.submittedBy));
+    const pendingInvestorRequests = investors.filter(i => i.status === 'معلق' && i.submittedBy && employeeIds.includes(i.submittedBy));
+    const pendingRequestsCount = pendingBorrowerRequests.length + pendingInvestorRequests.length;
+
 
     return {
         role: role,
         filteredBorrowers,
         filteredInvestors,
+        totalInvestments,
+        pendingRequestsCount,
         capital: capitalMetrics,
         installments: calculateInstallmentsMetrics(filteredBorrowers, filteredInvestors, config),
         gracePeriod: calculateGracePeriodMetrics(filteredBorrowers, filteredInvestors, config),

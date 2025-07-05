@@ -1,7 +1,8 @@
+
 'use client';
 
 import { generateDailySummary, type GenerateDailySummaryInput } from '@/ai/flows/generate-daily-summary';
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
@@ -9,7 +10,8 @@ import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { useDataState } from '@/contexts/data-context';
 import { formatCurrency } from '@/lib/utils';
-import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
+import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
 
 
 export function DailySummary() {
@@ -22,11 +24,35 @@ export function DailySummary() {
     investors: allInvestors, 
     users, 
     supportTickets,
+    investorSharePercentage,
+    graceTotalProfitPercentage,
+    graceInvestorSharePercentage,
   } = useDataState();
   const role = currentUser?.role;
 
+  const metrics = useMemo(() => {
+    if (!currentUser) return null;
+    try {
+        return calculateAllDashboardMetrics({
+            borrowers: allBorrowers,
+            investors: allInvestors,
+            users,
+            currentUser,
+            config: {
+                investorSharePercentage,
+                graceTotalProfitPercentage,
+                graceInvestorSharePercentage,
+            }
+        });
+    } catch (e) {
+        console.error("Error calculating summary metrics:", e);
+        setError("حدث خطأ أثناء حساب بيانات الملخص.");
+        return null;
+    }
+  }, [allBorrowers, allInvestors, users, currentUser, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+
   const fetchSummary = useCallback(() => {
-    if (!currentUser) return;
+    if (!currentUser || !metrics) return;
 
     startTransition(async () => {
       setError('');
@@ -35,103 +61,44 @@ export function DailySummary() {
       try {
         let payload: GenerateDailySummaryInput;
 
-        if (role === 'مدير النظام') {
+        if (metrics.role === 'مدير النظام') {
+           const adminMetrics = metrics.admin;
            const adminNewSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
            const adminTotalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
-           const officeManagers = users.filter(u => u.role === 'مدير المكتب');
-           const pendingManagers = officeManagers.filter(u => u.status === 'معلق');
-           const activeManagersCount = officeManagers.length - pendingManagers.length;
-
-           const totalCapital = allInvestors.reduce((acc, investor) => {
-               const financials = calculateInvestorFinancials(investor, allBorrowers);
-               return acc + financials.totalCapitalInSystem;
-           }, 0);
           
           payload = {
             isAdmin: true,
             userName: currentUser.name,
             userRole: currentUser.role,
-            adminTotalUsersCount: users.length,
-            adminActiveManagersCount: activeManagersCount,
-            adminPendingManagersCount: pendingManagers.length,
-            adminTotalCapital: formatCurrency(totalCapital),
+            adminTotalUsersCount: adminMetrics.totalUsersCount,
+            adminActiveManagersCount: adminMetrics.activeManagersCount,
+            adminPendingManagersCount: adminMetrics.pendingManagersCount,
+            adminTotalCapital: formatCurrency(adminMetrics.totalCapital),
             adminTotalActiveLoansCount: adminTotalActiveLoansCount,
             adminNewSupportTicketsCount: adminNewSupportTicketsCount,
           };
 
-        } else { // Office Manager or assistant
-            const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-            if (!managerId) {
-                setError('لم يتم العثور على مدير مسؤول.');
-                return;
-            }
-
-            const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
-            relevantUserIds.add(currentUser.id);
-
-            const filteredBorrowers = allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
-            const filteredInvestors = allInvestors.filter(i => {
-                const investorUser = users.find(u => u.id === i.id);
-                return investorUser?.managedBy === managerId;
-            });
-
-            const officeManagerTotalBorrowers = filteredBorrowers.length;
-            const officeManagerTotalInvestors = filteredInvestors.length;
-            const officeManagerTotalLoansGranted = filteredBorrowers.reduce((acc, b) => acc + b.amount, 0);
-
-            const officeManagerTotalInvestments = filteredInvestors.reduce((total, investor) => {
-                const capitalDeposits = (investor.transactionHistory || [])
-                  .filter(tx => tx.type === 'إيداع رأس المال')
-                  .reduce((sum, tx) => sum + tx.amount, 0);
-                return total + capitalDeposits;
-            }, 0);
-
-            const employeeIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
-            const pendingBorrowerRequests = allBorrowers.filter(b => b.status === 'معلق' && b.submittedBy && employeeIds.includes(b.submittedBy));
-            const pendingInvestorRequests = allInvestors.filter(i => i.status === 'معلق' && i.submittedBy && employeeIds.includes(i.submittedBy));
-            const officeManagerPendingRequestsCount = pendingBorrowerRequests.length + pendingInvestorRequests.length;
-            const officeManagerDefaultedLoansCount = filteredBorrowers.filter(b => b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه').length;
+        } else if (metrics.role === 'مدير المكتب' || metrics.role === 'مساعد مدير المكتب' || metrics.role === 'موظف') {
+            const { installments, gracePeriod, idleFunds } = metrics;
+            const officeManagerDefaultedLoansCount = (installments?.defaultedLoans?.length ?? 0) + (gracePeriod?.defaultedLoans?.length ?? 0);
             
-            const financials = filteredInvestors.reduce((acc, investor) => {
-                const invFinancials = calculateInvestorFinancials(investor, allBorrowers); // Corrected to use allBorrowers
-                
-                const fundedLoans = allBorrowers.filter(b => (b.fundedBy || []).some(f => f.investorId === investor.id)); // Corrected to use allBorrowers
-
-                fundedLoans.forEach(loan => {
-                  const funding = (loan.fundedBy || []).find(f => f.investorId === investor.id);
-                  if (!funding) return;
-
-                  if (loan.loanType === 'اقساط' && loan.rate && loan.term) {
-                      const totalInterest = funding.amount * (loan.rate / 100) * loan.term;
-                      const investorShare = totalInterest * ((investor.installmentProfitShare ?? 70) / 100);
-                      acc.totalNetProfit += investorShare + (totalInterest - investorShare);
-                  } else if (loan.loanType === 'مهلة') {
-                      const totalProfit = funding.amount * (30 / 100); // Assuming 30% grace profit from config
-                      const investorShare = totalProfit * ((investor.gracePeriodProfitShare ?? 33.3) / 100);
-                      acc.totalNetProfit += investorShare + (totalProfit - investorShare - (loan.discount || 0));
-                  }
-                });
-                
-                acc.idleCapital += invFinancials.idleInstallmentCapital + invFinancials.idleGraceCapital;
-                acc.activeCapital += invFinancials.activeCapital;
-
-                return acc;
-            }, { totalNetProfit: 0, idleCapital: 0, activeCapital: 0 });
-
             payload = {
               isAdmin: false,
               userName: currentUser.name,
               userRole: currentUser.role,
-              officeManagerTotalBorrowers,
-              officeManagerTotalInvestors,
-              officeManagerTotalLoansGranted: formatCurrency(officeManagerTotalLoansGranted),
-              officeManagerTotalInvestments: formatCurrency(officeManagerTotalInvestments),
-              officeManagerPendingRequestsCount,
-              officeManagerTotalNetProfit: formatCurrency(financials.totalNetProfit),
-              officeManagerDefaultedLoansCount,
-              officeManagerActiveCapital: formatCurrency(financials.activeCapital),
-              officeManagerIdleCapital: formatCurrency(financials.idleCapital),
+              officeManagerTotalBorrowers: (installments?.loans?.length ?? 0) + (gracePeriod?.loans?.length ?? 0),
+              officeManagerTotalInvestors: metrics.filteredInvestors.length,
+              officeManagerTotalLoansGranted: formatCurrency((installments?.loansGranted ?? 0) + (gracePeriod?.loansGranted ?? 0)),
+              officeManagerTotalInvestments: formatCurrency(metrics.totalInvestments),
+              officeManagerPendingRequestsCount: metrics.pendingRequestsCount,
+              officeManagerTotalNetProfit: formatCurrency((installments?.netProfit ?? 0) + (gracePeriod?.netProfit ?? 0)),
+              officeManagerDefaultedLoansCount: officeManagerDefaultedLoansCount,
+              officeManagerActiveCapital: formatCurrency((metrics.capital?.total ?? 0) - (idleFunds?.totalIdleFunds ?? 0)),
+              officeManagerIdleCapital: formatCurrency(idleFunds?.totalIdleFunds ?? 0),
             };
+        } else {
+             setError('دور المستخدم غير مدعوم للملخص اليومي.');
+             return;
         }
         
         const result = await generateDailySummary(payload);
@@ -147,11 +114,14 @@ export function DailySummary() {
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
     });
-  }, [allBorrowers, allInvestors, users, role, currentUser, supportTickets]);
+  }, [currentUser, metrics, allBorrowers, supportTickets]);
 
   useEffect(() => {
-    fetchSummary();
-  }, [fetchSummary]);
+    // We only fetch when metrics are available.
+    if (metrics) {
+        fetchSummary();
+    }
+  }, [metrics, fetchSummary]);
 
   return (
     <Card>
@@ -165,7 +135,7 @@ export function DailySummary() {
             ملخص سريع ومفصل لأهم أحداث اليوم مدعوم بالذكاء الاصطناعي.
           </CardDescription>
         </div>
-        <Button variant="ghost" size="icon" onClick={fetchSummary} disabled={isPending}>
+        <Button variant="ghost" size="icon" onClick={fetchSummary} disabled={isPending || !metrics}>
           <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
           <span className="sr-only">تحديث الملخص</span>
         </Button>
