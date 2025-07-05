@@ -25,8 +25,12 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
       setSummary('');
 
       try {
+        const isSystemAdmin = metrics.role === 'مدير النظام';
+        const isOfficeRole = ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'].includes(metrics.role);
+
         const payload: GenerateDailySummaryInput = {
-          role: metrics.role,
+          isSystemAdmin,
+          isOfficeRole,
           managerName: metrics.manager?.filteredInvestors[0]?.name,
           adminTotalUsersCount: metrics.admin.totalUsersCount,
           adminActiveManagersCount: metrics.admin.activeManagersCount,

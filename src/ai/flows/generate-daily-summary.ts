@@ -9,10 +9,10 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { UserRole } from '@/lib/types';
 
 export const GenerateDailySummaryInputSchema = z.object({
-  role: z.custom<UserRole>(),
+  isSystemAdmin: z.boolean(),
+  isOfficeRole: z.boolean(),
   managerName: z.string().optional(),
   adminTotalUsersCount: z.number().optional(),
   adminActiveManagersCount: z.number().optional(),
@@ -62,7 +62,7 @@ const dailySummaryPrompt = ai.definePrompt({
 لا تضف أي عبارات ترحيبية أو ختامية أو مقدمات. ابدأ مباشرة بالملخص.
 يجب وضع الملخص بالكامل داخل حقل 'summary' في كائن JSON الناتج.
 
-{{#if (eq role "مدير النظام")}}
+{{#if isSystemAdmin}}
 # ملخص مدير النظام
 
 *   **المستخدمون:** لديك ما مجموعه **{{adminTotalUsersCount}}** مستخدمًا في النظام.
@@ -71,7 +71,7 @@ const dailySummaryPrompt = ai.definePrompt({
 *   **العمليات:** يوجد **{{adminTotalActiveLoans}}** قرضًا نشطًا حاليًا، و**{{adminNewSupportTickets}}** طلب دعم جديد في انتظار المراجعة.
 {{/if}}
 
-{{#if (or (eq role "مدير المكتب") (eq role "مساعد مدير المكتب") (eq role "موظف"))}}
+{{#if isOfficeRole}}
 # ملخص المكتب لـ {{managerName}}
 
 *   **الحافظة:** تدير حاليًا **{{managerTotalBorrowers}}** مقترضًا و**{{managerTotalInvestors}}** مستثمرًا.
