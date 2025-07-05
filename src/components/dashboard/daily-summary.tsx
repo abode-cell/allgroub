@@ -56,7 +56,7 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
 
         const result = await generateDailySummary({ context: summaryContext });
         
-        // The backend flow now handles errors and returns a specific message.
+        // The backend flow now handles errors and returns a specific message in the summary field.
         if (result && result.summary) {
             if (result.summary.includes('لم يتمكن')) {
                 setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص. قد تكون هناك مشكلة مؤقتة.');
@@ -64,7 +64,7 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
                 setSummary(result.summary);
             }
         } else {
-            // This case should not be hit with the new backend logic, but it's a safe fallback.
+            // This case handles if the backend returns a completely empty or null object.
             setError('حدث خطأ غير متوقع أثناء معالجة الملخص.');
         }
 

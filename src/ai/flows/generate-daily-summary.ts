@@ -15,11 +15,18 @@ const GenerateDailySummaryInputSchema = z.object({
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
-// This schema defines the expected JSON output from the AI.
 const GenerateDailySummaryOutputSchema = z.object({
-  summary: z.string().describe('A professional and engaging daily summary in Arabic, using Markdown formatting. Use headings, bullet points (*), and bold markers (**) to highlight the most important numbers and activities.'),
+  summary: z.string().describe('ملخص يومي احترافي وجذاب باللغة العربية، باستخدام صيغة ماركداون. استخدم العناوين والنقاط (*) والعلامات (**) لتوضيح الأرقام والأنشطة الأكثر أهمية.'),
 });
 export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
+
+export async function generateDailySummary(
+  input: GenerateDailySummaryInput
+): Promise<GenerateDailySummaryOutput> {
+  // Directly call and return the result from the flow.
+  // The flow itself is now responsible for all error handling.
+  return generateDailySummaryFlow(input);
+}
 
 const dailySummaryPrompt = ai.definePrompt({
   name: 'dailySummaryPrompt',
@@ -27,12 +34,12 @@ const dailySummaryPrompt = ai.definePrompt({
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `
-You are a professional financial analyst. Your task is to take the following structured text context and transform it into a professional and engaging daily summary in Arabic, using Markdown formatting.
-Use headings, bullet points (*), and bold markers (**) to highlight the most important numbers and activities.
-Do not add any greetings, closings, or introductions. Start directly with the summary.
-IMPORTANT: You MUST format your response as a JSON object with a single key "summary" containing the Markdown text.
+أنت محلل مالي محترف. مهمتك هي أخذ السياق النصي المنظم التالي وتحويله إلى ملخص يومي احترافي وجذاب باللغة العربية، باستخدام صيغة ماركداون.
+استخدم العناوين والنقاط (*) والعلامات (**) لتوضيح الأرقام والأنشطة الأكثر أهمية.
+لا تضف أي عبارات ترحيبية أو ختامية أو مقدمات. ابدأ مباشرة بالملخص.
+هام جداً: يجب أن تكون إجابتك بتنسيق كائن JSON يحتوي على مفتاح واحد "summary" وقيمته هي نص الملخص المنسق.
 
-Context:
+السياق:
 {{{context}}}
 `,
   config: {
@@ -55,31 +62,16 @@ const generateDailySummaryFlow = ai.defineFlow(
     try {
       const {output} = await dailySummaryPrompt(input);
       // If the output is null (e.g., parsing failed, or model returned nothing),
-      // we return a safe, empty object instead of crashing. This is a critical fix.
+      // return a user-facing error message within the summary field.
       if (!output || !output.summary) {
-        return { summary: '' };
+        return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.' };
       }
       return output;
     } catch (error) {
       // Log the actual error for debugging, but don't let the flow crash.
       console.error("An error occurred within the generateDailySummaryFlow:", error);
-      // Return a predictable empty state on any failure.
-      return { summary: '' };
+      // Return a predictable, user-facing error message on any failure.
+      return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.' };
     }
   }
 );
-
-export async function generateDailySummary(
-  input: GenerateDailySummaryInput
-): Promise<GenerateDailySummaryOutput> {
-  // The flow is now fortified with a try-catch, so it won't throw exceptions.
-  // It will return an empty summary on any failure.
-  const result = await generateDailySummaryFlow(input);
-
-  // If the result from the flow is empty, return the user-facing error message.
-  if (!result || !result.summary) {
-    return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.' };
-  }
-  
-  return result;
-}
