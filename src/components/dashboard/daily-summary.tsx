@@ -1,8 +1,5 @@
 'use client';
 
-import {
-  generateDailySummary,
-} from '@/ai/flows/generate-daily-summary';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
@@ -10,7 +7,7 @@ import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
-import { formatCurrency } from '@/lib/utils';
+import { getDailySummary } from '@/app/dashboard/actions';
 
 export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
   const [summary, setSummary] = useState('');
@@ -25,54 +22,18 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
       setSummary('');
 
       try {
-        const { role, admin, manager } = metrics;
-        let summaryContext = '';
-
-        if (role === 'مدير النظام' && admin) {
-          summaryContext += `# ملخص مدير النظام\n`;
-          summaryContext += `*   **المستخدمون:** لديك ما مجموعه **${admin.totalUsersCount}** مستخدمًا في النظام.\n`;
-          summaryContext += `*   **مدراء المكاتب:** هناك **${admin.activeManagersCount}** مدير مكتب نشط، مع **${admin.pendingManagersCount}** حسابًا في انتظار التفعيل.\n`;
-          summaryContext += `*   **المالية:** إجمالي رأس المال في النظام هو **${formatCurrency(admin.totalCapital)}**.\n`;
-          summaryContext += `*   **العمليات:** يوجد **${admin.totalActiveLoans}** قرضًا نشطًا حاليًا، و**${admin.newSupportTickets}** طلب دعم جديد في انتظار المراجعة.\n`;
-        } else if (['مدير المكتب', 'مساعد مدير المكتب', 'موظف'].includes(role) && manager) {
-          const totalLoanAmount = (manager.installments?.loansGranted ?? 0) + (manager.gracePeriod?.loansGranted ?? 0);
-          const netProfit = (manager.installments?.netProfit ?? 0) + (manager.gracePeriod?.netProfit ?? 0);
-          const defaultedLoansCount = (manager.installments?.defaultedLoans?.length ?? 0) + (manager.gracePeriod?.defaultedLoans?.length ?? 0);
-          const idleCapital = manager.idleFunds?.totalIdleFunds ?? 0;
-          
-          summaryContext += `# ملخص المكتب لـ ${manager.managerName}\n`;
-          summaryContext += `*   **الحافظة:** تدير حاليًا **${manager.totalBorrowers}** مقترضًا و**${manager.filteredInvestors?.length ?? 0}** مستثمرًا.\n`;
-          summaryContext += `*   **المالية:** إجمالي قيمة القروض الممنوحة هو **${formatCurrency(totalLoanAmount)}**، بينما يبلغ إجمالي الاستثمارات **${formatCurrency(manager.totalInvestments)}**.\n`;
-          summaryContext += `*   **الأداء:** صافي الربح المحقق هو **${formatCurrency(netProfit)}**.\n`;
-          summaryContext += `*   **السيولة:** رأس المال النشط (المستثمر) هو **${formatCurrency(manager.capital?.active ?? 0)}**، بينما رأس المال الخامل المتاح للاستثمار هو **${formatCurrency(idleCapital)}**.\n`;
-          summaryContext += `*   **المهام:** لديك **${manager.pendingRequestsCount}** طلبات جديدة في انتظار المراجعة.\n`;
-          summaryContext += `*   **المخاطر:** هناك **${defaultedLoansCount}** قرضًا متعثرًا يتطلب المتابعة.\n`;
-        }
+        const result = await getDailySummary(metrics);
         
-        if (summaryContext.trim() === '') {
-          setError('لا يوجد بيانات كافية لإنشاء ملخص لهذا الدور.');
-          return;
-        }
-
-        const result = await generateDailySummary({ context: summaryContext });
-        
-        if (result && result.summary) {
-            if (result.summary.startsWith('ERROR:')) {
-                if (result.summary === 'ERROR:AI_FAILED_TO_GENERATE') {
-                    setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص. قد تكون هناك مشكلة مؤقتة.');
-                } else {
-                    setError('حدث خطأ في نظام الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.');
-                }
-            } else {
-                setSummary(result.summary);
-            }
+        if (result.error) {
+          setError(result.error);
+        } else if (result.summary) {
+          setSummary(result.summary);
         } else {
-            setError('حدث خطأ غير متوقع أثناء معالجة الملخص.');
+          setError('حدث خطأ غير متوقع أثناء معالجة الملخص.');
         }
-
       } catch (e: any) {
         console.error("An unexpected error occurred in DailySummary component:", e);
-        setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
+        setError('حدث خطأ أثناء الاتصال بالخادم لإنشاء الملخص.');
       }
     });
   }, [metrics]);
@@ -114,11 +75,17 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
             <AlertTitle>خطأ</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-        ) : (
+        ) : summary ? (
           <div
             className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap p-4 bg-muted rounded-md border text-right"
             dangerouslySetInnerHTML={{ __html: summary.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br />') }}
           />
+        ) : (
+            <div className="flex items-center justify-center h-[100px] bg-muted rounded-md">
+                <p className="text-muted-foreground text-center">
+                في انتظار البيانات لبدء إنشاء الملخص...
+                </p>
+            </div>
         )}
       </CardContent>
     </Card>
