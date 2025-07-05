@@ -1,3 +1,4 @@
+
 'use client';
 
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
@@ -39,8 +40,16 @@ export function DailySummary() {
           config: { investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage }
         };
 
+        let metrics;
+        try {
+          metrics = calculateAllDashboardMetrics(metricsInput);
+        } catch (e) {
+          console.error("Failed to calculate dashboard metrics:", e);
+          setError("حدث خطأ أثناء حساب مقاييس لوحة التحكم. قد تكون بعض البيانات غير متناسقة. يرجى مراجعة البيانات أو التواصل مع الدعم الفني.");
+          return;
+        }
+
         if (role === 'مدير النظام') {
-          const metrics = calculateAllDashboardMetrics(metricsInput);
           if (metrics.role !== 'مدير النظام') {
               setError('حدث خطأ في حساب المقاييس.');
               return;
@@ -64,7 +73,6 @@ export function DailySummary() {
           else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
 
         } else { // Office Manager or assistant
-            const metrics = calculateAllDashboardMetrics(metricsInput);
             if (metrics.role === 'مدير النظام' || metrics.role === 'مستثمر') {
                 setError('لا يمكن إنشاء ملخص لهذا الدور.');
                 return;
