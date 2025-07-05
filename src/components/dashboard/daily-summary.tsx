@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import { generateDailySummary, type GenerateDailySummaryInput } from '@/ai/flows/generate-daily-summary';
-import { useCallback, useEffect, useState, useTransition, useMemo } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
@@ -10,47 +11,14 @@ import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { useDataState } from '@/contexts/data-context';
 import { formatCurrency } from '@/lib/utils';
-import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
 import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
 
 
-export function DailySummary() {
+export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const { 
-    currentUser, 
-    borrowers: allBorrowers, 
-    investors: allInvestors, 
-    users, 
-    supportTickets,
-    investorSharePercentage,
-    graceTotalProfitPercentage,
-    graceInvestorSharePercentage,
-  } = useDataState();
-
-  const metrics: ServiceMetrics | null = useMemo(() => {
-    if (!currentUser) return null;
-    setError('');
-    try {
-      const result = calculateAllDashboardMetrics({
-        borrowers: allBorrowers,
-        investors: allInvestors,
-        users,
-        currentUser,
-        config: {
-          investorSharePercentage,
-          graceTotalProfitPercentage,
-          graceInvestorSharePercentage,
-        }
-      });
-      return result;
-    } catch (e) {
-      console.error("Failed to calculate dashboard metrics for summary:", e);
-      setError("حدث خطأ أثناء حساب بيانات الملخص. قد تكون بعض البيانات غير متناسقة.");
-      return null;
-    }
-  }, [allBorrowers, allInvestors, users, currentUser, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+  const { currentUser, supportTickets, borrowers: allBorrowers } = useDataState();
 
   const fetchSummary = useCallback(() => {
     if (!currentUser || !metrics) return;
@@ -61,11 +29,8 @@ export function DailySummary() {
 
       try {
         const isAdmin = metrics.role === 'مدير النظام';
-        
-        // Data for the prompt is now taken from the unified metrics object
         const { admin, manager } = metrics;
         
-        // These are calculated here as they depend on data not included in the main service for performance reasons.
         const adminNewSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
         const adminTotalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
 
@@ -74,7 +39,6 @@ export function DailySummary() {
             userName: currentUser.name,
             userRole: currentUser.role,
             
-            // Admin data - will be zeroed out from service if not admin
             adminTotalUsersCount: admin.totalUsersCount,
             adminActiveManagersCount: admin.activeManagersCount,
             adminPendingManagersCount: admin.pendingManagersCount,
@@ -82,7 +46,6 @@ export function DailySummary() {
             adminTotalActiveLoansCount: adminTotalActiveLoansCount,
             adminNewSupportTicketsCount: adminNewSupportTicketsCount,
 
-            // Manager data - will be zeroed out from service if admin
             officeManagerTotalBorrowers: manager.installments.loans.length + manager.gracePeriod.loans.length,
             officeManagerTotalInvestors: manager.filteredInvestors.length,
             officeManagerTotalLoansGranted: formatCurrency(manager.installments.loansGranted + manager.gracePeriod.loansGranted),
@@ -107,10 +70,9 @@ export function DailySummary() {
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
     });
-  }, [currentUser, metrics, allBorrowers, supportTickets]);
+  }, [currentUser, metrics, supportTickets, allBorrowers]);
 
   useEffect(() => {
-    // We only fetch when metrics are available.
     if (metrics) {
         fetchSummary();
     }

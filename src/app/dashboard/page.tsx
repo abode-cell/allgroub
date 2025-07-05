@@ -30,7 +30,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Define explicit types for each dashboard variant from the discriminated union
 type OfficeManagerRoles = 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف';
-type AdminDashboardMetrics = Extract<ServiceMetrics, { role: 'مدير النظام' }>['admin'];
 type OfficeManagerDashboardMetrics = ServiceMetrics['manager'];
 
 
@@ -398,8 +397,9 @@ const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['id
 };
 
 
-const SystemAdminDashboard = ({ metrics }: { metrics: AdminDashboardMetrics }) => {
+const SystemAdminDashboard = ({ metrics }: { metrics: ServiceMetrics }) => {
     const { updateUserStatus } = useDataActions();
+    const { admin: adminMetrics } = metrics;
     
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -417,44 +417,44 @@ const SystemAdminDashboard = ({ metrics }: { metrics: AdminDashboardMetrics }) =
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <KpiCard
                     title="إجمالي رأس المال"
-                    value={formatCurrency(metrics.totalCapital)}
+                    value={formatCurrency(adminMetrics.totalCapital)}
                     change="في جميع المحافظ"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال الأقساط"
-                    value={formatCurrency(metrics.installmentCapital)}
+                    value={formatCurrency(adminMetrics.installmentCapital)}
                     change="مخصص لتمويل الأقساط"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال المهلة"
-                    value={formatCurrency(metrics.graceCapital)}
+                    value={formatCurrency(adminMetrics.graceCapital)}
                     change="مخصص لتمويل المهلة"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                 <KpiCard
                     title="إجمالي المستخدمين"
-                    value={String(metrics.totalUsersCount)}
+                    value={String(adminMetrics.totalUsersCount)}
                     change=""
                     icon={<Users className="size-6 text-muted-foreground" />}
                 />
                 <KpiCard
                     title="مدراء المكاتب النشطون"
-                    value={String(metrics.activeManagersCount)}
+                    value={String(adminMetrics.activeManagersCount)}
                     change=""
                     icon={<UserCheck className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="طلبات التفعيل المعلقة"
-                    value={String(metrics.pendingManagersCount)}
+                    value={String(adminMetrics.pendingManagersCount)}
                     change=""
                     icon={<UserCog className="size-6 text-muted-foreground" />}
-                    changeColor={metrics.pendingManagersCount > 0 ? 'text-red-500' : ''}
+                    changeColor={adminMetrics.pendingManagersCount > 0 ? 'text-red-500' : ''}
                 />
             </div>
             
-            <DailySummary />
+            <DailySummary metrics={metrics} />
             
             <Card>
                 <CardHeader>
@@ -474,8 +474,8 @@ const SystemAdminDashboard = ({ metrics }: { metrics: AdminDashboardMetrics }) =
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {metrics.pendingManagers.length > 0 ? (
-                                metrics.pendingManagers.map(manager => (
+                            {adminMetrics.pendingManagers.length > 0 ? (
+                                adminMetrics.pendingManagers.map(manager => (
                                     <TableRow key={manager.id}>
                                         <TableCell className="font-medium">{manager.name}</TableCell>
                                         <TableCell>{manager.email}</TableCell>
@@ -552,7 +552,7 @@ export default function DashboardPage() {
   }
 
   if (metrics.role === 'مدير النظام') {
-    return <SystemAdminDashboard metrics={metrics.admin} />;
+    return <SystemAdminDashboard metrics={metrics} />;
   }
 
   if (metrics.role === 'مستثمر') {
@@ -602,7 +602,7 @@ export default function DashboardPage() {
             </div>
         )}
 
-        {showSensitiveData && <DailySummary />}
+        {showSensitiveData && <DailySummary metrics={metrics} />}
         
         {showIdleFundsReport && <IdleFundsCard metrics={idleFunds} />}
 
