@@ -50,12 +50,16 @@ const aiSupportFlow = ai.defineFlow(
     outputSchema: AiSupportOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    if (!output) {
-      // This should be caught by the client and displayed as a proper error.
-      // Returning an object with an empty string is safer than crashing.
-      return { solution: '' };
+    try {
+        const {output} = await prompt(input);
+        if (!output || !output.solution) {
+            // This should be caught by the client and displayed as a proper error.
+            return { solution: 'ERROR:AI_FAILED_TO_GENERATE_SOLUTION' };
+        }
+        return output;
+    } catch (error) {
+        console.error("An error occurred within the aiSupportFlow:", error);
+        return { solution: 'ERROR:AI_SYSTEM_FAILURE' };
     }
-    return output;
   }
 );

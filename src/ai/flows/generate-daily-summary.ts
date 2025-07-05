@@ -23,8 +23,6 @@ export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutp
 export async function generateDailySummary(
   input: GenerateDailySummaryInput
 ): Promise<GenerateDailySummaryOutput> {
-  // Directly call and return the result from the flow.
-  // The flow itself is now responsible for all error handling.
   return generateDailySummaryFlow(input);
 }
 
@@ -64,14 +62,14 @@ const generateDailySummaryFlow = ai.defineFlow(
       // If the output is null (e.g., parsing failed, or model returned nothing),
       // return a user-facing error message within the summary field.
       if (!output || !output.summary) {
-        return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.' };
+        return { summary: 'ERROR:AI_FAILED_TO_GENERATE' };
       }
       return output;
     } catch (error) {
       // Log the actual error for debugging, but don't let the flow crash.
       console.error("An error occurred within the generateDailySummaryFlow:", error);
       // Return a predictable, user-facing error message on any failure.
-      return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.' };
+      return { summary: 'ERROR:AI_SYSTEM_FAILURE' };
     }
   }
 );

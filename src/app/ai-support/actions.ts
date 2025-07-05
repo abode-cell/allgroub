@@ -29,7 +29,7 @@ export async function onDiagnose(prevState: FormState, formData: FormData): Prom
 
   try {
     const result = await getAiSupport({ problemDescription: validatedFields.data.problemDescription });
-    if (!result.solution) {
+    if (!result.solution || result.solution.startsWith('ERROR:')) {
        return { message: 'لم يتمكن الذكاء الاصطناعي من إيجاد حل. حاول إعادة صياغة المشكلة.' };
     }
     return {

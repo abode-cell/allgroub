@@ -56,20 +56,21 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
 
         const result = await generateDailySummary({ context: summaryContext });
         
-        // The backend flow now handles errors and returns a specific message in the summary field.
         if (result && result.summary) {
-            if (result.summary.includes('لم يتمكن')) {
-                setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص. قد تكون هناك مشكلة مؤقتة.');
+            if (result.summary.startsWith('ERROR:')) {
+                if (result.summary === 'ERROR:AI_FAILED_TO_GENERATE') {
+                    setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص. قد تكون هناك مشكلة مؤقتة.');
+                } else {
+                    setError('حدث خطأ في نظام الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.');
+                }
             } else {
                 setSummary(result.summary);
             }
         } else {
-            // This case handles if the backend returns a completely empty or null object.
             setError('حدث خطأ غير متوقع أثناء معالجة الملخص.');
         }
 
       } catch (e: any) {
-        // This catch block is a final safety net for unexpected system-level errors.
         console.error("An unexpected error occurred in DailySummary component:", e);
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
