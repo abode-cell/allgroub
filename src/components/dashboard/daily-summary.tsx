@@ -28,25 +28,29 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
         const isSystemAdmin = metrics.role === 'مدير النظام';
         const isOfficeRole = ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'].includes(metrics.role);
 
+        // This payload is now fortified with optional chaining (?.) and nullish coalescing (??)
+        // to prevent any TypeError crashes if a nested property doesn't exist.
         const payload: GenerateDailySummaryInput = {
           isSystemAdmin,
           isOfficeRole,
           managerName: metrics.manager?.filteredInvestors[0]?.name,
-          adminTotalUsersCount: metrics.admin.totalUsersCount,
-          adminActiveManagersCount: metrics.admin.activeManagersCount,
-          adminPendingManagersCount: metrics.admin.pendingManagersCount,
-          adminTotalCapital: metrics.admin.totalCapital,
-          adminTotalActiveLoans: metrics.admin.totalActiveLoans,
-          adminNewSupportTickets: metrics.admin.newSupportTickets,
+          // Admin fields with safe fallbacks
+          adminTotalUsersCount: metrics.admin?.totalUsersCount ?? 0,
+          adminActiveManagersCount: metrics.admin?.activeManagersCount ?? 0,
+          adminPendingManagersCount: metrics.admin?.pendingManagersCount ?? 0,
+          adminTotalCapital: metrics.admin?.totalCapital ?? 0,
+          adminTotalActiveLoans: metrics.admin?.totalActiveLoans ?? 0,
+          adminNewSupportTickets: metrics.admin?.newSupportTickets ?? 0,
+          // Manager fields with safe fallbacks
           managerTotalBorrowers: metrics.manager?.totalBorrowers ?? 0,
-          managerTotalInvestors: metrics.manager?.filteredInvestors.length ?? 0,
-          managerTotalLoanAmount: (metrics.manager?.installments.loansGranted ?? 0) + (metrics.manager?.gracePeriod.loansGranted ?? 0),
+          managerTotalInvestors: metrics.manager?.filteredInvestors?.length ?? 0,
+          managerTotalLoanAmount: (metrics.manager?.installments?.loansGranted ?? 0) + (metrics.manager?.gracePeriod?.loansGranted ?? 0),
           managerTotalInvestmentAmount: metrics.manager?.totalInvestments ?? 0,
           managerPendingRequests: metrics.manager?.pendingRequestsCount ?? 0,
-          managerNetProfit: (metrics.manager?.installments.netProfit ?? 0) + (metrics.manager?.gracePeriod.netProfit ?? 0),
-          managerDefaultedLoansCount: (metrics.manager?.installments.defaultedLoans.length ?? 0) + (metrics.manager?.gracePeriod.defaultedLoans.length ?? 0),
-          managerActiveCapital: metrics.manager?.capital.active ?? 0,
-          managerIdleCapital: metrics.manager?.idleFunds.totalIdleFunds ?? 0,
+          managerNetProfit: (metrics.manager?.installments?.netProfit ?? 0) + (metrics.manager?.gracePeriod?.netProfit ?? 0),
+          managerDefaultedLoansCount: (metrics.manager?.installments?.defaultedLoans?.length ?? 0) + (metrics.manager?.gracePeriod?.defaultedLoans?.length ?? 0),
+          managerActiveCapital: metrics.manager?.capital?.active ?? 0,
+          managerIdleCapital: metrics.manager?.idleFunds?.totalIdleFunds ?? 0,
         };
         
         const result = await generateDailySummary(payload);
