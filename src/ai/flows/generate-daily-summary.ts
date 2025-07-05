@@ -15,34 +15,31 @@ const GenerateDailySummaryInputSchema = z.object({
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
-const GenerateDailySummaryOutputSchema = z.object({
-  summary: z
-    .string()
-    .describe(
-      'ملخص يومي مفصل ومنسق بصيغة ماركداون باللغة العربية. استخدم العناوين والنقاط (*) والعلامات (**) لتغميق النص.'
-    ),
-});
-export type GenerateDailySummaryOutput = z.infer<
-  typeof GenerateDailySummaryOutputSchema
->;
+// The component expects an object with a summary property.
+export type GenerateDailySummaryOutput = {
+  summary: string;
+};
 
 export async function generateDailySummary(
   input: GenerateDailySummaryInput
 ): Promise<GenerateDailySummaryOutput> {
-  // This will now throw an error on failure, to be caught by the component.
-  return generateDailySummaryFlow(input);
+  const summaryText = await generateDailySummaryFlow(input);
+  if (!summaryText) {
+    throw new Error('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص صالح.');
+  }
+  return { summary: summaryText };
 }
 
 const dailySummaryPrompt = ai.definePrompt({
   name: 'dailySummaryPrompt',
   model: 'googleai/gemini-2.0-flash',
   input: {schema: GenerateDailySummaryInputSchema},
-  output: {schema: GenerateDailySummaryOutputSchema},
+  // No output schema - we want raw text.
   prompt: `
 مهمتك هي أخذ السياق النصي التالي الذي يحتوي على بيانات منظمة وتحويله إلى ملخص يومي احترافي وجذاب باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) والعلامات (**) لتغميق النص لتوضيح الأرقام والأنشطة الأكثر أهمية.
 لا تضف أي عبارات ترحيبية أو ختامية أو مقدمات. ابدأ مباشرة بالملخص.
-يجب أن تكون إجابتك بتنسيق JSON المطلوب.
+الأهم: لا تقم بتغليف إجابتك في أي تنسيق مثل JSON أو \`\`\`json، فقط أعد الملخص كنص ماركداون خام.
 
 السياق:
 {{{context}}}
@@ -73,19 +70,20 @@ const generateDailySummaryFlow = ai.defineFlow(
   {
     name: 'generateDailySummaryFlow',
     inputSchema: GenerateDailySummaryInputSchema,
-    outputSchema: GenerateDailySummaryOutputSchema,
+    outputSchema: z.string(), // The flow now returns a raw string.
   },
   async (input) => {
-    // This now relies on structured output from the prompt.
-    const {output} = await dailySummaryPrompt(input);
+    // Calling the prompt without an output schema returns the full response object.
+    const llmResponse = await dailySummaryPrompt(input);
     
-    // If the model fails to generate valid output, `output` will be null.
-    if (!output) {
-      // Throw an error that will be caught by the calling component.
-      // This is better than returning a "success" with an error message inside.
+    // We extract the text content.
+    const summaryText = llmResponse.text;
+
+    // We still validate that we got something back.
+    if (!summaryText) {
       throw new Error('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص صالح.');
     }
 
-    return output;
+    return summaryText;
   }
 );
