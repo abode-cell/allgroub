@@ -31,7 +31,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 // Define explicit types for each dashboard variant from the discriminated union
 type OfficeManagerRoles = 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف';
 type AdminDashboardMetrics = Extract<ServiceMetrics, { role: 'مدير النظام' }>['admin'];
-type OfficeManagerDashboardMetrics = Extract<ServiceMetrics, { role: OfficeManagerRoles }>;
+type OfficeManagerDashboardMetrics = ServiceMetrics['manager'];
 
 
 const PageSkeleton = () => (
@@ -559,7 +559,9 @@ export default function DashboardPage() {
     return <InvestorDashboard />;
   }
   
-  const { filteredBorrowers, filteredInvestors } = metrics;
+  const { manager: managerMetrics } = metrics;
+  const { filteredBorrowers, filteredInvestors, capital, idleFunds, installments, gracePeriod } = managerMetrics;
+  
   const showSensitiveData = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
   const showIdleFundsReport = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
   
@@ -581,19 +583,19 @@ export default function DashboardPage() {
              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <KpiCard
                     title="إجمالي رأس المال"
-                    value={formatCurrency(metrics.capital.total)}
+                    value={formatCurrency(capital.total)}
                     change="في جميع المحافظ"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال الأقساط"
-                    value={formatCurrency(metrics.capital.installments)}
+                    value={formatCurrency(capital.installments)}
                     change="متاح لتمويل الأقساط"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال المهلة"
-                    value={formatCurrency(metrics.capital.grace)}
+                    value={formatCurrency(capital.grace)}
                     change="متاح لتمويل المهلة"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
@@ -602,7 +604,7 @@ export default function DashboardPage() {
 
         {showSensitiveData && <DailySummary />}
         
-        {showIdleFundsReport && <IdleFundsCard metrics={metrics.idleFunds} />}
+        {showIdleFundsReport && <IdleFundsCard metrics={idleFunds} />}
 
         <Tabs defaultValue="grace-period" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -610,11 +612,11 @@ export default function DashboardPage() {
                 <TabsTrigger value="grace-period">قروض المهلة</TabsTrigger>
             </TabsList>
             <TabsContent value="installments" className="mt-6">
-                <InstallmentsDashboard metrics={metrics.installments} showSensitiveData={showSensitiveData} borrowers={filteredBorrowers} investors={filteredInvestors} />
+                <InstallmentsDashboard metrics={installments} showSensitiveData={showSensitiveData} borrowers={filteredBorrowers} investors={filteredInvestors} />
             </TabsContent>
             <TabsContent value="grace-period" className="mt-6">
                 <GracePeriodDashboard 
-                  metrics={metrics.gracePeriod} 
+                  metrics={gracePeriod} 
                   showSensitiveData={showSensitiveData} 
                   config={{ graceTotalProfitPercentage }} 
                   borrowers={filteredBorrowers} 
