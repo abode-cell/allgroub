@@ -49,6 +49,7 @@ export function DailySummary() {
           return;
         }
 
+        let result;
         if (role === 'مدير النظام') {
           if (metrics.role !== 'مدير النظام') {
               setError('حدث خطأ في حساب المقاييس.');
@@ -58,7 +59,7 @@ export function DailySummary() {
           const adminNewSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
           const adminTotalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
 
-          const result = await generateDailySummary({
+          result = await generateDailySummary({
             userName: currentUser.name,
             userRole: currentUser.role,
             isAdmin: true,
@@ -69,8 +70,6 @@ export function DailySummary() {
             adminTotalActiveLoansCount: adminTotalActiveLoansCount,
             adminNewSupportTicketsCount: adminNewSupportTicketsCount,
           });
-          if (result.summary) setSummary(result.summary);
-          else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
 
         } else { // Office Manager or assistant
             if (metrics.role === 'مدير النظام' || metrics.role === 'مستثمر') {
@@ -102,7 +101,7 @@ export function DailySummary() {
             const idleCapital = metrics.idleFunds.totalIdleFunds;
             const activeCapital = metrics.capital.total - idleCapital;
             
-            const result = await generateDailySummary({
+            result = await generateDailySummary({
               userName: currentUser.name,
               userRole: currentUser.role,
               isAdmin: false,
@@ -116,8 +115,12 @@ export function DailySummary() {
               officeManagerIdleCapital: idleCapital,
               officeManagerActiveCapital: activeCapital,
             });
-            if (result.summary) setSummary(result.summary);
-            else setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
+        }
+        
+        if (result && result.summary) {
+          setSummary(result.summary);
+        } else {
+          setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
         }
 
       } catch (e) {
