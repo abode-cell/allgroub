@@ -93,10 +93,9 @@ export function DailySummary() {
             const officeManagerDefaultedLoansCount = filteredBorrowers.filter(b => b.status === 'متعثر' || b.paymentStatus === 'متعثر' || b.paymentStatus === 'تم اتخاذ الاجراءات القانونيه').length;
             
             const financials = filteredInvestors.reduce((acc, investor) => {
-                const invFinancials = calculateInvestorFinancials(investor, filteredBorrowers);
-                const profitShareConfig = { investorSharePercentage: investor.installmentProfitShare, graceInvestorSharePercentage: investor.gracePeriodProfitShare };
+                const invFinancials = calculateInvestorFinancials(investor, allBorrowers); // Corrected to use allBorrowers
                 
-                const fundedLoans = filteredBorrowers.filter(b => (b.fundedBy || []).some(f => f.investorId === investor.id));
+                const fundedLoans = allBorrowers.filter(b => (b.fundedBy || []).some(f => f.investorId === investor.id)); // Corrected to use allBorrowers
 
                 fundedLoans.forEach(loan => {
                   const funding = (loan.fundedBy || []).find(f => f.investorId === investor.id);
