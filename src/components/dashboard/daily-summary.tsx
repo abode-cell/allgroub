@@ -2,7 +2,6 @@
 
 import {
   generateDailySummary,
-  type GenerateDailySummaryInput,
 } from '@/ai/flows/generate-daily-summary';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -11,6 +10,7 @@ import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
+import { formatCurrency } from '@/lib/utils';
 
 export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
   const [summary, setSummary] = useState('');
@@ -25,35 +25,36 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
       setSummary('');
 
       try {
-        const isSystemAdmin = metrics.role === 'مدير النظام';
-        const isOfficeRole = ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'].includes(metrics.role);
+        const { role, admin, manager } = metrics;
+        let summaryContext = '';
 
-        // This payload is now fortified with optional chaining (?.) and nullish coalescing (??)
-        // to prevent any TypeError crashes if a nested property doesn't exist.
-        const payload: GenerateDailySummaryInput = {
-          isSystemAdmin,
-          isOfficeRole,
-          managerName: metrics.manager?.managerName,
-          // Admin fields with safe fallbacks
-          adminTotalUsersCount: metrics.admin?.totalUsersCount ?? 0,
-          adminActiveManagersCount: metrics.admin?.activeManagersCount ?? 0,
-          adminPendingManagersCount: metrics.admin?.pendingManagersCount ?? 0,
-          adminTotalCapital: metrics.admin?.totalCapital ?? 0,
-          adminTotalActiveLoans: metrics.admin?.totalActiveLoans ?? 0,
-          adminNewSupportTickets: metrics.admin?.newSupportTickets ?? 0,
-          // Manager fields with safe fallbacks
-          managerTotalBorrowers: metrics.manager?.totalBorrowers ?? 0,
-          managerTotalInvestors: metrics.manager?.filteredInvestors?.length ?? 0,
-          managerTotalLoanAmount: (metrics.manager?.installments?.loansGranted ?? 0) + (metrics.manager?.gracePeriod?.loansGranted ?? 0),
-          managerTotalInvestmentAmount: metrics.manager?.totalInvestments ?? 0,
-          managerPendingRequests: metrics.manager?.pendingRequestsCount ?? 0,
-          managerNetProfit: (metrics.manager?.installments?.netProfit ?? 0) + (metrics.manager?.gracePeriod?.netProfit ?? 0),
-          managerDefaultedLoansCount: (metrics.manager?.installments?.defaultedLoans?.length ?? 0) + (metrics.manager?.gracePeriod?.defaultedLoans?.length ?? 0),
-          managerActiveCapital: metrics.manager?.capital?.active ?? 0,
-          managerIdleCapital: metrics.manager?.idleFunds?.totalIdleFunds ?? 0,
-        };
+        if (role === 'مدير النظام') {
+          summaryContext += `# ملخص مدير النظام\n`;
+          summaryContext += `*   **المستخدمون:** لديك ما مجموعه **${admin.totalUsersCount}** مستخدمًا في النظام.\n`;
+          summaryContext += `*   **مدراء المكاتب:** هناك **${admin.activeManagersCount}** مدير مكتب نشط، مع **${admin.pendingManagersCount}** حسابًا في انتظار التفعيل.\n`;
+          summaryContext += `*   **المالية:** إجمالي رأس المال في النظام هو **${formatCurrency(admin.totalCapital)}**.\n`;
+          summaryContext += `*   **العمليات:** يوجد **${admin.totalActiveLoans}** قرضًا نشطًا حاليًا، و**${admin.newSupportTickets}** طلب دعم جديد في انتظار المراجعة.\n`;
+        } else if (['مدير المكتب', 'مساعد مدير المكتب', 'موظف'].includes(role)) {
+          const totalLoanAmount = (manager.installments?.loansGranted ?? 0) + (manager.gracePeriod?.loansGranted ?? 0);
+          const netProfit = (manager.installments?.netProfit ?? 0) + (manager.gracePeriod?.netProfit ?? 0);
+          const defaultedLoansCount = (manager.installments?.defaultedLoans?.length ?? 0) + (manager.gracePeriod?.defaultedLoans?.length ?? 0);
+          const idleCapital = manager.idleFunds?.totalIdleFunds ?? 0;
+          
+          summaryContext += `# ملخص المكتب لـ ${manager.managerName}\n`;
+          summaryContext += `*   **الحافظة:** تدير حاليًا **${manager.totalBorrowers}** مقترضًا و**${manager.filteredInvestors?.length ?? 0}** مستثمرًا.\n`;
+          summaryContext += `*   **المالية:** إجمالي قيمة القروض الممنوحة هو **${formatCurrency(totalLoanAmount)}**، بينما يبلغ إجمالي الاستثمارات **${formatCurrency(manager.totalInvestments)}**.\n`;
+          summaryContext += `*   **الأداء:** صافي الربح المحقق هو **${formatCurrency(netProfit)}**.\n`;
+          summaryContext += `*   **السيولة:** رأس المال النشط (المستثمر) هو **${formatCurrency(manager.capital.active)}**، بينما رأس المال الخامل المتاح للاستثمار هو **${formatCurrency(idleCapital)}**.\n`;
+          summaryContext += `*   **المهام:** لديك **${manager.pendingRequestsCount}** طلبات جديدة في انتظار المراجعة.\n`;
+          summaryContext += `*   **المخاطر:** هناك **${defaultedLoansCount}** قرضًا متعثرًا يتطلب المتابعة.\n`;
+        }
         
-        const result = await generateDailySummary(payload);
+        if (summaryContext.trim() === '') {
+          setError('لا يوجد بيانات كافية لإنشاء ملخص لهذا الدور.');
+          return;
+        }
+
+        const result = await generateDailySummary({ context: summaryContext });
         
         if (result && result.summary) {
           setSummary(result.summary);
