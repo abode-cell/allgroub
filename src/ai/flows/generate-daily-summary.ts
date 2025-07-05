@@ -10,16 +10,19 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const GenerateDailySummaryInputSchema = z
-  .string()
-  .describe(
-    'A pre-formatted context string in Arabic containing all the data points for the summary.'
-  );
+// Input schema is now an object, which is more robust and aligns with Genkit best practices.
+const GenerateDailySummaryInputSchema = z.object({
+  context: z
+    .string()
+    .describe(
+      'A pre-formatted context string in Arabic containing all the data points for the summary.'
+    ),
+});
 export type GenerateDailySummaryInput = z.infer<
   typeof GenerateDailySummaryInputSchema
 >;
 
-// This is the final object structure the application expects, and what we'll ask the model for.
+// The output schema remains the same.
 const GenerateDailySummaryOutputSchema = z.object({
   summary: z
     .string()
@@ -31,10 +34,15 @@ export type GenerateDailySummaryOutput = z.infer<
   typeof GenerateDailySummaryOutputSchema
 >;
 
+/**
+ * Public-facing wrapper function. It accepts a simple string for convenience
+ * and wraps it into the object structure required by the flow.
+ * This avoids needing to change the client-side implementation.
+ */
 export async function generateDailySummary(
-  input: GenerateDailySummaryInput
+  contextString: string
 ): Promise<GenerateDailySummaryOutput> {
-  return generateDailySummaryFlow(input);
+  return generateDailySummaryFlow({ context: contextString });
 }
 
 const dailySummaryPrompt = ai.definePrompt({
@@ -42,13 +50,14 @@ const dailySummaryPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.0-flash',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
+  // The prompt now uses the 'context' field from the input object.
   prompt: `مهمتك هي أخذ البيانات التالية وتحويلها إلى ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) والعلامات (**) لتغميق النص لتوضيح الأرقام والأنشطة الأكثر أهمية.
 لا تضف أي عبارات ترحيبية أو ختامية أو مقدمات. ابدأ مباشرة بالملخص.
 يجب وضع الملخص بالكامل داخل حقل 'summary' في كائن JSON الناتج.
 
 البيانات:
-{{{prompt}}}
+{{{context}}}
 `,
 });
 
@@ -59,7 +68,6 @@ const generateDailySummaryFlow = ai.defineFlow(
     outputSchema: GenerateDailySummaryOutputSchema,
   },
   async input => {
-    // The prompt now expects the input string directly, not an object.
     const {output} = await dailySummaryPrompt(input);
 
     // If the model fails to generate a valid output object, Genkit will throw an error,
