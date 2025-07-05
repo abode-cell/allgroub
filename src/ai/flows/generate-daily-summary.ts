@@ -10,7 +10,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateDailySummaryInputSchema = z.object({
+const GenerateDailySummaryInputSchema = z.object({
   context: z.string().describe('A pre-formatted string containing all the data points for the summary.'),
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
