@@ -2,7 +2,7 @@
 
 import {
   generateDailySummary,
-  type GenerateDailySummaryOutput,
+  type GenerateDailySummaryInput,
 } from '@/ai/flows/generate-daily-summary';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -10,55 +10,42 @@ import { Skeleton } from '../ui/skeleton';
 import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { useDataState } from '@/contexts/data-context';
-import { formatCurrency } from '@/lib/utils';
 import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
 
 export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const { currentUser, supportTickets, borrowers: allBorrowers } = useDataState();
 
   const fetchSummary = useCallback(() => {
-    if (!currentUser || !metrics) return;
+    if (!metrics) return;
 
     startTransition(async () => {
       setError('');
       setSummary('');
 
       try {
-        const isAdmin = metrics.role === 'مدير النظام';
-        const { admin, manager } = metrics;
+        const payload: GenerateDailySummaryInput = {
+          role: metrics.role,
+          managerName: metrics.manager?.filteredInvestors[0]?.name,
+          adminTotalUsersCount: metrics.admin.totalUsersCount,
+          adminActiveManagersCount: metrics.admin.activeManagersCount,
+          adminPendingManagersCount: metrics.admin.pendingManagersCount,
+          adminTotalCapital: metrics.admin.totalCapital,
+          adminTotalActiveLoans: metrics.admin.totalActiveLoans,
+          adminNewSupportTickets: metrics.admin.newSupportTickets,
+          managerTotalBorrowers: metrics.manager?.totalBorrowers ?? 0,
+          managerTotalInvestors: metrics.manager?.filteredInvestors.length ?? 0,
+          managerTotalLoanAmount: (metrics.manager?.installments.loansGranted ?? 0) + (metrics.manager?.gracePeriod.loansGranted ?? 0),
+          managerTotalInvestmentAmount: metrics.manager?.totalInvestments ?? 0,
+          managerPendingRequests: metrics.manager?.pendingRequestsCount ?? 0,
+          managerNetProfit: (metrics.manager?.installments.netProfit ?? 0) + (metrics.manager?.gracePeriod.netProfit ?? 0),
+          managerDefaultedLoansCount: (metrics.manager?.installments.defaultedLoans.length ?? 0) + (metrics.manager?.gracePeriod.defaultedLoans.length ?? 0),
+          managerActiveCapital: metrics.manager?.capital.active ?? 0,
+          managerIdleCapital: metrics.manager?.idleFunds.totalIdleFunds ?? 0,
+        };
         
-        let contextString = '';
-
-        if (isAdmin) {
-            contextString = `
-ملخص مدير النظام:
-- إجمالي المستخدمين: ${admin.totalUsersCount}
-- مدراء المكاتب النشطون: ${admin.activeManagersCount}
-- الحسابات التي تنتظر التفعيل: ${admin.pendingManagersCount}
-- إجمالي رأس المال في النظام: ${formatCurrency(admin.totalCapital)}
-- إجمالي القروض النشطة: ${allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length}
-- طلبات الدعم الجديدة: ${supportTickets.filter(t => !t.isRead).length}
-            `;
-        } else {
-            contextString = `
-ملخص مدير المكتب لـ ${currentUser.name} (${currentUser.role}):
-- إجمالي المقترضين: ${manager.installments.loans.length + manager.gracePeriod.loans.length}
-- إجمالي المستثمرين: ${manager.filteredInvestors.length}
-- إجمالي مبالغ القروض: ${formatCurrency(manager.installments.loansGranted + manager.gracePeriod.loansGranted)}
-- إجمالي مبالغ الاستثمارات: ${formatCurrency(manager.totalInvestments)}
-- الطلبات المعلقة للمراجعة: ${manager.pendingRequestsCount}
-- الأرباح الصافية: ${formatCurrency(manager.installments.netProfit + manager.gracePeriod.netProfit)}
-- القروض المتعثرة: ${manager.installments.defaultedLoans.length + manager.gracePeriod.defaultedLoans.length}
-- رأس المال النشط: ${formatCurrency(manager.capital.active)}
-- رأس المال الخامل: ${formatCurrency(manager.idleFunds.totalIdleFunds)}
-            `;
-        }
-        
-        const result = await generateDailySummary(contextString.trim());
+        const result = await generateDailySummary(payload);
         
         if (result && result.summary) {
           setSummary(result.summary);
@@ -71,7 +58,7 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
     });
-  }, [currentUser, metrics, supportTickets, allBorrowers]);
+  }, [metrics]);
 
   useEffect(() => {
     if (metrics) {

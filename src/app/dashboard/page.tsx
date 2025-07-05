@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle, AlertCircle } from 'lucide-react';
@@ -505,7 +503,7 @@ const SystemAdminDashboard = ({ metrics }: { metrics: ServiceMetrics }) => {
 }
 
 export default function DashboardPage() {
-  const { currentUser, users, borrowers, investors, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
+  const { currentUser, users, borrowers, investors, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
   const [error, setError] = useState<string | null>(null);
 
   const metrics = useMemo(() => {
@@ -517,6 +515,7 @@ export default function DashboardPage() {
         investors,
         users,
         currentUser,
+        supportTickets,
         config: {
           investorSharePercentage,
           graceTotalProfitPercentage,
@@ -529,7 +528,7 @@ export default function DashboardPage() {
       setError("حدث خطأ أثناء حساب مقاييس لوحة التحكم. قد تكون بعض البيانات غير متناسقة. يرجى مراجعة البيانات أو التواصل مع الدعم الفني.");
       return null;
     }
-  }, [borrowers, investors, users, currentUser, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+  }, [borrowers, investors, users, currentUser, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
   if (!currentUser) {
       return <PageSkeleton />;
@@ -602,7 +601,7 @@ export default function DashboardPage() {
             </div>
         )}
 
-        {showSensitiveData && <DailySummary metrics={metrics} />}
+        <DailySummary metrics={metrics} />
         
         {showIdleFundsReport && <IdleFundsCard metrics={idleFunds} />}
 

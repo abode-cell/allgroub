@@ -9,20 +9,31 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { UserRole } from '@/lib/types';
 
-// Input schema is now an object, which is more robust and aligns with Genkit best practices.
-const GenerateDailySummaryInputSchema = z.object({
-  context: z
-    .string()
-    .describe(
-      'A pre-formatted context string in Arabic containing all the data points for the summary.'
-    ),
+export const GenerateDailySummaryInputSchema = z.object({
+  role: z.custom<UserRole>(),
+  managerName: z.string().optional(),
+  adminTotalUsersCount: z.number().optional(),
+  adminActiveManagersCount: z.number().optional(),
+  adminPendingManagersCount: z.number().optional(),
+  adminTotalCapital: z.number().optional(),
+  adminTotalActiveLoans: z.number().optional(),
+  adminNewSupportTickets: z.number().optional(),
+  managerTotalBorrowers: z.number().optional(),
+  managerTotalInvestors: z.number().optional(),
+  managerTotalLoanAmount: z.number().optional(),
+  managerTotalInvestmentAmount: z.number().optional(),
+  managerPendingRequests: z.number().optional(),
+  managerNetProfit: z.number().optional(),
+  managerDefaultedLoansCount: z.number().optional(),
+  managerActiveCapital: z.number().optional(),
+  managerIdleCapital: z.number().optional(),
 });
 export type GenerateDailySummaryInput = z.infer<
   typeof GenerateDailySummaryInputSchema
 >;
 
-// The output schema remains the same.
 const GenerateDailySummaryOutputSchema = z.object({
   summary: z
     .string()
@@ -34,15 +45,10 @@ export type GenerateDailySummaryOutput = z.infer<
   typeof GenerateDailySummaryOutputSchema
 >;
 
-/**
- * Public-facing wrapper function. It accepts a simple string for convenience
- * and wraps it into the object structure required by the flow.
- * This avoids needing to change the client-side implementation.
- */
 export async function generateDailySummary(
-  contextString: string
+  input: GenerateDailySummaryInput
 ): Promise<GenerateDailySummaryOutput> {
-  return generateDailySummaryFlow({ context: contextString });
+  return generateDailySummaryFlow(input);
 }
 
 const dailySummaryPrompt = ai.definePrompt({
@@ -50,14 +56,31 @@ const dailySummaryPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.0-flash',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
-  // The prompt now uses the 'context' field from the input object.
-  prompt: `مهمتك هي أخذ البيانات التالية وتحويلها إلى ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
+  prompt: `
+مهمتك هي أخذ البيانات المنظمة التالية وتحويلها إلى ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) والعلامات (**) لتغميق النص لتوضيح الأرقام والأنشطة الأكثر أهمية.
 لا تضف أي عبارات ترحيبية أو ختامية أو مقدمات. ابدأ مباشرة بالملخص.
 يجب وضع الملخص بالكامل داخل حقل 'summary' في كائن JSON الناتج.
 
-البيانات:
-{{{context}}}
+{{#if (eq role "مدير النظام")}}
+# ملخص مدير النظام
+
+*   **المستخدمون:** لديك ما مجموعه **{{adminTotalUsersCount}}** مستخدمًا في النظام.
+*   **مدراء المكاتب:** هناك **{{adminActiveManagersCount}}** مدير مكتب نشط، مع **{{adminPendingManagersCount}}** حسابًا في انتظار التفعيل.
+*   **المالية:** إجمالي رأس المال في النظام هو **{{adminTotalCapital}} ريال سعودي**.
+*   **العمليات:** يوجد **{{adminTotalActiveLoans}}** قرضًا نشطًا حاليًا، و**{{adminNewSupportTickets}}** طلب دعم جديد في انتظار المراجعة.
+{{/if}}
+
+{{#if (or (eq role "مدير المكتب") (eq role "مساعد مدير المكتب") (eq role "موظف"))}}
+# ملخص المكتب لـ {{managerName}}
+
+*   **الحافظة:** تدير حاليًا **{{managerTotalBorrowers}}** مقترضًا و**{{managerTotalInvestors}}** مستثمرًا.
+*   **المالية:** إجمالي قيمة القروض الممنوحة هو **{{managerTotalLoanAmount}} ريال سعودي**، بينما يبلغ إجمالي الاستثمارات **{{managerTotalInvestmentAmount}} ريال سعودي**.
+*   **الأداء:** صافي الربح المحقق هو **{{managerNetProfit}} ريال سعودي**.
+*   **السيولة:** رأس المال النشط (المستثمر) هو **{{managerActiveCapital}} ريال سعودي**، بينما رأس المال الخامل المتاح للاستثمار هو **{{managerIdleCapital}} ريال سعودي**.
+*   **المهام:** لديك **{{managerPendingRequests}}** طلبات جديدة في انتظار المراجعة.
+*   **المخاطر:** هناك **{{managerDefaultedLoansCount}}** قرضًا متعثرًا يتطلب المتابعة.
+{{/if}}
 `,
 });
 
@@ -70,8 +93,6 @@ const generateDailySummaryFlow = ai.defineFlow(
   async input => {
     const {output} = await dailySummaryPrompt(input);
 
-    // If the model fails to generate a valid output object, Genkit will throw an error,
-    // which will be caught by the calling component. We add a fallback here for safety.
     if (!output || !output.summary) {
       return {
         summary:

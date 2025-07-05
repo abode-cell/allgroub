@@ -1,10 +1,9 @@
-
 /**
  * @fileOverview Service for calculating all dashboard metrics.
  * This moves the business logic from the component to a dedicated, testable service.
  */
 
-import type { Borrower, Investor, User, UserRole } from '@/lib/types';
+import type { Borrower, Investor, User, UserRole, SupportTicket } from '@/lib/types';
 import { getBorrowerStatus } from '@/lib/utils';
 
 interface CalculationInput {
@@ -12,6 +11,7 @@ interface CalculationInput {
     investors: Investor[];
     users: User[];
     currentUser: User;
+    supportTickets: SupportTicket[];
     config: {
         investorSharePercentage: number;
         graceTotalProfitPercentage: number;
@@ -19,20 +19,19 @@ interface CalculationInput {
     };
 }
 
-// Define the shape for each sub-metric object for clarity
 type AdminMetrics = ReturnType<typeof calculateSystemAdminMetrics>;
 type ManagerCapitalMetrics = { total: number; installments: number; grace: number; active: number; };
 type InstallmentsMetrics = ReturnType<typeof calculateInstallmentsMetrics>;
 type GracePeriodMetrics = ReturnType<typeof calculateGracePeriodMetrics>;
 type IdleFundsMetrics = ReturnType<typeof calculateIdleFundsMetrics>;
 
-// Define a unified output type that is always returned, ensuring a consistent shape.
 export type DashboardMetricsOutput = {
     role: UserRole;
     admin: AdminMetrics;
     manager: {
         filteredBorrowers: Borrower[];
         filteredInvestors: Investor[];
+        totalBorrowers: number;
         totalInvestments: number;
         pendingRequestsCount: number;
         capital: ManagerCapitalMetrics;
@@ -41,7 +40,6 @@ export type DashboardMetricsOutput = {
         idleFunds: IdleFundsMetrics;
     }
 };
-
 
 export function calculateInvestorFinancials(investor: Investor, relevantBorrowers: Borrower[]) {
   const { installmentDeposits, graceDeposits, installmentWithdrawals, graceWithdrawals } = 
@@ -109,8 +107,6 @@ export function calculateInvestorFinancials(investor: Investor, relevantBorrower
   };
 }
 
-
-// Helper to filter data based on user role
 function getFilteredData(input: CalculationInput) {
     const { currentUser, borrowers, investors, users } = input;
     const { role } = currentUser;
@@ -122,8 +118,7 @@ function getFilteredData(input: CalculationInput) {
 
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
 
-    if ((role === 'موظف' || role === 'مساعد مدير المكتب') && !managerId) {
-        console.error(`User ${currentUser.id} with role "${role}" has no assigned manager (managedBy). This is a data integrity issue. Returning empty data to prevent a crash.`);
+    if (!managerId) {
         return { filteredBorrowers: [], filteredInvestors: [], employeeIds: [] };
     }
 
@@ -363,7 +358,6 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
             totalInvestorProfitOnLoan += investorPortion;
         });
         
-        // The loan's specific discount is subtracted from the institution's portion for that loan.
         const finalInstitutionProfitOnLoan = totalInstitutionProfitOnLoan - (loan.discount || 0);
 
         const totalProfit = finalInstitutionProfitOnLoan + totalInvestorProfitOnLoan;
@@ -395,7 +389,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     };
 }
 
-function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBorrowers: Borrower[]) {
+function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBorrowers: Borrower[], supportTickets: SupportTicket[]) {
     const officeManagers = users.filter(u => u.role === 'مدير المكتب');
     const userMap = new Map(users.map(u => [u.id, u]));
     const officeManagerIds = new Set(officeManagers.map(m => m.id));
@@ -417,6 +411,9 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBo
     }, { totalCapital: 0, installmentCapital: 0, graceCapital: 0 });
     
     const totalUsersCount = users.length;
+    const totalActiveLoans = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
+    const newSupportTickets = supportTickets.filter(t => !t.isRead).length;
+
     return { 
         pendingManagers, 
         activeManagersCount, 
@@ -424,7 +421,9 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBo
         installmentCapital, 
         graceCapital, 
         totalUsersCount,
-        pendingManagersCount: pendingManagers.length
+        totalActiveLoans,
+        newSupportTickets,
+        pendingManagersCount: pendingManagers.length,
     };
 }
 
@@ -457,55 +456,53 @@ function calculateIdleFundsMetrics(investors: Investor[], relevantBorrowers: Bor
     return { idleInvestors: idleInvestorsWithType, totalIdleFunds };
 }
 
-// Helper to get a zeroed-out state for a metric object to ensure consistent return shapes.
-const getDefaultMetrics = (input: CalculationInput) => {
-    const { filteredBorrowers, filteredInvestors, employeeIds } = getFilteredData(input);
+const getDefaultMetrics = (): DashboardMetricsOutput => {
     const emptyBorrowers: Borrower[] = [];
     const emptyInvestors: Investor[] = [];
+    const emptyConfig = { investorSharePercentage: 0, graceTotalProfitPercentage: 0, graceInvestorSharePercentage: 0 };
 
     return {
+        role: 'مستثمر', // Default role
         admin: {
             pendingManagers: [], activeManagersCount: 0, totalCapital: 0, installmentCapital: 0,
-            graceCapital: 0, totalUsersCount: 0, pendingManagersCount: 0,
+            graceCapital: 0, totalUsersCount: 0, pendingManagersCount: 0, totalActiveLoans: 0, newSupportTickets: 0,
         },
         manager: {
-            filteredBorrowers,
-            filteredInvestors,
+            filteredBorrowers: [],
+            filteredInvestors: [],
+            totalBorrowers: 0,
             totalInvestments: 0,
             pendingRequestsCount: 0,
             capital: { total: 0, installments: 0, grace: 0, active: 0 },
-            installments: calculateInstallmentsMetrics(emptyBorrowers, emptyInvestors, input.config),
-            gracePeriod: calculateGracePeriodMetrics(emptyBorrowers, emptyInvestors, input.config),
+            installments: calculateInstallmentsMetrics(emptyBorrowers, emptyInvestors, emptyConfig),
+            gracePeriod: calculateGracePeriodMetrics(emptyBorrowers, emptyInvestors, emptyConfig),
             idleFunds: calculateIdleFundsMetrics(emptyInvestors, emptyBorrowers),
         }
     };
 };
 
-// Main export function, now returns a unified object shape for stability.
 export function calculateAllDashboardMetrics(input: CalculationInput): DashboardMetricsOutput {
-    const { currentUser, users, investors, borrowers, config } = input;
+    const { currentUser, users, investors, borrowers, supportTickets, config } = input;
     const { role } = currentUser;
 
-    const defaults = getDefaultMetrics(input);
+    const defaults = getDefaultMetrics();
 
     if (role === 'مدير النظام') {
-        const adminMetrics = calculateSystemAdminMetrics(users, investors, borrowers);
+        const adminMetrics = calculateSystemAdminMetrics(users, investors, borrowers, supportTickets);
         return {
+            ...defaults,
             role: role,
             admin: adminMetrics,
-            manager: defaults.manager, // Return default manager metrics
         };
     }
     
     if (role === 'مستثمر') {
          return {
+            ...defaults,
             role: role,
-            admin: defaults.admin,
-            manager: defaults.manager,
         };
     }
     
-    // Logic for Manager and subordinates
     const { filteredBorrowers, filteredInvestors, employeeIds } = getFilteredData(input);
     
     const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
@@ -531,6 +528,7 @@ export function calculateAllDashboardMetrics(input: CalculationInput): Dashboard
     const managerMetrics = {
         filteredBorrowers,
         filteredInvestors,
+        totalBorrowers: filteredBorrowers.length,
         totalInvestments,
         pendingRequestsCount,
         capital: capitalMetrics,
@@ -540,8 +538,8 @@ export function calculateAllDashboardMetrics(input: CalculationInput): Dashboard
     };
 
     return {
+        ...defaults,
         role: role,
-        admin: defaults.admin, // Return default admin metrics
         manager: managerMetrics,
     };
 }
