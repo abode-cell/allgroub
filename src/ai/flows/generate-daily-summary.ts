@@ -46,6 +46,26 @@ const dailySummaryPrompt = ai.definePrompt({
 السياق:
 {{{context}}}
 `,
+  config: {
+    safetySettings: [
+      {
+        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_HARASSMENT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_NONE',
+      },
+    ],
+  },
 });
 
 const generateDailySummaryFlow = ai.defineFlow(
@@ -54,16 +74,22 @@ const generateDailySummaryFlow = ai.defineFlow(
     inputSchema: GenerateDailySummaryInputSchema,
     outputSchema: GenerateDailySummaryOutputSchema,
   },
-  async input => {
-    const {output} = await dailySummaryPrompt(input);
+  async (input) => {
+    try {
+      const { output } = await dailySummaryPrompt(input);
 
-    if (!output || !output.summary) {
+      if (!output || !output.summary || output.summary.trim() === '') {
+        return {
+          summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص صالح. يرجى المحاولة مرة أخرى.',
+        };
+      }
+      return output;
+    } catch (error) {
+      console.error("Error in generateDailySummaryFlow:", error);
+      const errorMessage = 'فشل إنشاء الملخص بسبب خطأ في خدمة الذكاء الاصطناعي. قد يعود السبب إلى سياسات المحتوى أو مشكلة مؤقتة. الرجاء المحاولة مرة أخرى.';
       return {
-        summary:
-          'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص صالح. يرجى المحاولة مرة أخرى.',
+        summary: errorMessage,
       };
     }
-
-    return output;
   }
 );
