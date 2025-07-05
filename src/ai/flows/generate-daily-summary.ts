@@ -52,7 +52,6 @@ const dailySummaryPrompt = ai.definePrompt({
   name: 'dailySummaryPrompt',
   model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: GenerateDailySummaryInputSchema},
-  output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
 مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
@@ -98,10 +97,12 @@ const generateDailySummaryFlow = ai.defineFlow(
     outputSchema: GenerateDailySummaryOutputSchema,
   },
   async input => {
-    const {output} = await dailySummaryPrompt(input);
-    if (!output) {
-       return { summary: '' };
-    }
-    return output;
+    // Ask the prompt for raw text, making its job simpler and more reliable.
+    const response = await dailySummaryPrompt(input);
+    const summaryText = response.text ?? ''; // Handle cases where the model returns nothing.
+
+    // Wrap the raw text in the expected JSON object structure ourselves.
+    // This is a deterministic step that won't fail.
+    return { summary: summaryText };
   }
 );
