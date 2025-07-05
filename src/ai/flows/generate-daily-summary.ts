@@ -16,7 +16,7 @@ const GenerateDailySummaryInputSchema = z.object({
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
 const GenerateDailySummaryOutputSchema = z.object({
-  summary: z.string(),
+  summary: z.string().describe("ملخص احترافي مكتوب باللغة العربية بناءً على السياق المقدم."),
 });
 export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
 
@@ -26,13 +26,14 @@ const dailySummaryPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateDailySummaryInputSchema },
   output: { schema: GenerateDailySummaryOutputSchema },
-  prompt: `أنت مساعد ذكاء اصطناعي متخصص في التحليل المالي. مهمتك هي قراءة السياق التالي وكتابة ملخص احترافي باللغة العربية باستخدام صيغة ماركداون. ابدأ مباشرة بالملخص دون أي مقدمات.
+  prompt: `أنت مساعد ذكاء اصطناعي متخصص في التحليل المالي. مهمتك هي قراءة السياق التالي وكتابة ملخص احترافي باللغة العربية. ابدأ مباشرة بالملخص دون أي مقدمات.
   
   السياق:
   {{{context}}}
   `,
 });
 
+// The flow is now simpler, just calling the prompt.
 const generateDailySummaryFlow = ai.defineFlow(
   {
     name: 'generateDailySummaryFlow',
@@ -41,20 +42,23 @@ const generateDailySummaryFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await dailySummaryPrompt(input);
-    return output || { summary: '' };
+    // If output is null or undefined, the wrapper will catch it.
+    return output || { summary: '' }; 
   }
 );
 
+// The exported function is the main entry point and handles all error cases.
 export async function generateDailySummary(input: GenerateDailySummaryInput): Promise<GenerateDailySummaryOutput> {
-  // We add a wrapper to handle potential total failures of the flow itself.
   try {
     const result = await generateDailySummaryFlow(input);
-    if (!result.summary) {
+    // Check for an empty or invalid summary from the flow.
+    if (!result || !result.summary) {
        return { summary: 'ERROR:AI_FAILED_TO_GENERATE' };
     }
     return result;
   } catch (error) {
     console.error("Critical error in generateDailySummary wrapper:", error);
+    // This catches crashes inside the flow itself (e.g., network issues).
     return { summary: 'ERROR:AI_SYSTEM_FAILURE' };
   }
 }
