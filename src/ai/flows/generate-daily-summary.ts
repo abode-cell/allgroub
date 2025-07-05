@@ -11,34 +11,26 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateDailySummaryInputSchema = z.object({
-  context: z.string().describe('A pre-formatted string containing all the data points for the summary.'),
+  context: z.string(),
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
 const GenerateDailySummaryOutputSchema = z.object({
-  summary: z.string().describe('ملخص يومي احترافي وجذاب باللغة العربية، باستخدام صيغة ماركداون. استخدم العناوين والنقاط (*) والعلامات (**) لتوضيح الأرقام والأنشطة الأكثر أهمية.'),
+  summary: z.string(),
 });
 export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
 
-export async function generateDailySummary(
-  input: GenerateDailySummaryInput
-): Promise<GenerateDailySummaryOutput> {
-  return generateDailySummaryFlow(input);
-}
 
 const dailySummaryPrompt = ai.definePrompt({
   name: 'dailySummaryPrompt',
-  model: 'googleai/gemini-2.0-flash', 
-  input: {schema: GenerateDailySummaryInputSchema},
-  output: {schema: GenerateDailySummaryOutputSchema},
-  prompt: `
-أنت محلل مالي محترف. مهمتك هي أخذ السياق النصي المنظم التالي وتحويله إلى ملخص يومي احترافي وجذاب باللغة العربية، باستخدام صيغة ماركداون.
-استخدم العناوين والنقاط (*) والعلامات (**) لتوضيح الأرقام والأنشطة الأكثر أهمية.
-لا تضف أي عبارات ترحيبية أو ختامية أو مقدمات. ابدأ مباشرة بالملخص.
-
-السياق:
-{{{context}}}
-`,
+  model: 'googleai/gemini-2.0-flash',
+  input: { schema: GenerateDailySummaryInputSchema },
+  output: { schema: GenerateDailySummaryOutputSchema },
+  prompt: `أنت مساعد ذكاء اصطناعي متخصص في التحليل المالي. مهمتك هي قراءة السياق التالي وكتابة ملخص احترافي باللغة العربية باستخدام صيغة ماركداون. ابدأ مباشرة بالملخص دون أي مقدمات.
+  
+  السياق:
+  {{{context}}}
+  `,
 });
 
 const generateDailySummaryFlow = ai.defineFlow(
@@ -48,15 +40,21 @@ const generateDailySummaryFlow = ai.defineFlow(
     outputSchema: GenerateDailySummaryOutputSchema,
   },
   async (input) => {
-    try {
-      const {output} = await dailySummaryPrompt(input);
-      if (!output || !output.summary) {
-        return { summary: 'ERROR:AI_FAILED_TO_GENERATE' };
-      }
-      return output;
-    } catch (error) {
-      console.error("An error occurred within the generateDailySummaryFlow:", error);
-      return { summary: 'ERROR:AI_SYSTEM_FAILURE' };
-    }
+    const { output } = await dailySummaryPrompt(input);
+    return output || { summary: '' };
   }
 );
+
+export async function generateDailySummary(input: GenerateDailySummaryInput): Promise<GenerateDailySummaryOutput> {
+  // We add a wrapper to handle potential total failures of the flow itself.
+  try {
+    const result = await generateDailySummaryFlow(input);
+    if (!result.summary) {
+       return { summary: 'ERROR:AI_FAILED_TO_GENERATE' };
+    }
+    return result;
+  } catch (error) {
+    console.error("Critical error in generateDailySummary wrapper:", error);
+    return { summary: 'ERROR:AI_SYSTEM_FAILURE' };
+  }
+}

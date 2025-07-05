@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 import { AlertCircle, Lightbulb, RefreshCw } from 'lucide-react';
@@ -14,35 +14,27 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  const fetchSummary = useCallback(() => {
-    if (!metrics) return;
+  const handleFetchSummary = () => {
+    if (!metrics) {
+      setError('لا توجد بيانات كافية لإنشاء ملخص.');
+      return;
+    };
 
     startTransition(async () => {
       setError('');
       setSummary('');
 
-      try {
-        const result = await getDailySummary(metrics);
+      const result = await getDailySummary(metrics);
         
-        if (result.error) {
-          setError(result.error);
-        } else if (result.summary) {
-          setSummary(result.summary);
-        } else {
-          setError('حدث خطأ غير متوقع أثناء معالجة الملخص.');
-        }
-      } catch (e: any) {
-        console.error("An unexpected error occurred in DailySummary component:", e);
-        setError('حدث خطأ أثناء الاتصال بالخادم لإنشاء الملخص.');
+      if (result.error) {
+        setError(result.error);
+      } else if (result.summary) {
+        setSummary(result.summary);
+      } else {
+        setError('حدث خطأ غير متوقع أثناء معالجة الملخص.');
       }
     });
-  }, [metrics]);
-
-  useEffect(() => {
-    if (metrics) {
-        fetchSummary();
-    }
-  }, [metrics, fetchSummary]);
+  };
 
   return (
     <Card>
@@ -56,13 +48,13 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
             ملخص سريع ومفصل لأهم أحداث اليوم مدعوم بالذكاء الاصطناعي.
           </CardDescription>
         </div>
-        <Button variant="ghost" size="icon" onClick={fetchSummary} disabled={isPending || !metrics}>
+        <Button variant="ghost" size="icon" onClick={handleFetchSummary} disabled={isPending || !metrics}>
           <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
           <span className="sr-only">تحديث الملخص</span>
         </Button>
       </CardHeader>
       <CardContent>
-        {isPending && !summary && !error ? (
+        {isPending ? (
           <div className="space-y-2">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-5/6" />
@@ -83,7 +75,7 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
         ) : (
             <div className="flex items-center justify-center h-[100px] bg-muted rounded-md">
                 <p className="text-muted-foreground text-center">
-                في انتظار البيانات لبدء إنشاء الملخص...
+                انقر على زر التحديث لإنشاء ملخصك اليومي.
                 </p>
             </div>
         )}

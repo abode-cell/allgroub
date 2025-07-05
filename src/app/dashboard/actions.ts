@@ -9,7 +9,6 @@ export type DailySummaryState = {
   error?: string;
 };
 
-// This is a standard async server function, not a form action.
 export async function getDailySummary(metrics: ServiceMetrics | null): Promise<DailySummaryState> {
   if (!metrics) {
     return { error: 'لا توجد بيانات كافية لإنشاء ملخص.' };
@@ -20,31 +19,35 @@ export async function getDailySummary(metrics: ServiceMetrics | null): Promise<D
     let summaryContext = '';
 
     if (role === 'مدير النظام' && admin) {
-      summaryContext += `# ملخص مدير النظام\n`;
-      summaryContext += `*   **المستخدمون:** لديك ما مجموعه **${admin.totalUsersCount}** مستخدمًا في النظام.\n`;
-      summaryContext += `*   **مدراء المكاتب:** هناك **${admin.activeManagersCount}** مدير مكتب نشط، مع **${admin.pendingManagersCount}** حسابًا في انتظار التفعيل.\n`;
-      summaryContext += `*   **المالية:** إجمالي رأس المال في النظام هو **${formatCurrency(admin.totalCapital)}**.\n`;
-      summaryContext += `*   **العمليات:** يوجد **${admin.totalActiveLoans}** قرضًا نشطًا حاليًا، و**${admin.newSupportTickets}** طلب دعم جديد في انتظار المراجعة.\n`;
+      summaryContext = `
+        # ملخص مدير النظام
+        *   **المستخدمون:** لديك ما مجموعه **${admin.totalUsersCount ?? 0}** مستخدمًا في النظام.
+        *   **مدراء المكاتب:** هناك **${admin.activeManagersCount ?? 0}** مدير مكتب نشط، مع **${admin.pendingManagersCount ?? 0}** حسابًا في انتظار التفعيل.
+        *   **المالية:** إجمالي رأس المال في النظام هو **${formatCurrency(admin.totalCapital ?? 0)}**.
+        *   **العمليات:** يوجد **${admin.totalActiveLoans ?? 0}** قرضًا نشطًا حاليًا، و**${admin.newSupportTickets ?? 0}** طلب دعم جديد في انتظار المراجعة.
+      `;
     } else if (['مدير المكتب', 'مساعد مدير المكتب', 'موظف'].includes(role) && manager) {
       const totalLoanAmount = (manager.installments?.loansGranted ?? 0) + (manager.gracePeriod?.loansGranted ?? 0);
       const netProfit = (manager.installments?.netProfit ?? 0) + (manager.gracePeriod?.netProfit ?? 0);
       const defaultedLoansCount = (manager.installments?.defaultedLoans?.length ?? 0) + (manager.gracePeriod?.defaultedLoans?.length ?? 0);
       const idleCapital = manager.idleFunds?.totalIdleFunds ?? 0;
       
-      summaryContext += `# ملخص المكتب لـ ${manager.managerName}\n`;
-      summaryContext += `*   **الحافظة:** تدير حاليًا **${manager.totalBorrowers}** مقترضًا و**${manager.filteredInvestors?.length ?? 0}** مستثمرًا.\n`;
-      summaryContext += `*   **المالية:** إجمالي قيمة القروض الممنوحة هو **${formatCurrency(totalLoanAmount)}**، بينما يبلغ إجمالي الاستثمارات **${formatCurrency(manager.totalInvestments)}**.\n`;
-      summaryContext += `*   **الأداء:** صافي الربح المحقق هو **${formatCurrency(netProfit)}**.\n`;
-      summaryContext += `*   **السيولة:** رأس المال النشط (المستثمر) هو **${formatCurrency(manager.capital?.active ?? 0)}**، بينما رأس المال الخامل المتاح للاستثمار هو **${formatCurrency(idleCapital)}**.\n`;
-      summaryContext += `*   **المهام:** لديك **${manager.pendingRequestsCount}** طلبات جديدة في انتظار المراجعة.\n`;
-      summaryContext += `*   **المخاطر:** هناك **${defaultedLoansCount}** قرضًا متعثرًا يتطلب المتابعة.\n`;
+      summaryContext = `
+        # ملخص المكتب لـ ${manager.managerName || 'غير متوفر'}
+        *   **الحافظة:** تدير حاليًا **${manager.totalBorrowers ?? 0}** مقترضًا و**${manager.filteredInvestors?.length ?? 0}** مستثمرًا.
+        *   **المالية:** إجمالي قيمة القروض الممنوحة هو **${formatCurrency(totalLoanAmount)}**، بينما يبلغ إجمالي الاستثمارات **${formatCurrency(manager.totalInvestments ?? 0)}**.
+        *   **الأداء:** صافي الربح المحقق هو **${formatCurrency(netProfit)}**.
+        *   **السيولة:** رأس المال النشط (المستثمر) هو **${formatCurrency(manager.capital?.active ?? 0)}**، بينما رأس المال الخامل المتاح للاستثمار هو **${formatCurrency(idleCapital)}**.
+        *   **المهام:** لديك **${manager.pendingRequestsCount ?? 0}** طلبات جديدة في انتظار المراجعة.
+        *   **المخاطر:** هناك **${defaultedLoansCount}** قرضًا متعثرًا يتطلب المتابعة.
+      `;
     }
 
     if (summaryContext.trim() === '') {
       return { error: 'لا يوجد بيانات كافية لإنشاء ملخص لهذا الدور.' };
     }
 
-    const result = await generateDailySummary({ context: summaryContext });
+    const result = await generateDailySummary({ context: summaryContext.trim() });
     
     if (result && result.summary && !result.summary.startsWith('ERROR:')) {
       return { summary: result.summary };
