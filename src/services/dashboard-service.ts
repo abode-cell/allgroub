@@ -43,7 +43,7 @@ export type DashboardMetricsOutput = {
 };
 
 
-export function calculateInvestorFinancials(investor: Investor, allBorrowers: Borrower[]) {
+export function calculateInvestorFinancials(investor: Investor, relevantBorrowers: Borrower[]) {
   const { installmentDeposits, graceDeposits, installmentWithdrawals, graceWithdrawals } = 
     (investor.transactionHistory || []).reduce(
         (acc, tx) => {
@@ -69,7 +69,7 @@ export function calculateInvestorFinancials(investor: Investor, allBorrowers: Bo
   let defaultedGraceFunds = 0;
 
   const fundedLoanIds = investor.fundedLoanIds || [];
-  const fundedBorrowers = allBorrowers.filter(b => fundedLoanIds.includes(b.id));
+  const fundedBorrowers = relevantBorrowers.filter(b => fundedLoanIds.includes(b.id));
 
   for (const loan of fundedBorrowers) {
     const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
@@ -428,11 +428,11 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBo
     };
 }
 
-function calculateIdleFundsMetrics(investors: Investor[], allBorrowers: Borrower[]) {
+function calculateIdleFundsMetrics(investors: Investor[], relevantBorrowers: Borrower[]) {
     const idleInvestorsData = investors
         .filter(i => i.status === 'نشط')
         .map(investor => {
-            const financials = calculateInvestorFinancials(investor, allBorrowers);
+            const financials = calculateInvestorFinancials(investor, relevantBorrowers);
             return {
                 ...investor,
                 idleInstallmentCapital: financials.idleInstallmentCapital,

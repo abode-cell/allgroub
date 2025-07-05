@@ -34,7 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Textarea } from '@/components/ui/textarea';
-import type { Investor, Transaction, TransactionType, WithdrawalMethod, UpdatableInvestor, NewInvestorPayload } from '@/lib/types';
+import type { Investor, Transaction, TransactionType, WithdrawalMethod, UpdatableInvestor, NewInvestorPayload, Borrower } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -67,6 +67,7 @@ import {
 
 type InvestorsTableProps = {
   investors: Investor[];
+  borrowers: Borrower[];
   hideFunds?: boolean;
 };
 
@@ -85,9 +86,10 @@ const transactionTypeVariant: { [key in TransactionType]: 'default' | 'destructi
 
 export function InvestorsTable({
   investors,
+  borrowers,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { currentUser, borrowers, users, visibleUsers, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
+  const { currentUser, users, visibleUsers, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
   const { updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified, deleteUser } = useDataActions();
   const { toast } = useToast();
   const role = currentUser?.role;

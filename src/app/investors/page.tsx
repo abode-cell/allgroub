@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { calculateInvestorFinancials } from '@/services/dashboard-service';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -45,7 +46,7 @@ const PageSkeleton = () => (
 
 export default function InvestorsPage() {
   const { addInvestor } = useDataActions();
-  const { investors: allInvestors, visibleUsers: users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
+  const { investors: allInvestors, borrowers: allBorrowers, visibleUsers: users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -59,23 +60,33 @@ export default function InvestorsPage() {
     }
   }, [currentUser, hasAccess, isSubordinate, router]);
 
-  const investors = useMemo(() => {
-    if (!currentUser || !allInvestors) return [];
-    if (role === 'مدير النظام') return [];
+  const { investors, borrowers } = useMemo(() => {
+    if (!currentUser || !allInvestors || !allBorrowers) return { investors: [], borrowers: [] };
+    if (role === 'مدير النظام') return { investors: [], borrowers: [] };
     if (role === 'مستثمر') {
-      return allInvestors.filter(i => i.id === currentUser.id);
+      return { 
+          investors: allInvestors.filter(i => i.id === currentUser.id),
+          borrowers: allBorrowers,
+      };
     }
     
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
     if (!managerId) {
-        return []; 
+        return { investors: [], borrowers: [] };
     }
 
-    return allInvestors.filter(i => {
+    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
+    relevantUserIds.add(currentUser.id);
+    
+    const filteredInvestors = allInvestors.filter(i => {
       const investorUser = users.find(u => u.id === i.id);
       return investorUser?.managedBy === managerId;
     });
-  }, [currentUser, allInvestors, users, role]);
+
+    const filteredBorrowers = allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
+
+    return { investors: filteredInvestors, borrowers: filteredBorrowers };
+  }, [currentUser, allInvestors, allBorrowers, users, role]);
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -395,7 +406,7 @@ export default function InvestorsPage() {
             </Dialog>
           )}
         </div>
-        <InvestorsTable investors={investors} hideFunds={hideFunds} />
+        <InvestorsTable investors={investors} borrowers={borrowers} hideFunds={hideFunds} />
       </main>
     </div>
   );
