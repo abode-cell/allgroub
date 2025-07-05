@@ -50,7 +50,7 @@ export async function generateDailySummary(
 
 const dailySummaryPrompt = ai.definePrompt({
   name: 'dailySummaryPrompt',
-  model: 'googleai/gemini-1.5-flash-latest',
+  model: 'googleai/gemini-2.0-flash',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
