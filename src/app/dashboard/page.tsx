@@ -1,18 +1,17 @@
 'use client';
 
-import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle, AlertCircle } from 'lucide-react';
+import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle, AlertCircle, Download } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Borrower, Investor } from '@/lib/types';
-import { DailySummary } from '@/components/dashboard/daily-summary';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useEffect, useState, useTransition, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Accordion,
@@ -25,6 +24,9 @@ import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
 import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { exportToPrintableHtml } from '@/lib/html-export';
+import { formatCurrency } from '@/lib/utils';
+
 
 // Define explicit types for each dashboard variant from the discriminated union
 type OfficeManagerRoles = 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف';
@@ -50,12 +52,6 @@ const PageSkeleton = () => (
     </div>
 );
 
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('ar-SA', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
 
 const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investors }: { metrics: OfficeManagerDashboardMetrics['installments'], showSensitiveData: boolean, borrowers: Borrower[], investors: Investor[] }) => {
   return (
@@ -395,8 +391,8 @@ const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['id
 };
 
 
-const SystemAdminDashboard = ({ metrics }: { metrics: ServiceMetrics }) => {
-    const { updateUserStatus } = useDataActions();
+const SystemAdminDashboard = ({ metrics, onExport }: { metrics: ServiceMetrics, onExport: () => void }) => {
+    const { updateUserStatus } = useDataState();
     const { admin: adminMetrics } = metrics;
     
     return (
@@ -410,6 +406,10 @@ const SystemAdminDashboard = ({ metrics }: { metrics: ServiceMetrics }) => {
                     نظرة عامة على صحة المنصة والمستخدمين.
                     </p>
                 </div>
+                 <Button onClick={onExport}>
+                    <Download className="ml-2 h-4 w-4" />
+                    تصدير ملخص اليوم
+                </Button>
             </header>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -451,8 +451,6 @@ const SystemAdminDashboard = ({ metrics }: { metrics: ServiceMetrics }) => {
                     changeColor={adminMetrics.pendingManagersCount > 0 ? 'text-red-500' : ''}
                 />
             </div>
-            
-            <DailySummary metrics={metrics} />
             
             <Card>
                 <CardHeader>
@@ -530,6 +528,88 @@ export default function DashboardPage() {
     }
   }, [borrowers, investors, users, currentUser, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
+  const handleExport = () => {
+    if (!metrics || !currentUser) return;
+
+    let htmlBody = '';
+    const { role } = metrics;
+    
+    if (role === 'مدير النظام' && metrics.admin) {
+        const { admin } = metrics;
+        htmlBody = `
+            <style>
+                .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; }
+                .summary-card { padding: 1rem; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9; }
+                .summary-card h3 { margin: 0 0 0.5rem 0; font-size: 1.1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; }
+                .summary-card p { margin: 0.25rem 0; font-size: 1rem; display: flex; justify-content: space-between; }
+                .summary-card p span:last-child { font-weight: bold; }
+            </style>
+            <h2>نظرة عامة على النظام</h2>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h3>المالية</h3>
+                    <p><span>إجمالي رأس المال:</span> <span>${formatCurrency(admin.totalCapital)}</span></p>
+                    <p><span>رأس مال الأقساط الخامل:</span> <span>${formatCurrency(admin.installmentCapital)}</span></p>
+                    <p><span>رأس مال المهلة الخامل:</span> <span>${formatCurrency(admin.graceCapital)}</span></p>
+                </div>
+                <div class="summary-card">
+                    <h3>المستخدمون</h3>
+                    <p><span>إجمالي المستخدمين:</span> <span>${admin.totalUsersCount}</span></p>
+                    <p><span>مدراء المكاتب النشطون:</span> <span>${admin.activeManagersCount}</span></p>
+                    <p><span>الطلبات المعلقة:</span> <span>${admin.pendingManagersCount}</span></p>
+                </div>
+                 <div class="summary-card">
+                    <h3>العمليات</h3>
+                    <p><span>القروض النشطة:</span> <span>${admin.totalActiveLoans}</span></p>
+                    <p><span>طلبات الدعم الجديدة:</span> <span>${admin.newSupportTickets}</span></p>
+                </div>
+            </div>
+        `;
+    } else if (metrics.manager) {
+        const { manager } = metrics;
+        const totalLoanAmount = (manager.installments?.loansGranted ?? 0) + (manager.gracePeriod?.loansGranted ?? 0);
+        const netProfit = (manager.installments?.netProfit ?? 0) + (manager.gracePeriod?.netProfit ?? 0);
+        const defaultedLoansCount = (manager.installments?.defaultedLoans?.length ?? 0) + (manager.gracePeriod?.defaultedLoans?.length ?? 0);
+        const idleCapital = manager.idleFunds?.totalIdleFunds ?? 0;
+
+        htmlBody = `
+             <style>
+                .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; }
+                .summary-card { padding: 1rem; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9; }
+                .summary-card h3 { margin: 0 0 0.5rem 0; font-size: 1.1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; }
+                .summary-card p { margin: 0.25rem 0; font-size: 1rem; display: flex; justify-content: space-between; }
+                .summary-card p span:last-child { font-weight: bold; }
+            </style>
+            <h2>ملخص المكتب لـ ${manager.managerName}</h2>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h3>المحفظة</h3>
+                    <p><span>إجمالي المقترضين:</span> <span>${manager.totalBorrowers}</span></p>
+                    <p><span>إجمالي المستثمرين:</span> <span>${manager.filteredInvestors?.length ?? 0}</span></p>
+                </div>
+                <div class="summary-card">
+                    <h3>المالية</h3>
+                    <p><span>قيمة القروض الممنوحة:</span> <span>${formatCurrency(totalLoanAmount)}</span></p>
+                    <p><span>إجمالي الاستثمارات:</span> <span>${formatCurrency(manager.totalInvestments)}</span></p>
+                </div>
+                 <div class="summary-card">
+                    <h3>الأداء والسيولة</h3>
+                    <p><span>صافي الربح المحقق:</span> <span>${formatCurrency(netProfit)}</span></p>
+                    <p><span>رأس المال الخامل:</span> <span>${formatCurrency(idleCapital)}</span></p>
+                </div>
+                 <div class="summary-card">
+                    <h3>المهام والمخاطر</h3>
+                    <p><span>الطلبات المعلقة:</span> <span>${manager.pendingRequestsCount}</span></p>
+                    <p><span>القروض المتعثرة:</span> <span>${defaultedLoansCount}</span></p>
+                </div>
+            </div>
+        `;
+    }
+
+    exportToPrintableHtml(`ملخص اليوم`, currentUser, { htmlBody });
+  };
+
+
   if (!currentUser) {
       return <PageSkeleton />;
   }
@@ -551,7 +631,7 @@ export default function DashboardPage() {
   }
 
   if (metrics.role === 'مدير النظام') {
-    return <SystemAdminDashboard metrics={metrics} />;
+    return <SystemAdminDashboard metrics={metrics} onExport={handleExport} />;
   }
 
   if (metrics.role === 'مستثمر') {
@@ -576,6 +656,10 @@ export default function DashboardPage() {
               نظرة عامة على أداء منصتك المالية.
             </p>
           </div>
+          <Button onClick={handleExport} disabled={!metrics}>
+            <Download className="ml-2 h-4 w-4" />
+            تصدير ملخص اليوم
+          </Button>
         </header>
 
         {showSensitiveData && (
@@ -600,8 +684,6 @@ export default function DashboardPage() {
                 />
             </div>
         )}
-
-        <DailySummary metrics={metrics} />
         
         {showIdleFundsReport && <IdleFundsCard metrics={idleFunds} />}
 
