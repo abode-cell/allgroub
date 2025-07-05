@@ -36,15 +36,11 @@ const GenerateDailySummaryInputSchema = z.object({
 });
 export type GenerateDailySummaryInput = z.infer<typeof GenerateDailySummaryInputSchema>;
 
-// This is the final object structure the application expects.
+// This is the final object structure the application expects, and what we'll ask the model for.
 const GenerateDailySummaryOutputSchema = z.object({
   summary: z.string().describe('ملخص يومي مفصل ومنسق بصيغة ماركداون باللغة العربية. استخدم العناوين والنقاط (*) والعلامات (**) لتغميق النص.'),
 });
 export type GenerateDailySummaryOutput = z.infer<typeof GenerateDailySummaryOutputSchema>;
-
-// This is the direct output we expect from the model: a simple string.
-const MarkdownSummarySchema = z.string().describe('A detailed daily summary formatted in Arabic markdown. Use headings, bullet points (*), and bold markers (**).');
-
 
 export async function generateDailySummary(
   input: GenerateDailySummaryInput
@@ -56,11 +52,13 @@ const dailySummaryPrompt = ai.definePrompt({
   name: 'dailySummaryPrompt',
   model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: GenerateDailySummaryInputSchema},
-  // Tell the model to output a simple string, not JSON.
-  output: {schema: MarkdownSummarySchema}, 
+  // We now ask the model to directly produce the final JSON object.
+  // This is a more robust approach than asking for a raw string and wrapping it manually.
+  output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
 مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
+يجب وضع الملخص بالكامل داخل حقل 'summary' في كائن JSON الناتج.
 
 {{#if isAdmin}}
 أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا شاملاً عن صحة المنصة وأدائها.
@@ -100,20 +98,19 @@ const generateDailySummaryFlow = ai.defineFlow(
   {
     name: 'generateDailySummaryFlow',
     inputSchema: GenerateDailySummaryInputSchema,
-    // The flow still promises to return the final object structure.
     outputSchema: GenerateDailySummaryOutputSchema,
   },
   async input => {
-    // Get the raw markdown string from the prompt.
-    const { output: markdownSummary } = await dailySummaryPrompt(input);
+    // Call the prompt and directly return the structured output.
+    // This is simpler and more reliable than manual string manipulation.
+    const { output } = await dailySummaryPrompt(input);
 
-    // If the model fails to generate anything, return a safe fallback object.
-    if (!markdownSummary) {
+    // If the model fails to generate a valid output object, Genkit will throw an error,
+    // which will be caught by the calling component. We add a fallback here for safety.
+    if (!output || !output.summary) {
         return { summary: 'لم يتمكن الذكاء الاصطناعي من إنشاء ملخص صالح. يرجى المحاولة مرة أخرى.' };
     }
     
-    // Wrap the successful string output in the final object structure.
-    // This is 100% reliable.
-    return { summary: markdownSummary };
+    return output;
   }
 );
