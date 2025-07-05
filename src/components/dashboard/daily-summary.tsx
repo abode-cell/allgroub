@@ -57,22 +57,15 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
         const result = await generateDailySummary({ context: summaryContext });
         
         if (result && result.summary) {
-          // Defensively check if the returned summary is actually one of our known error messages from the flow.
-          const isErrorSummary = result.summary.includes('فشل إنشاء الملخص') || result.summary.includes('لم يتمكن الذكاء الاصطناعي');
-          
-          if (isErrorSummary) {
-              setError(result.summary);
-              setSummary('');
-          } else {
-              setSummary(result.summary);
-          }
+            setSummary(result.summary);
         } else {
-          setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
+          setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص فارغ.');
         }
 
-      } catch (e) {
+      } catch (e: any) {
         console.error("Error calling generateDailySummary:", e);
-        setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
+        const message = e.message || 'حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.';
+        setError(message);
       }
     });
   }, [metrics]);
