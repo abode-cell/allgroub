@@ -48,14 +48,16 @@ export async function generateDailySummary(
   return generateDailySummaryFlow(input);
 }
 
-const adminSummaryPrompt = ai.definePrompt({
-  name: 'adminSummaryPrompt',
+const dailySummaryPrompt = ai.definePrompt({
+  name: 'dailySummaryPrompt',
   model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: GenerateDailySummaryInputSchema},
   output: {schema: GenerateDailySummaryOutputSchema},
   prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
 مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
 استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
+
+{{#if isAdmin}}
 أنت تتحدث إلى مدير النظام. قدم ملخصًا إداريًا شاملاً عن صحة المنصة وأدائها.
 
 **نظرة عامة على النظام**
@@ -69,17 +71,8 @@ const adminSummaryPrompt = ai.definePrompt({
 
 **الدعم الفني**
 * **طلبات الدعم الجديدة:** **{{{adminNewSupportTicketsCount}}}** طلب
-`,
-});
 
-const officeManagerSummaryPrompt = ai.definePrompt({
-  name: 'officeManagerSummaryPrompt',
-  model: 'googleai/gemini-1.5-flash-latest',
-  input: {schema: GenerateDailySummaryInputSchema},
-  output: {schema: GenerateDailySummaryOutputSchema},
-  prompt: `أنت مساعد ذكاء اصطناعي لـ {{userName}}. دوره هو {{userRole}}.
-مهمتك هي إنشاء ملخص يومي مفصل ومنظم باللغة العربية، باستخدام صيغة ماركداون.
-استخدم العناوين والنقاط (*) لتوضيح الأرقام والأنشطة الأكثر أهمية. لا تضف أي عبارات ترحيبية أو ختامية.
+{{else}}
 أنت تتحدث إلى مدير مكتب. قدم ملخصًا مفصلاً عن الأداء المالي والتشغيلي لمكتبه.
 
 **نظرة عامة على النشاط**
@@ -94,9 +87,9 @@ const officeManagerSummaryPrompt = ai.definePrompt({
 * **القروض المتعثرة:** **{{{officeManagerDefaultedLoansCount}}}** قرض
 * **رأس المال النشط:** **{{{officeManagerActiveCapital}}}** ريال
 * **رأس المال الخامل:** **{{{officeManagerIdleCapital}}}** ريال
+{{/if}}
 `,
 });
-
 
 const generateDailySummaryFlow = ai.defineFlow(
   {
@@ -105,16 +98,10 @@ const generateDailySummaryFlow = ai.defineFlow(
     outputSchema: GenerateDailySummaryOutputSchema,
   },
   async input => {
-    let result;
-    if (input.isAdmin) {
-      result = await adminSummaryPrompt(input);
-    } else {
-      result = await officeManagerSummaryPrompt(input);
+    const {output} = await dailySummaryPrompt(input);
+    if (!output) {
+       return { summary: '' };
     }
-
-    if (!result.output) {
-      return { summary: '' };
-    }
-    return result.output;
+    return output;
   }
 );
