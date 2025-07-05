@@ -28,26 +28,27 @@ export function DailySummary() {
     graceTotalProfitPercentage,
     graceInvestorSharePercentage,
   } = useDataState();
-  const role = currentUser?.role;
 
-  const metrics = useMemo(() => {
+  const metrics: ServiceMetrics | null = useMemo(() => {
     if (!currentUser) return null;
+    setError(null);
     try {
-        return calculateAllDashboardMetrics({
-            borrowers: allBorrowers,
-            investors: allInvestors,
-            users,
-            currentUser,
-            config: {
-                investorSharePercentage,
-                graceTotalProfitPercentage,
-                graceInvestorSharePercentage,
-            }
-        });
+      const result = calculateAllDashboardMetrics({
+        borrowers: allBorrowers,
+        investors: allInvestors,
+        users,
+        currentUser,
+        config: {
+          investorSharePercentage,
+          graceTotalProfitPercentage,
+          graceInvestorSharePercentage,
+        }
+      });
+      return result;
     } catch (e) {
-        console.error("Error calculating summary metrics:", e);
-        setError("حدث خطأ أثناء حساب بيانات الملخص.");
-        return null;
+      console.error("Failed to calculate dashboard metrics for summary:", e);
+      setError("حدث خطأ أثناء حساب بيانات الملخص. قد تكون بعض البيانات غير متناسقة.");
+      return null;
     }
   }, [allBorrowers, allInvestors, users, currentUser, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
@@ -59,47 +60,39 @@ export function DailySummary() {
       setSummary('');
 
       try {
-        let payload: GenerateDailySummaryInput;
+        const isAdmin = metrics.role === 'مدير النظام';
+        
+        // Data for the prompt is now taken from the unified metrics object
+        const { admin, manager } = metrics;
+        
+        // These are calculated here as they depend on data not included in the main service for performance reasons.
+        const adminNewSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
+        const adminTotalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
 
-        if (metrics.role === 'مدير النظام') {
-           const adminMetrics = metrics.admin;
-           const adminNewSupportTicketsCount = supportTickets.filter(t => !t.isRead).length;
-           const adminTotalActiveLoansCount = allBorrowers.filter(b => b.status === 'منتظم' || b.status === 'متأخر').length;
-          
-          payload = {
-            isAdmin: true,
+        const payload: GenerateDailySummaryInput = {
+            isAdmin: isAdmin,
             userName: currentUser.name,
             userRole: currentUser.role,
-            adminTotalUsersCount: adminMetrics.totalUsersCount,
-            adminActiveManagersCount: adminMetrics.activeManagersCount,
-            adminPendingManagersCount: adminMetrics.pendingManagersCount,
-            adminTotalCapital: formatCurrency(adminMetrics.totalCapital),
+            
+            // Admin data - will be zeroed out from service if not admin
+            adminTotalUsersCount: admin.totalUsersCount,
+            adminActiveManagersCount: admin.activeManagersCount,
+            adminPendingManagersCount: admin.pendingManagersCount,
+            adminTotalCapital: formatCurrency(admin.totalCapital),
             adminTotalActiveLoansCount: adminTotalActiveLoansCount,
             adminNewSupportTicketsCount: adminNewSupportTicketsCount,
-          };
 
-        } else if (metrics.role === 'مدير المكتب' || metrics.role === 'مساعد مدير المكتب' || metrics.role === 'موظف') {
-            const { installments, gracePeriod, idleFunds } = metrics;
-            const officeManagerDefaultedLoansCount = (installments?.defaultedLoans?.length ?? 0) + (gracePeriod?.defaultedLoans?.length ?? 0);
-            
-            payload = {
-              isAdmin: false,
-              userName: currentUser.name,
-              userRole: currentUser.role,
-              officeManagerTotalBorrowers: (installments?.loans?.length ?? 0) + (gracePeriod?.loans?.length ?? 0),
-              officeManagerTotalInvestors: metrics.filteredInvestors.length,
-              officeManagerTotalLoansGranted: formatCurrency((installments?.loansGranted ?? 0) + (gracePeriod?.loansGranted ?? 0)),
-              officeManagerTotalInvestments: formatCurrency(metrics.totalInvestments),
-              officeManagerPendingRequestsCount: metrics.pendingRequestsCount,
-              officeManagerTotalNetProfit: formatCurrency((installments?.netProfit ?? 0) + (gracePeriod?.netProfit ?? 0)),
-              officeManagerDefaultedLoansCount: officeManagerDefaultedLoansCount,
-              officeManagerActiveCapital: formatCurrency((metrics.capital?.total ?? 0) - (idleFunds?.totalIdleFunds ?? 0)),
-              officeManagerIdleCapital: formatCurrency(idleFunds?.totalIdleFunds ?? 0),
-            };
-        } else {
-             setError('دور المستخدم غير مدعوم للملخص اليومي.');
-             return;
-        }
+            // Manager data - will be zeroed out from service if admin
+            officeManagerTotalBorrowers: manager.installments.loans.length + manager.gracePeriod.loans.length,
+            officeManagerTotalInvestors: manager.filteredInvestors.length,
+            officeManagerTotalLoansGranted: formatCurrency(manager.installments.loansGranted + manager.gracePeriod.loansGranted),
+            officeManagerTotalInvestments: formatCurrency(manager.totalInvestments),
+            officeManagerPendingRequestsCount: manager.pendingRequestsCount,
+            officeManagerTotalNetProfit: formatCurrency(manager.installments.netProfit + manager.gracePeriod.netProfit),
+            officeManagerDefaultedLoansCount: manager.installments.defaultedLoans.length + manager.gracePeriod.defaultedLoans.length,
+            officeManagerActiveCapital: formatCurrency(manager.capital.total - manager.idleFunds.totalIdleFunds),
+            officeManagerIdleCapital: formatCurrency(manager.idleFunds.totalIdleFunds),
+        };
         
         const result = await generateDailySummary(payload);
         

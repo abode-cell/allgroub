@@ -4,7 +4,7 @@
  * This moves the business logic from the component to a dedicated, testable service.
  */
 
-import type { Borrower, Investor, User } from '@/lib/types';
+import type { Borrower, Investor, User, UserRole } from '@/lib/types';
 import { getBorrowerStatus } from '@/lib/utils';
 
 interface CalculationInput {
@@ -19,7 +19,28 @@ interface CalculationInput {
     };
 }
 
-export type DashboardMetricsOutput = ReturnType<typeof calculateAllDashboardMetrics>;
+// Define the shape for each sub-metric object for clarity
+type AdminMetrics = ReturnType<typeof calculateSystemAdminMetrics>;
+type ManagerCapitalMetrics = { total: number; installments: number; grace: number; };
+type InstallmentsMetrics = ReturnType<typeof calculateInstallmentsMetrics>;
+type GracePeriodMetrics = ReturnType<typeof calculateGracePeriodMetrics>;
+type IdleFundsMetrics = ReturnType<typeof calculateIdleFundsMetrics>;
+
+// Define a unified output type that is always returned, ensuring a consistent shape.
+export type DashboardMetricsOutput = {
+    role: UserRole;
+    admin: AdminMetrics;
+    manager: {
+        filteredBorrowers: Borrower[];
+        filteredInvestors: Investor[];
+        totalInvestments: number;
+        pendingRequestsCount: number;
+        capital: ManagerCapitalMetrics;
+        installments: InstallmentsMetrics;
+        gracePeriod: GracePeriodMetrics;
+        idleFunds: IdleFundsMetrics;
+    }
+};
 
 
 export function calculateInvestorFinancials(investor: Investor, allBorrowers: Borrower[]) {
@@ -131,7 +152,7 @@ function calculateInstallmentsMetrics(borrowers: Borrower[], investors: Investor
     const installmentLoans = borrowers.filter(b => b.loanType === 'اقساط');
     if (installmentLoans.length === 0) {
         return {
-            loans: [], loansGranted: 0, defaultedFunds: 0, defaultRate: 0, defaultedProfits: 0,
+            loans: [], loansGranted: 0, defaultedLoans: [], defaultedFunds: 0, defaultRate: 0, defaultedProfits: 0,
             netProfit: 0, totalInstitutionProfit: 0, totalInvestorsProfit: 0,
             investorProfitsArray: [], dueDebts: 0, profitableLoansForAccordion: []
         };
@@ -254,9 +275,9 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     const gracePeriodLoans = borrowers.filter(b => b.loanType === 'مهلة');
      if (gracePeriodLoans.length === 0) {
         return {
-            loans: [], loansGranted: 0, defaultedFunds: 0, defaultRate: 0, defaultedProfits: 0,
+            loans: [], loansGranted: 0, defaultedLoans: [], defaultedFunds: 0, defaultRate: 0, defaultedProfits: 0,
             totalDiscounts: 0, dueDebts: 0, netProfit: 0, totalInstitutionProfit: 0,
-            totalInvestorsProfit: 0, investorProfitsArray: [], profitableLoansForAccordion: [], defaultedLoans: []
+            totalInvestorsProfit: 0, investorProfitsArray: [], profitableLoansForAccordion: []
         };
     }
     const profitableLoans = gracePeriodLoans.filter(
@@ -436,24 +457,55 @@ function calculateIdleFundsMetrics(investors: Investor[], allBorrowers: Borrower
     return { idleInvestors: idleInvestorsWithType, totalIdleFunds };
 }
 
-export function calculateAllDashboardMetrics(input: CalculationInput) {
+// Helper to get a zeroed-out state for a metric object to ensure consistent return shapes.
+const getDefaultMetrics = (input: CalculationInput) => {
+    const { filteredBorrowers, filteredInvestors, employeeIds } = getFilteredData(input);
+    const emptyBorrowers: Borrower[] = [];
+    const emptyInvestors: Investor[] = [];
+
+    return {
+        admin: {
+            pendingManagers: [], activeManagersCount: 0, totalCapital: 0, installmentCapital: 0,
+            graceCapital: 0, totalUsersCount: 0, pendingManagersCount: 0,
+        },
+        manager: {
+            filteredBorrowers,
+            filteredInvestors,
+            totalInvestments: 0,
+            pendingRequestsCount: 0,
+            capital: { total: 0, installments: 0, grace: 0 },
+            installments: calculateInstallmentsMetrics(emptyBorrowers, emptyInvestors, input.config),
+            gracePeriod: calculateGracePeriodMetrics(emptyBorrowers, emptyInvestors, input.config),
+            idleFunds: calculateIdleFundsMetrics(emptyInvestors, emptyBorrowers),
+        }
+    };
+};
+
+// Main export function, now returns a unified object shape for stability.
+export function calculateAllDashboardMetrics(input: CalculationInput): DashboardMetricsOutput {
     const { currentUser, users, investors, borrowers, config } = input;
     const { role } = currentUser;
+
+    const defaults = getDefaultMetrics(input);
 
     if (role === 'مدير النظام') {
         const adminMetrics = calculateSystemAdminMetrics(users, investors, borrowers);
         return {
-            role: 'مدير النظام' as const,
+            role: role,
             admin: adminMetrics,
+            manager: defaults.manager, // Return default manager metrics
         };
     }
     
     if (role === 'مستثمر') {
-        return {
-            role: 'مستثمر' as const,
+         return {
+            role: role,
+            admin: defaults.admin,
+            manager: defaults.manager,
         };
     }
-
+    
+    // Logic for Manager and subordinates
     const { filteredBorrowers, filteredInvestors, employeeIds } = getFilteredData(input);
     
     const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
@@ -474,10 +526,8 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
     const pendingBorrowerRequests = borrowers.filter(b => b.status === 'معلق' && b.submittedBy && employeeIds.includes(b.submittedBy));
     const pendingInvestorRequests = investors.filter(i => i.status === 'معلق' && i.submittedBy && employeeIds.includes(i.submittedBy));
     const pendingRequestsCount = pendingBorrowerRequests.length + pendingInvestorRequests.length;
-
-
-    return {
-        role: role,
+    
+    const managerMetrics = {
         filteredBorrowers,
         filteredInvestors,
         totalInvestments,
@@ -486,5 +536,11 @@ export function calculateAllDashboardMetrics(input: CalculationInput) {
         installments: calculateInstallmentsMetrics(filteredBorrowers, filteredInvestors, config),
         gracePeriod: calculateGracePeriodMetrics(filteredBorrowers, filteredInvestors, config),
         idleFunds: calculateIdleFundsMetrics(filteredInvestors, borrowers),
+    };
+
+    return {
+        role: role,
+        admin: defaults.admin, // Return default admin metrics
+        manager: managerMetrics,
     };
 }
