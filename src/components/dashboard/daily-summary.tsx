@@ -57,13 +57,21 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
         const result = await generateDailySummary({ context: summaryContext });
         
         if (result && result.summary) {
-          setSummary(result.summary);
+          // Defensively check if the returned summary is actually one of our known error messages from the flow.
+          const isErrorSummary = result.summary.includes('فشل إنشاء الملخص') || result.summary.includes('لم يتمكن الذكاء الاصطناعي');
+          
+          if (isErrorSummary) {
+              setError(result.summary);
+              setSummary('');
+          } else {
+              setSummary(result.summary);
+          }
         } else {
           setError('لم يتمكن الذكاء الاصطناعي من إنشاء ملخص.');
         }
 
       } catch (e) {
-        console.error(e);
+        console.error("Error calling generateDailySummary:", e);
         setError('حدث خطأ أثناء إنشاء الملخص. يرجى المحاولة مرة أخرى.');
       }
     });
@@ -93,7 +101,7 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
         </Button>
       </CardHeader>
       <CardContent>
-        {isPending && !summary ? (
+        {isPending && !summary && !error ? (
           <div className="space-y-2">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-5/6" />
@@ -107,11 +115,10 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : (
-          <div className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap p-4 bg-muted rounded-md border text-right">
-            {summary.split('**').map((part, index) =>
-              index % 2 === 1 ? <strong key={index}>{part}</strong> : <span key={index}>{part}</span>
-            )}
-          </div>
+          <div
+            className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap p-4 bg-muted rounded-md border text-right"
+            dangerouslySetInnerHTML={{ __html: summary.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br />') }}
+          />
         )}
       </CardContent>
     </Card>
