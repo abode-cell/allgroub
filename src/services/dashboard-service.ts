@@ -21,7 +21,7 @@ interface CalculationInput {
 
 // Define the shape for each sub-metric object for clarity
 type AdminMetrics = ReturnType<typeof calculateSystemAdminMetrics>;
-type ManagerCapitalMetrics = { total: number; installments: number; grace: number; };
+type ManagerCapitalMetrics = { total: number; installments: number; grace: number; active: number; };
 type InstallmentsMetrics = ReturnType<typeof calculateInstallmentsMetrics>;
 type GracePeriodMetrics = ReturnType<typeof calculateGracePeriodMetrics>;
 type IdleFundsMetrics = ReturnType<typeof calculateIdleFundsMetrics>;
@@ -473,7 +473,7 @@ const getDefaultMetrics = (input: CalculationInput) => {
             filteredInvestors,
             totalInvestments: 0,
             pendingRequestsCount: 0,
-            capital: { total: 0, installments: 0, grace: 0 },
+            capital: { total: 0, installments: 0, grace: 0, active: 0 },
             installments: calculateInstallmentsMetrics(emptyBorrowers, emptyInvestors, input.config),
             gracePeriod: calculateGracePeriodMetrics(emptyBorrowers, emptyInvestors, input.config),
             idleFunds: calculateIdleFundsMetrics(emptyInvestors, emptyBorrowers),
@@ -509,12 +509,13 @@ export function calculateAllDashboardMetrics(input: CalculationInput): Dashboard
     const { filteredBorrowers, filteredInvestors, employeeIds } = getFilteredData(input);
     
     const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
-        const financials = calculateInvestorFinancials(investor, borrowers);
+        const financials = calculateInvestorFinancials(investor, filteredBorrowers);
         acc.total += financials.totalCapitalInSystem;
         acc.installments += financials.idleInstallmentCapital;
         acc.grace += financials.idleGraceCapital;
+        acc.active += financials.activeCapital;
         return acc;
-    }, { total: 0, installments: 0, grace: 0 });
+    }, { total: 0, installments: 0, grace: 0, active: 0 });
 
     const totalInvestments = filteredInvestors.reduce((total, investor) => {
         const capitalDeposits = (investor.transactionHistory || [])
@@ -535,7 +536,7 @@ export function calculateAllDashboardMetrics(input: CalculationInput): Dashboard
         capital: capitalMetrics,
         installments: calculateInstallmentsMetrics(filteredBorrowers, filteredInvestors, config),
         gracePeriod: calculateGracePeriodMetrics(filteredBorrowers, filteredInvestors, config),
-        idleFunds: calculateIdleFundsMetrics(filteredInvestors, borrowers),
+        idleFunds: calculateIdleFundsMetrics(filteredInvestors, filteredBorrowers),
     };
 
     return {

@@ -31,7 +31,7 @@ export function DailySummary() {
 
   const metrics: ServiceMetrics | null = useMemo(() => {
     if (!currentUser) return null;
-    setError(null);
+    setError('');
     try {
       const result = calculateAllDashboardMetrics({
         borrowers: allBorrowers,
@@ -90,7 +90,7 @@ export function DailySummary() {
             officeManagerPendingRequestsCount: manager.pendingRequestsCount,
             officeManagerTotalNetProfit: formatCurrency(manager.installments.netProfit + manager.gracePeriod.netProfit),
             officeManagerDefaultedLoansCount: manager.installments.defaultedLoans.length + manager.gracePeriod.defaultedLoans.length,
-            officeManagerActiveCapital: formatCurrency(manager.capital.total - manager.idleFunds.totalIdleFunds),
+            officeManagerActiveCapital: formatCurrency(manager.capital.active),
             officeManagerIdleCapital: formatCurrency(manager.idleFunds.totalIdleFunds),
         };
         
