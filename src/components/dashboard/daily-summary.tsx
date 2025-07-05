@@ -33,7 +33,7 @@ export function DailySummary({ metrics }: { metrics: ServiceMetrics | null }) {
         const payload: GenerateDailySummaryInput = {
           isSystemAdmin,
           isOfficeRole,
-          managerName: metrics.manager?.filteredInvestors[0]?.name,
+          managerName: metrics.manager?.managerName,
           // Admin fields with safe fallbacks
           adminTotalUsersCount: metrics.admin?.totalUsersCount ?? 0,
           adminActiveManagersCount: metrics.admin?.activeManagersCount ?? 0,

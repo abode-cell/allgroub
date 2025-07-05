@@ -29,6 +29,7 @@ export type DashboardMetricsOutput = {
     role: UserRole;
     admin: AdminMetrics;
     manager: {
+        managerName: string;
         filteredBorrowers: Borrower[];
         filteredInvestors: Investor[];
         totalBorrowers: number;
@@ -468,6 +469,7 @@ const getDefaultMetrics = (): DashboardMetricsOutput => {
             graceCapital: 0, totalUsersCount: 0, pendingManagersCount: 0, totalActiveLoans: 0, newSupportTickets: 0,
         },
         manager: {
+            managerName: '',
             filteredBorrowers: [],
             filteredInvestors: [],
             totalBorrowers: 0,
@@ -505,6 +507,10 @@ export function calculateAllDashboardMetrics(input: CalculationInput): Dashboard
     
     const { filteredBorrowers, filteredInvestors, employeeIds } = getFilteredData(input);
     
+    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    const managerUser = users.find(u => u.id === managerId);
+    const managerName = managerUser?.name || '';
+
     const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
         const financials = calculateInvestorFinancials(investor, filteredBorrowers);
         acc.total += financials.totalCapitalInSystem;
@@ -526,6 +532,7 @@ export function calculateAllDashboardMetrics(input: CalculationInput): Dashboard
     const pendingRequestsCount = pendingBorrowerRequests.length + pendingInvestorRequests.length;
     
     const managerMetrics = {
+        managerName,
         filteredBorrowers,
         filteredInvestors,
         totalBorrowers: filteredBorrowers.length,
