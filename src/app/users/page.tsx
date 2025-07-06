@@ -89,7 +89,6 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { formatCurrency } from '@/lib/utils';
 import React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -129,6 +128,16 @@ const assistantPermissionsConfig: {
   { key: 'useCalculator', label: 'استخدام الحاسبة', description: 'السماح باستخدام حاسبة القروض والأرباح.' },
   { key: 'accessSettings', label: 'الوصول للإعدادات', description: 'السماح بالوصول إلى صفحة الإعدادات الإدارية.' },
   { key: 'manageEmployeePermissions', label: 'إدارة صلاحيات الموظفين', description: 'تمكين المساعد من تفعيل أو تعطيل صلاحيات الموظفين.' },
+];
+
+const employeePermissionsConfig: {
+  key: PermissionKey;
+  label: string;
+  description: string;
+}[] = [
+  { key: 'manageInvestors', label: 'إدارة المستثمرين', description: 'السماح بإضافة وتعديل المستثمرين.' },
+  { key: 'manageBorrowers', label: 'إدارة القروض', description: 'السماح بإضافة وتعديل القروض.' },
+  { key: 'useCalculator', label: 'استخدام الحاسبة', description: 'السماح باستخدام حاسبة القروض والأرباح.' },
 ];
 
 const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void }) => {
@@ -234,7 +243,7 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
 
 export default function UsersPage() {
   const { currentUser, users, investors } = useDataState();
-  const { updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, addNewSubordinateUser, updateUserCredentials } =
+  const { updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, updateEmployeePermission, addNewSubordinateUser, updateUserCredentials } =
     useDataActions();
   const router = useRouter();
   const { toast } = useToast();
@@ -728,7 +737,7 @@ export default function UsersPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className='flex items-center gap-2'>
-                <Users2 className="h-6 w-6 text-primary" />
+                <UserCog className="h-6 w-6 text-primary" />
                 إدارة المساعدين ({myAssistants.length} / {currentUser.assistantLimit ?? 0})
               </CardTitle>
               <CardDescription>
@@ -818,11 +827,11 @@ export default function UsersPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className='flex items-center gap-2'>
-                  <UserCog className="h-6 w-6 text-primary" />
+                  <Users2 className="h-6 w-6 text-primary" />
                   إدارة الموظفين ({myEmployees.length} / {managerForSettings?.employeeLimit ?? 0})
               </CardTitle>
               <CardDescription>
-                عرض وإدارة الموظفين المرتبطين بالمكتب.
+                عرض وإدارة الموظفين المرتبطين بالمكتب وصلاحياتهم.
               </CardDescription>
             </div>
             {role === 'مدير المكتب' && (
@@ -917,48 +926,55 @@ export default function UsersPage() {
                 </CardContent>
             </Card>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>الاسم</TableHead>
-                  <TableHead className="text-center">الحالة</TableHead>
-                  <TableHead className="text-left">الإجراء</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {myEmployees.length > 0 ? (
-                  myEmployees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell>
-                        <div className="font-medium">{employee.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {employee.email}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={statusVariant[employee.status]}>
-                          {employee.status === 'نشط' ? (
-                            <CheckCircle className="w-3 h-3 ml-1" />
-                          ) : (
-                            <Hourglass className="w-3 h-3 ml-1" />
-                          )}
-                          {employee.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-left">
-                         <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center h-24">
-                       لا يوجد موظفون مرتبطون بهذا المكتب.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+             <Accordion type="single" collapsible className="w-full">
+                {myEmployees.map((employee) => (
+                  <AccordionItem value={employee.id} key={employee.id}>
+                       <AccordionPrimitive.Header className="flex">
+                        <AccordionTrigger className="flex-1 text-right p-4 hover:no-underline hover:bg-muted/50 rounded-t-md justify-start">
+                          <div className="flex flex-1 items-center justify-between">
+                              <div className="font-bold text-base">
+                                {employee.name}
+                              </div>
+                              <Badge variant={statusVariant[employee.status]}>
+                                {employee.status === 'نشط' ? (
+                                  <CheckCircle className="w-3 h-3 ml-1" />
+                                ) : (
+                                  <Hourglass className="w-3 h-3 ml-1" />
+                                )}
+                                {employee.status}
+                              </Badge>
+                          </div>
+                        </AccordionTrigger>
+                      </AccordionPrimitive.Header>
+                      <AccordionContent className="bg-muted/30 p-4">
+                          <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <UserActions user={employee} onDeleteClick={handleDeleteClick} onEditClick={handleEditCredsClick} />
+                            </div>
+                            <h4 className="font-semibold flex items-center gap-2">
+                                  <ShieldCheck className="h-5 w-5 text-primary" />
+                                  صلاحيات الموظف
+                            </h4>
+                            {employeePermissionsConfig.map((perm) => (
+                                <div key={perm.key} className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3 shadow-sm">
+                                    <div className="flex-1 space-y-0.5 overflow-hidden">
+                                        <Label htmlFor={`${perm.key}-${employee.id}`} className="font-medium">{perm.label}</Label>
+                                        <p className="text-xs text-muted-foreground">{perm.description}</p>
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                        <Switch
+                                            id={`${perm.key}-${employee.id}`}
+                                            checked={employee.permissions?.[perm.key] ?? false}
+                                            onCheckedChange={(checked) => updateEmployeePermission(employee.id, perm.key, checked)}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                          </div>
+                      </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
           </CardContent>
         </Card>
       )}

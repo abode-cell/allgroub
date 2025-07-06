@@ -75,7 +75,7 @@ type DataActions = {
   addBorrower: (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'
     >,
     investorIds: string[]
   ) => Promise<{ success: boolean; message: string }>;
@@ -121,6 +121,11 @@ type DataActions = {
   ) => void;
   updateAssistantPermission: (
     assistantId: string,
+    key: PermissionKey,
+    value: boolean
+  ) => void;
+  updateEmployeePermission: (
+    employeeId: string,
     key: PermissionKey,
     value: boolean
   ) => void;
@@ -748,7 +753,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBorrower = useCallback(
     async (borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'
     >,
     investorIds: string[]
   ): Promise<{ success: boolean; message: string }> => {
@@ -774,19 +779,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
 
             const isPending = borrower.status === 'معلق';
-            if (!isPending && investorIds.length === 0) {
+            if (!isPending && investorIds.length === 0 && !borrower.fundedBy) {
                  result = { success: false, message: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' };
                 toast({ variant: 'destructive', title: 'خطأ في التمويل', description: result.message });
                 return d;
             }
             
             const newId = `bor_${Date.now()}_${crypto.randomUUID()}`;
-            const fundedByDetails: { investorId: string; amount: number }[] = [];
+            const fundedByDetails: { investorId: string; amount: number }[] = borrower.fundedBy || [];
             let remainingAmountToFund = borrower.amount;
             
             let newInvestorsData = [...d.investors]; 
 
-            if(!isPending) {
+            if(!isPending && !borrower.fundedBy) {
                 const updatedInvestorsMap = new Map(newInvestorsData.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
 
                 for (const invId of investorIds) {
@@ -831,7 +836,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
             let newNotifications = d.notifications;
             const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-            if (fundedByDetails.length > 0) {
+            if (fundedByDetails.length > 0 && !borrower.fundedBy) {
                 fundedByDetails.forEach(funder => {
                     notificationsToQueue.push({
                         recipientId: funder.investorId,
@@ -905,14 +910,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         const newRemainingLoan: Borrower = {
             id: newLoanId,
-            name: `${originalBorrower.name} (مبلغ متبقٍ)`,
+            name: `${originalBorrower.name}`,
             phone: originalBorrower.phone,
             amount: remainingAmount,
             rate: 0,
             term: 0,
             date: new Date().toISOString(),
             loanType: 'مهلة',
-            status: 'معلق',
+            status: 'منتظم', // The new loan is active immediately.
+            fundedBy: originalBorrower.fundedBy, // Inherit funders.
             dueDate: new Date().toISOString().split('T')[0],
             submittedBy: originalBorrower.submittedBy,
             isNotified: false,
@@ -933,7 +939,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newBorrowers = d.borrowers.map(b => b.id === borrowerId ? updatedOriginalBorrower : b);
         newBorrowers.push(newRemainingLoan);
         
-        toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء طلب قرض جديد بالمبلغ المتبقي.' });
+        toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء قرض جديد بالمبلغ المتبقي.' });
 
         return { ...d, borrowers: newBorrowers };
     });
@@ -1217,7 +1223,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const newUser: User = {
                 id: newId, name: payload.name, email: payload.email, phone: payload.phone, password: payload.password,
                 role: role, status: 'نشط', managedBy: loggedInUser.id, photoURL: `https://placehold.co/40x40.png`, registrationDate: new Date().toISOString(),
-                permissions: isEmployee ? undefined : { manageInvestors: false, manageBorrowers: false, importData: false, viewReports: false, manageRequests: false, useCalculator: false, accessSettings: false, manageEmployeePermissions: false, viewIdleFundsReport: false },
+                permissions: {},
             };
             result = { success: true, message: `تمت إضافة ${isEmployee ? 'الموظف' : 'المساعد'} بنجاح.` };
             toast({ title: 'نجاح', description: result.message });
@@ -1543,7 +1549,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 delete updatedUser.allowEmployeeLoanEdits;
             }
             
-            if (newRole === 'مساعد مدير المكتب') {
+            if (newRole === 'مساعد مدير المكتب' || newRole === 'موظف') {
               updatedUser.permissions = updatedUser.permissions || {};
             } else {
               delete updatedUser.permissions;
@@ -1611,6 +1617,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
         )})
       });
       toast({ title: 'تم تحديث صلاحية المساعد بنجاح.' });
+    },
+    [userId, toast]
+  );
+
+  const updateEmployeePermission = useCallback(
+    (employeeId: string, key: PermissionKey, value: boolean) => {
+      setData(d => {
+        const loggedInUser = d.users.find(u => u.id === userId);
+         if (loggedInUser?.role !== 'مدير المكتب' && !(loggedInUser?.role === 'مساعد مدير المكتب' && loggedInUser.permissions?.manageEmployeePermissions)) {
+             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير صلاحيات الموظف.' });
+             return d;
+        }
+        return ({...d, users: d.users.map((u) =>
+          u.id === employeeId
+            ? { ...u, permissions: { ...(u.permissions || {}), [key]: value } }
+            : u
+        )})
+      });
+      toast({ title: 'تم تحديث صلاحية الموظف بنجاح.' });
     },
     [userId, toast]
   );
@@ -1826,6 +1851,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateUserLimits,
       updateManagerSettings,
       updateAssistantPermission,
+      updateEmployeePermission,
       requestCapitalIncrease,
       deleteUser,
       clearUserNotifications,
@@ -1866,6 +1892,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateUserLimits,
       updateManagerSettings,
       updateAssistantPermission,
+      updateEmployeePermission,
       requestCapitalIncrease,
       deleteUser,
       clearUserNotifications,
