@@ -756,7 +756,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addBorrower = useCallback(
     async (
-      borrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'>,
+      borrower: Omit<
+        Borrower,
+        'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'
+      >,
       investorIds: string[],
       force: boolean = false
     ): Promise<AddBorrowerResult> => {
@@ -783,29 +786,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
           
           if (!force) {
-              const existingBorrower = d.borrowers.find(b => b.nationalId === borrower.nationalId);
-              if (existingBorrower) {
-                  const isActive = existingBorrower.status !== 'مرفوض' && existingBorrower.paymentStatus !== 'تم السداد';
-                  if (isActive) {
-                      const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
-                      const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
+            const existingBorrower = d.borrowers.find(b => b.nationalId === borrower.nationalId);
+            if (existingBorrower) {
+                const isActive = existingBorrower.status !== 'مرفوض' && existingBorrower.paymentStatus !== 'تم السداد';
+                if (isActive) {
+                    const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
+                    const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
 
-                      if (manager && loggedInUser && manager.id !== (loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy)) {
-                          result = {
-                              success: false,
-                              message: 'عميل مكرر',
-                              isDuplicate: true,
-                              duplicateInfo: {
-                                  borrowerName: existingBorrower.name,
-                                  managerName: manager.name,
-                                  managerPhone: manager.phone || 'غير متوفر'
-                              }
-                          };
-                          return d;
-                      }
-                  }
-              }
-          }
+                    if (manager && loggedInUser && manager.id !== (loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy)) {
+                        result = {
+                            success: false,
+                            message: 'عميل مكرر',
+                            isDuplicate: true,
+                            duplicateInfo: {
+                                borrowerName: existingBorrower.name,
+                                managerName: manager.name,
+                                managerPhone: manager.phone || 'غير متوفر'
+                            }
+                        };
+                        return d;
+                    }
+                }
+            }
+        }
 
           const isPending = borrower.status === 'معلق';
           if (!isPending && investorIds.length === 0 && !borrower.fundedBy) {
