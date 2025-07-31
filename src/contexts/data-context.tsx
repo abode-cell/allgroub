@@ -792,8 +792,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if (isActive) {
                     const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
                     const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
+                    const loggedInManagerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
 
-                    if (manager && loggedInUser && manager.id !== (loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy)) {
+                    if (manager && manager.id !== loggedInManagerId) {
                         result = {
                             success: false,
                             message: 'عميل مكرر',
