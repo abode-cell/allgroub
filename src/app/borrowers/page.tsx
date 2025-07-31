@@ -165,14 +165,14 @@ export default function BorrowersPage() {
     setSelectedInvestors([]);
   };
 
-  const proceedToAddBorrower = (finalAmount: number, force: boolean = false) => {
+  const proceedToAddBorrower = (force: boolean = false) => {
     setIsSubmitting(true);
     const isInstallments = newBorrower.loanType === 'اقساط';
     const finalStatus = isPendingRequest ? 'معلق' : 'منتظم';
 
     addBorrower({
       ...newBorrower,
-      amount: finalAmount,
+      amount: Number(newBorrower.amount),
       rate: (isEmployee || isAssistant) && isInstallments ? baseInterestRate : Number(newBorrower.rate),
       term: Number(newBorrower.term) || 0,
       status: finalStatus,
@@ -181,6 +181,7 @@ export default function BorrowersPage() {
     }, finalStatus === 'معلق' ? [] : selectedInvestors, force).then(result => {
         if(result.success) {
             setIsAddDialogOpen(false);
+            resetForm();
         } else if (result.isDuplicate && result.duplicateInfo) {
             setDuplicateInfo(result.duplicateInfo);
             setIsDuplicateBorrowerDialogOpen(true);
@@ -191,7 +192,7 @@ export default function BorrowersPage() {
     });
   };
 
-  const handleAddBorrower = (e: React.FormEvent, force: boolean = false) => {
+  const handleAddBorrower = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     const isInstallments = newBorrower.loanType === 'اقساط';
@@ -203,7 +204,7 @@ export default function BorrowersPage() {
     }
     
     if (isPendingRequest) {
-      proceedToAddBorrower(Number(newBorrower.amount), force);
+      proceedToAddBorrower();
       return;
     }
 
@@ -233,15 +234,12 @@ export default function BorrowersPage() {
       return;
     }
 
-    proceedToAddBorrower(loanAmount, force);
+    proceedToAddBorrower();
   };
 
   const handleForceAddBorrower = () => {
-    setIsSubmitting(true);
-    // Directly call the proceed function with force flag
-    const loanAmount = Number(newBorrower.amount);
-    proceedToAddBorrower(loanAmount, true);
-    setIsDuplicateBorrowerDialogOpen(false); // Close this dialog
+    setIsDuplicateBorrowerDialogOpen(false);
+    proceedToAddBorrower(true);
   };
   
   if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
@@ -582,7 +580,7 @@ export default function BorrowersPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
-                <AlertDialogAction onClick={() => proceedToAddBorrower(availableFunds)}>
+                <AlertDialogAction onClick={() => proceedToAddBorrower()}>
                   المتابعة على أي حال
                 </AlertDialogAction>
             </AlertDialogFooter>

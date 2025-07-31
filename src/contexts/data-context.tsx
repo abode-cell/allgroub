@@ -772,6 +772,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     force: boolean = false,
   ): Promise<AddBorrowerResult> => {
         let result: AddBorrowerResult = { success: false, message: 'فشل غير متوقع' };
+        
         setData(d => {
             const loggedInUser = d.users.find(u => u.id === userId);
             if (!loggedInUser) {
@@ -797,8 +798,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if (existingBorrower) {
                     const isActive = existingBorrower.status !== 'مرفوض' && existingBorrower.paymentStatus !== 'تم السداد';
                     if (isActive) {
-                        const manager = d.users.find(u => u.role === 'مدير المكتب' && u.id === existingBorrower.submittedBy) || d.users.find(u => u.id === existingBorrower.submittedBy);
-                        if (manager && manager.id !== loggedInUser.id && manager.id !== loggedInUser.managedBy) {
+                        const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
+                        const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
+
+                        if (manager && loggedInUser && manager.id !== loggedInUser.id && manager.id !== loggedInUser.managedBy) {
                             result = {
                                 success: false,
                                 message: 'عميل مكرر',
@@ -809,7 +812,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
                                     managerPhone: manager.phone || 'غير متوفر'
                                 }
                             };
-                            // Don't toast here, let the UI handle the dialog
                             return d;
                         }
                     }

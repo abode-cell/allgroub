@@ -146,3 +146,24 @@ export type NewInvestorPayload = {
     installmentProfitShare: number;
     gracePeriodProfitShare: number;
 };
+
+export type SupportTicket = {
+  id: string;
+  date: string;
+  fromUserId: string;
+  fromUserName: string;
+  fromUserEmail: string;
+  subject: string;
+  message: string;
+  isRead: boolean;
+  isReplied: boolean;
+};
+
+export type Notification = {
+  id: string;
+  date: string;
+  recipientId: string;
+  title: string;
+  description: string;
+  isRead: boolean;
+};
