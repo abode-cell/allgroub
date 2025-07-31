@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, AlertCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -117,29 +117,28 @@ export default function BorrowersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newBorrower, setNewBorrower] = useState<{
-    name: string;
-    phone: string;
-    amount: string;
-    rate: string;
-    term: string;
-    loanType: 'اقساط' | 'مهلة';
-    status: Borrower['status'];
-    dueDate: string;
-    discount: string;
-  }>({
+  
+  const initialBorrowerState = {
     name: '',
     phone: '',
+    nationalId: '',
     amount: '',
     rate: '',
     term: '',
-    loanType: 'اقساط',
-    status: 'منتظم',
+    loanType: 'اقساط' as 'اقساط' | 'مهلة',
+    status: 'منتظم' as Borrower['status'],
     dueDate: '',
     discount: '',
-  });
+  };
+  
+  const [newBorrower, setNewBorrower] = useState(initialBorrowerState);
+  
   const [isInsufficientFundsDialogOpen, setIsInsufficientFundsDialogOpen] = useState(false);
   const [availableFunds, setAvailableFunds] = useState(0);
+
+  const [isDuplicateBorrowerDialogOpen, setIsDuplicateBorrowerDialogOpen] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ borrowerName: string; managerName: string; managerPhone: string } | null>(null);
+
   
   const isEmployee = role === 'موظف';
   const isAssistant = role === 'مساعد مدير المكتب';
@@ -162,25 +161,29 @@ export default function BorrowersPage() {
   };
   
   const resetForm = () => {
-    setNewBorrower({ name: '', phone: '', amount: '', rate: '', term: '', loanType: 'اقساط', status: 'منتظم', dueDate: '', discount: '' });
+    setNewBorrower(initialBorrowerState);
     setSelectedInvestors([]);
   };
 
-  const proceedToAddBorrower = (finalAmount?: number) => {
+  const proceedToAddBorrower = (finalAmount: number, force: boolean = false) => {
     setIsSubmitting(true);
     const isInstallments = newBorrower.loanType === 'اقساط';
     const finalStatus = isPendingRequest ? 'معلق' : 'منتظم';
 
     addBorrower({
       ...newBorrower,
-      amount: finalAmount ?? Number(newBorrower.amount),
+      amount: finalAmount,
       rate: (isEmployee || isAssistant) && isInstallments ? baseInterestRate : Number(newBorrower.rate),
       term: Number(newBorrower.term) || 0,
       status: finalStatus,
       discount: Number(newBorrower.discount) || 0,
-    }, finalStatus === 'معلق' ? [] : selectedInvestors).then(result => {
+      nationalId: newBorrower.nationalId,
+    }, finalStatus === 'معلق' ? [] : selectedInvestors, force).then(result => {
         if(result.success) {
             setIsAddDialogOpen(false);
+        } else if (result.isDuplicate && result.duplicateInfo) {
+            setDuplicateInfo(result.duplicateInfo);
+            setIsDuplicateBorrowerDialogOpen(true);
         }
     }).finally(() => {
         setIsSubmitting(false);
@@ -188,19 +191,19 @@ export default function BorrowersPage() {
     });
   };
 
-  const handleAddBorrower = (e: React.FormEvent) => {
+  const handleAddBorrower = (e: React.FormEvent, force: boolean = false) => {
     e.preventDefault();
     setIsSubmitting(true);
     const isInstallments = newBorrower.loanType === 'اقساط';
     const rateForValidation = (isEmployee || isAssistant) && isInstallments ? baseInterestRate : newBorrower.rate;
 
-    if (!newBorrower.name || !newBorrower.amount || !newBorrower.phone || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
+    if (!newBorrower.name || !newBorrower.amount || !newBorrower.phone || !newBorrower.nationalId || !newBorrower.dueDate || (isInstallments && (!rateForValidation || !newBorrower.term))) {
       setIsSubmitting(false);
       return;
     }
     
     if (isPendingRequest) {
-      proceedToAddBorrower();
+      proceedToAddBorrower(Number(newBorrower.amount), force);
       return;
     }
 
@@ -230,7 +233,15 @@ export default function BorrowersPage() {
       return;
     }
 
-    proceedToAddBorrower();
+    proceedToAddBorrower(loanAmount, force);
+  };
+
+  const handleForceAddBorrower = () => {
+    setIsSubmitting(true);
+    // Directly call the proceed function with force flag
+    const loanAmount = Number(newBorrower.amount);
+    proceedToAddBorrower(loanAmount, true);
+    setIsDuplicateBorrowerDialogOpen(false); // Close this dialog
   };
   
   if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
@@ -323,7 +334,7 @@ export default function BorrowersPage() {
                 </Tooltip>
               </TooltipProvider>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => { if (isSubmitting) e.preventDefault(); }}>
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => { if (isSubmitting) e.preventDefault(); }}>
               <form onSubmit={handleAddBorrower}>
                 <DialogHeader>
                   <DialogTitle>{getDialogTitle()}</DialogTitle>
@@ -341,6 +352,19 @@ export default function BorrowersPage() {
                       placeholder="اسم المقترض"
                       className="col-span-3"
                       value={newBorrower.name}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="nationalId" className="text-right">
+                      رقم الهوية
+                    </Label>
+                    <Input
+                      id="nationalId"
+                      placeholder="رقم الهوية"
+                      className="col-span-3"
+                      value={newBorrower.nationalId}
                       onChange={handleInputChange}
                       required
                     />
@@ -559,6 +583,31 @@ export default function BorrowersPage() {
             <AlertDialogFooter>
                 <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
                 <AlertDialogAction onClick={() => proceedToAddBorrower(availableFunds)}>
+                  المتابعة على أي حال
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={isDuplicateBorrowerDialogOpen} onOpenChange={setIsDuplicateBorrowerDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertCircle className="text-amber-500" />
+                  تحذير: عميل مسجل مسبقًا
+                </AlertDialogTitle>
+                <AlertDialogDescription className="pt-2">
+                    العميل "{duplicateInfo?.borrowerName}" مسجل بالفعل لدى مكتب آخر:
+                    <div className="font-medium text-foreground my-2 p-2 bg-muted rounded-md">
+                        <p>اسم المكتب: {duplicateInfo?.managerName}</p>
+                        <p>جوال المكتب: {duplicateInfo?.managerPhone}</p>
+                    </div>
+                    هل ترغب في المتابعة وإضافة هذا العميل إلى مكتبك على أي حال؟
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setIsDuplicateBorrowerDialogOpen(false)}>إلغاء</AlertDialogCancel>
+                <AlertDialogAction onClick={handleForceAddBorrower}>
                   المتابعة على أي حال
                 </AlertDialogAction>
             </AlertDialogFooter>

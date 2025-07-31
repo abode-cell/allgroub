@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataState } from '@/contexts/data-context';
-import { Mail, Phone, Rocket, TrendingUp, Handshake } from 'lucide-react';
+import { Mail, Phone, Rocket, TrendingUp, Handshake, ShieldCheck } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 export default function LandingPage() {
@@ -132,10 +132,10 @@ export default function LandingPage() {
                                     أضف موظفيك ومساعديك، وتحكم في صلاحياتهم بدقة. يمكنك منحهم صلاحيات محددة مثل إضافة القروض أو إدارة المستثمرين، مما يضمن سير العمل بكفاءة وأمان.
                                 </p>
                             </div>
-                            <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">مرونة في التمويل</h3>
+                             <div className="grid gap-2">
+                                <h3 className="text-lg font-bold text-primary flex items-center gap-2"><ShieldCheck className="w-5 h-5" /> نظام ذكي لمنع تكرار العملاء</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    مول قرضًا واحدًا من عدة مستثمرين، أو وزع استثمارات مستثمر واحد على عدة قروض مختلفة. المنصة تدعم جميع السيناريوهات لتعكس واقع أعمالك.
+                                    عند محاولة إضافة عميل مسجل بقرض نشط في مكتب آخر، يقوم النظام بتنبيهك وعرض بيانات مدير المكتب الآخر، مع منحك خيار المتابعة لاتخاذ القرار المناسب.
                                 </p>
                             </div>
                             <div className="grid gap-2">

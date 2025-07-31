@@ -56,6 +56,17 @@ type DataState = {
   supportPhone: string;
 };
 
+type AddBorrowerResult = {
+    success: boolean;
+    message: string;
+    isDuplicate?: boolean;
+    duplicateInfo?: {
+        borrowerName: string;
+        managerName: string;
+        managerPhone: string;
+    }
+}
+
 type DataActions = {
   updateSupportInfo: (info: { email?: string; phone?: string }) => void;
   updateBaseInterestRate: (rate: number) => void;
@@ -77,8 +88,9 @@ type DataActions = {
       Borrower,
       'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'
     >,
-    investorIds: string[]
-  ) => Promise<{ success: boolean; message: string }>;
+    investorIds: string[],
+    force?: boolean
+  ) => Promise<AddBorrowerResult>;
   updateBorrower: (borrower: Borrower) => void;
   updateBorrowerPaymentStatus: (
     borrowerId: string,
@@ -184,6 +196,7 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'vis
 
   const borrowers = (data.borrowers || []).map((b: any) => ({
     ...b,
+    nationalId: b.nationalId || '', // Ensure nationalId exists
     fundedBy: b.fundedBy || [],
     installments: b.installments || [],
   }));
@@ -755,9 +768,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       Borrower,
       'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'
     >,
-    investorIds: string[]
-  ): Promise<{ success: boolean; message: string }> => {
-        let result: { success: boolean; message: string } = { success: false, message: 'فشل غير متوقع' };
+    investorIds: string[],
+    force: boolean = false,
+  ): Promise<AddBorrowerResult> => {
+        let result: AddBorrowerResult = { success: false, message: 'فشل غير متوقع' };
         setData(d => {
             const loggedInUser = d.users.find(u => u.id === userId);
             if (!loggedInUser) {
@@ -776,6 +790,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 result = { success: false, message: 'قروض الأقساط يجب أن تحتوي على فائدة ومدة صحيحة.' };
                 toast({ variant: 'destructive', title: 'بيانات غير مكتملة', description: result.message });
                 return d;
+            }
+            
+            if (!force) {
+                const existingBorrower = d.borrowers.find(b => b.nationalId === borrower.nationalId);
+                if (existingBorrower) {
+                    const isActive = existingBorrower.status !== 'مرفوض' && existingBorrower.paymentStatus !== 'تم السداد';
+                    if (isActive) {
+                        const manager = d.users.find(u => u.role === 'مدير المكتب' && u.id === existingBorrower.submittedBy) || d.users.find(u => u.id === existingBorrower.submittedBy);
+                        if (manager && manager.id !== loggedInUser.id && manager.id !== loggedInUser.managedBy) {
+                            result = {
+                                success: false,
+                                message: 'عميل مكرر',
+                                isDuplicate: true,
+                                duplicateInfo: {
+                                    borrowerName: existingBorrower.name,
+                                    managerName: manager.name,
+                                    managerPhone: manager.phone || 'غير متوفر'
+                                }
+                            };
+                            // Don't toast here, let the UI handle the dialog
+                            return d;
+                        }
+                    }
+                }
             }
 
             const isPending = borrower.status === 'معلق';
@@ -911,6 +949,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newRemainingLoan: Borrower = {
             id: newLoanId,
             name: `${originalBorrower.name}`,
+            nationalId: originalBorrower.nationalId,
             phone: originalBorrower.phone,
             amount: remainingAmount,
             rate: 0,

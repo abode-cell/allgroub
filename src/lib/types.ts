@@ -66,6 +66,7 @@ export type InstallmentStatus = 'لم يسدد بعد' | 'تم السداد' | '
 export type Borrower = {
   id: string;
   name: string;
+  nationalId: string;
   phone: string;
   amount: number;
   rate: number;
