@@ -1741,8 +1741,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const finalInvestors = investors.map(i =>
             i.id === userIdToDelete ? { ...i, status: 'محذوف' as const } : i
         );
+        
+        // Use setTimeout to ensure state update completes before potential navigation
+        setTimeout(() => {
+            toast({ title: 'اكتمل الحذف', description: `تم حذف الحساب "${userToDelete.name}" وتعيينه كـ "محذوف".` });
+        }, 0);
 
-        toast({ title: 'اكتمل الحذف', description: `تم حذف الحساب "${userToDelete.name}" وتعيينه كـ "محذوف".` });
         return { ...d, users: finalUsers, investors: finalInvestors };
       });
     },
