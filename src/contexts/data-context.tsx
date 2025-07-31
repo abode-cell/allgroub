@@ -786,12 +786,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
           
           if (!force) {
-            const existingBorrower = d.borrowers.find(b => 
+            const existingActiveLoan = d.borrowers.find(b => 
                 b.nationalId === borrower.nationalId &&
-                (b.status === 'منتظم' || b.status === 'متأخر' || (b.paymentStatus && !['تم السداد', undefined].includes(b.paymentStatus)))
+                b.status !== 'مرفوض' && b.paymentStatus !== 'تم السداد'
             );
-            if (existingBorrower) {
-                const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
+            
+            if (existingActiveLoan) {
+                const submitter = d.users.find(u => u.id === existingActiveLoan.submittedBy);
                 const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
                 const loggedInManagerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
 
@@ -801,12 +802,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
                         message: 'عميل مكرر',
                         isDuplicate: true,
                         duplicateInfo: {
-                            borrowerName: existingBorrower.name,
+                            borrowerName: existingActiveLoan.name,
                             managerName: manager.name,
                             managerPhone: manager.phone || 'غير متوفر'
                         }
                     };
-                    return d;
+                    return d; // Important: return here to show the dialog
                 }
             }
           }
