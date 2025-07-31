@@ -75,7 +75,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
-import { LoanStatusInfo } from './remaining-days';
+import { LoanStatusInfo } from '@/components/borrowers/remaining-days';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
