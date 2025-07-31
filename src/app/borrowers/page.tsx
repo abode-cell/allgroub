@@ -580,7 +580,7 @@ export default function BorrowersPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
-                <AlertDialogAction onClick={() => proceedToAddBorrower()}>
+                <AlertDialogAction onClick={() => proceedToAddBorrower(true)}>
                   المتابعة على أي حال
                 </AlertDialogAction>
             </AlertDialogFooter>

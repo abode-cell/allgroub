@@ -167,3 +167,14 @@ export type Notification = {
   description: string;
   isRead: boolean;
 };
+
+export type AddBorrowerResult = {
+    success: boolean;
+    message: string;
+    isDuplicate?: boolean;
+    duplicateInfo?: {
+        borrowerName: string;
+        managerName: string;
+        managerPhone: string;
+    }
+}

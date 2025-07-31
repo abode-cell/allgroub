@@ -22,9 +22,11 @@ import type {
   PermissionKey,
   NewUserPayload,
   TransactionType,
+  WithdrawalMethod,
   UpdatableInvestor,
   NewInvestorPayload,
   InstallmentStatus,
+  AddBorrowerResult,
 } from '@/lib/types';
 import {
   borrowersData as initialBorrowersData,
@@ -55,17 +57,6 @@ type DataState = {
   supportEmail: string;
   supportPhone: string;
 };
-
-type AddBorrowerResult = {
-    success: boolean;
-    message: string;
-    isDuplicate?: boolean;
-    duplicateInfo?: {
-        borrowerName: string;
-        managerName: string;
-        managerPhone: string;
-    }
-}
 
 type DataActions = {
   updateSupportInfo: (info: { email?: string; phone?: string }) => void;
@@ -764,143 +755,141 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const addBorrower = useCallback(
-    async (borrower: Omit<
-      Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'
-    >,
-    investorIds: string[],
-    force: boolean = false,
-  ): Promise<AddBorrowerResult> => {
-        let result: AddBorrowerResult = { success: false, message: 'فشل غير متوقع' };
-        
-        setData(d => {
-            const loggedInUser = d.users.find(u => u.id === userId);
-            if (!loggedInUser) {
-                result = { success: false, message: 'يجب أن تكون مسجلاً للدخول.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
+    async (
+      borrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'>,
+      investorIds: string[],
+      force: boolean = false
+    ): Promise<AddBorrowerResult> => {
+      let result: AddBorrowerResult = { success: false, message: 'فشل غير متوقع' };
+      
+      setData(d => {
+          const loggedInUser = d.users.find(u => u.id === userId);
+          if (!loggedInUser) {
+              result = { success: false, message: 'يجب أن تكون مسجلاً للدخول.' };
+              toast({ variant: 'destructive', title: 'خطأ', description: result.message });
+              return d;
+          }
 
-            if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageBorrowers) {
-                result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
-                toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
-                return d;
-            }
+          if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageBorrowers) {
+              result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
+              toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
+              return d;
+          }
 
-            if (borrower.loanType === 'اقساط' && (!borrower.rate || borrower.rate <= 0 || !borrower.term || borrower.term <= 0)) {
-                result = { success: false, message: 'قروض الأقساط يجب أن تحتوي على فائدة ومدة صحيحة.' };
-                toast({ variant: 'destructive', title: 'بيانات غير مكتملة', description: result.message });
-                return d;
-            }
-            
-            if (!force) {
-                const existingBorrower = d.borrowers.find(b => b.nationalId === borrower.nationalId);
-                if (existingBorrower) {
-                    const isActive = existingBorrower.status !== 'مرفوض' && existingBorrower.paymentStatus !== 'تم السداد';
-                    if (isActive) {
-                        const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
-                        const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
+          if (borrower.loanType === 'اقساط' && (!borrower.rate || borrower.rate <= 0 || !borrower.term || borrower.term <= 0)) {
+              result = { success: false, message: 'قروض الأقساط يجب أن تحتوي على فائدة ومدة صحيحة.' };
+              toast({ variant: 'destructive', title: 'بيانات غير مكتملة', description: result.message });
+              return d;
+          }
+          
+          if (!force) {
+              const existingBorrower = d.borrowers.find(b => b.nationalId === borrower.nationalId);
+              if (existingBorrower) {
+                  const isActive = existingBorrower.status !== 'مرفوض' && existingBorrower.paymentStatus !== 'تم السداد';
+                  if (isActive) {
+                      const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
+                      const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
 
-                        if (manager && loggedInUser && manager.id !== loggedInUser.id && manager.id !== loggedInUser.managedBy) {
-                            result = {
-                                success: false,
-                                message: 'عميل مكرر',
-                                isDuplicate: true,
-                                duplicateInfo: {
-                                    borrowerName: existingBorrower.name,
-                                    managerName: manager.name,
-                                    managerPhone: manager.phone || 'غير متوفر'
-                                }
-                            };
-                            return d;
-                        }
-                    }
-                }
-            }
+                      if (manager && loggedInUser && manager.id !== (loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy)) {
+                          result = {
+                              success: false,
+                              message: 'عميل مكرر',
+                              isDuplicate: true,
+                              duplicateInfo: {
+                                  borrowerName: existingBorrower.name,
+                                  managerName: manager.name,
+                                  managerPhone: manager.phone || 'غير متوفر'
+                              }
+                          };
+                          return d;
+                      }
+                  }
+              }
+          }
 
-            const isPending = borrower.status === 'معلق';
-            if (!isPending && investorIds.length === 0 && !borrower.fundedBy) {
-                 result = { success: false, message: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' };
-                toast({ variant: 'destructive', title: 'خطأ في التمويل', description: result.message });
-                return d;
-            }
-            
-            const newId = `bor_${Date.now()}_${crypto.randomUUID()}`;
-            const fundedByDetails: { investorId: string; amount: number }[] = borrower.fundedBy || [];
-            let remainingAmountToFund = borrower.amount;
-            
-            let newInvestorsData = [...d.investors]; 
+          const isPending = borrower.status === 'معلق';
+          if (!isPending && investorIds.length === 0 && !borrower.fundedBy) {
+               result = { success: false, message: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' };
+              toast({ variant: 'destructive', title: 'خطأ في التمويل', description: result.message });
+              return d;
+          }
+          
+          const newId = `bor_${Date.now()}_${crypto.randomUUID()}`;
+          const fundedByDetails: { investorId: string; amount: number }[] = borrower.fundedBy || [];
+          let remainingAmountToFund = borrower.amount;
+          
+          let newInvestorsData = [...d.investors]; 
 
-            if(!isPending && !borrower.fundedBy) {
-                const updatedInvestorsMap = new Map(newInvestorsData.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
+          if(!isPending && !borrower.fundedBy) {
+              const updatedInvestorsMap = new Map(newInvestorsData.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
 
-                for (const invId of investorIds) {
-                    if (remainingAmountToFund <= 0) break;
-                    
-                    const currentInvestorState = updatedInvestorsMap.get(invId);
-                    if (!currentInvestorState) continue;
-                    
-                    const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
-                    const availableCapital = borrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
-                    
-                    const contribution = Math.min(availableCapital, remainingAmountToFund);
-                    if (contribution > 0) {
-                        remainingAmountToFund -= contribution;
-                        fundedByDetails.push({ investorId: invId, amount: contribution });
-                        
-                        if (currentInvestorState.fundedLoanIds) {
-                           currentInvestorState.fundedLoanIds.push(newId);
-                        } else {
-                           currentInvestorState.fundedLoanIds = [newId];
-                        }
-                        
-                        updatedInvestorsMap.set(invId, currentInvestorState);
-                    }
-                }
-                newInvestorsData = Array.from(updatedInvestorsMap.values());
-            }
+              for (const invId of investorIds) {
+                  if (remainingAmountToFund <= 0) break;
+                  
+                  const currentInvestorState = updatedInvestorsMap.get(invId);
+                  if (!currentInvestorState) continue;
+                  
+                  const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
+                  const availableCapital = borrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
+                  
+                  const contribution = Math.min(availableCapital, remainingAmountToFund);
+                  if (contribution > 0) {
+                      remainingAmountToFund -= contribution;
+                      fundedByDetails.push({ investorId: invId, amount: contribution });
+                      
+                      if (currentInvestorState.fundedLoanIds) {
+                         currentInvestorState.fundedLoanIds.push(newId);
+                      } else {
+                         currentInvestorState.fundedLoanIds = [newId];
+                      }
+                      
+                      updatedInvestorsMap.set(invId, currentInvestorState);
+                  }
+              }
+              newInvestorsData = Array.from(updatedInvestorsMap.values());
+          }
 
-            const newEntry: Borrower = {
-                ...borrower,
-                id: newId,
-                date: new Date().toISOString(),
-                submittedBy: loggedInUser.id,
-                fundedBy: fundedByDetails,
-                isNotified: false,
-                installments: borrower.loanType === 'اقساط' && borrower.term > 0
-                ? Array.from({ length: borrower.term * 12 }, (_, i) => ({ month: i + 1, status: 'لم يسدد بعد' }))
-                : undefined,
-            };
+          const newEntry: Borrower = {
+              ...borrower,
+              id: newId,
+              date: new Date().toISOString(),
+              submittedBy: loggedInUser.id,
+              fundedBy: fundedByDetails,
+              isNotified: false,
+              installments: borrower.loanType === 'اقساط' && borrower.term > 0
+              ? Array.from({ length: borrower.term * 12 }, (_, i) => ({ month: i + 1, status: 'لم يسدد بعد' }))
+              : undefined,
+          };
 
-            const newBorrowers = [...d.borrowers, newEntry];
+          const newBorrowers = [...d.borrowers, newEntry];
 
-            let newNotifications = d.notifications;
-            const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-            if (fundedByDetails.length > 0 && !borrower.fundedBy) {
-                fundedByDetails.forEach(funder => {
-                    notificationsToQueue.push({
-                        recipientId: funder.investorId,
-                        title: 'تم استثمار أموالك',
-                        description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${borrower.name}".`,
-                    });
-                });
-            }
-            if (isPending && loggedInUser?.managedBy) {
-                notificationsToQueue.push({
-                    recipientId: loggedInUser.managedBy,
-                    title: 'طلب قرض جديد معلق',
-                    description: `قدم الموظف "${loggedInUser.name}" طلبًا لإضافة القرض "${borrower.name}".`,
-                });
-            }
-            if(notificationsToQueue.length > 0) {
-                newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
-            }
+          let newNotifications = d.notifications;
+          const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+          if (fundedByDetails.length > 0 && !borrower.fundedBy) {
+              fundedByDetails.forEach(funder => {
+                  notificationsToQueue.push({
+                      recipientId: funder.investorId,
+                      title: 'تم استثمار أموالك',
+                      description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${borrower.name}".`,
+                  });
+              });
+          }
+          if (isPending && loggedInUser?.managedBy) {
+              notificationsToQueue.push({
+                  recipientId: loggedInUser.managedBy,
+                  title: 'طلب قرض جديد معلق',
+                  description: `قدم الموظف "${loggedInUser.name}" طلبًا لإضافة القرض "${borrower.name}".`,
+              });
+          }
+          if(notificationsToQueue.length > 0) {
+              newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
+          }
 
-            result = { success: true, message: 'تمت إضافة القرض بنجاح.' };
-            toast({ title: result.message });
-            return { ...d, borrowers: newBorrowers, investors: newInvestorsData, notifications: newNotifications };
-        });
-        return result;
+          result = { success: true, message: 'تمت إضافة القرض بنجاح.' };
+          toast({ title: result.message });
+          return { ...d, borrowers: newBorrowers, investors: newInvestorsData, notifications: newNotifications };
+      });
+      return result;
     },
     [userId, toast]
   );
