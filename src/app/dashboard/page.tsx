@@ -1,3 +1,4 @@
+
 'use client';
 
 import { CircleDollarSign, Landmark, ShieldAlert, ShieldX, TrendingUp, Users, BadgePercent, Wallet, UserCheck, UserCog, CheckCircle, AlertCircle, Download } from 'lucide-react';
@@ -5,7 +6,7 @@ import { KpiCard } from '@/components/dashboard/kpi-card';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
-import { useDataState } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Borrower, Investor } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -392,7 +393,7 @@ const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['id
 
 
 const SystemAdminDashboard = ({ metrics, onExport }: { metrics: ServiceMetrics, onExport: () => void }) => {
-    const { updateUserStatus } = useDataState();
+    const { updateUserStatus } = useDataActions();
     const { admin: adminMetrics } = metrics;
     
     return (
