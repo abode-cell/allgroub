@@ -1000,7 +1000,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [userId, toast]
   );
-
+  
   const approveInvestor = useCallback(
     (investorId: string) => {
       setData(d => {
