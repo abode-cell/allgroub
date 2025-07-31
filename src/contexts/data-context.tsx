@@ -786,30 +786,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
           
           if (!force) {
-            const existingBorrower = d.borrowers.find(b => b.nationalId === borrower.nationalId);
+            const existingBorrower = d.borrowers.find(b => 
+                b.nationalId === borrower.nationalId &&
+                (b.status === 'منتظم' || b.status === 'متأخر' || (b.paymentStatus && !['تم السداد', undefined].includes(b.paymentStatus)))
+            );
             if (existingBorrower) {
-                const isActive = existingBorrower.status !== 'مرفوض' && existingBorrower.paymentStatus !== 'تم السداد';
-                if (isActive) {
-                    const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
-                    const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
-                    const loggedInManagerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
+                const submitter = d.users.find(u => u.id === existingBorrower.submittedBy);
+                const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
+                const loggedInManagerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
 
-                    if (manager && manager.id !== loggedInManagerId) {
-                        result = {
-                            success: false,
-                            message: 'عميل مكرر',
-                            isDuplicate: true,
-                            duplicateInfo: {
-                                borrowerName: existingBorrower.name,
-                                managerName: manager.name,
-                                managerPhone: manager.phone || 'غير متوفر'
-                            }
-                        };
-                        return d;
-                    }
+                if (manager && manager.id !== loggedInManagerId) {
+                    result = {
+                        success: false,
+                        message: 'عميل مكرر',
+                        isDuplicate: true,
+                        duplicateInfo: {
+                            borrowerName: existingBorrower.name,
+                            managerName: manager.name,
+                            managerPhone: manager.phone || 'غير متوفر'
+                        }
+                    };
+                    return d;
                 }
             }
-        }
+          }
 
           const isPending = borrower.status === 'معلق';
           if (!isPending && investorIds.length === 0 && !borrower.fundedBy) {
