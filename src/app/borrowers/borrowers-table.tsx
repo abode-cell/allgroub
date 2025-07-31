@@ -576,7 +576,7 @@ export function BorrowersTable({
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-md">
           <form onSubmit={handleSaveChanges}>
             <DialogHeader>
               <DialogTitle>تعديل القرض</DialogTitle>
@@ -597,6 +597,22 @@ export function BorrowersTable({
                       setSelectedBorrower({
                         ...selectedBorrower,
                         name: e.target.value,
+                      })
+                    }
+                    className="col-span-3"
+                  />
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="nationalId-edit" className="text-right">
+                    رقم الهوية
+                  </Label>
+                  <Input
+                    id="nationalId-edit"
+                    value={selectedBorrower.nationalId}
+                    onChange={(e) =>
+                      setSelectedBorrower({
+                        ...selectedBorrower,
+                        nationalId: e.target.value,
                       })
                     }
                     className="col-span-3"
@@ -881,6 +897,10 @@ export function BorrowersTable({
                     <div>
                         <span className='text-muted-foreground'>اسم المقترض:</span>
                         <span className='font-bold float-left'>{selectedBorrower.name}</span>
+                    </div>
+                     <div>
+                        <span className='text-muted-foreground'>رقم الهوية:</span>
+                        <span className='font-bold float-left'>{selectedBorrower.nationalId}</span>
                     </div>
                      <div>
                         <span className='text-muted-foreground'>رقم الجوال:</span>
