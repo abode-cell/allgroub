@@ -392,9 +392,8 @@ const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['id
 };
 
 
-const SystemAdminDashboard = ({ metrics, onExport }: { metrics: ServiceMetrics, onExport: () => void }) => {
+const SystemAdminDashboard = ({ metrics, onExport }: { metrics: ServiceMetrics['admin'], onExport: () => void }) => {
     const { updateUserStatus } = useDataActions();
-    const { admin: adminMetrics } = metrics;
     
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -416,40 +415,40 @@ const SystemAdminDashboard = ({ metrics, onExport }: { metrics: ServiceMetrics, 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <KpiCard
                     title="إجمالي رأس المال"
-                    value={formatCurrency(adminMetrics.totalCapital)}
+                    value={formatCurrency(metrics.totalCapital)}
                     change="في جميع المحافظ"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال الأقساط"
-                    value={formatCurrency(adminMetrics.installmentCapital)}
+                    value={formatCurrency(metrics.installmentCapital)}
                     change="مخصص لتمويل الأقساط"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="رأس مال المهلة"
-                    value={formatCurrency(adminMetrics.graceCapital)}
+                    value={formatCurrency(metrics.graceCapital)}
                     change="مخصص لتمويل المهلة"
                     icon={<CircleDollarSign className="size-6 text-muted-foreground" />}
                 />
                 <KpiCard
                     title="إجمالي المستخدمين"
-                    value={String(adminMetrics.totalUsersCount)}
+                    value={String(metrics.totalUsersCount)}
                     change=""
                     icon={<Users className="size-6 text-muted-foreground" />}
                 />
                 <KpiCard
                     title="مدراء المكاتب النشطون"
-                    value={String(adminMetrics.activeManagersCount)}
+                    value={String(metrics.activeManagersCount)}
                     change=""
                     icon={<UserCheck className="size-6 text-muted-foreground" />}
                 />
                  <KpiCard
                     title="طلبات التفعيل المعلقة"
-                    value={String(adminMetrics.pendingManagersCount)}
+                    value={String(metrics.pendingManagersCount)}
                     change=""
                     icon={<UserCog className="size-6 text-muted-foreground" />}
-                    changeColor={adminMetrics.pendingManagersCount > 0 ? 'text-red-500' : ''}
+                    changeColor={metrics.pendingManagersCount > 0 ? 'text-red-500' : ''}
                 />
             </div>
             
@@ -471,8 +470,8 @@ const SystemAdminDashboard = ({ metrics, onExport }: { metrics: ServiceMetrics, 
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {adminMetrics.pendingManagers.length > 0 ? (
-                                adminMetrics.pendingManagers.map(manager => (
+                            {metrics.pendingManagers.length > 0 ? (
+                                metrics.pendingManagers.map(manager => (
                                     <TableRow key={manager.id}>
                                         <TableCell className="font-medium">{manager.name}</TableCell>
                                         <TableCell>{manager.email}</TableCell>
@@ -631,8 +630,8 @@ export default function DashboardPage() {
       return <PageSkeleton />;
   }
 
-  if (metrics.role === 'مدير النظام') {
-    return <SystemAdminDashboard metrics={metrics} onExport={handleExport} />;
+  if (metrics.role === 'مدير النظام' && metrics.admin) {
+    return <SystemAdminDashboard metrics={metrics.admin} onExport={handleExport} />;
   }
 
   if (metrics.role === 'مستثمر') {
@@ -640,6 +639,11 @@ export default function DashboardPage() {
   }
   
   const { manager: managerMetrics } = metrics;
+
+  if (!managerMetrics) {
+    return <PageSkeleton />;
+  }
+
   const { filteredBorrowers, filteredInvestors, capital, idleFunds, installments, gracePeriod } = managerMetrics;
   
   const showSensitiveData = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);

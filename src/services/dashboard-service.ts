@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview Service for calculating all dashboard metrics.
  * This moves the business logic from the component to a dedicated, testable service.
