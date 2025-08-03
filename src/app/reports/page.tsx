@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { calculateInvestorFinancials } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Users } from 'lucide-react';
 import { getBorrowerStatus, formatCurrency } from '@/lib/utils';

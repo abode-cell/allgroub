@@ -8,7 +8,7 @@ import { useDataState } from '@/contexts/data-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { useMemo } from 'react';
-import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { calculateInvestorFinancials } from '@/lib/utils';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -38,7 +38,7 @@ export function InvestorDashboard() {
           totalInvestment: financials.totalCapitalInSystem, 
           defaultedFunds: financials.defaultedFunds, 
           activeInvestment: financials.activeCapital,
-          idleFunds: financials.installmentCapital + financials.gracePeriodCapital
+          idleFunds: financials.idleInstallmentCapital + financials.idleGraceCapital
       };
   }, [investor, borrowers]);
 

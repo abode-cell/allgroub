@@ -32,7 +32,7 @@ import {
   DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { calculateInvestorFinancials } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';

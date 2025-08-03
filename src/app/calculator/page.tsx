@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/utils';
+import { calculateInvestorFinancials } from '@/services/dashboard-service';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -31,6 +32,8 @@ export default function CalculatorPage() {
   const router = useRouter();
   const { 
     currentUser,
+    users,
+    borrowers,
     salaryRepaymentPercentage, 
     baseInterestRate,
     investorSharePercentage,
@@ -553,3 +556,5 @@ export default function CalculatorPage() {
     </div>
   );
 }
+
+    

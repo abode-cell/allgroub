@@ -1,11 +1,9 @@
-
-/**
- * @fileOverview Service for calculating all dashboard metrics.
- * This moves the business logic from the component to a dedicated, testable service.
- */
-
 import type { Borrower, Investor, User, UserRole, SupportTicket } from '@/lib/types';
-import { getBorrowerStatus } from '@/lib/utils';
+import { getBorrowerStatus, calculateInvestorFinancials } from '@/lib/utils';
+
+// =================================================================
+// Dashboard Calculation Logic
+// =================================================================
 
 interface CalculationInput {
     borrowers: Borrower[];
@@ -42,72 +40,6 @@ export type DashboardMetricsOutput = {
         idleFunds: IdleFundsMetrics;
     }
 };
-
-export function calculateInvestorFinancials(investor: Investor, relevantBorrowers: Borrower[]) {
-  const { installmentDeposits, graceDeposits, installmentWithdrawals, graceWithdrawals } = 
-    (investor.transactionHistory || []).reduce(
-        (acc, tx) => {
-            if (tx.type.includes('إيداع')) {
-                if (tx.capitalSource === 'installment') acc.installmentDeposits += tx.amount;
-                else if (tx.capitalSource === 'grace') acc.graceDeposits += tx.amount;
-            } else if (tx.type.includes('سحب')) {
-                if (tx.capitalSource === 'installment') acc.installmentWithdrawals += tx.amount;
-                else if (tx.capitalSource === 'grace') acc.graceWithdrawals += tx.amount;
-            }
-            return acc;
-        },
-        { installmentDeposits: 0, graceDeposits: 0, installmentWithdrawals: 0, graceWithdrawals: 0 }
-    );
-  
-  const totalInstallmentCapital = installmentDeposits - installmentWithdrawals;
-  const totalGraceCapital = graceDeposits - graceWithdrawals;
-  const totalCapitalInSystem = totalInstallmentCapital + totalGraceCapital;
-  
-  let activeInstallmentCapital = 0;
-  let activeGraceCapital = 0;
-  let defaultedInstallmentFunds = 0;
-  let defaultedGraceFunds = 0;
-
-  const fundedLoanIds = investor.fundedLoanIds || [];
-  const fundedBorrowers = relevantBorrowers.filter(b => fundedLoanIds.includes(b.id));
-
-  for (const loan of fundedBorrowers) {
-    const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
-    if (!fundingDetails) continue;
-
-    const isDefaulted = loan.status === 'متعثر' || loan.paymentStatus === 'متعثر' || loan.paymentStatus === 'تم اتخاذ الاجراءات القانونيه';
-    const isPaid = loan.status === 'مسدد بالكامل' || loan.paymentStatus === 'تم السداد';
-    const isPendingOrRejected = loan.status === 'معلق' || loan.status === 'مرفوض';
-
-    if (isDefaulted) {
-        if (loan.loanType === 'اقساط') defaultedInstallmentFunds += fundingDetails.amount;
-        else defaultedGraceFunds += fundingDetails.amount;
-    } else if (!isPaid && !isPendingOrRejected) {
-        if (loan.loanType === 'اقساط') activeInstallmentCapital += fundingDetails.amount;
-        else activeGraceCapital += fundingDetails.amount;
-    }
-  }
-  
-  const activeCapital = activeInstallmentCapital + activeGraceCapital;
-  const defaultedFunds = defaultedInstallmentFunds + defaultedGraceFunds;
-
-  const idleInstallmentCapital = totalInstallmentCapital - activeInstallmentCapital - defaultedInstallmentFunds;
-  const idleGraceCapital = totalGraceCapital - activeGraceCapital - defaultedGraceFunds;
-  
-  return {
-    totalInstallmentCapital,
-    totalGraceCapital,
-    activeInstallmentCapital,
-    activeGraceCapital,
-    defaultedInstallmentFunds,
-    defaultedGraceFunds,
-    idleInstallmentCapital: Math.max(0, idleInstallmentCapital),
-    idleGraceCapital: Math.max(0, idleGraceCapital),
-    activeCapital,
-    defaultedFunds,
-    totalCapitalInSystem
-  };
-}
 
 function getFilteredData(input: CalculationInput) {
     const { currentUser, borrowers, investors, users } = input;
@@ -551,3 +483,9 @@ export function calculateAllDashboardMetrics(input: CalculationInput): Dashboard
         manager: managerMetrics,
     };
 }
+
+
+// This is an additional export that might be used elsewhere.
+export { calculateInvestorFinancials } from '@/lib/utils';
+
+    

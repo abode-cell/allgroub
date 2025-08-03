@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
-import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { calculateInvestorFinancials } from '@/lib/utils';
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">

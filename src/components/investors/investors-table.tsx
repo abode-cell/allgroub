@@ -50,7 +50,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { calculateInvestorFinancials } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { formatCurrency } from '@/lib/utils';
 import {

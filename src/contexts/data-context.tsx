@@ -37,7 +37,7 @@ import {
 } from '@/lib/data';
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { calculateInvestorFinancials } from '@/services/dashboard-service';
+import { calculateInvestorFinancials } from '@/lib/utils';
 import { isPast } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 

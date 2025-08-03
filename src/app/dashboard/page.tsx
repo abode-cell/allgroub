@@ -8,7 +8,7 @@ import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { Borrower, Investor } from '@/lib/types';
+import type { Borrower, Investor, User, UserRole, SupportTicket } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,17 +21,11 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { calculateAllDashboardMetrics } from '@/services/dashboard-service';
-import type { DashboardMetricsOutput as ServiceMetrics } from '@/services/dashboard-service';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { exportToPrintableHtml } from '@/lib/html-export';
+import { calculateAllDashboardMetrics, type DashboardMetricsOutput } from '@/services/dashboard-service';
 import { formatCurrency } from '@/lib/utils';
-
-
-// Define explicit types for each dashboard variant from the discriminated union
-type OfficeManagerRoles = 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف';
-type OfficeManagerDashboardMetrics = ServiceMetrics['manager'];
 
 
 const PageSkeleton = () => (
@@ -53,8 +47,7 @@ const PageSkeleton = () => (
     </div>
 );
 
-
-const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investors }: { metrics: OfficeManagerDashboardMetrics['installments'], showSensitiveData: boolean, borrowers: Borrower[], investors: Investor[] }) => {
+const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investors }: { metrics: DashboardMetricsOutput['manager']['installments'], showSensitiveData: boolean, borrowers: Borrower[], investors: Investor[] }) => {
   return (
     <div className="space-y-6">
       <div className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-3", showSensitiveData ? "xl:grid-cols-6" : "xl:grid-cols-4")}>
@@ -199,7 +192,7 @@ const InstallmentsDashboard = ({ metrics, showSensitiveData, borrowers, investor
 };
 
 
-const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, investors }: { metrics: OfficeManagerDashboardMetrics['gracePeriod'], showSensitiveData: boolean, config: any, borrowers: Borrower[], investors: Investor[] }) => {
+const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, investors }: { metrics: DashboardMetricsOutput['manager']['gracePeriod'], showSensitiveData: boolean, config: any, borrowers: Borrower[], investors: Investor[] }) => {
     return (
         <div className="space-y-6">
             <div className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-3", showSensitiveData ? "xl:grid-cols-6" : "xl:grid-cols-4")}>
@@ -340,7 +333,7 @@ const GracePeriodDashboard = ({ metrics, showSensitiveData, config, borrowers, i
     );
 };
 
-const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['idleFunds'] }) => {
+const IdleFundsCard = ({ metrics }: { metrics: DashboardMetricsOutput['manager']['idleFunds'] }) => {
     return (
         <Card>
             <Accordion type="single" collapsible className="w-full">
@@ -392,7 +385,7 @@ const IdleFundsCard = ({ metrics }: { metrics: OfficeManagerDashboardMetrics['id
 };
 
 
-const SystemAdminDashboard = ({ metrics, onExport }: { metrics: ServiceMetrics['admin'], onExport: () => void }) => {
+const SystemAdminDashboard = ({ metrics, onExport }: { metrics: DashboardMetricsOutput['admin'], onExport: () => void }) => {
     const { updateUserStatus } = useDataActions();
     
     return (
@@ -520,7 +513,7 @@ export default function DashboardPage() {
           graceInvestorSharePercentage,
         }
       });
-      return result as ServiceMetrics;
+      return result as DashboardMetricsOutput;
     } catch (e) {
       console.error("Failed to calculate dashboard metrics:", e);
       setError("حدث خطأ أثناء حساب مقاييس لوحة التحكم. قد تكون بعض البيانات غير متناسقة. يرجى مراجعة البيانات أو التواصل مع الدعم الفني.");
@@ -715,3 +708,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
