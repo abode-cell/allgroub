@@ -150,12 +150,10 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
         return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
     }
     
-    // System admin cannot be modified by anyone
     if (user.role === 'مدير النظام') {
         return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
     }
 
-    // A "deleted" user cannot be modified
     if (user.status === 'محذوف') {
         return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
     }
@@ -163,10 +161,8 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
     const isSystemAdmin = currentUser.role === 'مدير النظام';
     const isOfficeManager = currentUser.role === 'مدير المكتب';
     
-    // A subordinate cannot edit their manager
     if(user.id === currentUser.managedBy) return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
 
-    // Only direct manager or system admin can edit credentials
     const canEdit = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
 
     const canDelete = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
