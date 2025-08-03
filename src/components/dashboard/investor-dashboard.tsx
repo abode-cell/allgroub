@@ -9,13 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { useMemo } from 'react';
 import { calculateInvestorFinancials } from '@/lib/utils';
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
-
+import { formatCurrency } from '@/lib/utils';
 
 export function InvestorDashboard() {
   const { currentUser, investors, borrowers, graceTotalProfitPercentage, investorSharePercentage, graceInvestorSharePercentage } = useDataState();

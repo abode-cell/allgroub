@@ -483,9 +483,3 @@ export function calculateAllDashboardMetrics(input: CalculationInput): Dashboard
         manager: managerMetrics,
     };
 }
-
-
-// This is an additional export that might be used elsewhere.
-export { calculateInvestorFinancials } from '@/lib/utils';
-
-    
