@@ -157,8 +157,8 @@ const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   investorSharePercentage: 70,
   graceTotalProfitPercentage: 30,
   graceInvestorSharePercentage: 33.3,
-  supportEmail: 'support@aalg-group.com',
-  supportPhone: '920012345',
+  supportEmail: 'qzmpty678@gmail.com',
+  supportPhone: '0598360380',
 };
 
 const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'visibleUsers'> => {

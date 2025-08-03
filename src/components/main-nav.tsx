@@ -65,7 +65,7 @@ export const allMenuItems: MenuItem[] = [
     href: '/reports',
     label: 'التقارير',
     icon: FileText,
-    roles: ['مدير المكتب', 'مساعد مدير المكتب'],
+    roles: ['مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب'],
     permission: 'viewReports',
   },
   {
@@ -87,12 +87,6 @@ export const allMenuItems: MenuItem[] = [
     icon: Calculator,
     roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
     permission: 'useCalculator',
-  },
-  {
-    href: '/ai-support',
-    label: 'مساعد الدعم الفني',
-    icon: Sparkles,
-    roles: ['مدير النظام'],
   },
   {
     href: '/support',
