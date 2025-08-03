@@ -499,27 +499,34 @@ export default function DashboardPage() {
 
   const metrics = useMemo(() => {
     if (!currentUser) return null;
-    setError(null);
     try {
-      const result = calculateAllDashboardMetrics({
-        borrowers,
-        investors,
-        users,
-        currentUser,
-        supportTickets,
-        config: {
-          investorSharePercentage,
-          graceTotalProfitPercentage,
-          graceInvestorSharePercentage,
-        }
-      });
-      return result as DashboardMetricsOutput;
+        const result = calculateAllDashboardMetrics({
+            borrowers,
+            investors,
+            users,
+            currentUser,
+            supportTickets,
+            config: {
+            investorSharePercentage,
+            graceTotalProfitPercentage,
+            graceInvestorSharePercentage,
+            }
+        });
+        return result as DashboardMetricsOutput;
     } catch (e) {
-      console.error("Failed to calculate dashboard metrics:", e);
-      setError("حدث خطأ أثناء حساب مقاييس لوحة التحكم. قد تكون بعض البيانات غير متناسقة. يرجى مراجعة البيانات أو التواصل مع الدعم الفني.");
-      return null;
+        console.error("Failed to calculate dashboard metrics:", e);
+        return null;
     }
   }, [borrowers, investors, users, currentUser, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+
+  useEffect(() => {
+    if (metrics === null && currentUser) {
+        setError("حدث خطأ أثناء حساب مقاييس لوحة التحكم. قد تكون بعض البيانات غير متناسقة. يرجى مراجعة البيانات أو التواصل مع الدعم الفني.");
+    } else {
+        setError(null);
+    }
+  }, [metrics, currentUser]);
+
 
   const handleExport = () => {
     if (!metrics || !currentUser) return;
