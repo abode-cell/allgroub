@@ -1693,81 +1693,79 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const deleteUser = useCallback(
     (userIdToDelete: string) => {
-      setTimeout(() => {
         setData(d => {
-          const { users, investors, borrowers } = d;
-          const loggedInUser = users.find(u => u.id === userId);
-          const userToDelete = users.find(u => u.id === userIdToDelete);
+            const { users, investors, borrowers } = d;
+            const loggedInUser = users.find(u => u.id === userId);
+            const userToDelete = users.find(u => u.id === userIdToDelete);
 
-          if (!loggedInUser || !userToDelete) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
-            return d;
-          }
+            if (!loggedInUser || !userToDelete) {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
+                return d;
+            }
 
-          if (userToDelete.id === loggedInUser.id || userToDelete.role === 'مدير النظام') {
-            toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكنك حذف هذا الحساب.' });
-            return d;
-          }
+            if (userToDelete.id === loggedInUser.id || userToDelete.role === 'مدير النظام') {
+                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكنك حذف هذا الحساب.' });
+                return d;
+            }
 
-          const canDelete = loggedInUser.role === 'مدير النظام' || (loggedInUser.role === 'مدير المكتب' && userToDelete.managedBy === loggedInUser.id);
-          if (!canDelete) {
-            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لحذف هذا المستخدم.' });
-            return d;
-          }
+            const canDelete = loggedInUser.role === 'مدير النظام' || (loggedInUser.role === 'مدير المكتب' && userToDelete.managedBy === loggedInUser.id);
+            if (!canDelete) {
+                toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لحذف هذا المستخدم.' });
+                return d;
+            }
 
-          if (userToDelete.role === 'مدير المكتب') {
-              const activeSubordinates = users.filter(u => u.managedBy === userIdToDelete && u.status !== 'محذوف');
-              if (activeSubordinates.length > 0) {
-                  toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${activeSubordinates.length} مستخدمًا نشطًا. يرجى حذف الموظفين والمساعدين المرتبطين به أولاً.` });
-                  return d;
-              }
-              const linkedInvestors = investors.filter(i => {
-                  const investorUser = users.find(u => u.id === i.id);
-                  return investorUser?.managedBy === userIdToDelete && i.status !== 'محذوف';
-              });
-              if (linkedInvestors.length > 0) {
-                  toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${linkedInvestors.length} مستثمرًا. يرجى حذف المستثمرين المرتبطين به أولاً.` });
-                  return d;
-              }
-              if (userToDelete.branches && userToDelete.branches.length > 0) {
-                   toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه لديه ${userToDelete.branches.length} فرعًا. يرجى حذف الفروع أولاً.` });
-                   return d;
-              }
-          }
+            if (userToDelete.role === 'مدير المكتب') {
+                const activeSubordinates = users.filter(u => u.managedBy === userIdToDelete && u.status !== 'محذوف');
+                if (activeSubordinates.length > 0) {
+                    toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${activeSubordinates.length} مستخدمًا نشطًا. يرجى حذف الموظفين والمساعدين المرتبطين به أولاً.` });
+                    return d;
+                }
+                const linkedInvestors = investors.filter(i => {
+                    const investorUser = users.find(u => u.id === i.id);
+                    return investorUser?.managedBy === userIdToDelete && i.status !== 'محذوف';
+                });
+                if (linkedInvestors.length > 0) {
+                    toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${linkedInvestors.length} مستثمرًا. يرجى حذف المستثمرين المرتبطين به أولاً.` });
+                    return d;
+                }
+                if (userToDelete.branches && userToDelete.branches.length > 0) {
+                    toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه لديه ${userToDelete.branches.length} فرعًا. يرجى حذف الفروع أولاً.` });
+                    return d;
+                }
+            }
           
-          if (borrowers.some(b => b.submittedBy === userIdToDelete)) {
-              toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستخدم لأنه قام بتسجيل قروض. لسلامة السجلات، يتم منع الحذف.` });
-              return d;
-          }
+            if (borrowers.some(b => b.submittedBy === userIdToDelete)) {
+                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستخدم لأنه قام بتسجيل قروض. لسلامة السجلات، يتم منع الحذف.` });
+                return d;
+            }
           
-          if (userToDelete.role === 'مستثمر') {
-              const investorRecord = investors.find(i => i.id === userIdToDelete);
-              if (investorRecord) {
-                  if(investorRecord.fundedLoanIds?.length > 0) {
-                      toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأنه قام بتمويل قروض. لسلامة السجلات، يتم منع الحذف.` });
-                      return d;
-                  }
-                  const financials = calculateInvestorFinancials(investorRecord, borrowers);
-                  if (financials.totalCapitalInSystem > 0) {
-                      toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأن لديه رصيد متبقٍ. يرجى سحب جميع الأموال أولاً.` });
-                      return d;
-                  }
-              }
-          }
+            if (userToDelete.role === 'مستثمر') {
+                const investorRecord = investors.find(i => i.id === userIdToDelete);
+                if (investorRecord) {
+                    if (investorRecord.fundedLoanIds?.length > 0) {
+                        toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأنه قام بتمويل قروض. لسلامة السجلات، يتم منع الحذف.` });
+                        return d;
+                    }
+                    const financials = calculateInvestorFinancials(investorRecord, borrowers);
+                    if (financials.totalCapitalInSystem > 0) {
+                        toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأن لديه رصيد متبقٍ. يرجى سحب جميع الأموال أولاً.` });
+                        return d;
+                    }
+                }
+            }
 
-          const finalUsers = users.map(u => 
-              u.id === userIdToDelete ? { ...u, status: 'محذوف' as const } : u
-          );
+            const finalUsers = users.map(u => 
+                u.id === userIdToDelete ? { ...u, status: 'محذوف' as const } : u
+            );
 
-          const finalInvestors = investors.map(i =>
-              i.id === userIdToDelete ? { ...i, status: 'محذوف' as const } : i
-          );
+            const finalInvestors = investors.map(i =>
+                i.id === userIdToDelete ? { ...i, status: 'محذوف' as const } : i
+            );
           
-          toast({ title: 'اكتمل الحذف', description: `تم حذف الحساب "${userToDelete.name}" وتعيينه كـ "محذوف".` });
+            toast({ title: 'اكتمل الحذف', description: `تم حذف الحساب "${userToDelete.name}" وتعيينه كـ "محذوف".` });
 
-          return { ...d, users: finalUsers, investors: finalInvestors };
+            return { ...d, users: finalUsers, investors: finalInvestors };
         });
-      }, 0);
     },
     [userId, toast]
   );
