@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -29,6 +30,8 @@ const PageSkeleton = () => (
 // Define the expected structure of a row in the Excel file
 type ExcelRow = {
   'اسم المقترض': string;
+  'رقم الهوية': string;
+  'رقم الجوال': string;
   'المبلغ': number;
   'نوع التمويل': 'اقساط' | 'مهلة';
   'تاريخ الاستحقاق': string | number; // Excel dates can be numbers
@@ -99,8 +102,8 @@ export default function ImportPage() {
 
         for (const [index, row] of json.entries()) {
           // --- Data Validation ---
-          if (!row['اسم المقترض'] || !row['المبلغ'] || !row['نوع التمويل'] || !row['تاريخ الاستحقاق']) {
-            errorMessages.push(`صف ${index + 2}: الأعمدة المطلوبة (اسم المقترض، المبلغ، نوع التمويل، تاريخ الاستحقاق) غير موجودة.`);
+          if (!row['اسم المقترض'] || !row['المبلغ'] || !row['نوع التمويل'] || !row['تاريخ الاستحقاق'] || !row['رقم الهوية'] || !row['رقم الجوال']) {
+            errorMessages.push(`صف ${index + 2}: الأعمدة المطلوبة (اسم المقترض، رقم الهوية، رقم الجوال، المبلغ، نوع التمويل، تاريخ الاستحقاق) غير موجودة.`);
             failedCount++;
             continue;
           }
@@ -122,8 +125,10 @@ export default function ImportPage() {
               }
           }
 
-          const newBorrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus' | 'phone'> = {
+          const newBorrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'fundedBy' | 'paymentStatus'> = {
             name: row['اسم المقترض'],
+            nationalId: String(row['رقم الهوية']),
+            phone: String(row['رقم الجوال']),
             amount: Number(row['المبلغ']),
             loanType: row['نوع التمويل'],
             dueDate: dueDate as string,
@@ -282,6 +287,8 @@ export default function ImportPage() {
               <CardContent>
                 <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
                   <li><span className="font-semibold text-foreground">اسم المقترض</span> (نص, مطلوب)</li>
+                  <li><span className="font-semibold text-foreground">رقم الهوية</span> (نص أو رقم, مطلوب)</li>
+                  <li><span className="font-semibold text-foreground">رقم الجوال</span> (نص أو رقم, مطلوب)</li>
                   <li><span className="font-semibold text-foreground">المبلغ</span> (رقم, مطلوب)</li>
                   <li><span className="font-semibold text-foreground">نوع التمويل</span> (نص: 'اقساط' أو 'مهلة', مطلوب)</li>
                   <li><span className="font-semibold text-foreground">تاريخ الاستحقاق</span> (تاريخ بصيغة YYYY-MM-DD, مطلوب)</li>
@@ -301,3 +308,5 @@ export default function ImportPage() {
     </div>
   );
 }
+
+    
