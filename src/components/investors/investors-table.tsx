@@ -215,8 +215,17 @@ export function InvestorsTable({
 
   const handleSaveChanges = () => {
     if (!selectedInvestor) return;
-    const { ...updatableInvestor } = selectedInvestor;
-    updateInvestor(updatableInvestor as UpdatableInvestor);
+    
+    const updatableInvestor: UpdatableInvestor = {
+      id: selectedInvestor.id,
+      name: selectedInvestor.name,
+      date: selectedInvestor.date,
+      status: selectedInvestor.status,
+      installmentProfitShare: selectedInvestor.installmentProfitShare,
+      gracePeriodProfitShare: selectedInvestor.gracePeriodProfitShare
+    };
+    
+    updateInvestor(updatableInvestor);
     setIsEditDialogOpen(false);
     setSelectedInvestor(null);
   };
