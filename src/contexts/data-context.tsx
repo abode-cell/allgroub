@@ -28,6 +28,7 @@ import type {
   NewInvestorPayload,
   InstallmentStatus,
   AddBorrowerResult,
+  Branch,
 } from '@/lib/types';
 import {
   borrowersData as initialBorrowersData,
@@ -60,6 +61,8 @@ type DataState = {
 };
 
 type DataActions = {
+  addBranch: (branch: Omit<Branch, 'id'>) => Promise<{success: boolean, message: string}>;
+  deleteBranch: (branchId: string) => void;
   updateSupportInfo: (info: { email?: string; phone?: string }) => void;
   updateBaseInterestRate: (rate: number) => void;
   updateInvestorSharePercentage: (percentage: number) => void;
@@ -113,7 +116,7 @@ type DataActions = {
   updateUserRole: (userId: string, role: UserRole) => void;
   updateUserLimits: (
     userId: string,
-    limits: { investorLimit: number; employeeLimit: number; assistantLimit: number }
+    limits: { investorLimit: number; employeeLimit: number; assistantLimit: number; branchLimit: number }
   ) => void;
   updateManagerSettings: (
     managerId: string,
@@ -168,11 +171,14 @@ const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'vis
     allowEmployeeLoanEdits: false,
     allowEmployeeSubmissions: false,
     hideEmployeeInvestorFunds: false,
+    branches: [],
+    branchLimit: 3,
   };
   const users = (data.users || []).map((u: any) => ({
     ...defaultUser,
     ...u,
     permissions: u.permissions || {},
+    branches: u.branches || [],
   }));
 
   const investors = (data.investors || []).map((i: any) => {
@@ -451,6 +457,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           investorLimit: 3,
           employeeLimit: 1,
           assistantLimit: 1,
+          branchLimit: 3,
+          branches: [],
           allowEmployeeSubmissions: true,
           hideEmployeeInvestorFunds: false,
           allowEmployeeLoanEdits: false,
@@ -488,16 +496,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const originalBorrower = d.borrowers.find(b => b.id === updatedBorrower.id);
         if (!originalBorrower) return d;
         
-        if(loggedInUser.role === 'موظف' && !loggedInUser.permissions?.manageBorrowers) {
-            const manager = d.users.find(u => u.id === loggedInUser.managedBy);
-            if (!manager?.allowEmployeeLoanEdits) {
-                 toast({
-                    variant: 'destructive',
-                    title: 'غير مصرح به',
-                    description: 'ليس لديك الصلاحية لتعديل القروض.',
-                 });
-                 return d;
-            }
+        const manager = d.users.find(u => u.id === loggedInUser.managedBy);
+
+        if(loggedInUser.role === 'موظف' && !(manager?.allowEmployeeLoanEdits)) {
+             toast({
+                variant: 'destructive',
+                title: 'غير مصرح به',
+                description: 'ليس لديك الصلاحية لتعديل القروض.',
+             });
+             return d;
         } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageBorrowers) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل القروض.' });
             return d;
@@ -774,10 +781,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
               return d;
           }
 
+          const manager = d.users.find(u => u.id === loggedInUser.managedBy);
+
           if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageBorrowers) {
-              result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
-              toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
-              return d;
+               if(!manager?.allowEmployeeSubmissions) {
+                  result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
+                  toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
+                  return d;
+               }
           }
 
           if (borrower.loanType === 'اقساط' && (!borrower.rate || borrower.rate <= 0 || !borrower.term || borrower.term <= 0)) {
@@ -794,18 +805,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
             
             if (existingActiveLoan) {
                 const submitter = d.users.find(u => u.id === existingActiveLoan.submittedBy);
-                const manager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
+                const loanManager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
                 const loggedInManagerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
 
-                if (manager && manager.id !== loggedInManagerId) {
+                if (loanManager && loanManager.id !== loggedInManagerId) {
                     result = {
                         success: false,
                         message: 'عميل مكرر',
                         isDuplicate: true,
                         duplicateInfo: {
                             borrowerName: existingActiveLoan.name,
-                            managerName: manager.name,
-                            managerPhone: manager.phone || 'غير متوفر'
+                            managerName: loanManager.name,
+                            managerPhone: loanManager.phone || 'غير متوفر'
                         }
                     };
                     return d; // Important: return here to show the dialog
@@ -862,7 +873,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               submittedBy: loggedInUser.id,
               fundedBy: fundedByDetails,
               isNotified: false,
-              installments: borrower.loanType === 'اقساط' && borrower.term > 0
+              installments: borrower.loanType === 'اقساط' && borrower.term && borrower.term > 0
               ? Array.from({ length: borrower.term * 12 }, (_, i) => ({ month: i + 1, status: 'لم يسدد بعد' }))
               : undefined,
           };
@@ -1572,6 +1583,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 updatedUser.investorLimit = updatedUser.investorLimit ?? 10;
                 updatedUser.employeeLimit = updatedUser.employeeLimit ?? 5;
                 updatedUser.assistantLimit = updatedUser.assistantLimit ?? 1;
+                updatedUser.branchLimit = updatedUser.branchLimit ?? 3;
+                updatedUser.branches = updatedUser.branches ?? [];
                 updatedUser.allowEmployeeSubmissions = updatedUser.allowEmployeeSubmissions ?? true;
                 updatedUser.hideEmployeeInvestorFunds = updatedUser.hideEmployeeInvestorFunds ?? false;
                 updatedUser.allowEmployeeLoanEdits = updatedUser.allowEmployeeLoanEdits ?? false;
@@ -1580,6 +1593,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 delete updatedUser.investorLimit;
                 delete updatedUser.employeeLimit;
                 delete updatedUser.assistantLimit;
+                delete updatedUser.branchLimit;
+                delete updatedUser.branches;
                 delete updatedUser.allowEmployeeSubmissions;
                 delete updatedUser.hideEmployeeInvestorFunds;
                 delete updatedUser.allowEmployeeLoanEdits;
@@ -1713,6 +1728,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
               if (linkedInvestors.length > 0) {
                   toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${linkedInvestors.length} مستثمرًا. يرجى حذف المستثمرين المرتبطين به أولاً.` });
                   return d;
+              }
+              if (userToDelete.branches && userToDelete.branches.length > 0) {
+                   toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه لديه ${userToDelete.branches.length} فرعًا. يرجى حذف الفروع أولاً.` });
+                   return d;
               }
           }
           
@@ -1856,8 +1875,69 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toast({ title: "تم إرسال الرسالة بنجاح", description: "تم تحديث حالة تبليغ المستثمر." });
   }, [toast]);
 
+  const addBranch = useCallback(
+    async (branch: Omit<Branch, 'id'>): Promise<{success: boolean, message: string}> => {
+        let result: {success: boolean, message: string} = {success: false, message: "فشل غير متوقع"};
+        setData(d => {
+            const loggedInUser = d.users.find(u => u.id === userId);
+            if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
+                result = {success: false, message: "غير مصرح لك."};
+                return d;
+            }
+
+            const currentBranches = loggedInUser.branches || [];
+            if (currentBranches.length >= (loggedInUser.branchLimit ?? 0)) {
+                result = {success: false, message: "لقد وصلت إلى الحد الأقصى للفروع."};
+                return d;
+            }
+            
+            const newBranch: Branch = { ...branch, id: `branch_${crypto.randomUUID()}` };
+            const newUsers = d.users.map(u => 
+                u.id === loggedInUser.id 
+                ? { ...u, branches: [...currentBranches, newBranch] }
+                : u
+            );
+            
+            result = {success: true, message: "تمت إضافة الفرع بنجاح."};
+            return { ...d, users: newUsers };
+        });
+
+        if (result.success) {
+            toast({ title: "نجاح", description: result.message });
+        } else {
+            toast({ variant: 'destructive', title: "خطأ", description: result.message });
+        }
+
+        return result;
+    }, [userId, toast]
+  );
+
+  const deleteBranch = useCallback(
+    (branchId: string) => {
+        setData(d => {
+            const loggedInUser = d.users.find(u => u.id === userId);
+            if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
+                return d;
+            }
+
+            const newUsers = d.users.map(u => {
+                if (u.id === loggedInUser.id) {
+                    const updatedBranches = (u.branches || []).filter(b => b.id !== branchId);
+                    return { ...u, branches: updatedBranches };
+                }
+                return u;
+            });
+
+            toast({ title: 'تم الحذف', description: 'تم حذف الفرع بنجاح.' });
+            return { ...d, users: newUsers };
+        });
+    }, [userId, toast]
+  );
+
   const actions: DataActions = useMemo(
     () => ({
+      addBranch,
+      deleteBranch,
       updateSupportInfo,
       updateBaseInterestRate,
       updateInvestorSharePercentage,
@@ -1899,6 +1979,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markInvestorAsNotified,
     }),
     [
+      addBranch,
+      deleteBranch,
       updateSupportInfo,
       updateBaseInterestRate,
       updateInvestorSharePercentage,

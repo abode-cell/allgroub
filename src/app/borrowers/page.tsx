@@ -146,9 +146,10 @@ export default function BorrowersPage() {
   const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
   const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : true;
   const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
-  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || (isEmployee);
   
-  const isPendingRequest = ((isEmployee || (isAssistant && !currentUser.permissions?.manageBorrowers)) && !isDirectAdditionEnabled);
+  const canAddLoan = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers) || (isEmployee && manager?.allowEmployeeSubmissions);
+
+  const isPendingRequest = !canAddLoan;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -250,26 +251,17 @@ export default function BorrowersPage() {
   const gracePeriodBorrowers = useMemo(() => borrowers.filter((b) => b.loanType === 'مهلة'), [borrowers]);
 
   const getDialogTitle = () => {
-    if (isEmployee || isAssistant) {
-      return isDirectAdditionEnabled ? 'إضافة قرض جديد' : 'رفع طلب إضافة قرض جديد';
-    }
-    return 'إضافة قرض جديد';
+    return isPendingRequest ? 'رفع طلب إضافة قرض جديد' : 'إضافة قرض جديد';
   };
 
   const getDialogDescription = () => {
-    if (isEmployee || isAssistant) {
-      return isDirectAdditionEnabled
-        ? 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.'
-        : 'أدخل تفاصيل القرض الجديد وسيتم مراجعة الطلب من قبل مديرك.';
-    }
-    return 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.';
+    return isPendingRequest
+        ? 'أدخل تفاصيل القرض الجديد وسيتم مراجعة الطلب من قبل مديرك.'
+        : 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.';
   };
 
   const getSubmitButtonText = () => {
-    if (isEmployee || isAssistant) {
-      return isDirectAdditionEnabled ? 'حفظ' : 'إرسال الطلب';
-    }
-    return 'حفظ';
+    return isPendingRequest ? 'إرسال الطلب' : 'حفظ';
   };
   
   const availableInvestorsForDropdown = useMemo(() => {
@@ -311,7 +303,7 @@ export default function BorrowersPage() {
               عرض وإدارة قائمة القروض في المنصة حسب نوع التمويل.
             </p>
           </header>
-          {showAddButton && (
+          {canAddLoan && (
           <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsAddDialogOpen(open); }}>
             <DialogTrigger asChild>
               <TooltipProvider>
@@ -320,7 +312,7 @@ export default function BorrowersPage() {
                       <span tabIndex={isPendingRequest || canAddAnyLoan ? undefined : 0}>
                         <Button disabled={!isPendingRequest && !canAddAnyLoan}>
                             <PlusCircle className="ml-2 h-4 w-4" />
-                            {isEmployee || isAssistant ? (isDirectAdditionEnabled ? 'إضافة قرض' : 'رفع طلب إضافة قرض') : 'إضافة قرض'}
+                            {isPendingRequest ? 'رفع طلب إضافة قرض' : 'إضافة قرض'}
                         </Button>
                       </span>
                   </TooltipTrigger>
