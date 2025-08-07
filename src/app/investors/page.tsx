@@ -51,7 +51,7 @@ export default function InvestorsPage() {
   const router = useRouter();
   
   const role = currentUser?.role;
-  const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف' && currentUser?.permissions?.manageInvestors);
+  const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف');
   const isSubordinate = role === 'موظف' || role === 'مساعد مدير المكتب';
 
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function InvestorsPage() {
   const isOfficeManager = role === 'مدير المكتب';
   const isAssistant = role === 'مساعد مدير المكتب';
 
-  const manager = isEmployee || isAssistant ? users.find((u) => u.id === currentUser?.managedBy) : currentUser;
+  const manager = isOfficeManager ? currentUser : users.find(u => u.id === currentUser?.managedBy);
   
   const investorsAddedByManager = useMemo(() => {
     if (!manager) return 0;
@@ -183,8 +183,8 @@ export default function InvestorsPage() {
     });
   };
 
-  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || (isEmployee && currentUser?.permissions?.manageInvestors);
-  const isAddButtonDisabled = (isOfficeManager || isAssistant || isEmployee) && !canAddMoreInvestors;
+  const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || (isEmployee && manager?.allowEmployeeSubmissions);
+  const isAddButtonDisabled = showAddButton && !canAddMoreInvestors;
       
   if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
     return <PageSkeleton />;
@@ -194,11 +194,10 @@ export default function InvestorsPage() {
   const hideFunds = (isEmployee || isAssistant) ? managerForSettings?.hideEmployeeInvestorFunds ?? false : false;
 
   const getDialogTitle = () => {
-    const isDirectAdditionEnabled = manager?.allowEmployeeSubmissions ?? false;
-    if (isEmployee) {
-      return isDirectAdditionEnabled ? 'إضافة مستثمر جديد' : 'رفع طلب إضافة مستثمر جديد';
+    if(isEmployee || isAssistant) {
+      return manager?.allowEmployeeSubmissions ? 'إضافة مستثمر جديد' : 'رفع طلب إضافة مستثمر جديد';
     }
-    return isOfficeManager ? 'إضافة مستثمر جديد وإنشاء حساب' : 'إضافة مستثمر جديد';
+    return 'إضافة مستثمر جديد وإنشاء حساب';
   };
 
   const getDialogDescription = () => {
@@ -206,9 +205,8 @@ export default function InvestorsPage() {
   };
 
   const getSubmitButtonText = () => {
-    const isDirectAdditionEnabled = manager?.allowEmployeeSubmissions ?? false;
-    if (isEmployee) {
-      return isDirectAdditionEnabled ? 'حفظ وإضافة' : 'إرسال الطلب للمراجعة';
+     if(isEmployee || isAssistant) {
+      return manager?.allowEmployeeSubmissions ? 'حفظ وإضافة' : 'إرسال الطلب للمراجعة';
     }
     return 'حفظ وإنشاء الحساب';
   };
