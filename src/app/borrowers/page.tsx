@@ -145,9 +145,9 @@ export default function BorrowersPage() {
 
   const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
   
-  const canAddLoan = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers) || (isEmployee && manager?.allowEmployeeSubmissions);
+  const canAddLoan = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || (isEmployee && manager?.allowEmployeeSubmissions);
 
-  const isPendingRequest = isEmployee && !manager?.allowEmployeeSubmissions;
+  const isPendingRequest = (isEmployee || isAssistant) && !manager?.allowEmployeeSubmissions;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -249,17 +249,20 @@ export default function BorrowersPage() {
   const gracePeriodBorrowers = useMemo(() => borrowers.filter((b) => b.loanType === 'مهلة'), [borrowers]);
 
   const getDialogTitle = () => {
+    if (role === 'مدير المكتب') return 'إضافة قرض جديد';
     return isPendingRequest ? 'رفع طلب إضافة قرض جديد' : 'إضافة قرض جديد';
   };
 
   const getDialogDescription = () => {
+    if (role === 'مدير المكتب') return 'أدخل تفاصيل القرض الجديد، ثم اختر المستثمرين لتمويله.';
     return isPendingRequest
         ? 'سيتم مراجعة طلب القرض الجديد من قبل مديرك.'
         : 'أدخل تفاصيل القرض الجديد، ثم اختر المستثمرين لتمويله.';
   };
-
+  
   const getSubmitButtonText = () => {
-    return isPendingRequest ? 'إرسال الطلب' : 'حفظ';
+    if (role === 'مدير المكتب') return 'حفظ وإضافة';
+    return isPendingRequest ? 'إرسال الطلب' : 'حفظ وإضافة';
   };
   
   const availableInvestorsForDropdown = useMemo(() => {
