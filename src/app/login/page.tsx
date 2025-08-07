@@ -13,7 +13,6 @@ import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useDataState } from '@/contexts/data-context';
-import { Logo } from '@/components/logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,9 +45,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-       <div className="mb-6">
-        <Logo />
-       </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>

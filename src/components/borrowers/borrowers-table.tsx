@@ -10,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   MoreHorizontal,
@@ -664,15 +663,15 @@ export function BorrowersTable({
                                 const newType = value as 'اقساط' | 'مهلة';
                                 setSelectedBorrower(prev => {
                                     if (!prev) return null;
-                                    const updated: Borrower = { ...prev, loanType: newType };
+                                    const updated: Partial<Borrower> = { ...prev, loanType: newType };
                                     if (newType === 'اقساط') {
-                                        delete updated.discount;
+                                        updated.discount = undefined;
                                     } else {
-                                        delete updated.rate;
-                                        delete updated.term;
-                                        delete updated.installments;
+                                        updated.rate = undefined;
+                                        updated.term = undefined;
+                                        updated.installments = undefined;
                                     }
-                                    return updated;
+                                    return updated as Borrower;
                                 });
                             }
                           }}
