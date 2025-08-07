@@ -1734,8 +1734,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 }
             }
           
-            if (borrowers.some(b => b.submittedBy === userIdToDelete)) {
-                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستخدم لأنه قام بتسجيل قروض. لسلامة السجلات، يتم منع الحذف.` });
+            if (borrowers.some(b => b.submittedBy === userIdToDelete && b.status !== 'مرفوض')) {
+                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستخدم لأنه قام بتسجيل قروض نشطة. لسلامة السجلات، يتم منع الحذف.` });
                 return d;
             }
           
