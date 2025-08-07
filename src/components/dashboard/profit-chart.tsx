@@ -93,7 +93,6 @@ export function ProfitChart() {
                 left: 12,
                 right: 12,
               }}
-              dir="rtl"
             >
               <CartesianGrid vertical={false} />
               <XAxis
