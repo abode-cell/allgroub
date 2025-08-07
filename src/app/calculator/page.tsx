@@ -467,7 +467,7 @@ export default function CalculatorPage() {
                     أدخل راتبك لتقدير أقصى مبلغ تمويل مهلة لمدة شهر واحد.
                     <br />
                     <small className="text-xs mt-2 block">
-                      يعتمد التقدير على أن إجمالي السداد (أصل القرض + الربح) لا يتجاوز {localSalaryRepaymentPercentage || salaryRepaymentPercentage}% من راتبك الشهري.
+                      يعتمد التقدير على أن إجمالي السداد (أصل القرض + الربح بنسبة {localGraceTotalProfitPercentage || graceTotalProfitPercentage}%) لا يتجاوز {localSalaryRepaymentPercentage || salaryRepaymentPercentage}% من راتبك الشهري.
                     </small>
                   </CardDescription>
                 </CardHeader>

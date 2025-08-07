@@ -664,7 +664,7 @@ export function BorrowersTable({
                                 const newType = value as 'اقساط' | 'مهلة';
                                 setSelectedBorrower(prev => {
                                     if (!prev) return null;
-                                    const updated: Borrower = { ...prev, loanType: newType };
+                                    const updated: Partial<Borrower> = { ...prev, loanType: newType };
                                     if (newType === 'اقساط') {
                                         delete updated.discount;
                                     } else {
@@ -672,7 +672,7 @@ export function BorrowersTable({
                                         delete updated.term;
                                         delete updated.installments;
                                     }
-                                    return updated;
+                                    return updated as Borrower;
                                 });
                             }
                           }}
@@ -938,7 +938,8 @@ export function BorrowersTable({
 
                     const totalInterest = principal * (rate / 100) * term;
                     const totalPayment = principal + totalInterest;
-                    const monthlyPayment = totalPayment / (term * 12);
+                    const numberOfPayments = term * 12;
+                    const monthlyPayment = numberOfPayments > 0 ? totalPayment / numberOfPayments : 0;
                     
                     return (
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
