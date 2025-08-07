@@ -499,28 +499,23 @@ export default function DashboardPage() {
 
   const metrics = useMemo(() => {
     if (!currentUser) return null;
-    try {
-        const result = calculateAllDashboardMetrics({
-            borrowers,
-            investors,
-            users,
-            currentUser,
-            supportTickets,
-            config: {
-            investorSharePercentage,
-            graceTotalProfitPercentage,
-            graceInvestorSharePercentage,
-            }
-        });
-        return result as DashboardMetricsOutput;
-    } catch (e) {
-        console.error("Failed to calculate dashboard metrics:", e);
-        return null;
-    }
+    const result = calculateAllDashboardMetrics({
+        borrowers,
+        investors,
+        users,
+        currentUser,
+        supportTickets,
+        config: {
+        investorSharePercentage,
+        graceTotalProfitPercentage,
+        graceInvestorSharePercentage,
+        }
+    });
+    return result as DashboardMetricsOutput;
   }, [borrowers, investors, users, currentUser, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
   useEffect(() => {
-    if (metrics === null && currentUser) {
+    if (!metrics && currentUser) {
         setError("حدث خطأ أثناء حساب مقاييس لوحة التحكم. قد تكون بعض البيانات غير متناسقة. يرجى مراجعة البيانات أو التواصل مع الدعم الفني.");
     } else {
         setError(null);
@@ -646,8 +641,8 @@ export default function DashboardPage() {
 
   const { filteredBorrowers, filteredInvestors, capital, idleFunds, installments, gracePeriod } = managerMetrics;
   
-  const showSensitiveData = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports);
-  const showIdleFundsReport = metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport);
+  const showSensitiveData = !!(metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewReports));
+  const showIdleFundsReport = !!(metrics.role === 'مدير المكتب' || (metrics.role === 'مساعد مدير المكتب' && currentUser?.permissions?.viewIdleFundsReport));
   
   return (
     <div className="flex flex-col flex-1">
