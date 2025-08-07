@@ -144,12 +144,10 @@ export default function BorrowersPage() {
   const isAssistant = role === 'مساعد مدير المكتب';
 
   const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
-  const isDirectAdditionEnabled = (isEmployee || isAssistant) ? manager?.allowEmployeeSubmissions ?? false : true;
-  const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
   
   const canAddLoan = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers) || (isEmployee && manager?.allowEmployeeSubmissions);
 
-  const isPendingRequest = !canAddLoan;
+  const isPendingRequest = isEmployee && !manager?.allowEmployeeSubmissions;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -256,8 +254,8 @@ export default function BorrowersPage() {
 
   const getDialogDescription = () => {
     return isPendingRequest
-        ? 'أدخل تفاصيل القرض الجديد وسيتم مراجعة الطلب من قبل مديرك.'
-        : 'أدخل تفاصيل القرض الجديد هنا. انقر على حفظ عند الانتهاء.';
+        ? 'سيتم مراجعة طلب القرض الجديد من قبل مديرك.'
+        : 'أدخل تفاصيل القرض الجديد، ثم اختر المستثمرين لتمويله.';
   };
 
   const getSubmitButtonText = () => {
@@ -292,6 +290,8 @@ export default function BorrowersPage() {
   const canAddInstallmentLoan = hasAvailableInvestorsForType('اقساط');
   const canAddGraceLoan = hasAvailableInvestorsForType('مهلة');
   const canAddAnyLoan = canAddInstallmentLoan || canAddGraceLoan;
+  
+  const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
 
   return (
     <div className="flex flex-col flex-1">
@@ -528,7 +528,7 @@ export default function BorrowersPage() {
                     <Button type="button" variant="secondary" onClick={() => {
                         setIsAddDialogOpen(false);
                         resetForm();
-                    }}>
+                    }} disabled={isSubmitting}>
                       إلغاء
                     </Button>
                   </DialogClose>

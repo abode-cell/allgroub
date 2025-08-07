@@ -699,7 +699,7 @@ export function BorrowersTable({
                         id="rate-edit"
                         type="number"
                         step="0.1"
-                        value={selectedBorrower.rate}
+                        value={selectedBorrower.rate || ''}
                         readOnly={selectedBorrower.status !== 'معلق'}
                         className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                         onChange={(e) =>
@@ -717,7 +717,7 @@ export function BorrowersTable({
                       <Input
                         id="term-edit"
                         type="number"
-                        value={selectedBorrower.term}
+                        value={selectedBorrower.term || ''}
                         readOnly={selectedBorrower.status !== 'معلق'}
                         className={cn("col-span-3", selectedBorrower.status !== 'معلق' && 'bg-muted/50 cursor-not-allowed')}
                         onChange={(e) =>
@@ -963,7 +963,7 @@ export function BorrowersTable({
                   })()
                 )}
 
-                {selectedBorrower.loanType === 'مهلة' && (
+                {selectedBorrower.loanType === 'مهلة' && selectedBorrower.discount && selectedBorrower.discount > 0 && (
                   <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">
                        <div>
                           <span className='text-muted-foreground'>مبلغ الخصم:</span>
