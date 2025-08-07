@@ -265,7 +265,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const investorsWithSuspensions = d.investors.map(inv => {
             const invUser = usersWithSuspensions.find(u => u.id === inv.id);
             if(invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
-                return {...inv, status: 'غير نشط'};
+                return {...inv, status: 'غير نشط' as const};
             }
             return inv;
           });
@@ -1742,7 +1742,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (userToDelete.role === 'مستثمر') {
                 const investorRecord = investors.find(i => i.id === userIdToDelete);
                 if (investorRecord) {
-                    if (investorRecord.fundedLoanIds?.length > 0) {
+                    if (investorRecord.fundedLoanIds?.some(loanId => borrowers.some(b => b.id === loanId))) {
                         toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأنه قام بتمويل قروض. لسلامة السجلات، يتم منع الحذف.` });
                         return d;
                     }
