@@ -41,6 +41,7 @@ import {
   Edit,
   Loader2,
   ShieldX,
+  Home,
 } from 'lucide-react';
 import {
   Select,
@@ -49,7 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { User, UserRole, PermissionKey, NewUserPayload } from '@/lib/types';
+import type { User, UserRole, PermissionKey, NewUserPayload, Branch } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -239,7 +240,7 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
 
 export default function UsersPage() {
   const { currentUser, users, investors } = useDataState();
-  const { updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, updateEmployeePermission, addNewSubordinateUser, updateUserCredentials } =
+  const { updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, updateEmployeePermission, addNewSubordinateUser, updateUserCredentials, addBranch, deleteBranch } =
     useDataActions();
   const router = useRouter();
   const { toast } = useToast();
@@ -247,7 +248,7 @@ export default function UsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [editableLimits, setEditableLimits] = useState<
-    Record<string, { investorLimit: string; employeeLimit: string; assistantLimit: string }>
+    Record<string, { investorLimit: string; employeeLimit: string; assistantLimit: string, branchLimit: string }>
   >({});
   
   const getInitialAddUserFormState = () => ({
@@ -260,8 +261,11 @@ export default function UsersPage() {
   });
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [isAddBranchDialogOpen, setIsAddBranchDialogOpen] = useState(false);
   const [addUserForm, setAddUserForm] = useState(getInitialAddUserFormState());
+  const [newBranch, setNewBranch] = useState({ name: '', city: '' });
   const [isSubmittingNewUser, setIsSubmittingNewUser] = useState(false);
+  const [isSubmittingNewBranch, setIsSubmittingNewBranch] = useState(false);
   
   const [isEditCredsDialogOpen, setIsEditCredsDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
@@ -291,6 +295,7 @@ export default function UsersPage() {
           investorLimit: String(manager.investorLimit ?? 10),
           employeeLimit: String(manager.employeeLimit ?? 5),
           assistantLimit: String(manager.assistantLimit ?? 2),
+          branchLimit: String(manager.branchLimit ?? 3),
         }
       }));
     });
@@ -367,6 +372,7 @@ export default function UsersPage() {
             investorLimit: String(manager.investorLimit ?? 10),
             employeeLimit: String(manager.employeeLimit ?? 5),
             assistantLimit: String(manager.assistantLimit ?? 2),
+            branchLimit: String(manager.branchLimit ?? 3),
           },
         }));
       }
@@ -375,13 +381,13 @@ export default function UsersPage() {
 
   const handleLimitsChange = (
     managerId: string,
-    field: 'investorLimit' | 'employeeLimit' | 'assistantLimit',
+    field: 'investorLimit' | 'employeeLimit' | 'assistantLimit' | 'branchLimit',
     value: string
   ) => {
     setEditableLimits((prev) => ({
       ...prev,
       [managerId]: {
-        ...(prev[managerId] || { investorLimit: '0', employeeLimit: '0', assistantLimit: '0' }),
+        ...(prev[managerId] || { investorLimit: '0', employeeLimit: '0', assistantLimit: '0', branchLimit: '0' }),
         [field]: value,
       },
     }));
@@ -394,6 +400,7 @@ export default function UsersPage() {
         investorLimit: Number(limits.investorLimit) || 0,
         employeeLimit: Number(limits.employeeLimit) || 0,
         assistantLimit: Number(limits.assistantLimit) || 0,
+        branchLimit: Number(limits.branchLimit) || 0,
       });
     }
   };
@@ -425,6 +432,18 @@ export default function UsersPage() {
     setIsSubmittingNewUser(false);
   };
 
+  const handleAddBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBranch.name || !newBranch.city) return;
+    setIsSubmittingNewBranch(true);
+    const result = await addBranch(newBranch);
+    if (result.success) {
+      setIsAddBranchDialogOpen(false);
+    }
+    setIsSubmittingNewBranch(false);
+  };
+
+
   const myEmployees = useMemo(() => {
     if (!currentUser) return [];
     const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
@@ -435,6 +454,12 @@ export default function UsersPage() {
     if (!currentUser || role !== 'مدير المكتب') return [];
     return users.filter((u) => u.managedBy === currentUser.id && u.role === 'مساعد مدير المكتب');
   }, [users, currentUser, role]);
+
+  const myBranches = useMemo(() => {
+    if (!currentUser || role !== 'مدير المكتب') return [];
+    return currentUser.branches || [];
+  }, [currentUser]);
+
 
   if (!currentUser || !canViewPage) {
     return <PageSkeleton />;
@@ -516,7 +541,7 @@ export default function UsersPage() {
                                   </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
-                                    <div className="grid gap-4 md:grid-cols-3 items-end">
+                                    <div className="grid gap-4 md:grid-cols-2 items-end">
                                         <div className="space-y-2">
                                             <Label htmlFor={`investor-limit-${manager.id}`}>حد المستثمرين</Label>
                                             <Input id={`investor-limit-${manager.id}`} type="number" value={editableLimits[manager.id]?.investorLimit ?? ''}
@@ -536,6 +561,13 @@ export default function UsersPage() {
                                             <Input id={`assistant-limit-${manager.id}`} type="number" value={editableLimits[manager.id]?.assistantLimit ?? ''}
                                             onChange={(e) => handleLimitsChange(manager.id, 'assistantLimit', e.target.value)}
                                             placeholder={String(manager.assistantLimit ?? 2)}
+                                            />
+                                        </div>
+                                         <div className="space-y-2">
+                                            <Label htmlFor={`branch-limit-${manager.id}`}>حد الفروع</Label>
+                                            <Input id={`branch-limit-${manager.id}`} type="number" value={editableLimits[manager.id]?.branchLimit ?? ''}
+                                            onChange={(e) => handleLimitsChange(manager.id, 'branchLimit', e.target.value)}
+                                            placeholder={String(manager.branchLimit ?? 3)}
                                             />
                                         </div>
                                     </div>
@@ -574,6 +606,16 @@ export default function UsersPage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
+                                     <div className="rounded-md border bg-background p-2">
+                                        <h5 className="font-medium text-sm p-2 flex items-center gap-2"><Home className="h-4 w-4 text-muted-foreground" /> الفروع ({manager.branches?.length ?? 0})</h5>
+                                        {manager.branches && manager.branches.length > 0 ? (
+                                            <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
+                                            {manager.branches.map(b => <li key={b.id}>{b.name} - {b.city}</li>)}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-xs text-center text-muted-foreground py-2">لا توجد فروع مرتبطة.</p>
+                                        )}
+                                    </div>
                                     <div className="rounded-md border bg-background p-2">
                                         <h5 className="font-medium text-sm p-2 flex items-center gap-2"><PiggyBank className="h-4 w-4 text-muted-foreground" /> المستثمرون ({managerInvestors.length})</h5>
                                         {managerInvestors.length > 0 ? (
@@ -708,13 +750,14 @@ export default function UsersPage() {
     
     const canAddAssistant = role === 'مدير المكتب' && myAssistants.length < (currentUser.assistantLimit ?? 0);
     const canAddEmployee = role === 'مدير المكتب' && myEmployees.length < (currentUser.employeeLimit ?? 0);
+    const canAddBranch = role === 'مدير المكتب' && myBranches.length < (currentUser.branchLimit ?? 0);
     
     const canManageAssistants = role === 'مدير المكتب';
     const canManageEmployees = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageEmployeePermissions);
     
     const pageTitle = role === 'مدير المكتب' ? 'إدارة فريق العمل' : 'إدارة الموظفين';
     const pageDescription = role === 'مدير المكتب'
-        ? 'عرض وإدارة المساعدين والموظفين المرتبطين بحسابك وصلاحياتهم.'
+        ? 'عرض وإدارة المساعدين والموظفين والفروع المرتبطة بحسابك.'
         : 'عرض وإدارة الموظفين المرتبطين بالمكتب.';
 
     return (
@@ -727,6 +770,70 @@ export default function UsersPage() {
           {pageDescription}
         </p>
       </header>
+
+      {role === 'مدير المكتب' && (
+        <Card className='mb-8'>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className='flex items-center gap-2'>
+                    <Home className="h-6 w-6 text-primary" />
+                    إدارة الفروع ({myBranches.length} / {currentUser.branchLimit ?? 0})
+                </CardTitle>
+                <CardDescription>
+                    إضافة وحذف فروع مكتبك.
+                </CardDescription>
+            </div>
+             <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span tabIndex={canAddBranch ? undefined : 0}>
+                            <Button size="sm" onClick={() => setIsAddBranchDialogOpen(true)} disabled={!canAddBranch}>
+                                <PlusCircle className="ml-2 h-4 w-4" />
+                                إضافة فرع
+                            </Button>
+                        </span>
+                    </TooltipTrigger>
+                    {!canAddBranch && (
+                        <TooltipContent>
+                            <p>لقد وصلت للحد الأقصى لعدد الفروع.</p>
+                        </TooltipContent>
+                    )}
+                </Tooltip>
+             </TooltipProvider>
+          </CardHeader>
+          <CardContent>
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>اسم الفرع</TableHead>
+                        <TableHead>المدينة</TableHead>
+                        <TableHead className="text-left">الإجراء</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {myBranches.length > 0 ? myBranches.map((branch) => (
+                        <TableRow key={branch.id}>
+                            <TableCell className="font-medium">{branch.name}</TableCell>
+                            <TableCell>{branch.city}</TableCell>
+                            <TableCell className="text-left">
+                                <Button variant="destructive" size="sm" onClick={() => deleteBranch(branch.id)}>
+                                    <Trash2 className="ml-2 h-4 w-4" />
+                                    حذف
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    )) : (
+                        <TableRow>
+                            <TableCell colSpan={3} className="h-24 text-center">
+                                لا توجد فروع مضافة.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {canManageAssistants && (
         <Card>
@@ -1107,6 +1214,43 @@ export default function UsersPage() {
               <Button type="submit" disabled={isCredsSubmitting}>
                 {isCredsSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                 حفظ التغييرات
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddBranchDialogOpen} onOpenChange={(open) => {
+          if(!open) setNewBranch({ name: '', city: '' });
+          setIsAddBranchDialogOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleAddBranch}>
+            <DialogHeader>
+              <DialogTitle>إضافة فرع جديد</DialogTitle>
+              <DialogDescription>
+                أدخل بيانات الفرع الجديد لمكتبك.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="branch-name">اسم الفرع</Label>
+                <Input id="branch-name" value={newBranch.name} onChange={(e) => setNewBranch(prev => ({ ...prev, name: e.target.value }))} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="branch-city">المدينة</Label>
+                <Input id="branch-city" value={newBranch.city} onChange={(e) => setNewBranch(prev => ({ ...prev, city: e.target.value }))} required />
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  إلغاء
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isSubmittingNewBranch}>
+                {isSubmittingNewBranch && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                إضافة الفرع
               </Button>
             </DialogFooter>
           </form>

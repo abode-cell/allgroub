@@ -34,6 +34,13 @@ export type NewUserPayload = {
   confirmPassword?: string;
 };
 
+export type Branch = {
+  id: string;
+  name: string;
+  city: string;
+};
+
+
 export type User = {
   id: string;
   name: string;
@@ -54,6 +61,8 @@ export type User = {
   investorLimit?: number;
   employeeLimit?: number;
   assistantLimit?: number;
+  branchLimit?: number;
+  branches?: Branch[];
   allowEmployeeSubmissions?: boolean;
   hideEmployeeInvestorFunds?: boolean;
   allowEmployeeLoanEdits?: boolean;
