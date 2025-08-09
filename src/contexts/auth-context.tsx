@@ -4,6 +4,7 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import type { User } from '@/lib/types';
 import { isPast } from 'date-fns';
 import { APP_DATA_KEY } from './data-context';
+import { useRouter } from 'next/navigation';
 
 // This is a mock implementation and does not connect to any backend service.
 
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   
   useEffect(() => {
     // This effect runs once on the client when the component mounts.
@@ -110,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('loggedInUserId');
       // Clearing the app data is crucial to prevent inconsistencies on next login.
       localStorage.removeItem(APP_DATA_KEY);
-      window.location.href = '/login'; // Force reload to clear all state from memory
+      router.push('/login'); // Use router for smoother navigation
     } catch (error) {
       console.error("Could not access localStorage:", error);
     }
