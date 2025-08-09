@@ -665,11 +665,11 @@ export function BorrowersTable({
                                     if (!prev) return null;
                                     const updated: Partial<Borrower> = { ...prev, loanType: newType };
                                     if (newType === 'اقساط') {
-                                        updated.discount = undefined;
+                                        delete updated.discount;
                                     } else {
-                                        updated.rate = undefined;
-                                        updated.term = undefined;
-                                        updated.installments = undefined;
+                                        delete updated.rate;
+                                        delete updated.term;
+                                        delete updated.installments;
                                     }
                                     return updated as Borrower;
                                 });

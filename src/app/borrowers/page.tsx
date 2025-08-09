@@ -277,6 +277,7 @@ export default function BorrowersPage() {
       })
       .filter(i => 
         i.status === 'نشط' && 
+        typeof i.availableCapital !== 'undefined' &&
         i.availableCapital > 0
       );
   }, [investors, allBorrowers, newBorrower.loanType]);
@@ -286,7 +287,7 @@ export default function BorrowersPage() {
         if (i.status !== 'نشط') return false;
         const financials = calculateInvestorFinancials(i, allBorrowers);
         const capital = type === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
-        return capital > 0;
+        return typeof capital !== 'undefined' && capital > 0;
     });
   };
   
