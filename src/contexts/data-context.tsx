@@ -265,7 +265,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const investorsWithSuspensions = d.investors.map(inv => {
             const invUser = usersWithSuspensions.find(u => u.id === inv.id);
             if(invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
-                return {...inv, status: 'غير نشط' as const};
+                const newStatus: Investor['status'] = 'غير نشط';
+                return {...inv, status: newStatus};
             }
             return inv;
           });
@@ -1754,12 +1755,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 }
             }
 
+            const newStatus: User['status'] = 'محذوف';
             const finalUsers = users.map(u => 
-                u.id === userIdToDelete ? { ...u, status: 'محذوف' as const } : u
+                u.id === userIdToDelete ? { ...u, status: newStatus } : u
             );
 
             const finalInvestors = investors.map(i =>
-                i.id === userIdToDelete ? { ...i, status: 'محذوف' as const } : i
+                i.id === userIdToDelete ? { ...i, status: newStatus } : i
             );
           
             toast({ title: 'اكتمل الحذف', description: `تم حذف الحساب "${userToDelete.name}" وتعيينه كـ "محذوف".` });
