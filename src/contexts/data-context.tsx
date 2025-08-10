@@ -1464,10 +1464,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         const systemAdmin = d.users.find(u => u.role === 'مدير النظام');
+        
+        let finalUsers = d.users;
+        
+        const newStatus: User['status'] = status;
 
         const newUsers = d.users.map((u) => {
             if (u.id === userIdToUpdate) {
-                const newStatus: User['status'] = status;
                 const updatedUser: User = { ...u, status: newStatus, lastStatusChange: new Date().toISOString() };
                 
                 if (updatedUser.role === 'مدير المكتب' && userToUpdate.status === 'معلق' && newStatus === 'نشط') {
@@ -1483,15 +1486,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 }
                 return updatedUser;
             }
-            if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userIdToUpdate) {
-                 const newSubordinateStatus: User['status'] = status;
-                return { ...u, status: newSubordinateStatus };
-            }
             return u;
         });
 
-        const isSuspending = status === 'معلق';
-        const isReactivating = status === 'نشط' && userToUpdate.status === 'معلق';
+        const isSuspendingManager = userToUpdate.role === 'مدير المكتب' && newStatus === 'معلق';
+        if (isSuspendingManager) {
+            finalUsers = newUsers.map(u => {
+                if (u.managedBy === userIdToUpdate) {
+                    return { ...u, status: newStatus };
+                }
+                return u;
+            });
+        } else {
+            finalUsers = newUsers;
+        }
+
+        const isSuspending = newStatus === 'معلق';
+        const isReactivating = newStatus === 'نشط' && userToUpdate.status === 'معلق';
         let newInvestors = d.investors;
         let newNotifications = d.notifications;
 
@@ -1521,7 +1532,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
         
-        if (status === 'نشط' && userToUpdate.status === 'معلق' && userToUpdate.role !== 'مدير المكتب') {
+        if (newStatus === 'نشط' && userToUpdate.status === 'معلق' && userToUpdate.role !== 'مدير المكتب') {
             newNotifications = [{
                 id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
                 recipientId: userIdToUpdate,
@@ -1532,7 +1543,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
 
-        return { ...d, users: newUsers, investors: newInvestors, notifications: newNotifications };
+        return { ...d, users: finalUsers, investors: newInvestors, notifications: newNotifications };
       });
     },
     [userId, toast]
@@ -1762,12 +1773,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     }
                 }
             }
-            
+
             const newStatus: User['status'] = 'محذوف';
             const finalUsers = users.map(u => 
                 u.id === userIdToDelete ? { ...u, status: newStatus } : u
             );
-            
+
             const finalInvestors = investors.map(i => {
                 if (i.id === userIdToDelete) {
                     const newInvestorStatus: Investor['status'] = 'محذوف';
@@ -2068,3 +2079,6 @@ export function useDataActions() {
   }
   return context;
 }
+
+
+    
