@@ -246,7 +246,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newUsers = d.users.map(user => {
           if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt && isPast(new Date(user.trialEndsAt))) {
             needsUpdate = true;
-            return { ...user, status: 'معلق' };
+            const newStatus: User['status'] = 'معلق';
+            return { ...user, status: newStatus };
           }
           return user;
         });
@@ -258,9 +259,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
               .map(u => u.id)
           );
           
-          const usersWithSuspensions = newUsers.map(u => 
-            u.managedBy && suspendedManagerIds.has(u.managedBy) ? { ...u, status: 'معلق' } : u
-          );
+          const usersWithSuspensions = newUsers.map(u => {
+            if (u.managedBy && suspendedManagerIds.has(u.managedBy)) {
+                 const newStatus: User['status'] = 'معلق';
+                 return { ...u, status: newStatus };
+            }
+            return u;
+          });
 
           const investorsWithSuspensions = d.investors.map(inv => {
             const invUser = usersWithSuspensions.find(u => u.id === inv.id);
@@ -1462,9 +1467,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const newUsers = d.users.map((u) => {
             if (u.id === userIdToUpdate) {
-                const updatedUser: User = { ...u, status, lastStatusChange: new Date().toISOString() };
+                const newStatus: User['status'] = status;
+                const updatedUser: User = { ...u, status: newStatus, lastStatusChange: new Date().toISOString() };
                 
-                if (updatedUser.role === 'مدير المكتب' && userToUpdate.status === 'معلق' && status === 'نشط') {
+                if (updatedUser.role === 'مدير المكتب' && userToUpdate.status === 'معلق' && newStatus === 'نشط') {
                     if (!userToUpdate.trialEndsAt) { 
                         const trialDays = systemAdmin?.defaultTrialPeriodDays ?? 14;
                         const trialEndsAt = new Date();
@@ -1478,7 +1484,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return updatedUser;
             }
             if (userToUpdate.role === 'مدير المكتب' && u.managedBy === userIdToUpdate) {
-                return { ...u, status };
+                 const newSubordinateStatus: User['status'] = status;
+                return { ...u, status: newSubordinateStatus };
             }
             return u;
         });
@@ -1497,7 +1504,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
              if (isSuspending) {
                 newInvestors = d.investors.map((inv) => {
                     if (managerInvestors.some(mi => mi.id === inv.id) && inv.status === 'نشط') {
-                        return { ...inv, status: 'غير نشط' };
+                        const newInvestorStatus: Investor['status'] = 'غير نشط';
+                        return { ...inv, status: newInvestorStatus };
                     }
                     return inv;
                 });
@@ -1754,15 +1762,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     }
                 }
             }
-
+            
             const newStatus: User['status'] = 'محذوف';
             const finalUsers = users.map(u => 
                 u.id === userIdToDelete ? { ...u, status: newStatus } : u
             );
-
-            const finalInvestors = investors.map(i =>
-                i.id === userIdToDelete ? { ...i, status: newStatus } : i
-            );
+            
+            const finalInvestors = investors.map(i => {
+                if (i.id === userIdToDelete) {
+                    const newInvestorStatus: Investor['status'] = 'محذوف';
+                    return { ...i, status: newInvestorStatus };
+                }
+                return i;
+            });
           
             toast({ title: 'اكتمل الحذف', description: `تم حذف الحساب "${userToDelete.name}" وتعيينه كـ "محذوف".` });
 

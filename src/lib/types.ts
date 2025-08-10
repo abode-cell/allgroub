@@ -136,13 +136,14 @@ export type Investor = {
   gracePeriodProfitShare?: number;
 };
 
-export type UpdatableInvestor = Omit<
+export type UpdatableInvestor = Pick<
   Investor,
-  | 'fundedLoanIds'
-  | 'transactionHistory'
-  | 'rejectionReason'
-  | 'submittedBy'
-  | 'isNotified'
+  | 'id'
+  | 'name'
+  | 'date'
+  | 'status'
+  | 'installmentProfitShare'
+  | 'gracePeriodProfitShare'
 >;
 
 export type NewInvestorPayload = {
