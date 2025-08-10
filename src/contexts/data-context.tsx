@@ -241,49 +241,46 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkAndApplyTrialExpirations = () => {
-      setData(d => {
-        let needsUpdate = false;
-        const newUsers = d.users.map(user => {
-          if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt && isPast(new Date(user.trialEndsAt))) {
-            needsUpdate = true;
-            const newStatus: User['status'] = 'معلق';
-            return { ...user, status: newStatus };
-          }
-          return user;
+        setData(d => {
+            let needsUpdate = false;
+            let suspendedManagerIds = new Set<string>();
+
+            const newUsers = d.users.map(user => {
+                if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt && isPast(new Date(user.trialEndsAt))) {
+                    needsUpdate = true;
+                    suspendedManagerIds.add(user.id);
+                    const newStatus: User['status'] = 'معلق';
+                    return { ...user, status: newStatus };
+                }
+                return user;
+            });
+
+            if (needsUpdate) {
+                const finalUsers = newUsers.map(u => {
+                    if (u.managedBy && suspendedManagerIds.has(u.managedBy)) {
+                        const newStatus: User['status'] = 'معلق';
+                        return { ...u, status: newStatus };
+                    }
+                    return u;
+                });
+
+                const finalInvestors = d.investors.map(inv => {
+                    const invUser = finalUsers.find(u => u.id === inv.id);
+                    if (invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
+                        const newStatus: Investor['status'] = 'غير نشط';
+                        return { ...inv, status: newStatus };
+                    }
+                    return inv;
+                });
+                return { ...d, users: finalUsers, investors: finalInvestors };
+            }
+            return d;
         });
-
-        if (needsUpdate) {
-          const suspendedManagerIds = new Set(
-            d.users
-              .filter(u => u.role === 'مدير المكتب' && u.status === 'نشط' && u.trialEndsAt && isPast(new Date(u.trialEndsAt)))
-              .map(u => u.id)
-          );
-          
-          const usersWithSuspensions = newUsers.map(u => {
-            if (u.managedBy && suspendedManagerIds.has(u.managedBy)) {
-                 const newStatus: User['status'] = 'معلق';
-                 return { ...u, status: newStatus };
-            }
-            return u;
-          });
-          
-          const newInvestors = d.investors.map(inv => {
-            const invUser = usersWithSuspensions.find(u => u.id === inv.id);
-            if(invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
-                const newStatus: Investor['status'] = 'غير نشط';
-                return {...inv, status: newStatus};
-            }
-            return inv;
-          });
-
-          return { ...d, users: usersWithSuspensions, investors: newInvestors };
-        }
-        return d;
-      });
     };
 
     checkAndApplyTrialExpirations();
-  }, []);
+}, []);
+
 
   const { userId } = useAuth();
   const { toast } = useToast();
@@ -606,7 +603,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [toast]
   );
   
- const approveBorrower = useCallback(
+const approveBorrower = useCallback(
     (borrowerId: string, investorIds: string[]) => {
       setData(d => {
         const loanToApprove = d.borrowers.find((b) => b.id === borrowerId);
@@ -680,16 +677,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const rejectBorrower = useCallback(
     (borrowerId: string, reason: string) => {
       setData(d => {
-        const loanToReject = d.borrowers.find((b) => b.id === borrowerId);
-        if (!loanToReject) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
-            return d;
-        }
-        if (loanToReject.status !== 'معلق') {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-            return d;
-        }
-
         let rejectedBorrower: Borrower | null = null;
         const newBorrowers = d.borrowers.map((b) => {
           if (b.id === borrowerId) {
@@ -698,6 +685,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
           return b;
         });
+
+        if (!rejectedBorrower) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+            return d;
+        }
+
+        if (rejectedBorrower.status !== 'مرفوض') { // Check the new status
+            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+            return d;
+        }
 
         let newNotifications = d.notifications;
         if (rejectedBorrower && rejectedBorrower.submittedBy) {
@@ -1756,7 +1753,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     }
                 }
             }
-
+            
             const newStatus: User['status'] = 'محذوف';
             const finalUsers = users.map(u => 
                 u.id === userIdToDelete ? { ...u, status: newStatus } : u
