@@ -243,9 +243,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const checkAndApplyTrialExpirations = () => {
         setData(d => {
             let needsUpdate = false;
-            let suspendedManagerIds = new Set<string>();
+            const suspendedManagerIds = new Set<string>();
 
-            const newUsers = d.users.map(user => {
+            const newUsers: User[] = d.users.map(user => {
                 if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt && isPast(new Date(user.trialEndsAt))) {
                     needsUpdate = true;
                     suspendedManagerIds.add(user.id);
@@ -256,7 +256,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             });
 
             if (needsUpdate) {
-                const finalUsers = newUsers.map(u => {
+                const finalUsers: User[] = newUsers.map(u => {
                     if (u.managedBy && suspendedManagerIds.has(u.managedBy)) {
                         const newStatus: User['status'] = 'معلق';
                         return { ...u, status: newStatus };
@@ -264,7 +264,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     return u;
                 });
 
-                const finalInvestors = d.investors.map(inv => {
+                const finalInvestors: Investor[] = d.investors.map(inv => {
                     const invUser = finalUsers.find(u => u.id === inv.id);
                     if (invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
                         const newStatus: Investor['status'] = 'غير نشط';
@@ -677,27 +677,23 @@ const approveBorrower = useCallback(
   const rejectBorrower = useCallback(
     (borrowerId: string, reason: string) => {
       setData(d => {
-        let rejectedBorrower: Borrower | null = null;
-        const newBorrowers = d.borrowers.map((b) => {
-          if (b.id === borrowerId) {
-            rejectedBorrower = { ...b, status: 'مرفوض', rejectionReason: reason };
-            return rejectedBorrower;
-          }
-          return b;
-        });
+        const borrowerToReject = d.borrowers.find((b) => b.id === borrowerId);
 
-        if (!rejectedBorrower) {
+        if (!borrowerToReject) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
             return d;
         }
 
-        if (rejectedBorrower.status !== 'مرفوض') { // Check the new status
+        if (borrowerToReject.status !== 'معلق') {
             toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
             return d;
         }
+        
+        const rejectedBorrower: Borrower = { ...borrowerToReject, status: 'مرفوض', rejectionReason: reason };
+        const newBorrowers = d.borrowers.map((b) => b.id === borrowerId ? rejectedBorrower : b);
 
         let newNotifications = d.notifications;
-        if (rejectedBorrower && rejectedBorrower.submittedBy) {
+        if (rejectedBorrower.submittedBy) {
           newNotifications = [{
               id: `notif_${crypto.randomUUID()}`,
               date: new Date().toISOString(),
@@ -1055,16 +1051,18 @@ const approveBorrower = useCallback(
             return d;
         }
 
+        const newStatus: Investor['status'] = 'مرفوض';
         let rejectedInvestor: Investor | null = null;
         const newInvestors = d.investors.map((i) => {
           if (i.id === investorId) {
-            rejectedInvestor = { ...i, status: 'مرفوض', rejectionReason: reason };
+            rejectedInvestor = { ...i, status: newStatus, rejectionReason: reason };
             return rejectedInvestor;
           }
           return i;
         });
         
-        const newUsers = d.users.map((u) => (u.id === investorId ? { ...u, status: 'مرفوض' } : u));
+        const newUserStatus: User['status'] = 'مرفوض';
+        const newUsers = d.users.map((u) => (u.id === investorId ? { ...u, status: newUserStatus } : u));
         
         let newNotifications = d.notifications;
         if (rejectedInvestor && rejectedInvestor.submittedBy) {
