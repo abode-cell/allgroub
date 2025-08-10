@@ -641,23 +641,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
         
-        const approvedBorrower: Borrower = {
+        const updatedBorrower: Borrower = {
             ...loanToApprove, 
             status: 'منتظم', 
             fundedBy: fundedByDetails,
             amount: totalFundedAmount,
         };
         
-        const newBorrowers = d.borrowers.map(b => (b.id === borrowerId ? approvedBorrower : b));
-
+        const newBorrowers = d.borrowers.map(b => (b.id === borrowerId ? updatedBorrower : b));
+        
         const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-        if (approvedBorrower.submittedBy) {
+
+        if (updatedBorrower.submittedBy) {
             notificationsToQueue.push({
-                recipientId: approvedBorrower.submittedBy,
+                recipientId: updatedBorrower.submittedBy,
                 title: 'تمت الموافقة على طلبك',
-                description: `تمت الموافقة على طلب إضافة القرض "${approvedBorrower.name}".`,
+                description: `تمت الموافقة على طلب إضافة القرض "${updatedBorrower.name}".`,
             });
         }
+        
         fundedByDetails.forEach(funder => {
             notificationsToQueue.push({
                 recipientId: funder.investorId,
