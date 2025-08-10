@@ -218,7 +218,6 @@ export function InvestorsTable({
     const updatableInvestor: UpdatableInvestor = {
       id: selectedInvestor.id,
       name: selectedInvestor.name,
-      date: selectedInvestor.date,
       status: selectedInvestor.status,
       installmentProfitShare: selectedInvestor.installmentProfitShare,
       gracePeriodProfitShare: selectedInvestor.gracePeriodProfitShare
@@ -795,4 +794,3 @@ export function InvestorsTable({
     </>
   );
 }
-
