@@ -244,13 +244,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setData(d => {
             let needsUpdate = false;
             const suspendedManagerIds = new Set<string>();
+            const newStatusForManager: User['status'] = 'معلق';
+            const newStatusForInvestor: Investor['status'] = 'غير نشط';
 
             const newUsers: User[] = d.users.map(user => {
                 if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt && isPast(new Date(user.trialEndsAt))) {
                     needsUpdate = true;
                     suspendedManagerIds.add(user.id);
-                    const newStatus: User['status'] = 'معلق';
-                    return { ...user, status: newStatus };
+                    return { ...user, status: newStatusForManager };
                 }
                 return user;
             });
@@ -258,8 +259,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (needsUpdate) {
                 const finalUsers: User[] = newUsers.map(u => {
                     if (u.managedBy && suspendedManagerIds.has(u.managedBy)) {
-                        const newStatus: User['status'] = 'معلق';
-                        return { ...u, status: newStatus };
+                        return { ...u, status: newStatusForManager };
                     }
                     return u;
                 });
@@ -267,8 +267,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 const finalInvestors: Investor[] = d.investors.map(inv => {
                     const invUser = finalUsers.find(u => u.id === inv.id);
                     if (invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
-                        const newStatus: Investor['status'] = 'غير نشط';
-                        return { ...inv, status: newStatus };
+                        return { ...inv, status: newStatusForInvestor };
                     }
                     return inv;
                 });
@@ -689,7 +688,8 @@ const approveBorrower = useCallback(
             return d;
         }
         
-        const rejectedBorrower: Borrower = { ...borrowerToReject, status: 'مرفوض', rejectionReason: reason };
+        const newStatus: Borrower['status'] = 'مرفوض';
+        const rejectedBorrower: Borrower = { ...borrowerToReject, status: newStatus, rejectionReason: reason };
         const newBorrowers = d.borrowers.map((b) => b.id === borrowerId ? rejectedBorrower : b);
 
         let newNotifications = d.notifications;
@@ -1000,35 +1000,34 @@ const approveBorrower = useCallback(
       setData(d => {
         const investorToApprove = d.investors.find((inv) => inv.id === investorId);
         if (!investorToApprove) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
-            return d;
+          toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
+          return d;
         }
         if (investorToApprove.status !== 'معلق') {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-            return d;
+          toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+          return d;
         }
 
-        let approvedInvestor: Investor | null = null;
-        const newInvestors = d.investors.map((i) => {
-          if (i.id === investorId) {
-            approvedInvestor = { ...i, status: 'نشط' };
-            return approvedInvestor;
-          }
-          return i;
-        });
+        const newStatus: Investor['status'] = 'نشط';
+        const newInvestors = d.investors.map((i) =>
+          i.id === investorId ? { ...i, status: newStatus } : i
+        );
 
-        const newUsers = d.users.map((u) => (u.id === investorId ? { ...u, status: 'نشط' } : u));
+        const newUserStatus: User['status'] = 'نشط';
+        const newUsers = d.users.map((u) =>
+          u.id === investorId ? { ...u, status: newUserStatus } : u
+        );
         
         let newNotifications = d.notifications;
-        if (approvedInvestor && approvedInvestor.submittedBy) {
-            newNotifications = [{
-                id: `notif_${crypto.randomUUID()}`,
-                date: new Date().toISOString(),
-                isRead: false,
-                recipientId: approvedInvestor.submittedBy,
-                title: 'تمت الموافقة على طلبك',
-                description: `تمت الموافقة على طلب إضافة المستثمر "${approvedInvestor.name}".`,
-            }, ...d.notifications];
+        if (investorToApprove && investorToApprove.submittedBy) {
+          newNotifications = [{
+            id: `notif_${crypto.randomUUID()}`,
+            date: new Date().toISOString(),
+            isRead: false,
+            recipientId: investorToApprove.submittedBy,
+            title: 'تمت الموافقة على طلبك',
+            description: `تمت الموافقة على طلب إضافة المستثمر "${investorToApprove.name}".`,
+          }, ...d.notifications];
         }
 
         toast({ title: 'تمت الموافقة على المستثمر' });
@@ -1052,18 +1051,16 @@ const approveBorrower = useCallback(
         }
 
         const newStatus: Investor['status'] = 'مرفوض';
-        let rejectedInvestor: Investor | null = null;
-        const newInvestors = d.investors.map((i) => {
-          if (i.id === investorId) {
-            rejectedInvestor = { ...i, status: newStatus, rejectionReason: reason };
-            return rejectedInvestor;
-          }
-          return i;
-        });
+        const newInvestors = d.investors.map((i) =>
+          i.id === investorId ? { ...i, status: newStatus, rejectionReason: reason } : i
+        );
         
         const newUserStatus: User['status'] = 'مرفوض';
-        const newUsers = d.users.map((u) => (u.id === investorId ? { ...u, status: newUserStatus } : u));
+        const newUsers = d.users.map((u) =>
+          u.id === investorId ? { ...u, status: newUserStatus } : u
+        );
         
+        const rejectedInvestor = newInvestors.find(i => i.id === investorId);
         let newNotifications = d.notifications;
         if (rejectedInvestor && rejectedInvestor.submittedBy) {
             newNotifications = [{
