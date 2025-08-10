@@ -138,7 +138,12 @@ export type Investor = {
 
 export type UpdatableInvestor = Pick<
   Investor,
-  'id' | 'name' | 'date' | 'status' | 'installmentProfitShare' | 'gracePeriodProfitShare' | 'rejectionReason'
+  | 'id'
+  | 'name'
+  | 'date'
+  | 'status'
+  | 'installmentProfitShare'
+  | 'gracePeriodProfitShare'
 >;
 
 export type NewInvestorPayload = {
@@ -183,5 +188,3 @@ export type AddBorrowerResult = {
         managerPhone: string;
     }
 }
-
-    

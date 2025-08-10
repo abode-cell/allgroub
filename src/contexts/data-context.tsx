@@ -266,8 +266,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
             return u;
           });
-
-          const investorsWithSuspensions = d.investors.map(inv => {
+          
+          const newInvestors = d.investors.map(inv => {
             const invUser = usersWithSuspensions.find(u => u.id === inv.id);
             if(invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
                 const newStatus: Investor['status'] = 'غير نشط';
@@ -276,7 +276,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return inv;
           });
 
-          return { ...d, users: usersWithSuspensions, investors: investorsWithSuspensions };
+          return { ...d, users: usersWithSuspensions, investors: newInvestors };
         }
         return d;
       });
@@ -606,17 +606,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [toast]
   );
   
-  const approveBorrower = useCallback(
+ const approveBorrower = useCallback(
     (borrowerId: string, investorIds: string[]) => {
       setData(d => {
         const loanToApprove = d.borrowers.find((b) => b.id === borrowerId);
-        if (!loanToApprove) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
-            return d;
-        }
-        if (loanToApprove.status !== 'معلق') {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-            return d;
+        if (!loanToApprove || loanToApprove.status !== 'معلق') {
+          toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض أو تمت معالجته بالفعل.' });
+          return d;
         }
 
         let totalFundedAmount = 0;
@@ -640,53 +636,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 totalFundedAmount += contribution;
                 fundedByDetails.push({ investorId: invId, amount: contribution });
                 
-                if (currentInvestorState.fundedLoanIds) {
-                   currentInvestorState.fundedLoanIds.push(loanToApprove.id);
-                } else {
-                   currentInvestorState.fundedLoanIds = [loanToApprove.id];
-                }
-                
+                currentInvestorState.fundedLoanIds.push(loanToApprove.id);
                 updatedInvestorsMap.set(invId, currentInvestorState);
             }
         }
         
-        let approvedBorrower: Borrower | null = null;
-        const newBorrowers = d.borrowers.map((b) => {
-          if (b.id === borrowerId) {
-            approvedBorrower = { 
-                ...b, 
-                status: 'منتظم', 
-                fundedBy: fundedByDetails,
-                amount: totalFundedAmount,
-            };
-            return approvedBorrower;
-          }
-          return b;
-        });
+        const approvedBorrower: Borrower = {
+            ...loanToApprove, 
+            status: 'منتظم', 
+            fundedBy: fundedByDetails,
+            amount: totalFundedAmount,
+        };
+        
+        const newBorrowers = d.borrowers.map(b => (b.id === borrowerId ? approvedBorrower : b));
 
-        let newNotifications = d.notifications;
-        if (approvedBorrower) {
-            const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-            if (approvedBorrower.submittedBy) {
-                notificationsToQueue.push({
-                    recipientId: approvedBorrower.submittedBy,
-                    title: 'تمت الموافقة على طلبك',
-                    description: `تمت الموافقة على طلب إضافة القرض "${approvedBorrower.name}".`,
-                });
-            }
-            if (fundedByDetails.length > 0) {
-                fundedByDetails.forEach(funder => {
-                    notificationsToQueue.push({
-                        recipientId: funder.investorId,
-                        title: 'تم استثمار أموالك',
-                        description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${loanToApprove.name}".`,
-                    });
-                });
-            }
-            if(notificationsToQueue.length > 0) {
-                newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
-            }
+        const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+        if (approvedBorrower.submittedBy) {
+            notificationsToQueue.push({
+                recipientId: approvedBorrower.submittedBy,
+                title: 'تمت الموافقة على طلبك',
+                description: `تمت الموافقة على طلب إضافة القرض "${approvedBorrower.name}".`,
+            });
         }
+        fundedByDetails.forEach(funder => {
+            notificationsToQueue.push({
+                recipientId: funder.investorId,
+                title: 'تم استثمار أموالك',
+                description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${loanToApprove.name}".`,
+            });
+        });
+        
+        const newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
         
         toast({ title: 'تمت الموافقة على القرض بنجاح' });
         return { ...d, borrowers: newBorrowers, investors: Array.from(updatedInvestorsMap.values()), notifications: newNotifications };
@@ -1493,7 +1473,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (isSuspendingManager) {
             finalUsers = newUsers.map(u => {
                 if (u.managedBy === userIdToUpdate) {
-                    return { ...u, status: newStatus };
+                    const newSubordinateStatus: User['status'] = 'معلق';
+                    return { ...u, status: newSubordinateStatus };
                 }
                 return u;
             });
