@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { User } from '@/lib/types';
 import { isPast } from 'date-fns';
-import { APP_DATA_KEY } from './data-context';
+import { APP_DATA_KEY, useDataState } from './data-context';
 import { useRouter } from 'next/navigation';
 
 // This is a mock implementation and does not connect to any backend service.
@@ -16,11 +16,7 @@ type SignInCredentials = {
 type AuthContextType = {
   userId: string | null;
   loading: boolean;
-  signIn: (
-    credentials: SignInCredentials,
-    allUsers: User[],
-    supportInfo: { email: string; phone: string }
-  ) => Promise<{ success: boolean; message: string }>;
+  signIn: (credentials: SignInCredentials) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
 };
 
@@ -31,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { users, supportEmail, supportPhone } = useDataState();
   
   useEffect(() => {
     // This effect runs once on the client when the component mounts.
@@ -46,13 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signIn = async (
-    credentials: SignInCredentials,
-    allUsers: User[],
-    supportInfo: { email: string; phone: string }
-  ) => {
+  const signIn = async (credentials: SignInCredentials) => {
     const { identifier, password } = credentials;
-    const userToSignIn = allUsers.find(u => u.email === identifier || u.phone === identifier);
+    const userToSignIn = users.find(u => u.email === identifier || u.phone === identifier);
 
     if (!userToSignIn) {
       return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
@@ -60,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Critical Security Check: If the user is a subordinate, check their manager's status first.
     if (userToSignIn.managedBy) {
-        const manager = allUsers.find(u => u.id === userToSignIn.managedBy);
+        const manager = users.find(u => u.id === userToSignIn.managedBy);
         if (!manager || manager.status !== 'نشط') {
             return { success: false, message: 'تم تعليق حساب المدير المسؤول عنك. لا يمكنك تسجيل الدخول حالياً.' };
         }
@@ -72,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (userToSignIn.status === 'معلق') {
       if (userToSignIn.role === 'مدير المكتب') {
-        const contactInfo = [supportInfo.email, supportInfo.phone].filter(Boolean).join(' أو ');
+        const contactInfo = [supportEmail, supportPhone].filter(Boolean).join(' أو ');
         const message = `حسابك قيد المراجعة. لمتابعة حالة الطلب، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
         return { success: false, message };
       }
@@ -87,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userToSignIn.role === 'مدير المكتب' && userToSignIn.status !== 'نشط' && userToSignIn.trialEndsAt) {
         const trialEndDate = new Date(userToSignIn.trialEndsAt);
         if (isPast(trialEndDate)) {
-             const contactInfo = [supportInfo.email, supportInfo.phone].filter(Boolean).join(' أو ');
+             const contactInfo = [supportEmail, supportPhone].filter(Boolean).join(' أو ');
              const message = `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
              return { success: false, message };
         }
