@@ -35,7 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/lib/utils';
 import { isPast } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
-import { supabase } from '@/lib/supabase/client';
+import { createBrowserClient } from '@/lib/supabase/client';
 import { PageLoader } from '@/components/page-loader';
 
 
@@ -167,15 +167,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { userId } = useAuth();
   const { toast } = useToast();
 
+  const supabase = useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+      console.error("Supabase URL or Key is not defined.");
+      return null;
+    }
+    return createBrowserClient(url, key);
+  }, []);
+
   const fetchData = useCallback(async () => {
+    if (!supabase) return;
     setIsDataLoading(true);
     try {
         const [
             usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes
         ] = await Promise.all([
-            supabase.from('users').select('*'),
-            supabase.from('investors').select('*'),
-            supabase.from('borrowers').select('*'),
+            supabase.from('users').select('*, branches(*)'),
+            supabase.from('investors').select('*, transactions(*)'),
+            supabase.from('borrowers').select('*, installments(*), borrower_funders(*)'),
             supabase.from('notifications').select('*'),
             supabase.from('support_tickets').select('*'),
             supabase.from('app_config').select('*'),
@@ -192,13 +204,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
             acc[row.key] = row.value.value;
             return acc;
         }, {} as any);
+        
+        const allFunders = borrowersRes.data.flatMap(b => b.borrower_funders || []);
+
+        const borrowersWithData = borrowersRes.data.map(borrower => ({
+            ...borrower,
+            fundedBy: (borrower.borrower_funders || []).map(f => ({ investorId: f.investor_id, amount: f.amount })),
+            installments: (borrower.installments || []).map(i => ({ month: i.month, status: i.status as InstallmentStatus })),
+            partialPayment: borrower.partial_payment_paid_amount ? {
+                paidAmount: borrower.partial_payment_paid_amount,
+                remainingLoanId: borrower.partial_payment_remaining_loan_id!,
+            } : undefined
+        }));
+        
+        const investorsWithData = investorsRes.data.map(investor => ({
+            ...investor,
+            transactionHistory: investor.transactions,
+            fundedLoanIds: allFunders.filter(f => f.investor_id === investor.id).map(f => f.borrower_id)
+        }));
 
         setData({
-            users: usersRes.data,
-            investors: investorsRes.data,
-            borrowers: borrowersRes.data,
-            notifications: notificationsRes.data,
-            supportTickets: supportTicketsRes.data,
+            users: usersRes.data || [],
+            investors: investorsWithData,
+            borrowers: borrowersWithData,
+            notifications: notificationsRes.data || [],
+            supportTickets: supportTicketsRes.data || [],
             salaryRepaymentPercentage: configData.salaryRepaymentPercentage ?? initialDataState.salaryRepaymentPercentage,
             baseInterestRate: configData.baseInterestRate ?? initialDataState.baseInterestRate,
             investorSharePercentage: configData.investorSharePercentage ?? initialDataState.investorSharePercentage,
@@ -218,22 +248,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } finally {
         setIsDataLoading(false);
     }
-  }, [toast]);
+  }, [supabase, toast]);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && supabase) {
         fetchData();
-    } else {
+    } else if (!userId) {
         setIsDataLoading(false);
     }
-}, [userId, fetchData]);
+}, [userId, supabase, fetchData]);
 
   useEffect(() => {
+    if (!supabase) return;
     const channel = supabase
       .channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
         console.log('Change received!', payload);
-        // A simple refetch for any change is the easiest way to ensure data consistency
         fetchData();
       })
       .subscribe();
@@ -241,7 +271,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchData]);
+  }, [supabase, fetchData]);
 
 
   const currentUser = useMemo(() => {
@@ -1994,7 +2024,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, visibleUsers, data]
   );
   
-  if (isDataLoading) {
+  if (!supabase || isDataLoading) {
     return <PageLoader />;
   }
 
@@ -2022,3 +2052,4 @@ export function useDataActions() {
   }
   return context;
 }
+

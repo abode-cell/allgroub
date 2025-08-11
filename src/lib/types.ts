@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف' | 'مستثمر';
 
 export type PermissionKey = 
@@ -100,6 +101,10 @@ export type Borrower = {
     remainingLoanId: string;
   };
   originalLoanId?: string;
+  // Raw fields from Supabase that get processed
+  borrower_funders?: { borrower_id: string, investor_id: string, amount: number }[];
+  partial_payment_paid_amount?: number;
+  partial_payment_remaining_loan_id?: string;
 };
 
 export type Payment = {
@@ -136,6 +141,8 @@ export type Investor = {
   isNotified?: boolean;
   installmentProfitShare?: number;
   gracePeriodProfitShare?: number;
+  // Raw field from Supabase
+  transactions?: Transaction[];
 };
 
 export type UpdatableInvestor = Pick<

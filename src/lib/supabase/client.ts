@@ -1,7 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createBrowserClient as originalCreateBrowserClient } from '@supabase/ssr'
 
 // Create a single supabase client for the browser
-export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+export const createBrowserClient = (url: string, key: string) => originalCreateBrowserClient(
+  url,
+  key
+);

@@ -8,6 +8,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Tajawal } from 'next/font/google';
 import { cn } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+
 const tajawal = Tajawal({
   subsets: ['arabic', 'latin'],
   weight: ['400', '500', '700'],
