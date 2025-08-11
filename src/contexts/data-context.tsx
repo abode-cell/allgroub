@@ -180,21 +180,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState(initialDataState);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(true);
-  
+  const [dataLoading, setDataLoading] = useState(false);
+  const [envError, setEnvError] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   
-  const { supabase, envError } = useMemo(() => {
+  const supabase = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) {
-      console.error("Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) are not set.");
-      return { supabase: null, envError: true };
+      setEnvError(true);
+      return null;
     }
-    return { supabase: createBrowserClient(url, key), envError: false };
+    return createBrowserClient(url, key);
   }, []);
-  
 
   const fetchData = useCallback(async () => {
     if (!supabase) {
@@ -276,21 +275,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) {
       setAuthLoading(false);
-      setDataLoading(false);
       return;
     }
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+      setAuthLoading(false);
+
       if (session) {
         await fetchData();
       } else {
         setData(initialDataState);
         setDataLoading(false);
       }
-      setAuthLoading(false);
     });
 
     return () => {
@@ -2045,14 +2044,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return <EnvError />;
   }
 
-  if (authLoading || (dataLoading && !!session)) {
-    return <PageLoader />;
-  }
+  const isLoading = authLoading || (session && dataLoading);
 
   return (
     <DataStateContext.Provider value={state}>
       <DataActionsContext.Provider value={actions}>
-        {children}
+        {isLoading ? <PageLoader /> : children}
       </DataActionsContext.Provider>
     </DataStateContext.Provider>
   );

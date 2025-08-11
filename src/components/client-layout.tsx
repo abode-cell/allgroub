@@ -23,12 +23,12 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { session, authLoading } = useDataState();
   const router = useRouter();
-  
+
   const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
 
   useEffect(() => {
     if (authLoading) {
-      return; // Do nothing while loading
+      return; 
     }
 
     if (!session && !isPublicPage) {
@@ -40,20 +40,22 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     }
 
   }, [session, authLoading, isPublicPage, pathname, router]);
-  
-  if (authLoading || (!session && !isPublicPage) || (session && isPublicPage)) {
+
+  if (authLoading) {
       return <PageLoader />;
   }
   
-  if (session && !isPublicPage) {
-      return <ProtectedLayout>{children}</ProtectedLayout>;
+  if (!session && !isPublicPage) {
+      return <PageLoader />;
+  }
+  
+  if (session && isPublicPage) {
+       return <PageLoader />;
   }
 
-  // Render public pages for users without a session
-  if (!session && isPublicPage) {
-    return <>{children}</>;
+  if (session) {
+    return <ProtectedLayout>{children}</ProtectedLayout>;
   }
 
-  // Fallback loader if none of the conditions are met (should be rare)
-  return <PageLoader />;
+  return <>{children}</>;
 }
