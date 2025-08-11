@@ -2,7 +2,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useDataState } from '@/contexts/data-context';
 
 export const logoSvg = `
 <svg
@@ -21,11 +20,8 @@ export const logoSvg = `
 `;
 
 export const Logo = () => {
-    const { userId } = useDataState();
-    const href = userId ? "/dashboard" : "/";
-
     return (
-        <Link href={href} className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
             <svg
                 width="50"
                 height="50"
@@ -70,5 +66,4 @@ export const Logo = () => {
       </Link>
     )
 };
-
     

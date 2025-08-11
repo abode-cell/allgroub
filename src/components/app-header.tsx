@@ -82,7 +82,9 @@ export function AppHeader() {
         {/* DESKTOP VIEW */}
         <div className="hidden w-full items-center justify-between md:flex">
             <div className="flex-1">
-                <Logo />
+                 <Link href="/dashboard" className="flex items-center gap-2.5">
+                    <Logo />
+                </Link>
             </div>
             
             <div className="flex-none">
@@ -139,7 +141,9 @@ export function AppHeader() {
               </SheetTrigger>
               <SheetContent side="right" className="w-[300px] p-0">
                   <div className="p-4 border-b">
-                      <Logo />
+                      <Link href="/dashboard" className="flex items-center gap-2.5">
+                          <Logo />
+                      </Link>
                   </div>
                   <nav className="mt-4 flex flex-col gap-1 p-2">
                       {menuItems.map((item) => (
@@ -157,7 +161,9 @@ export function AppHeader() {
               </SheetContent>
             </Sheet>
             
-            <Logo />
+            <Link href="/dashboard" className="flex items-center gap-2.5">
+                <Logo />
+            </Link>
             
             <div className="flex items-center gap-1">
                 <ThemeToggle />
