@@ -71,11 +71,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
 import { LoanStatusInfo } from './remaining-days';
 import { useToast } from '@/hooks/use-toast';
+import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
 type Payment = {
