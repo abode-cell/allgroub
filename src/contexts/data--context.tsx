@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -281,17 +280,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
   
+    // Fetch initial data once on mount, regardless of auth state
+    // This is important for public pages that might need some data
+    fetchData();
+  
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setAuthLoading(true);
-        if (session) {
-          await fetchData();
-        } else {
-          setData(initialDataState); // Clear data if no session
-          setDataLoading(false);
-        }
+      async (_event, newSession) => {
+        setSession(newSession);
         setAuthLoading(false);
+  
+        // If a new session is established (login), fetch data again
+        // to ensure we have the latest user-specific info.
+        if (newSession) {
+          await fetchData();
+        }
       }
     );
   
@@ -2047,14 +2049,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
       currentUser,
       visibleUsers,
       session,
-      authLoading: authLoading || (!!session && dataLoading),
+      authLoading,
       ...data,
     }),
-    [currentUser, visibleUsers, session, authLoading, dataLoading, data]
+    [currentUser, visibleUsers, session, authLoading, data]
   );
   
   if (envError) {
       return <EnvError />;
+  }
+
+  if (authLoading) {
+    return <PageLoader />;
+  }
+  
+  if (dataLoading && session) {
+    return <PageLoader />;
   }
 
   return (
@@ -2081,3 +2091,4 @@ export function useDataActions() {
   }
   return context;
 }
+

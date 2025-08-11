@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useDataState } from '@/contexts/data-context';
@@ -8,14 +9,6 @@ import { useEffect } from 'react';
 import { PageLoader } from './page-loader';
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
-    const { currentUser } = useDataState();
-    
-    // While the currentUser object is not yet available for a valid session, show loader.
-    // This is the gatekeeper for all protected routes.
-    if (!currentUser) {
-        return <PageLoader />;
-    }
-
     return (
         <div className="flex flex-col min-h-screen bg-background">
             <AppHeader />
@@ -28,46 +21,38 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { session, authLoading } = useDataState();
   const router = useRouter();
-  const { session, authLoading, currentUser } = useDataState();
   
   const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
 
   useEffect(() => {
-    // If auth is still loading, don't do anything yet.
-    if (authLoading) {
-      return;
+    if (authLoading) return; // Wait until authentication state is resolved
+
+    if (session && isPublicPage) {
+      router.replace('/dashboard');
+    }
+    
+    if (!session && !isPublicPage) {
+      router.replace('/login');
     }
 
-    // After loading, if there's a user session
-    if (session) {
-      // and they are on a public page, redirect to the dashboard.
-      if (isPublicPage) {
-        router.replace('/dashboard');
-      }
-    } else { // If no session
-      // and they are on a protected page, redirect to login.
-      if (!isPublicPage) {
-        router.replace('/login');
-      }
-    }
-  }, [session, authLoading, isPublicPage, router, currentUser]);
+  }, [session, authLoading, isPublicPage, pathname, router]);
   
-  // Show a global loader during the initial auth check.
-  if (authLoading) {
+  // Show a loader while auth state is being determined, or if a redirect is imminent
+  if (authLoading || (!session && !isPublicPage) || (session && isPublicPage)) {
       return <PageLoader />;
   }
   
-  // If there's a session and we're on a protected page, render the protected layout.
+  // Render the appropriate layout
+  if (!session && isPublicPage) {
+      return <>{children}</>;
+  }
+
   if (session && !isPublicPage) {
     return <ProtectedLayout>{children}</ProtectedLayout>;
   }
 
-  // If there's no session and we are on a public page, render its content.
-  if (!session && isPublicPage) {
-    return <>{children}</>;
-  }
-
-  // Fallback loader for any intermediate states (e.g., during redirects).
+  // Fallback for edge cases, might be momentarily visible during transitions
   return <PageLoader />;
 }
