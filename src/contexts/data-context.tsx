@@ -534,30 +534,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (
       credentials: Omit<User, 'id' | 'role' | 'status'>
     ): Promise<{ success: boolean; message: string }> => {
-      let success = false;
-      let message = '';
-      let newManager: User | null = null;
-      let systemAdmin: User | undefined;
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!url || !key) return { success: false, message: 'Supabase URL/Key not configured.' };
+        const supabase = createBrowserClient(url, key);
 
-      setData(d => {
-        const existingUser = d.users.find(
-          (u) => u.email === credentials.email || u.phone === credentials.phone
-        );
-        if (existingUser) {
-          message = 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.';
-          return d;
+        // 1. Check for existing user in DB
+        const { data: existingUsers, error: checkError } = await supabase
+            .from('users')
+            .select('id')
+            .or(`email.eq.${credentials.email},phone.eq.${credentials.phone}`);
+
+        if (checkError) {
+            console.error('Error checking for existing user:', checkError);
+            return { success: false, message: 'حدث خطأ أثناء التحقق من البيانات.' };
+        }
+        if (existingUsers && existingUsers.length > 0) {
+            return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
         }
 
-        systemAdmin = d.users.find((u) => u.role === 'مدير النظام');
-
-        const managerId = `user_${Date.now()}`;
-        newManager = {
-          id: managerId,
+        // 2. Insert new user if not exists
+        const newManagerData = {
           name: credentials.name,
           officeName: credentials.officeName,
           email: credentials.email,
           phone: credentials.phone,
-          password: credentials.password,
+          password: credentials.password, // In a real app, this should be hashed server-side.
           role: 'مدير المكتب',
           status: 'معلق',
           photoURL: `https://placehold.co/40x40.png`,
@@ -566,33 +568,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
           employeeLimit: 1,
           assistantLimit: 1,
           branchLimit: 3,
-          branches: [],
           allowEmployeeSubmissions: true,
           hideEmployeeInvestorFunds: false,
           allowEmployeeLoanEdits: false,
-          permissions: {},
         };
-        success = true;
-        message = 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.';
         
-        let newNotifications = d.notifications;
-        if(systemAdmin) {
-            newNotifications = [{
-                id: `notif_${crypto.randomUUID()}`,
-                date: new Date().toISOString(),
-                isRead: false,
+        const { error: insertError } = await supabase.from('users').insert([newManagerData]);
+
+        if (insertError) {
+            console.error('Error inserting new manager:', insertError);
+            return { success: false, message: 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
+        }
+
+        // 3. Notify System Admin
+        const systemAdmin = data.users.find((u) => u.role === 'مدير النظام');
+        if (systemAdmin) {
+             addNotification({
                 recipientId: systemAdmin.id,
                 title: 'تسجيل مدير مكتب جديد',
                 description: `المستخدم "${credentials.name}" سجل كمدير مكتب وينتظر التفعيل.`,
-            }, ...d.notifications];
+            });
         }
+        
+        // 4. Refetch all data to update the local state
+        await fetchData();
 
-        return { ...d, users: [...d.users, newManager], notifications: newNotifications };
-      });
-      
-      return { success, message };
+        return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
     },
-    []
+    [data.users, fetchData, addNotification]
   );
 
   const updateBorrower = useCallback(
