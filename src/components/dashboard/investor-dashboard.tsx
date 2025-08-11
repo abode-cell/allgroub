@@ -9,8 +9,7 @@ import { useDataState } from '@/contexts/data-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { useMemo } from 'react';
-import { calculateInvestorFinancials } from '@/lib/utils';
-import { formatCurrency } from '@/lib/utils';
+import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
 
 export function InvestorDashboard() {
   const { currentUser, investors, borrowers, graceTotalProfitPercentage, investorSharePercentage, graceInvestorSharePercentage } = useDataState();

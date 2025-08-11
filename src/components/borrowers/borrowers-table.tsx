@@ -71,12 +71,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
 import { LoanStatusInfo } from './remaining-days';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
 type Payment = {
@@ -609,7 +608,7 @@ export function BorrowersTable({
                   </Label>
                   <Input
                     id="nationalId-edit"
-                    value={selectedBorrower.nationalId}
+                    value={selectedBorrower.nationalId || ''}
                     onChange={(e) =>
                       setSelectedBorrower({
                         ...selectedBorrower,
@@ -625,7 +624,7 @@ export function BorrowersTable({
                   </Label>
                   <Input
                     id="phone-edit"
-                    value={selectedBorrower.phone}
+                    value={selectedBorrower.phone || ''}
                     onChange={(e) =>
                       setSelectedBorrower({
                         ...selectedBorrower,
@@ -937,7 +936,7 @@ export function BorrowersTable({
 
                     const totalInterest = principal * (rate / 100) * term;
                     const totalPayment = principal + totalInterest;
-                    const monthlyPayment = totalPayment / (term * 12);
+                    const monthlyPayment = (term * 12 > 0) ? totalPayment / (term * 12) : 0;
                     
                     return (
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">

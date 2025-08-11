@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useDataState } from '@/contexts/data-context';
@@ -9,6 +10,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import type { Borrower, Investor } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatCurrency } from '@/lib/utils';
+
 
 const PageSkeleton = () => (
     <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -21,12 +24,6 @@ const PageSkeleton = () => (
         <Skeleton className="h-96 w-full" />
     </div>
 );
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
 
 const statusVariant: {
   [key: string]: 'default' | 'secondary' | 'destructive' | 'outline';
