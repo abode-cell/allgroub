@@ -74,7 +74,7 @@ export default function LoginPage() {
                         type="button"
                         variant="link"
                         className="h-auto p-0 text-xs"
-                        onClick={() => toast({ title: 'ميزة غير متاحة', description: 'ميزة استعادة كلمة المرور غير متاحة في الوضع التجريبي.' })}
+                        onClick={() => toast({ title: 'ميزة غير متاحة', description: 'لاستعادة كلمة المرور، يرجى التواصل مع الدعم الفني.' })}
                     >
                         نسيت كلمة المرور؟
                     </Button>
@@ -121,5 +121,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

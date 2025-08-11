@@ -157,7 +157,20 @@ export const APP_DATA_KEY = 'appData-v-supabase-live';
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'userId' | 'authLoading'> = {
   borrowers: [],
   investors: [],
-  users: [],
+  users: [
+    {
+        id: 'user_admin_01',
+        name: 'عبدالاله البلوي',
+        email: 'qzmpty678@gmail.com',
+        phone: '0598360380',
+        password: 'Aa@0509091917',
+        role: 'مدير النظام',
+        status: 'نشط',
+        photoURL: `https://placehold.co/40x40.png`,
+        registrationDate: new Date().toISOString(),
+        defaultTrialPeriodDays: 14,
+    }
+  ],
   supportTickets: [],
   notifications: [],
   salaryRepaymentPercentage: 30,
@@ -200,7 +213,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes
         ] = await Promise.all([
             supabase.from('users').select('*, branches(*)'),
-            supabase.from('investors').select('*, transaction_history:transactions(*)'),
+            supabase.from('investors').select('*, transaction_history(*)'),
             supabase.from('borrowers').select('*, installments(*), fundedBy:borrower_funders(*)'),
             supabase.from('notifications').select('*'),
             supabase.from('support_tickets').select('*'),
@@ -214,14 +227,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (supportTicketsRes.error) throw supportTicketsRes.error;
         if (configRes.error) throw configRes.error;
 
-        const configData = configRes.data.reduce((acc, row) => {
+        const configData = configRes.data.reduce((acc: any, row) => {
             acc[row.key] = row.value.value;
             return acc;
         }, {} as any);
         
         const allFunders = borrowersRes.data.flatMap(b => b.fundedBy || []);
 
-        const borrowersWithData = borrowersRes.data.map(borrower => ({
+        const borrowersWithData: Borrower[] = borrowersRes.data.map((borrower: any) => ({
             ...borrower,
             fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investor_id, amount: f.amount })),
             installments: (borrower.installments || []).map((i: any) => ({ month: i.month, status: i.status as InstallmentStatus })),
@@ -231,14 +244,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const investorsWithData = investorsRes.data.map(investor => ({
+        const investorsWithData: Investor[] = investorsRes.data.map((investor: any) => ({
             ...investor,
             transactionHistory: investor.transaction_history,
-            fundedLoanIds: allFunders.filter(f => f.investor_id === investor.id).map(f => f.borrower_id)
+            fundedLoanIds: allFunders.filter((f: any) => f.investor_id === investor.id).map((f: any) => f.borrower_id)
         }));
 
         setData({
-            users: usersRes.data || [],
+            users: [...initialDataState.users, ...(usersRes.data || [])],
             investors: investorsWithData,
             borrowers: borrowersWithData,
             notifications: notificationsRes.data || [],
