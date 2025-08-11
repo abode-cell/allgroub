@@ -6,6 +6,7 @@ import { DataProvider } from '@/contexts/data-context';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Tajawal } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import { logoSvg } from '@/components/logo';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,8 @@ export const metadata: Metadata = {
   description: 'منصة متكاملة لإدارة التمويل والاستثمارات والقروض.',
 };
 
+const favicon = `data:image/svg+xml;base64,${btoa(logoSvg)}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +30,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <head />
+      <head>
+          <link rel="icon" href={favicon} type="image/svg+xml" />
+      </head>
       <body className={cn('font-sans antialiased', tajawal.variable)}>
         <ThemeProvider
           attribute="class"

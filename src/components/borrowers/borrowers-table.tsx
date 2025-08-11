@@ -74,7 +74,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { BorrowerStatusBadge } from '@/components/borrower-status-badge';
 import { Textarea } from '@/components/ui/textarea';
-import { LoanStatusInfo } from './remaining-days';
+import { LoanStatusInfo } from '@/components/borrowers/remaining-days';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
@@ -609,7 +609,7 @@ export function BorrowersTable({
                   </Label>
                   <Input
                     id="nationalId-edit"
-                    value={selectedBorrower.nationalId || ''}
+                    value={selectedBorrower.nationalId}
                     onChange={(e) =>
                       setSelectedBorrower({
                         ...selectedBorrower,
@@ -625,7 +625,7 @@ export function BorrowersTable({
                   </Label>
                   <Input
                     id="phone-edit"
-                    value={selectedBorrower.phone || ''}
+                    value={selectedBorrower.phone}
                     onChange={(e) =>
                       setSelectedBorrower({
                         ...selectedBorrower,
@@ -937,7 +937,7 @@ export function BorrowersTable({
 
                     const totalInterest = principal * (rate / 100) * term;
                     const totalPayment = principal + totalInterest;
-                    const numberOfPayments = (term * 12);
+                    const numberOfPayments = term * 12;
                     const monthlyPayment = numberOfPayments > 0 ? totalPayment / numberOfPayments : 0;
                     
                     return (
@@ -1062,3 +1062,5 @@ export function BorrowersTable({
     </>
   );
 }
+
+    
