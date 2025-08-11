@@ -30,18 +30,14 @@ import type {
   AddBorrowerResult,
   Branch,
 } from '@/lib/types';
-import {
-  borrowersData as initialBorrowersData,
-  investorsData as initialInvestorsData,
-  usersData as initialUsersData,
-  supportTicketsData as initialSupportTicketsData,
-  notificationsData as initialNotificationsData,
-} from '@/lib/data';
 import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/lib/utils';
 import { isPast } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
+import { supabase } from '@/lib/supabase/client';
+import { PageLoader } from '@/components/page-loader';
+
 
 type DataState = {
   currentUser: User | undefined;
@@ -148,14 +144,14 @@ type DataActions = {
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v-final-audit-secure';
+export const APP_DATA_KEY = 'appData-v-supabase-live';
 
 const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
-  borrowers: initialBorrowersData,
-  investors: initialInvestorsData,
-  users: initialUsersData,
-  supportTickets: initialSupportTicketsData,
-  notifications: initialNotificationsData,
+  borrowers: [],
+  investors: [],
+  users: [],
+  supportTickets: [],
+  notifications: [],
   salaryRepaymentPercentage: 30,
   baseInterestRate: 5.5,
   investorSharePercentage: 70,
@@ -165,125 +161,88 @@ const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
   supportPhone: '0598360380',
 };
 
-const sanitizeAndMigrateData = (data: any): Omit<DataState, 'currentUser' | 'visibleUsers'> => {
-  const defaultUser: Partial<User> = {
-    permissions: {},
-    allowEmployeeLoanEdits: false,
-    allowEmployeeSubmissions: false,
-    hideEmployeeInvestorFunds: false,
-    branches: [],
-    branchLimit: 3,
-  };
-  const users = (data.users || []).map((u: any) => ({
-    ...defaultUser,
-    ...u,
-    permissions: u.permissions || {},
-    branches: u.branches || [],
-  }));
-
-  const investors = (data.investors || []).map((i: any) => {
-    const newInvestor = {
-      ...i,
-      transactionHistory: i.transactionHistory || [],
-      fundedLoanIds: i.fundedLoanIds || [],
-      installmentProfitShare: i.installmentProfitShare ?? initialDataState.investorSharePercentage,
-      gracePeriodProfitShare: i.gracePeriodProfitShare ?? initialDataState.graceInvestorSharePercentage,
-    };
-    return newInvestor;
-  });
-
-  const borrowers = (data.borrowers || []).map((b: any) => ({
-    ...b,
-    nationalId: b.nationalId || '', // Ensure nationalId exists
-    fundedBy: b.fundedBy || [],
-    installments: b.installments || [],
-  }));
-
-  return {
-    ...initialDataState,
-    ...data,
-    users,
-    investors,
-    borrowers,
-    notifications: data.notifications || [],
-    supportTickets: data.supportTickets || [],
-    salaryRepaymentPercentage: data.salaryRepaymentPercentage ?? initialDataState.salaryRepaymentPercentage,
-    baseInterestRate: data.baseInterestRate ?? initialDataState.baseInterestRate,
-    investorSharePercentage: data.investorSharePercentage ?? initialDataState.investorSharePercentage,
-    graceTotalProfitPercentage: data.graceTotalProfitPercentage ?? initialDataState.graceTotalProfitPercentage,
-    graceInvestorSharePercentage: data.graceInvestorSharePercentage ?? initialDataState.graceInvestorSharePercentage,
-    supportEmail: data.supportEmail ?? initialDataState.supportEmail,
-    supportPhone: data.supportPhone ?? initialDataState.supportPhone,
-  };
-};
-
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState(() => {
-    if (typeof window === 'undefined') {
-      return initialDataState;
-    }
-    try {
-      const item = window.localStorage.getItem(APP_DATA_KEY);
-      return item ? sanitizeAndMigrateData(JSON.parse(item)) : initialDataState;
-    } catch (error) {
-      console.warn(`Error reading localStorage during initialization.`, error);
-      return initialDataState;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.warn(`Error setting localStorage:`, error);
-    }
-  }, [data]);
-
-  useEffect(() => {
-    const checkAndApplyTrialExpirations = () => {
-        setData(d => {
-            let needsUpdate = false;
-            const suspendedManagerIds = new Set<string>();
-            const newStatusForManager: User['status'] = 'معلق';
-            
-            const newUsers: User[] = d.users.map(user => {
-                if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt && isPast(new Date(user.trialEndsAt))) {
-                    needsUpdate = true;
-                    suspendedManagerIds.add(user.id);
-                    return { ...user, status: newStatusForManager };
-                }
-                return user;
-            });
-
-            if (needsUpdate) {
-                const finalUsers: User[] = newUsers.map(u => {
-                    if (u.managedBy && suspendedManagerIds.has(u.managedBy)) {
-                        const newSubordinateStatus: User['status'] = 'معلق';
-                        return { ...u, status: newSubordinateStatus };
-                    }
-                    return u;
-                });
-
-                const newInvestorStatus: Investor['status'] = 'غير نشط';
-                const finalInvestors: Investor[] = d.investors.map(inv => {
-                    const invUser = finalUsers.find(u => u.id === inv.id);
-                    if (invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
-                        return { ...inv, status: newInvestorStatus };
-                    }
-                    return inv;
-                });
-                return { ...d, users: finalUsers, investors: finalInvestors };
-            }
-            return d;
-        });
-    };
-
-    checkAndApplyTrialExpirations();
-}, []);
-
-
+  const [data, setData] = useState(initialDataState);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const { userId } = useAuth();
   const { toast } = useToast();
+
+  const fetchData = useCallback(async () => {
+    setIsDataLoading(true);
+    try {
+        const [
+            usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes
+        ] = await Promise.all([
+            supabase.from('users').select('*'),
+            supabase.from('investors').select('*'),
+            supabase.from('borrowers').select('*'),
+            supabase.from('notifications').select('*'),
+            supabase.from('support_tickets').select('*'),
+            supabase.from('app_config').select('*'),
+        ]);
+
+        if (usersRes.error) throw usersRes.error;
+        if (investorsRes.error) throw investorsRes.error;
+        if (borrowersRes.error) throw borrowersRes.error;
+        if (notificationsRes.error) throw notificationsRes.error;
+        if (supportTicketsRes.error) throw supportTicketsRes.error;
+        if (configRes.error) throw configRes.error;
+
+        const configData = configRes.data.reduce((acc, row) => {
+            acc[row.key] = row.value.value;
+            return acc;
+        }, {} as any);
+
+        setData({
+            users: usersRes.data,
+            investors: investorsRes.data,
+            borrowers: borrowersRes.data,
+            notifications: notificationsRes.data,
+            supportTickets: supportTicketsRes.data,
+            salaryRepaymentPercentage: configData.salaryRepaymentPercentage ?? initialDataState.salaryRepaymentPercentage,
+            baseInterestRate: configData.baseInterestRate ?? initialDataState.baseInterestRate,
+            investorSharePercentage: configData.investorSharePercentage ?? initialDataState.investorSharePercentage,
+            graceTotalProfitPercentage: configData.graceTotalProfitPercentage ?? initialDataState.graceTotalProfitPercentage,
+            graceInvestorSharePercentage: configData.graceInvestorSharePercentage ?? initialDataState.graceInvestorSharePercentage,
+            supportEmail: configData.supportEmail ?? initialDataState.supportEmail,
+            supportPhone: configData.supportPhone ?? initialDataState.supportPhone,
+        });
+
+    } catch (error: any) {
+        console.error("Error fetching data:", error);
+        toast({
+            variant: "destructive",
+            title: "فشل في جلب البيانات",
+            description: "لم نتمكن من تحميل بيانات التطبيق. يرجى تحديث الصفحة.",
+        });
+    } finally {
+        setIsDataLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (userId) {
+        fetchData();
+    } else {
+        setIsDataLoading(false);
+    }
+}, [userId, fetchData]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        console.log('Change received!', payload);
+        // A simple refetch for any change is the easiest way to ensure data consistency
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData]);
+
 
   const currentUser = useMemo(() => {
     if (!userId) return undefined;
@@ -2034,6 +1993,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }),
     [currentUser, visibleUsers, data]
   );
+  
+  if (isDataLoading) {
+    return <PageLoader />;
+  }
 
   return (
     <DataStateContext.Provider value={state}>

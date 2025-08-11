@@ -1,8 +1,7 @@
 import type { Borrower, Investor, User, SupportTicket, Notification } from '@/lib/types';
 
-export const usersData: User[] = [
-  { id: '1', name: 'مدير النظام', email: 'admin@example.com', role: 'مدير النظام', status: 'نشط', photoURL: 'https://placehold.co/40x40.png', password: 'password123', phone: '0500000001', registrationDate: '2023-01-10T10:00:00.000Z', allowEmployeeSubmissions: true, permissions: {}, defaultTrialPeriodDays: 14 },
-];
+// The initial data is now managed by Supabase. These arrays are kept for type consistency but should be empty.
+export const usersData: User[] = [];
 
 export const investorsData: Investor[] = [];
 
