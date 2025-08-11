@@ -146,3 +146,57 @@ export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text
     
     return { text: '-', isOverdue: false };
 };
+
+
+export const calculateInvestorFinancials = (investor: Investor, allBorrowers: Borrower[]) => {
+  const installmentTransactions = investor.transactionHistory?.filter(tx => tx.capitalSource === 'installment') || [];
+  const graceTransactions = investor.transactionHistory?.filter(tx => tx.capitalSource === 'grace') || [];
+
+  const totalInstallmentDeposits = installmentTransactions.filter(tx => tx.type === 'إيداع رأس المال').reduce((sum, tx) => sum + tx.amount, 0);
+  const totalInstallmentWithdrawals = installmentTransactions.filter(tx => tx.type === 'سحب من رأس المال').reduce((sum, tx) => sum + tx.amount, 0);
+  const totalInstallmentCapital = totalInstallmentDeposits - totalInstallmentWithdrawals;
+
+  const totalGraceDeposits = graceTransactions.filter(tx => tx.type === 'إيداع رأس المال').reduce((sum, tx) => sum + tx.amount, 0);
+  const totalGraceWithdrawals = graceTransactions.filter(tx => tx.type === 'سحب من رأس المال').reduce((sum, tx) => sum + tx.amount, 0);
+  const totalGraceCapital = totalGraceDeposits - totalGraceWithdrawals;
+
+  const fundedLoans = allBorrowers.filter(b => b.fundedBy?.some(f => f.investorId === investor.id));
+
+  let activeInstallmentCapital = 0;
+  let activeGraceCapital = 0;
+  let defaultedInstallmentFunds = 0;
+  let defaultedGraceFunds = 0;
+
+  fundedLoans.forEach(loan => {
+    const funding = loan.fundedBy?.find(f => f.investorId === investor.id);
+    if (!funding) return;
+
+    const isDefaulted = loan.status === 'متعثر' || loan.paymentStatus === 'متعثر' || loan.paymentStatus === 'تم اتخاذ الاجراءات القانونيه';
+    const isActive = !isDefaulted && loan.status !== 'مسدد بالكامل' && loan.paymentStatus !== 'تم السداد' && loan.status !== 'معلق' && loan.status !== 'مرفوض';
+    
+    if (loan.loanType === 'اقساط') {
+        if (isActive) activeInstallmentCapital += funding.amount;
+        if (isDefaulted) defaultedInstallmentFunds += funding.amount;
+    } else if (loan.loanType === 'مهلة') {
+        if (isActive) activeGraceCapital += funding.amount;
+        if (isDefaulted) defaultedGraceFunds += funding.amount;
+    }
+  });
+
+  const idleInstallmentCapital = totalInstallmentCapital - activeInstallmentCapital - defaultedInstallmentFunds;
+  const idleGraceCapital = totalGraceCapital - activeGraceCapital - defaultedGraceFunds;
+
+  return {
+    totalInstallmentCapital,
+    totalGraceCapital,
+    totalCapitalInSystem: totalInstallmentCapital + totalGraceCapital,
+    activeInstallmentCapital,
+    activeGraceCapital,
+    activeCapital: activeInstallmentCapital + activeGraceCapital,
+    idleInstallmentCapital,
+    idleGraceCapital,
+    defaultedInstallmentFunds,
+    defaultedGraceFunds,
+    defaultedFunds: defaultedInstallmentFunds + defaultedGraceFunds,
+  };
+};
