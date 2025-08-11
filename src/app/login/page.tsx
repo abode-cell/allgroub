@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState } from 'react';
@@ -18,7 +17,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useDataActions();
   const { toast } = useToast();
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,14 +25,14 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identifier || !password) {
-      setError('الرجاء إدخال البريد الإلكتروني/رقم الجوال وكلمة المرور.');
+    if (!email || !password) {
+      setError('الرجاء إدخال البريد الإلكتروني وكلمة المرور.');
       return;
     }
     setError('');
     setIsLoading(true);
     
-    const result = await signIn({ identifier, password });
+    const result = await signIn(email, password);
 
     if (result.success) {
       router.replace('/dashboard');
@@ -58,13 +57,14 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="identifier">البريد الإلكتروني أو رقم الجوال</Label>
+              <Label htmlFor="email">البريد الإلكتروني</Label>
               <Input
-                id="identifier"
-                placeholder="email@example.com أو 05xxxxxxxx"
+                id="email"
+                type="email"
+                placeholder="email@example.com"
                 required
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
              <div className="space-y-2">
@@ -121,5 +121,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

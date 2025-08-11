@@ -1,9 +1,7 @@
 
-
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useDataActions } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +14,6 @@ import { Logo } from '@/components/logo';
 
 
 export default function SignUpPage() {
-  const router = useRouter();
   const { registerNewOfficeManager } = useDataActions();
   const { toast } = useToast();
   
@@ -43,7 +40,7 @@ export default function SignUpPage() {
     setError('');
     setIsLoading(true);
     
-    const result = await registerNewOfficeManager({ name, email, phone, password, officeName });
+    const result = await registerNewOfficeManager({ email, password, phone, name, officeName });
     
     setIsLoading(false);
     if (result.success) {

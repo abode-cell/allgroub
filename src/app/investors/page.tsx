@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { useDataState, useDataActions } from '@/contexts/data-context';
-import type { Investor, NewInvestorPayload } from '@/lib/types';
+import type { Investor, NewInvestorPayload, Borrower } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Tooltip,

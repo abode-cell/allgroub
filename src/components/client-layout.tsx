@@ -1,34 +1,17 @@
 
 'use client';
 
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { AppHeader } from './app-header';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { PageLoader } from './page-loader';
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
-    const { userId, currentUser } = useDataState();
-    const { signOutUser } = useDataActions();
-    const router = useRouter();
+    const { currentUser } = useDataState();
     
-    useEffect(() => {
-        // This should theoretically not be hit if ClientLayout logic is correct, but serves as a final safety net.
-        if (!userId) {
-            router.replace('/login');
-        }
-    }, [userId, router]);
-
-    useEffect(() => {
-        // After auth has finished loading, if we have a userId but no matching currentUser,
-        // it means the session is invalid (e.g., user was deleted or data is corrupt).
-        // We should sign out to clear the invalid state and redirect to login.
-        if (userId && !currentUser) {
-            signOutUser();
-        }
-    }, [userId, currentUser, signOutUser]);
-    
-    // While the currentUser object is not yet available for a valid userId, show loader.
+    // While the currentUser object is not yet available for a valid session, show loader.
+    // This is the gatekeeper for all protected routes.
     if (!currentUser) {
         return <PageLoader />;
     }
@@ -46,30 +29,45 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { userId, authLoading, currentUser } = useDataState();
+  const { session, authLoading, currentUser } = useDataState();
   
   const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
 
   useEffect(() => {
-    // If auth has finished loading and we have a valid user, redirect from public pages to the dashboard.
-    if (!authLoading && userId && currentUser && isPublicPage) {
-        router.replace('/dashboard');
+    // If auth is still loading, don't do anything yet.
+    if (authLoading) {
+      return;
     }
-  },[userId, currentUser, authLoading, isPublicPage, router]);
+
+    // After loading, if there's a user session
+    if (session) {
+      // and they are on a public page, redirect to the dashboard.
+      if (isPublicPage) {
+        router.replace('/dashboard');
+      }
+    } else { // If no session
+      // and they are on a protected page, redirect to login.
+      if (!isPublicPage) {
+        router.replace('/login');
+      }
+    }
+  }, [session, authLoading, isPublicPage, router, currentUser]);
   
+  // Show a global loader during the initial auth check.
   if (authLoading) {
       return <PageLoader />;
   }
+  
+  // If there's a session and we're on a protected page, render the protected layout.
+  if (session && !isPublicPage) {
+    return <ProtectedLayout>{children}</ProtectedLayout>;
+  }
 
-  // After loading, if the page is public, render it.
-  // Redirection for logged-in users is handled by the useEffect above.
-  if (isPublicPage) {
+  // If there's no session and we are on a public page, render its content.
+  if (!session && isPublicPage) {
     return <>{children}</>;
   }
-  
-  // If it's a protected page, render the ProtectedLayout.
-  // It contains its own logic to handle invalid sessions and redirect if necessary.
-  return <ProtectedLayout>{children}</ProtectedLayout>;
-}
 
-    
+  // Fallback loader for any intermediate states (e.g., during redirects).
+  return <PageLoader />;
+}

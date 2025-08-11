@@ -29,23 +29,19 @@ import type {
   InstallmentStatus,
   AddBorrowerResult,
   Branch,
+  NewManagerPayload,
 } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { calculateInvestorFinancials } from '@/lib/utils';
+import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
 import { isPast } from 'date-fns';
-import { formatCurrency } from '@/lib/utils';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { PageLoader } from '@/components/page-loader';
 import { useRouter } from 'next/navigation';
-
-type SignInCredentials = {
-  identifier: string; // Can be email or phone
-  password?: string;
-};
+import type { Session } from '@supabase/supabase-js';
 
 type DataState = {
   currentUser: User | undefined;
-  userId: string | null;
+  session: Session | null;
   authLoading: boolean;
   borrowers: Borrower[];
   investors: Investor[];
@@ -63,8 +59,9 @@ type DataState = {
 };
 
 type DataActions = {
-  signIn: (credentials: SignInCredentials) => Promise<{ success: boolean; message: string }>;
+  signIn: (email: string, password?: string) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
+  registerNewOfficeManager: (payload: NewManagerPayload) => Promise<{ success: boolean; message: string }>;
   addBranch: (branch: Omit<Branch, 'id'>) => Promise<{success: boolean, message: string}>;
   deleteBranch: (branchId: string) => void;
   updateSupportInfo: (info: { email?: string; phone?: string }) => void;
@@ -79,9 +76,6 @@ type DataActions = {
   ) => void;
   deleteSupportTicket: (ticketId: string) => void;
   replyToSupportTicket: (ticketId: string, replyMessage: string) => void;
-  registerNewOfficeManager: (
-    credentials: Omit<User, 'id' | 'role' | 'status'>
-  ) => Promise<{ success: boolean; message: string }>;
   addBorrower: (
     borrower: Omit<
       Borrower,
@@ -148,29 +142,13 @@ type DataActions = {
   markInvestorAsNotified: (investorId: string, message: string) => void;
 };
 
-
 const DataStateContext = createContext<DataState | undefined>(undefined);
 const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
-export const APP_DATA_KEY = 'appData-v-supabase-live';
-
-const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'userId' | 'authLoading'> = {
+const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'session' | 'authLoading'> = {
   borrowers: [],
   investors: [],
-  users: [
-    {
-        id: 'user_admin_01',
-        name: 'عبدالاله البلوي',
-        email: 'qzmpty678@gmail.com',
-        phone: '0598360380',
-        password: 'Aa@0509091917',
-        role: 'مدير النظام',
-        status: 'نشط',
-        photoURL: `https://placehold.co/40x40.png`,
-        registrationDate: new Date().toISOString(),
-        defaultTrialPeriodDays: 14,
-    }
-  ],
+  users: [],
   supportTickets: [],
   notifications: [],
   salaryRepaymentPercentage: 30,
@@ -184,16 +162,15 @@ const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'userId
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState(initialDataState);
-  const [isDataLoading, setIsDataLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
   
-  const fetchData = useCallback(async () => {
+  const supabase = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
     if (!url || !key) {
       console.error("Supabase environment variables are not set.");
       toast({
@@ -201,13 +178,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         title: "خطأ في الإعداد",
         description: "لم يتم تكوين متغيرات الاتصال بقاعدة البيانات.",
       });
-      setIsDataLoading(false);
-      return;
+      return null;
     }
-    
-    const supabase = createBrowserClient(url, key);
+    return createBrowserClient(url, key);
+  }, [toast]);
+  
 
-    setIsDataLoading(true);
+  const fetchData = useCallback(async () => {
+    if (!supabase) {
+        setDataLoading(false);
+        return;
+    };
+    
+    setDataLoading(true);
     try {
         const [
             usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes
@@ -232,7 +215,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return acc;
         }, {} as any);
         
-        const allFunders = borrowersRes.data.flatMap(b => b.fundedBy || []);
+        const allFunders = borrowersRes.data.flatMap((b: any) => b.fundedBy || []);
 
         const borrowersWithData: Borrower[] = borrowersRes.data.map((borrower: any) => ({
             ...borrower,
@@ -251,7 +234,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }));
 
         setData({
-            users: [...initialDataState.users, ...(usersRes.data || [])],
+            users: usersRes.data || [],
             investors: investorsWithData,
             borrowers: borrowersWithData,
             notifications: notificationsRes.data || [],
@@ -273,59 +256,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
             description: "لم نتمكن من تحميل بيانات التطبيق. يرجى تحديث الصفحة.",
         });
     } finally {
-        setIsDataLoading(false);
+      setDataLoading(false);
     }
-  }, [toast]);
-
+  }, [supabase, toast]);
+  
+  
   useEffect(() => {
-    // This effect runs once on the client when the component mounts to check for a logged-in user.
-    try {
-      const storedUserId = localStorage.getItem('loggedInUserId');
-      if (storedUserId) {
-        setUserId(storedUserId);
-      }
-    } catch (error) {
-      console.error("Could not access localStorage:", error);
-    } finally {
+    if (!supabase) {
       setAuthLoading(false);
+      return;
     }
-  }, []);
-
-  useEffect(() => {
-    // This effect triggers data fetching only when a user is confirmed to be logged in.
-    if (userId) {
-        fetchData();
-    } else {
-        // If there's no user, we are not fetching data, so we should stop the main loading indicator.
-        setIsDataLoading(false);
-    }
-  }, [userId, fetchData]);
-
-  useEffect(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key || !userId) return;
-    
-    const supabase = createBrowserClient(url, key);
-
-    const channel = supabase
-      .channel('db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-        console.log('Change received!', payload);
-        fetchData();
-      })
-      .subscribe();
-
+  
+    // Fetch initial data once on mount, regardless of auth state
+    // This is important for public pages that might need some data
+    fetchData();
+  
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, newSession) => {
+        setSession(newSession);
+        setAuthLoading(false);
+  
+        // If a new session is established (login), fetch data again
+        // to ensure we have the latest user-specific info.
+        if (newSession) {
+          await fetchData();
+        }
+      }
+    );
+  
     return () => {
-      supabase.removeChannel(channel);
+      subscription.unsubscribe();
     };
-  }, [fetchData, userId]);
-
-
+  }, [supabase, fetchData]);
+  
   const currentUser = useMemo(() => {
-    if (!userId) return undefined;
-    return data.users.find((u) => u.id === userId);
-  }, [data.users, userId]);
+    if (!session?.user) return undefined;
+    return data.users.find((u) => u.id === session.user.id);
+  }, [data.users, session]);
   
   const visibleUsers = useMemo(() => {
     if (!currentUser) return [];
@@ -350,73 +317,89 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return [currentUser];
   }, [currentUser, data.users]);
 
-  const signIn = useCallback(async (credentials: SignInCredentials) => {
-    const { identifier, password } = credentials;
-    const userToSignIn = data.users.find(u => u.email === identifier || u.phone === identifier);
+  const signIn = useCallback(async (email: string, password?: string) => {
+    if (!supabase || !password) return { success: false, message: "بيانات غير مكتملة." };
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (!userToSignIn) {
-      return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
-    }
-
-    // Critical Security Check: If the user is a subordinate, check their manager's status first.
-    if (userToSignIn.managedBy) {
-        const manager = data.users.find(u => u.id === userToSignIn.managedBy);
-        if (!manager || manager.status !== 'نشط') {
-            return { success: false, message: 'تم تعليق حساب المدير المسؤول عنك. لا يمكنك تسجيل الدخول حالياً.' };
+    if (error) {
+        if (error.message === 'Invalid login credentials') {
+            return { success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' };
         }
+        return { success: false, message: error.message };
     }
     
-    // Check status first, as it's the most definitive state.
-    if (userToSignIn.status === 'محذوف') {
-      return { success: false, message: 'هذا الحساب تم حذفه ولا يمكن الوصول إليه.' };
-    }
-    if (userToSignIn.status === 'معلق') {
-      if (userToSignIn.role === 'مدير المكتب') {
-        const contactInfo = [data.supportEmail, data.supportPhone].filter(Boolean).join(' أو ');
-        const message = `حسابك قيد المراجعة. لمتابعة حالة الطلب، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
-        return { success: false, message };
-      }
-      return { success: false, message: 'حسابك معلق وفي انتظار موافقة المدير.' };
-    }
-    
-    if (userToSignIn.status === 'مرفوض') {
-       return { success: false, message: 'تم رفض طلب انضمام هذا الحساب. يرجى التواصل مع مديرك.' };
-    }
-
-    // Now, check for expired trial for office managers whose status is not 'نشط' (which implies it's suspended due to trial end)
-    if (userToSignIn.role === 'مدير المكتب' && userToSignIn.status !== 'نشط' && userToSignIn.trialEndsAt) {
-        const trialEndDate = new Date(userToSignIn.trialEndsAt);
-        if (isPast(trialEndDate)) {
-             const contactInfo = [data.supportEmail, data.supportPhone].filter(Boolean).join(' أو ');
-             const message = `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
-             return { success: false, message };
-        }
-    }
-
-    if (userToSignIn.password !== password) {
-      return { success: false, message: 'كلمة المرور غير صحيحة.' };
-    }
-
-    setUserId(userToSignIn.id);
-    try {
-      localStorage.setItem('loggedInUserId', userToSignIn.id);
-    } catch (error) {
-      console.error("Could not access localStorage:", error);
-    }
+    // The onAuthStateChange listener will handle fetching data and updating state.
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
-  }, [data.users, data.supportEmail, data.supportPhone]);
+  }, [supabase]);
 
-  const signOutUser = useCallback(() => {
-    setUserId(null);
-    try {
-      localStorage.removeItem('loggedInUserId');
-      // Clearing the app data is crucial to prevent inconsistencies on next login.
-      localStorage.removeItem(APP_DATA_KEY);
-      router.push('/login'); // Use router for smoother navigation
-    } catch (error) {
-      console.error("Could not access localStorage:", error);
+  const signOutUser = useCallback(async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
     }
-  },[router]);
+    setSession(null); 
+    setData(initialDataState); // Reset data state on sign out
+    router.push('/login');
+  },[supabase, router]);
+
+  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+    if (!supabase) return { success: false, message: "فشل الاتصال بقاعدة البيانات." };
+
+    const { email, password, phone, name, officeName } = payload;
+    if (!password) return { success: false, message: "كلمة المرور مطلوبة." };
+    
+    // Step 1: Create user in auth.users
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+    });
+
+    if (authError) {
+        if (authError.message.includes("User already registered")) {
+            return { success: false, message: 'البريد الإلكتروني مسجل بالفعل.' };
+        }
+        console.error("Supabase sign up error:", authError);
+        return { success: false, message: 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
+    }
+
+    if (!authData.user) {
+        return { success: false, message: 'فشل في إنشاء الحساب، لم يتم إرجاع بيانات المستخدم من نظام المصادقة.' };
+    }
+
+    // Step 2: Insert user profile into public.users
+    const { error: insertError } = await supabase.from('users').insert({
+        id: authData.user.id,
+        name: name,
+        officeName: officeName,
+        email: email,
+        phone: phone,
+        role: 'مدير المكتب',
+        status: 'معلق',
+        registrationDate: new Date().toISOString(),
+        investorLimit: 3,
+        employeeLimit: 1,
+        assistantLimit: 1,
+        branchLimit: 3,
+        allowEmployeeSubmissions: true,
+        hideEmployeeInvestorFunds: false,
+        allowEmployeeLoanEdits: false,
+    });
+
+    if (insertError) {
+        console.error("Error inserting user profile:", insertError);
+        // Optional: Attempt to delete the auth user to clean up
+        // await supabase.auth.admin.deleteUser(authData.user.id);
+        return { success: false, message: "فشل في حفظ ملف تعريف المستخدم. يرجى التواصل مع الدعم." };
+    }
+
+
+    await fetchData();
+    return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
+  }, [supabase, fetchData]);
+  
+  // =========================================================================================
+  // The rest of the actions need to be refactored to use Supabase RPCs or direct table access with RLS
+  // For now, these are kept as local state changes for prototyping purposes.
+  // =========================================================================================
 
   const addNotification = useCallback(
     (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
@@ -530,93 +513,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [toast]
   );
 
-  const registerNewOfficeManager = useCallback(
-    async (
-      credentials: Omit<User, 'id' | 'role' | 'status'>
-    ): Promise<{ success: boolean; message: string }> => {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (!url || !key) return { success: false, message: 'Supabase URL/Key not configured.' };
-        const supabase = createBrowserClient(url, key);
-
-        // 1. Check for existing user in DB
-        const { data: existingUsers, error: checkError } = await supabase
-            .from('users')
-            .select('id')
-            .or(`email.eq.${credentials.email},phone.eq.${credentials.phone}`);
-
-        if (checkError) {
-            console.error('Error checking for existing user:', checkError);
-            return { success: false, message: 'حدث خطأ أثناء التحقق من البيانات.' };
-        }
-        if (existingUsers && existingUsers.length > 0) {
-            return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
-        }
-
-        // 2. Insert new user if not exists
-        const newManagerData = {
-          name: credentials.name,
-          officeName: credentials.officeName,
-          email: credentials.email,
-          phone: credentials.phone,
-          password: credentials.password, // In a real app, this should be hashed server-side.
-          role: 'مدير المكتب',
-          status: 'معلق',
-          photoURL: `https://placehold.co/40x40.png`,
-          registrationDate: new Date().toISOString(),
-          investorLimit: 3,
-          employeeLimit: 1,
-          assistantLimit: 1,
-          branchLimit: 3,
-          allowEmployeeSubmissions: true,
-          hideEmployeeInvestorFunds: false,
-          allowEmployeeLoanEdits: false,
-        };
-        
-        const { error: insertError } = await supabase.from('users').insert([newManagerData]);
-
-        if (insertError) {
-            console.error('Error inserting new manager:', insertError);
-            return { success: false, message: 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
-        }
-
-        // 3. Notify System Admin
-        const systemAdmin = data.users.find((u) => u.role === 'مدير النظام');
-        if (systemAdmin) {
-             addNotification({
-                recipientId: systemAdmin.id,
-                title: 'تسجيل مدير مكتب جديد',
-                description: `المستخدم "${credentials.name}" سجل كمدير مكتب وينتظر التفعيل.`,
-            });
-        }
-        
-        // 4. Refetch all data to update the local state
-        await fetchData();
-
-        return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
-    },
-    [data.users, fetchData, addNotification]
-  );
-
   const updateBorrower = useCallback(
     (updatedBorrower: Borrower) => {
+      if (!currentUser) return;
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (!loggedInUser) return d;
-
         const originalBorrower = d.borrowers.find(b => b.id === updatedBorrower.id);
         if (!originalBorrower) return d;
         
-        const manager = d.users.find(u => u.id === loggedInUser.managedBy);
+        const manager = d.users.find(u => u.id === currentUser.managedBy);
 
-        if(loggedInUser.role === 'موظف' && !(manager?.allowEmployeeLoanEdits)) {
+        if(currentUser.role === 'موظف' && !(manager?.allowEmployeeLoanEdits)) {
              toast({
                 variant: 'destructive',
                 title: 'غير مصرح به',
                 description: 'ليس لديك الصلاحية لتعديل القروض.',
              });
              return d;
-        } else if (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageBorrowers) {
+        } else if (currentUser.role === 'مساعد مدير المكتب' && !currentUser.permissions?.manageBorrowers) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل القروض.' });
             return d;
         }
@@ -659,7 +572,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
   
   const updateBorrowerPaymentStatus = useCallback(
@@ -862,18 +775,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       force: boolean = false
     ): Promise<AddBorrowerResult> => {
       let result: AddBorrowerResult = { success: false, message: 'فشل غير متوقع' };
+      if (!currentUser) {
+          return { success: false, message: 'يجب أن تكون مسجلاً للدخول.' };
+      }
       
       setData(d => {
-          const loggedInUser = d.users.find(u => u.id === userId);
-          if (!loggedInUser) {
-              result = { success: false, message: 'يجب أن تكون مسجلاً للدخول.' };
-              toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-              return d;
-          }
+          const manager = d.users.find(u => u.id === currentUser.managedBy);
 
-          const manager = d.users.find(u => u.id === loggedInUser.managedBy);
-
-          if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageBorrowers) {
+          if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !currentUser.permissions?.manageBorrowers) {
                if(!manager?.allowEmployeeSubmissions) {
                   result = { success: false, message: 'ليس لديك الصلاحية لإضافة قروض.' };
                   toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
@@ -896,7 +805,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (existingActiveLoan) {
                 const submitter = d.users.find(u => u.id === existingActiveLoan.submittedBy);
                 const loanManager = submitter?.role === 'مدير المكتب' ? submitter : d.users.find(u => u.id === submitter?.managedBy);
-                const loggedInManagerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
+                const loggedInManagerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
 
                 if (loanManager && loanManager.id !== loggedInManagerId) {
                     result = {
@@ -960,7 +869,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ...borrower,
               id: newId,
               date: new Date().toISOString(),
-              submittedBy: loggedInUser.id,
+              submittedBy: currentUser.id,
               fundedBy: fundedByDetails,
               isNotified: false,
               installments: borrower.loanType === 'اقساط' && borrower.term && borrower.term > 0
@@ -981,11 +890,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   });
               });
           }
-          if (isPending && loggedInUser?.managedBy) {
+          if (isPending && currentUser?.managedBy) {
               notificationsToQueue.push({
-                  recipientId: loggedInUser.managedBy,
+                  recipientId: currentUser.managedBy,
                   title: 'طلب قرض جديد معلق',
-                  description: `قدم الموظف "${loggedInUser.name}" طلبًا لإضافة القرض "${borrower.name}".`,
+                  description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة القرض "${borrower.name}".`,
               });
           }
           if(notificationsToQueue.length > 0) {
@@ -998,7 +907,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       return result;
     },
-    [userId, toast]
+    [currentUser, toast]
   );
   
   const updateInstallmentStatus = useCallback((borrowerId: string, month: number, status: InstallmentStatus) => {
@@ -1085,10 +994,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateInvestor = useCallback(
     (updatedInvestor: UpdatableInvestor) => {
+      if (!currentUser) return;
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (!loggedInUser) return d;
-        if ((loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageInvestors) || loggedInUser.role === 'موظف') {
+        if ((currentUser.role === 'مساعد مدير المكتب' && !currentUser.permissions?.manageInvestors) || currentUser.role === 'موظف') {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل المستثمرين.' });
             return d;
         }
@@ -1102,7 +1010,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       toast({ title: 'تم تحديث المستثمر' });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
   
   const approveInvestor = useCallback(
@@ -1190,15 +1098,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addInvestor = useCallback(
     async (investorPayload: Omit<NewInvestorPayload, 'status'>): Promise<{ success: boolean; message: string }> => {
       let result = { success: false, message: 'فشل غير متوقع' };
-      setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (!loggedInUser) {
-          result = { success: false, message: 'يجب تسجيل الدخول أولاً.' };
-          toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-          return d;
-        }
+      if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
 
-        if ((loggedInUser.role === 'موظف' || loggedInUser.role === 'مساعد مدير المكتب') && !loggedInUser.permissions?.manageInvestors) {
+      setData(d => {
+        if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !currentUser.permissions?.manageInvestors) {
            result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
            toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
            return d;
@@ -1219,7 +1122,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
            return d;
         }
 
-        const managerId = loggedInUser.role === 'مدير المكتب' ? loggedInUser.id : loggedInUser.managedBy;
+        const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
         const manager = d.users.find(u => u.id === managerId);
       
         if (manager) {
@@ -1241,7 +1144,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
 
-        const status: User['status'] = (loggedInUser.role === 'موظف' || (loggedInUser.role === 'مساعد مدير المكتب' && !loggedInUser.permissions?.manageRequests)) ? 'معلق' : 'نشط';
+        const status: User['status'] = (currentUser.role === 'موظف' || (currentUser.role === 'مساعد مدير المكتب' && !currentUser.permissions?.manageRequests)) ? 'معلق' : 'نشط';
       
         const newId = `user_inv_${Date.now()}`;
       
@@ -1250,7 +1153,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           name: investorPayload.name,
           email: investorPayload.email,
           phone: investorPayload.phone,
-          password: investorPayload.password,
           role: 'مستثمر',
           status: status,
           photoURL: `https://placehold.co/40x40.png`,
@@ -1288,7 +1190,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           date: new Date().toISOString(),
           transactionHistory: transactionHistory,
           fundedLoanIds: [],
-          submittedBy: loggedInUser.id,
+          submittedBy: currentUser.id,
           isNotified: false,
           installmentProfitShare: investorPayload.installmentProfitShare,
           gracePeriodProfitShare: investorPayload.gracePeriodProfitShare,
@@ -1302,7 +1204,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 isRead: false,
                 recipientId: managerId,
                 title: 'طلب مستثمر جديد معلق',
-                description: `قدم الموظف "${loggedInUser.name}" طلبًا لإضافة المستثمر "${newInvestorEntry.name}".`,
+                description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newInvestorEntry.name}".`,
             }, ...d.notifications];
         }
     
@@ -1317,15 +1219,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       return result;
     },
-    [userId, toast]
+    [currentUser, toast]
   );
   
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
         let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
+        if (!currentUser) return result;
         setData(d => {
-            const loggedInUser = d.users.find(u => u.id === userId);
-            if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
+            if (currentUser.role !== 'مدير المكتب') {
                 result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
                 toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
@@ -1343,8 +1245,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
 
             const isEmployee = role === 'موظف';
-            const limit = isEmployee ? loggedInUser.employeeLimit : loggedInUser.assistantLimit;
-            const currentCount = d.users.filter(u => u.managedBy === loggedInUser.id && u.role === role).length;
+            const limit = isEmployee ? currentUser.employeeLimit : currentUser.assistantLimit;
+            const currentCount = d.users.filter(u => u.managedBy === currentUser.id && u.role === role).length;
 
             if (currentCount >= (limit ?? 0)) {
                 result = { success: false, message: `لقد وصلت للحد الأقصى لعدد ${isEmployee ? 'الموظفين' : 'المساعدين'}.` };
@@ -1352,11 +1254,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return d;
             }
 
-
             const newId = `user_${isEmployee ? 'emp' : 'asst'}_${Date.now()}`;
             const newUser: User = {
-                id: newId, name: payload.name, email: payload.email, phone: payload.phone, password: payload.password,
-                role: role, status: 'نشط', managedBy: loggedInUser.id, photoURL: `https://placehold.co/40x40.png`, registrationDate: new Date().toISOString(),
+                id: newId, name: payload.name, email: payload.email, phone: payload.phone,
+                role: role, status: 'نشط', managedBy: currentUser.id, photoURL: `https://placehold.co/40x40.png`, registrationDate: new Date().toISOString(),
                 permissions: {},
             };
             result = { success: true, message: `تمت إضافة ${isEmployee ? 'الموظف' : 'المساعد'} بنجاح.` };
@@ -1365,7 +1266,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
         return result;
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const addInvestorTransaction = useCallback(
@@ -1412,18 +1313,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateUserIdentity = useCallback(
     async (updates: Partial<User>) => {
+      if (!currentUser) return { success: false, message: 'لم يتم العثور على المستخدم.' };
       let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (!loggedInUser) {
-          result = { success: false, message: 'لم يتم العثور على المستخدم.' };
-          return d;
-        }
-
-        const newUsers = d.users.map((u) => (u.id === loggedInUser.id ? { ...u, ...updates } : u));
+        const newUsers = d.users.map((u) => (u.id === currentUser.id ? { ...u, ...updates } : u));
         
         const newInvestors = d.investors.map((i) => {
-          if (i.id === loggedInUser.id && updates.name) {
+          if (i.id === currentUser.id && updates.name) {
               return { ...i, name: updates.name };
           }
           return i;
@@ -1439,29 +1335,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       return result;
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const updateUserCredentials = useCallback(
     async (userIdToUpdate: string, updates: { email?: string; password?: string, officeName?: string; }) => {
+      if (!currentUser) return { success: false, message: 'غير مصرح لك.' };
       let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (!loggedInUser) {
-             result = { success: false, message: 'غير مصرح لك.' };
-             return d;
-        }
         const userToUpdate = d.users.find(u => u.id === userIdToUpdate);
         if (!userToUpdate) {
              result = { success: false, message: 'المستخدم المستهدف غير موجود.' };
              return d;
         }
 
-        const isSystemAdmin = loggedInUser.role === 'مدير النظام';
-        const isOfficeManager = loggedInUser.role === 'مدير المكتب';
+        const isSystemAdmin = currentUser.role === 'مدير النظام';
+        const isOfficeManager = currentUser.role === 'مدير المكتب';
 
         const canEdit = isSystemAdmin || 
-                        (isOfficeManager && userToUpdate.managedBy === loggedInUser.id);
+                        (isOfficeManager && userToUpdate.managedBy === currentUser.id);
         
         if (!canEdit || userToUpdate.role === 'مدير النظام') {
             result = { success: false, message: 'ليس لديك الصلاحية لتعديل هذا المستخدم.' };
@@ -1497,15 +1389,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       return result;
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const updateUserStatus = useCallback(
     async (userIdToUpdate: string, status: User['status']) => {
+      if (!currentUser) return;
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
         const userToUpdate = d.users.find((u) => u.id === userIdToUpdate);
-        if (!loggedInUser || !userToUpdate) {
+        if (!userToUpdate) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
             return d;
         }
@@ -1523,23 +1415,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        const isAssistantManagingEmployee = loggedInUser.role === 'مساعد مدير المكتب' &&
-                                            loggedInUser.permissions?.manageEmployeePermissions &&
+        const isAssistantManagingEmployee = currentUser.role === 'مساعد مدير المكتب' &&
+                                            currentUser.permissions?.manageEmployeePermissions &&
                                             userToUpdate.role === 'موظف' &&
-                                            userToUpdate.managedBy === loggedInUser.managedBy;
+                                            userToUpdate.managedBy === currentUser.managedBy;
 
-        const isManagerManagingSubordinate = loggedInUser.role === 'مدير المكتب' && 
-                                             userToUpdate.managedBy === loggedInUser.id &&
+        const isManagerManagingSubordinate = currentUser.role === 'مدير المكتب' && 
+                                             userToUpdate.managedBy === currentUser.id &&
                                              userToUpdate.role !== 'مدير المكتب';
 
-        const canUpdate = loggedInUser.role === 'مدير النظام' || isManagerManagingSubordinate || isAssistantManagingEmployee;
+        const canUpdate = currentUser.role === 'مدير النظام' || isManagerManagingSubordinate || isAssistantManagingEmployee;
 
         if (!canUpdate) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير حالة هذا المستخدم.' });
             return d;
         }
         
-        if (loggedInUser.role === 'مساعد مدير المكتب' && userToUpdate.role === 'مدير المكتب') {
+        if (currentUser.role === 'مساعد مدير المكتب' && userToUpdate.role === 'مدير المكتب') {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'لا يمكنك تغيير حالة مديرك.' });
             return d;
         }
@@ -1628,19 +1520,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { ...d, users: finalUsers, investors: newInvestors, notifications: newNotifications };
       });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const updateUserRole = useCallback(
     (userIdToChange: string, newRole: UserRole) => {
+      if (!currentUser) return;
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (loggedInUser?.role !== 'مدير النظام') {
+        if (currentUser?.role !== 'مدير النظام') {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير النظام يمكنه تغيير الأدوار.' });
             return d;
         }
 
-        if (userIdToChange === loggedInUser.id) {
+        if (userIdToChange === currentUser.id) {
           toast({ variant: 'destructive', title: 'خطأ', description: 'لا يمكنك تغيير دورك الخاص.' });
           return d;
         }
@@ -1721,14 +1613,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { ...d, users: newUsers };
       });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const updateUserLimits = useCallback(
     (userIdToUpdate: string, limits: { investorLimit: number; employeeLimit: number; assistantLimit: number; branchLimit: number }) => {
+      if (!currentUser) return;
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (loggedInUser?.role !== 'مدير النظام') {
+        if (currentUser?.role !== 'مدير النظام') {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير النظام يمكنه تغيير الحدود.' });
             return d;
         }
@@ -1736,7 +1628,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       toast({ title: 'تم تحديث حدود المستخدم بنجاح.' });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const updateManagerSettings = useCallback(
@@ -1745,9 +1637,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       hideEmployeeInvestorFunds?: boolean;
       allowEmployeeLoanEdits?: boolean;
     }) => {
+      if (!currentUser) return;
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (!loggedInUser || (loggedInUser.role !== 'مدير النظام' && loggedInUser.id !== managerId)) {
+        if (currentUser.role !== 'مدير النظام' && currentUser.id !== managerId) {
             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير هذه الإعدادات.' });
             return d;
         }
@@ -1756,14 +1648,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       toast({ title: 'تم تحديث إعدادات المدير بنجاح.' });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const updateAssistantPermission = useCallback(
     (assistantId: string, key: PermissionKey, value: boolean) => {
+      if (!currentUser) return;
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-        if (loggedInUser?.role !== 'مدير المكتب') {
+        if (currentUser?.role !== 'مدير المكتب') {
              toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير المكتب يمكنه تغيير صلاحيات المساعد.' });
              return d;
         }
@@ -1775,14 +1667,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       toast({ title: 'تم تحديث صلاحية المساعد بنجاح.' });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const updateEmployeePermission = useCallback(
     (employeeId: string, key: PermissionKey, value: boolean) => {
+      if (!currentUser) return;
       setData(d => {
-        const loggedInUser = d.users.find(u => u.id === userId);
-         if (loggedInUser?.role !== 'مدير المكتب' && !(loggedInUser?.role === 'مساعد مدير المكتب' && loggedInUser.permissions?.manageEmployeePermissions)) {
+         if (currentUser?.role !== 'مدير المكتب' && !(currentUser?.role === 'مساعد مدير المكتب' && currentUser.permissions?.manageEmployeePermissions)) {
              toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير صلاحيات الموظف.' });
              return d;
         }
@@ -1794,27 +1686,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       toast({ title: 'تم تحديث صلاحية الموظف بنجاح.' });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
 
   const deleteUser = useCallback(
     (userIdToDelete: string) => {
+        if (!currentUser) return;
         setData(d => {
             const { users, investors, borrowers } = d;
-            const loggedInUser = users.find(u => u.id === userId);
             const userToDelete = users.find(u => u.id === userIdToDelete);
 
-            if (!loggedInUser || !userToDelete) {
+            if (!userToDelete) {
                 toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
                 return d;
             }
 
-            if (userToDelete.id === loggedInUser.id || userToDelete.role === 'مدير النظام') {
+            if (userToDelete.id === currentUser.id || userToDelete.role === 'مدير النظام') {
                 toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكنك حذف هذا الحساب.' });
                 return d;
             }
 
-            const canDelete = loggedInUser.role === 'مدير النظام' || (loggedInUser.role === 'مدير المكتب' && userToDelete.managedBy === loggedInUser.id);
+            const canDelete = currentUser.role === 'مدير النظام' || (currentUser.role === 'مدير المكتب' && userToDelete.managedBy === currentUser.id);
             if (!canDelete) {
                 toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لحذف هذا المستخدم.' });
                 return d;
@@ -1883,7 +1775,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { ...d, users: finalUsers, investors: finalInvestors };
         });
     },
-    [userId, toast]
+    [currentUser, toast]
   );
   
 
@@ -1988,22 +1880,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBranch = useCallback(
     async (branch: Omit<Branch, 'id'>): Promise<{success: boolean, message: string}> => {
         let result: {success: boolean, message: string} = {success: false, message: "فشل غير متوقع"};
+        if (!currentUser) return result;
         setData(d => {
-            const loggedInUser = d.users.find(u => u.id === userId);
-            if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
+            if (currentUser.role !== 'مدير المكتب') {
                 result = {success: false, message: "غير مصرح لك."};
                 return d;
             }
 
-            const currentBranches = loggedInUser.branches || [];
-            if (currentBranches.length >= (loggedInUser.branchLimit ?? 0)) {
+            const currentBranches = currentUser.branches || [];
+            if (currentBranches.length >= (currentUser.branchLimit ?? 0)) {
                 result = {success: false, message: "لقد وصلت إلى الحد الأقصى للفروع."};
                 return d;
             }
             
             const newBranch: Branch = { ...branch, id: `branch_${crypto.randomUUID()}` };
             const newUsers = d.users.map(u => 
-                u.id === loggedInUser.id 
+                u.id === currentUser.id 
                 ? { ...u, branches: [...currentBranches, newBranch] }
                 : u
             );
@@ -2019,19 +1911,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         return result;
-    }, [userId, toast]
+    },
+    [currentUser, toast]
   );
 
   const deleteBranch = useCallback(
     (branchId: string) => {
+        if (!currentUser) return;
         setData(d => {
-            const loggedInUser = d.users.find(u => u.id === userId);
-            if (!loggedInUser || loggedInUser.role !== 'مدير المكتب') {
+            if (currentUser.role !== 'مدير المكتب') {
                 return d;
             }
 
             const newUsers = d.users.map(u => {
-                if (u.id === loggedInUser.id) {
+                if (u.id === currentUser.id) {
                     const updatedBranches = (u.branches || []).filter(b => b.id !== branchId);
                     return { ...u, branches: updatedBranches };
                 }
@@ -2041,13 +1934,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ title: 'تم الحذف', description: 'تم حذف الفرع بنجاح.' });
             return { ...d, users: newUsers };
         });
-    }, [userId, toast]
+    },
+    [currentUser, toast]
   );
 
   const actions: DataActions = useMemo(
     () => ({
       signIn,
       signOutUser,
+      registerNewOfficeManager,
       addBranch,
       deleteBranch,
       updateSupportInfo,
@@ -2060,7 +1955,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addSupportTicket,
       deleteSupportTicket,
       replyToSupportTicket,
-      registerNewOfficeManager,
       addBorrower,
       updateBorrower,
       updateBorrowerPaymentStatus,
@@ -2093,6 +1987,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [
       signIn,
       signOutUser,
+      registerNewOfficeManager,
       addBranch,
       deleteBranch,
       updateSupportInfo,
@@ -2105,7 +2000,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addSupportTicket,
       deleteSupportTicket,
       replyToSupportTicket,
-      registerNewOfficeManager,
       addBorrower,
       updateBorrower,
       updateBorrowerPaymentStatus,
@@ -2141,14 +2035,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     () => ({
       currentUser,
       visibleUsers,
-      userId,
+      session,
       authLoading,
       ...data,
     }),
-    [currentUser, visibleUsers, userId, authLoading, data]
+    [currentUser, visibleUsers, session, authLoading, data]
   );
   
-  if (isDataLoading && authLoading) {
+  if (authLoading && !session) {
     return <PageLoader />;
   }
 
@@ -2176,14 +2070,3 @@ export function useDataActions() {
   }
   return context;
 }
-
-
-
-    
-
-    
-
-
-
-
-    

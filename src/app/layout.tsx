@@ -19,9 +19,10 @@ const tajawal = Tajawal({
 export const metadata: Metadata = {
   title: 'منصة تمويل وإدارة استثمار متكاملة',
   description: 'منصة متكاملة لإدارة التمويل والاستثمارات والقروض.',
+  icons: {
+    icon: `data:image/svg+xml;base64,${btoa(logoSvg)}`,
+  },
 };
-
-const favicon = `data:image/svg+xml;base64,${btoa(logoSvg)}`;
 
 export default function RootLayout({
   children,
@@ -30,9 +31,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <head>
-          <link rel="icon" href={favicon} type="image/svg+xml" />
-      </head>
       <body className={cn('font-sans antialiased', tajawal.variable)}>
         <ThemeProvider
           attribute="class"
@@ -49,5 +47,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    

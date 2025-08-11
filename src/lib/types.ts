@@ -36,6 +36,14 @@ export type NewUserPayload = {
   confirmPassword?: string;
 };
 
+export type NewManagerPayload = {
+    email: string;
+    password?: string;
+    phone: string;
+    name: string;
+    officeName: string;
+};
+
 export type Branch = {
   id: string;
   name: string;
@@ -52,7 +60,6 @@ export type User = {
   role: UserRole;
   status: 'نشط' | 'معلق' | 'مرفوض' | 'محذوف';
   phone?: string;
-  password?: string;
   managedBy?: string;
   registrationDate?: string;
   
