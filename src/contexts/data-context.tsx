@@ -224,7 +224,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const borrowersWithData = borrowersRes.data.map(borrower => ({
             ...borrower,
             fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investor_id, amount: f.amount })),
-            installments: (borrower.installments || []).map(i => ({ month: i.month, status: i.status as InstallmentStatus })),
+            installments: (borrower.installments || []).map((i: any) => ({ month: i.month, status: i.status as InstallmentStatus })),
             partialPayment: borrower.partial_payment_paid_amount ? {
                 paidAmount: borrower.partial_payment_paid_amount,
                 remainingLoanId: borrower.partial_payment_remaining_loan_id!,
@@ -2168,3 +2168,6 @@ export function useDataActions() {
     
 
 
+
+
+    
