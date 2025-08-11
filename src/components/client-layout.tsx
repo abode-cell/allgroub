@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useDataState } from '@/contexts/data-context';
@@ -7,17 +6,6 @@ import { AppHeader } from './app-header';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { PageLoader } from './page-loader';
-
-function ProtectedLayout({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="flex flex-col min-h-screen bg-background">
-            <AppHeader />
-            <main className="flex-1">
-                {children}
-            </main>
-        </div>
-    );
-}
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -41,21 +29,29 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
   }, [session, authLoading, isPublicPage, pathname, router]);
 
+
   if (authLoading) {
-      return <PageLoader />;
+    return <PageLoader />;
   }
   
   if (!session && !isPublicPage) {
-      return <PageLoader />;
+    return <PageLoader />;
   }
   
   if (session && isPublicPage) {
-       return <PageLoader />;
+     return <PageLoader />;
+  }
+  
+  if (isPublicPage) {
+    return <>{children}</>;
   }
 
-  if (session) {
-    return <ProtectedLayout>{children}</ProtectedLayout>;
-  }
-
-  return <>{children}</>;
+  return (
+    <div className="flex flex-col min-h-screen bg-background">
+      <AppHeader />
+      <main className="flex-1">
+        {children}
+      </main>
+    </div>
+  );
 }

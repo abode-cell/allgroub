@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -169,7 +168,7 @@ const EnvError = () => (
             <AlertTitle>خطأ في الإعدادات</AlertTitle>
             <AlertDescription>
                 <p>لم يتم العثور على متغيرات بيئة Supabase. لا يمكن للتطبيق الاتصال بقاعدة البيانات.</p>
-                <p className="mt-2">الرجاء التأكد من إضافة متغيرات <code className="font-mono text-xs bg-red-100 dark:bg-red-900 p-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code> و <code className="font-mono text-xs bg-red-100 dark:bg-red-900 p-1 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> إلى إعدادات المشروع في Vercel.</p>
+                <p className="mt-2">الرجاء التأكد من إضافة متغيرات <code className="font-mono text-xs bg-red-100 dark:bg-red-900 p-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code> و <code className="font-mono text-xs bg-red-100 dark:bg-red-900 p-1 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> إلى إعدادات المشروع.</p>
             </AlertDescription>
         </Alert>
     </div>
@@ -181,7 +180,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
-  const [envError, setEnvError] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   
@@ -189,17 +187,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) {
-      setEnvError(true);
       return null;
     }
     return createBrowserClient(url, key);
   }, []);
+  
 
   const fetchData = useCallback(async () => {
-    if (!supabase) {
-        setDataLoading(false);
-        return;
-    };
+    if (!supabase) return;
     
     setDataLoading(true);
     try {
@@ -282,14 +277,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      setAuthLoading(false);
-
       if (session) {
         await fetchData();
       } else {
         setData(initialDataState);
         setDataLoading(false);
       }
+      setAuthLoading(false);
     });
 
     return () => {
@@ -2040,8 +2034,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, visibleUsers, session, authLoading, data]
   );
   
-  if (envError) {
-      return <EnvError />;
+  if (!supabase) {
+    return <EnvError />;
   }
 
   const isLoading = authLoading || (session && dataLoading);
@@ -2070,4 +2064,3 @@ export function useDataActions() {
   }
   return context;
 }
-
