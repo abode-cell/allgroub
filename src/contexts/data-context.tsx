@@ -110,7 +110,7 @@ type DataActions = {
   ) => Promise<{ success: boolean; message: string }>;
   updateUserCredentials: (
     userId: string,
-    updates: { email?: string; password?: string }
+    updates: { email?: string; password?: string, officeName?: string; }
   ) => Promise<{ success: boolean; message: string }>;
   updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => void;
@@ -450,6 +450,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         newManager = {
           id: managerId,
           name: credentials.name,
+          officeName: credentials.officeName,
           email: credentials.email,
           phone: credentials.phone,
           password: credentials.password,
@@ -1335,7 +1336,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateUserCredentials = useCallback(
-    async (userIdToUpdate: string, updates: { email?: string; password?: string }) => {
+    async (userIdToUpdate: string, updates: { email?: string; password?: string, officeName?: string; }) => {
       let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
@@ -2058,14 +2059,3 @@ export function useDataActions() {
   }
   return context;
 }
-
-
-    
-
-    
-
-
-
-    
-
-    

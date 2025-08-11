@@ -45,6 +45,7 @@ export type Branch = {
 export type User = {
   id: string;
   name: string;
+  officeName?: string;
   email: string;
   photoURL?: string;
   role: UserRole;

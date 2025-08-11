@@ -269,7 +269,7 @@ export default function UsersPage() {
   
   const [isEditCredsDialogOpen, setIsEditCredsDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const [editCredsForm, setEditCredsForm] = useState({ email: '', password: '' });
+  const [editCredsForm, setEditCredsForm] = useState({ email: '', password: '', officeName: '' });
   const [isCredsSubmitting, setIsCredsSubmitting] = useState(false);
   
   const role = currentUser?.role;
@@ -321,7 +321,7 @@ export default function UsersPage() {
   
   const handleEditCredsClick = (user: User) => {
     setUserToEdit(user);
-    setEditCredsForm({ email: user.email, password: '' });
+    setEditCredsForm({ email: user.email, password: '', officeName: user.officeName || '' });
     setIsEditCredsDialogOpen(true);
   };
 
@@ -335,12 +335,15 @@ export default function UsersPage() {
     if (!userToEdit) return;
     setIsCredsSubmitting(true);
     
-    const updates: { email?: string, password?: string } = {};
+    const updates: { email?: string; password?: string, officeName?: string } = {};
     if (editCredsForm.email !== userToEdit.email) {
       updates.email = editCredsForm.email;
     }
     if (editCredsForm.password) {
       updates.password = editCredsForm.password;
+    }
+     if (userToEdit.role === 'مدير المكتب' && editCredsForm.officeName !== (userToEdit.officeName || '')) {
+      updates.officeName = editCredsForm.officeName;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -506,7 +509,7 @@ export default function UsersPage() {
                           <div className="flex flex-1 items-center justify-between">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                               <div className="font-bold text-base">
-                                {manager.name}
+                                {manager.officeName || manager.name}
                               </div>
                               <div className="text-xs text-muted-foreground sm:text-sm">
                                 {manager.email}
@@ -1184,8 +1187,19 @@ export default function UsersPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              {userToEdit?.role === 'مدير المكتب' && (
+                <div className="space-y-2">
+                  <Label htmlFor="officeName">اسم المكتب</Label>
+                  <Input
+                    id="officeName"
+                    value={editCredsForm.officeName}
+                    onChange={handleCredsFormChange}
+                    required
+                  />
+                </div>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="email-edit">البريد الإلكتروني</Label>
+                <Label htmlFor="email">البريد الإلكتروني</Label>
                 <Input
                   id="email"
                   type="email"
@@ -1195,7 +1209,7 @@ export default function UsersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password-edit">كلمة المرور الجديدة</Label>
+                <Label htmlFor="password">كلمة المرور الجديدة</Label>
                 <Input
                   id="password"
                   type="password"

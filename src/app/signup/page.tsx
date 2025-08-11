@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -20,6 +21,7 @@ export default function SignUpPage() {
   const { toast } = useToast();
   
   const [name, setName] = useState('');
+  const [officeName, setOfficeName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +32,7 @@ export default function SignUpPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !phone || !password) {
+    if (!name || !email || !phone || !password || !officeName) {
       setError('الرجاء تعبئة جميع الحقول.');
       return;
     }
@@ -41,7 +43,7 @@ export default function SignUpPage() {
     setError('');
     setIsLoading(true);
     
-    const result = await registerNewOfficeManager({ name, email, phone, password });
+    const result = await registerNewOfficeManager({ name, email, phone, password, officeName });
     
     setIsLoading(false);
     if (result.success) {
@@ -90,7 +92,11 @@ export default function SignUpPage() {
         <CardContent>
           <form onSubmit={handleSignUp} className="space-y-4">
              <div className="space-y-2">
-              <Label htmlFor="name">الاسم الكامل</Label>
+              <Label htmlFor="officeName">اسم المكتب</Label>
+              <Input id="officeName" placeholder="اسم المكتب التجاري" required value={officeName} onChange={(e) => setOfficeName(e.target.value)} />
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="name">الاسم الكامل للمدير</Label>
               <Input id="name" placeholder="اسمك الكامل" required value={name} onChange={(e) => setName(e.target.value)} />
             </div>
              <div className="space-y-2">
