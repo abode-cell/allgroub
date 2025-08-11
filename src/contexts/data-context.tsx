@@ -1740,8 +1740,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (userToDelete.role === 'مستثمر') {
                 const investorRecord = investors.find(i => i.id === userIdToDelete);
                 if (investorRecord) {
-                    if (investorRecord.fundedLoanIds?.some(loanId => borrowers.some(b => b.id === loanId))) {
-                        toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأنه قام بتمويل قروض. لسلامة السجلات، يتم منع الحذف.` });
+                    const hasActiveLoans = investorRecord.fundedLoanIds?.some(loanId => {
+                        const loan = borrowers.find(b => b.id === loanId);
+                        return loan && loan.status !== 'مسدد بالكامل' && loan.paymentStatus !== 'تم السداد';
+                    });
+
+                    if (hasActiveLoans) {
+                        toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأنه قام بتمويل قروض نشطة. لسلامة السجلات، يتم منع الحذف.` });
                         return d;
                     }
                     const financials = calculateInvestorFinancials(investorRecord, borrowers);
@@ -2060,5 +2065,7 @@ export function useDataActions() {
     
 
 
+
+    
 
     
