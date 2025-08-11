@@ -1838,17 +1838,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const replyToSupportTicket = useCallback((ticketId: string, replyMessage: string) => {
     setData(d => {
-        let repliedTicket: SupportTicket | null = null;
-
-        const newSupportTickets = d.supportTickets.map(ticket => {
-            if (ticket.id === ticketId) {
-                repliedTicket = { ...ticket, isReplied: true, isRead: true };
-                return repliedTicket;
-            }
-            return ticket;
-        });
+        const repliedTicket = d.supportTickets.find(ticket => ticket.id === ticketId);
 
         if (repliedTicket) {
+            const newSupportTickets = d.supportTickets.map(ticket => 
+                ticket.id === ticketId ? { ...ticket, isReplied: true, isRead: true } : ticket
+            );
+
             const newNotifications = [{
                 id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
                 recipientId: repliedTicket.fromUserId,
@@ -2063,3 +2059,6 @@ export function useDataActions() {
 
     
 
+
+
+    
