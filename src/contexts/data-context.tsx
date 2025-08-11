@@ -648,25 +648,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newBorrowers = d.borrowers.map(b => (b.id === borrowerId ? updatedBorrower : b));
         
         const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-        const approvedBorrower = newBorrowers.find(b => b.id === borrowerId);
-
-        if (approvedBorrower) {
-            if (approvedBorrower.submittedBy) {
-                notificationsToQueue.push({
-                    recipientId: approvedBorrower.submittedBy,
-                    title: 'تمت الموافقة على طلبك',
-                    description: `تمت الموافقة على طلب إضافة القرض "${approvedBorrower.name}".`,
-                });
-            }
-            
-            fundedByDetails.forEach(funder => {
-                notificationsToQueue.push({
-                    recipientId: funder.investorId,
-                    title: 'تم استثمار أموالك',
-                    description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${loanToApprove.name}".`,
-                });
+        
+        if (updatedBorrower.submittedBy) {
+            notificationsToQueue.push({
+                recipientId: updatedBorrower.submittedBy,
+                title: 'تمت الموافقة على طلبك',
+                description: `تمت الموافقة على طلب إضافة القرض "${updatedBorrower.name}".`,
             });
         }
+        
+        fundedByDetails.forEach(funder => {
+            notificationsToQueue.push({
+                recipientId: funder.investorId,
+                title: 'تم استثمار أموالك',
+                description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${loanToApprove.name}".`,
+            });
+        });
         
         const newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
         
