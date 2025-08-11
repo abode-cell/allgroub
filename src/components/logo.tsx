@@ -46,7 +46,7 @@ export const Logo = () => {
                 />
             </svg>
             <div className="flex flex-col">
-                <span className="font-bold text-lg sm:text-xl text-foreground leading-tight">مجموعة عال</span>
+                <span className="font-bold text-lg sm:text-xl text-foreground leading-tight">منصة عال</span>
                 <span className="text-sm text-muted-foreground leading-tight hidden sm:block tracking-wide">إدارة • تمويل • تطوير • وأكثر...</span>
             </div>
       </Link>
