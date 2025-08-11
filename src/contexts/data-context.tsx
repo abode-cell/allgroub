@@ -676,38 +676,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const rejectBorrower = useCallback(
     (borrowerId: string, reason: string) => {
-      setData(d => {
-        const borrowerToReject = d.borrowers.find((b) => b.id === borrowerId);
+        setData(d => {
+            const borrowerToReject = d.borrowers.find((b) => b.id === borrowerId);
 
-        if (!borrowerToReject) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
-            return d;
-        }
-        
-        if (borrowerToReject.status !== 'معلق') {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-            return d;
-        }
+            if (!borrowerToReject) {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+                return d;
+            }
+            
+            if (borrowerToReject.status !== 'معلق') {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+                return d;
+            }
 
-        const newStatus: Borrower['status'] = 'مرفوض';
-        const rejectedBorrower: Borrower = { ...borrowerToReject, status: newStatus, rejectionReason: reason };
-        const newBorrowers = d.borrowers.map((b) => (b.id === borrowerId ? rejectedBorrower : b));
-        
-        let newNotifications = d.notifications;
-        if (rejectedBorrower.submittedBy) {
-            newNotifications = [{
-                id: `notif_${crypto.randomUUID()}`,
-                date: new Date().toISOString(),
-                isRead: false,
-                recipientId: rejectedBorrower.submittedBy,
-                title: 'تم رفض طلبك',
-                description: `تم رفض طلب إضافة القرض "${rejectedBorrower.name}". السبب: ${reason}`,
-            }, ...d.notifications];
-        }
+            const newStatus: Borrower['status'] = 'مرفوض';
+            const rejectedBorrower: Borrower = { ...borrowerToReject, status: newStatus, rejectionReason: reason };
+            const newBorrowers = d.borrowers.map((b) => (b.id === borrowerId ? rejectedBorrower : b));
+            
+            let newNotifications = d.notifications;
+            if (rejectedBorrower.submittedBy) {
+                newNotifications = [{
+                    id: `notif_${crypto.randomUUID()}`,
+                    date: new Date().toISOString(),
+                    isRead: false,
+                    recipientId: rejectedBorrower.submittedBy,
+                    title: 'تم رفض طلبك',
+                    description: `تم رفض طلب إضافة القرض "${rejectedBorrower.name}". السبب: ${reason}`,
+                }, ...d.notifications];
+            }
 
-        toast({ variant: 'destructive', title: 'تم رفض القرض' });
-        return { ...d, borrowers: newBorrowers, notifications: newNotifications };
-      });
+            toast({ variant: 'destructive', title: 'تم رفض القرض' });
+            return { ...d, borrowers: newBorrowers, notifications: newNotifications };
+        });
     },
     [toast]
   );
@@ -2062,3 +2062,4 @@ export function useDataActions() {
     
 
     
+
