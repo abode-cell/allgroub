@@ -245,8 +245,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             let needsUpdate = false;
             const suspendedManagerIds = new Set<string>();
             const newStatusForManager: User['status'] = 'معلق';
-            const newStatusForInvestor: Investor['status'] = 'غير نشط';
-
+            
             const newUsers: User[] = d.users.map(user => {
                 if (user.role === 'مدير المكتب' && user.status === 'نشط' && user.trialEndsAt && isPast(new Date(user.trialEndsAt))) {
                     needsUpdate = true;
@@ -259,15 +258,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (needsUpdate) {
                 const finalUsers: User[] = newUsers.map(u => {
                     if (u.managedBy && suspendedManagerIds.has(u.managedBy)) {
-                        return { ...u, status: newStatusForManager };
+                        const newSubordinateStatus: User['status'] = 'معلق';
+                        return { ...u, status: newSubordinateStatus };
                     }
                     return u;
                 });
 
+                const newInvestorStatus: Investor['status'] = 'غير نشط';
                 const finalInvestors: Investor[] = d.investors.map(inv => {
                     const invUser = finalUsers.find(u => u.id === inv.id);
                     if (invUser?.managedBy && suspendedManagerIds.has(invUser.managedBy) && inv.status === 'نشط') {
-                        return { ...inv, status: newStatusForInvestor };
+                        return { ...inv, status: newInvestorStatus };
                     }
                     return inv;
                 });
@@ -647,22 +648,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newBorrowers = d.borrowers.map(b => (b.id === borrowerId ? updatedBorrower : b));
         
         const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
+        const approvedBorrower = newBorrowers.find(b => b.id === borrowerId);
 
-        if (updatedBorrower.submittedBy) {
-            notificationsToQueue.push({
-                recipientId: updatedBorrower.submittedBy,
-                title: 'تمت الموافقة على طلبك',
-                description: `تمت الموافقة على طلب إضافة القرض "${updatedBorrower.name}".`,
+        if (approvedBorrower) {
+            if (approvedBorrower.submittedBy) {
+                notificationsToQueue.push({
+                    recipientId: approvedBorrower.submittedBy,
+                    title: 'تمت الموافقة على طلبك',
+                    description: `تمت الموافقة على طلب إضافة القرض "${approvedBorrower.name}".`,
+                });
+            }
+            
+            fundedByDetails.forEach(funder => {
+                notificationsToQueue.push({
+                    recipientId: funder.investorId,
+                    title: 'تم استثمار أموالك',
+                    description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${loanToApprove.name}".`,
+                });
             });
         }
-        
-        fundedByDetails.forEach(funder => {
-            notificationsToQueue.push({
-                recipientId: funder.investorId,
-                title: 'تم استثمار أموالك',
-                description: `تم استثمار مبلغ ${formatCurrency(funder.amount)} من رصيدك في قرض جديد للعميل "${loanToApprove.name}".`,
-            });
-        });
         
         const newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
         
@@ -1017,14 +1021,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         );
         
         let newNotifications = d.notifications;
-        if (investorToApprove.submittedBy) {
+        const approvedInvestor = newInvestors.find(i => i.id === investorId);
+        if (approvedInvestor && approvedInvestor.submittedBy) {
           newNotifications = [{
             id: `notif_${crypto.randomUUID()}`,
             date: new Date().toISOString(),
             isRead: false,
-            recipientId: investorToApprove.submittedBy,
+            recipientId: approvedInvestor.submittedBy,
             title: 'تمت الموافقة على طلبك',
-            description: `تمت الموافقة على طلب إضافة المستثمر "${investorToApprove.name}".`,
+            description: `تمت الموافقة على طلب إضافة المستثمر "${approvedInvestor.name}".`,
           }, ...d.notifications];
         }
 
@@ -1048,9 +1053,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return d;
             }
 
-            const newStatus: Investor['status'] = 'مرفوض';
+            const newInvestorStatus: Investor['status'] = 'مرفوض';
+            const rejectedInvestor: Investor = { ...investorToReject, status: newInvestorStatus, rejectionReason: reason };
             const newInvestors = d.investors.map((i) =>
-                i.id === investorId ? { ...i, status: newStatus, rejectionReason: reason } : i
+                i.id === investorId ? rejectedInvestor : i
             );
 
             const newUserStatus: User['status'] = 'مرفوض';
@@ -1058,9 +1064,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 u.id === investorId ? { ...u, status: newUserStatus } : u
             );
 
-            const rejectedInvestor = newInvestors.find(i => i.id === investorId);
             let newNotifications = d.notifications;
-            if (rejectedInvestor && rejectedInvestor.submittedBy) {
+            if (rejectedInvestor.submittedBy) {
                 newNotifications = [{
                     id: `notif_${crypto.randomUUID()}`,
                     date: new Date().toISOString(),
@@ -1260,7 +1265,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addInvestorTransaction = useCallback(
-    (investorId, transaction) => {
+    (investorId: string, transaction: Omit<Transaction, 'id'>) => {
       setData(d => {
         const investor = d.investors.find(i => i.id === investorId);
         if (!investor) return d;
@@ -1302,7 +1307,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateUserIdentity = useCallback(
-    async (updates) => {
+    async (updates: Partial<User>) => {
       let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
@@ -1616,7 +1621,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateUserLimits = useCallback(
-    (userIdToUpdate, limits) => {
+    (userIdToUpdate: string, limits: { investorLimit: number; employeeLimit: number; assistantLimit: number; branchLimit: number }) => {
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
         if (loggedInUser?.role !== 'مدير النظام') {
@@ -1631,7 +1636,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateManagerSettings = useCallback(
-    (managerId, settings) => {
+    (managerId: string, settings: {
+      allowEmployeeSubmissions?: boolean;
+      hideEmployeeInvestorFunds?: boolean;
+      allowEmployeeLoanEdits?: boolean;
+    }) => {
       setData(d => {
         const loggedInUser = d.users.find(u => u.id === userId);
         if (!loggedInUser || (loggedInUser.role !== 'مدير النظام' && loggedInUser.id !== managerId)) {
@@ -1792,7 +1801,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addSupportTicket = useCallback(
-    (ticket) => {
+    (ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead' | 'isReplied'>) => {
         setData(d => {
             const newTicket: SupportTicket = {
                 ...ticket, id: `ticket_${Date.now()}`, date: new Date().toISOString(),
