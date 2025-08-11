@@ -994,45 +994,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [userId, toast]
   );
   
- const approveInvestor = useCallback(
+  const approveInvestor = useCallback(
     (investorId: string) => {
-      setData(d => {
-        const investorToApprove = d.investors.find((inv) => inv.id === investorId);
-        if (!investorToApprove) {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
-          return d;
-        }
-        if (investorToApprove.status !== 'معلق') {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-          return d;
-        }
+        setData(d => {
+            const investorToApprove = d.investors.find((inv) => inv.id === investorId);
 
-        const newInvestorStatus: Investor['status'] = 'نشط';
-        const newInvestors = d.investors.map((i) =>
-          i.id === investorId ? { ...i, status: newInvestorStatus } : i
-        );
+            if (!investorToApprove) {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
+                return d;
+            }
+            if (investorToApprove.status !== 'معلق') {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+                return d;
+            }
+            
+            const newInvestorStatus: Investor['status'] = 'نشط';
+            const newUserStatus: User['status'] = 'نشط';
 
-        const newUserStatus: User['status'] = 'نشط';
-        const newUsers = d.users.map((u) =>
-          u.id === investorId ? { ...u, status: newUserStatus } : u
-        );
-        
-        let newNotifications = d.notifications;
-        const approvedInvestor = newInvestors.find(i => i.id === investorId);
-        if (approvedInvestor && approvedInvestor.submittedBy) {
-          newNotifications = [{
-            id: `notif_${crypto.randomUUID()}`,
-            date: new Date().toISOString(),
-            isRead: false,
-            recipientId: approvedInvestor.submittedBy,
-            title: 'تمت الموافقة على طلبك',
-            description: `تمت الموافقة على طلب إضافة المستثمر "${approvedInvestor.name}".`,
-          }, ...d.notifications];
-        }
+            const newInvestors = d.investors.map((i) =>
+                i.id === investorId ? { ...i, status: newInvestorStatus } : i
+            );
+            const newUsers = d.users.map((u) =>
+                u.id === investorId ? { ...u, status: newUserStatus } : u
+            );
 
-        toast({ title: 'تمت الموافقة على المستثمر' });
-        return {...d, investors: newInvestors, users: newUsers, notifications: newNotifications};
-      });
+            let newNotifications = d.notifications;
+            const approvedInvestor = newInvestors.find(i => i.id === investorId);
+
+            if (approvedInvestor && approvedInvestor.submittedBy) {
+                newNotifications = [{
+                    id: `notif_${crypto.randomUUID()}`,
+                    date: new Date().toISOString(),
+                    isRead: false,
+                    recipientId: approvedInvestor.submittedBy,
+                    title: 'تمت الموافقة على طلبك',
+                    description: `تمت الموافقة على طلب إضافة المستثمر "${approvedInvestor.name}".`,
+                }, ...d.notifications];
+            }
+
+            toast({ title: 'تمت الموافقة على المستثمر' });
+            return { ...d, investors: newInvestors, users: newUsers, notifications: newNotifications };
+        });
     },
     [toast]
 );
