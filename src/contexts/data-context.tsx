@@ -167,19 +167,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { userId } = useAuth();
   const { toast } = useToast();
 
-  const supabase = useMemo(() => {
+  const fetchData = useCallback(async () => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
+    
     if (!url || !key) {
-      console.error("Supabase URL or Key is not defined.");
-      return null;
+      console.error("Supabase environment variables are not set.");
+      toast({
+        variant: "destructive",
+        title: "خطأ في الإعداد",
+        description: "لم يتم تكوين متغيرات الاتصال بقاعدة البيانات.",
+      });
+      setIsDataLoading(false);
+      return;
     }
-    return createBrowserClient(url, key);
-  }, []);
+    
+    const supabase = createBrowserClient(url, key);
 
-  const fetchData = useCallback(async () => {
-    if (!supabase) return;
     setIsDataLoading(true);
     try {
         const [
@@ -248,18 +252,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } finally {
         setIsDataLoading(false);
     }
-  }, [supabase, toast]);
+  }, [toast]);
 
   useEffect(() => {
-    if (userId && supabase) {
+    if (userId) {
         fetchData();
-    } else if (!userId) {
+    } else {
         setIsDataLoading(false);
     }
-}, [userId, supabase, fetchData]);
+}, [userId, fetchData]);
 
   useEffect(() => {
-    if (!supabase) return;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) return;
+    
+    const supabase = createBrowserClient(url, key);
+
     const channel = supabase
       .channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
@@ -271,7 +280,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, fetchData]);
+  }, [fetchData]);
 
 
   const currentUser = useMemo(() => {
@@ -2024,7 +2033,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, visibleUsers, data]
   );
   
-  if (!supabase || isDataLoading) {
+  if (isDataLoading) {
     return <PageLoader />;
   }
 
@@ -2052,4 +2061,5 @@ export function useDataActions() {
   }
   return context;
 }
+
 
