@@ -602,7 +602,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [toast]
   );
   
-const approveBorrower = useCallback(
+  const approveBorrower = useCallback(
     (borrowerId: string, investorIds: string[]) => {
       setData(d => {
         const loanToApprove = d.borrowers.find((b) => b.id === borrowerId);
@@ -675,38 +675,36 @@ const approveBorrower = useCallback(
 
   const rejectBorrower = useCallback(
     (borrowerId: string, reason: string) => {
-      setData(d => {
-        const borrowerToReject = d.borrowers.find((b) => b.id === borrowerId);
+        setData(d => {
+            const borrowerToReject = d.borrowers.find((b) => b.id === borrowerId);
+            if (!borrowerToReject) {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+                return d;
+            }
+            if (borrowerToReject.status !== 'معلق') {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+                return d;
+            }
 
-        if (!borrowerToReject) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
-            return d;
-        }
+            const newStatus: Borrower['status'] = 'مرفوض';
+            const rejectedBorrower: Borrower = { ...borrowerToReject, status: newStatus, rejectionReason: reason };
+            const newBorrowers = d.borrowers.map((b) => (b.id === borrowerId ? rejectedBorrower : b));
+            let newNotifications = d.notifications;
 
-        if (borrowerToReject.status !== 'معلق') {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-            return d;
-        }
-        
-        const newStatus: Borrower['status'] = 'مرفوض';
-        const rejectedBorrower: Borrower = { ...borrowerToReject, status: newStatus, rejectionReason: reason };
-        const newBorrowers = d.borrowers.map((b) => b.id === borrowerId ? rejectedBorrower : b);
+            if (rejectedBorrower.submittedBy) {
+                newNotifications = [{
+                    id: `notif_${crypto.randomUUID()}`,
+                    date: new Date().toISOString(),
+                    isRead: false,
+                    recipientId: rejectedBorrower.submittedBy,
+                    title: 'تم رفض طلبك',
+                    description: `تم رفض طلب إضافة القرض "${rejectedBorrower.name}". السبب: ${reason}`,
+                }, ...d.notifications];
+            }
 
-        let newNotifications = d.notifications;
-        if (rejectedBorrower.submittedBy) {
-          newNotifications = [{
-              id: `notif_${crypto.randomUUID()}`,
-              date: new Date().toISOString(),
-              isRead: false,
-              recipientId: rejectedBorrower.submittedBy,
-              title: 'تم رفض طلبك',
-              description: `تم رفض طلب إضافة القرض "${rejectedBorrower.name}". السبب: ${reason}`,
-          }, ...d.notifications];
-        }
-
-        toast({ variant: 'destructive', title: 'تم رفض القرض' });
-        return { ...d, borrowers: newBorrowers, notifications: newNotifications };
-      });
+            toast({ variant: 'destructive', title: 'تم رفض القرض' });
+            return { ...d, borrowers: newBorrowers, notifications: newNotifications };
+        });
     },
     [toast]
   );
@@ -995,7 +993,7 @@ const approveBorrower = useCallback(
     [userId, toast]
   );
   
-  const approveInvestor = useCallback(
+ const approveInvestor = useCallback(
     (investorId: string) => {
       setData(d => {
         const investorToApprove = d.investors.find((inv) => inv.id === investorId);
@@ -1008,9 +1006,9 @@ const approveBorrower = useCallback(
           return d;
         }
 
-        const newStatus: Investor['status'] = 'نشط';
+        const newInvestorStatus: Investor['status'] = 'نشط';
         const newInvestors = d.investors.map((i) =>
-          i.id === investorId ? { ...i, status: newStatus } : i
+          i.id === investorId ? { ...i, status: newInvestorStatus } : i
         );
 
         const newUserStatus: User['status'] = 'نشط';
@@ -1019,7 +1017,7 @@ const approveBorrower = useCallback(
         );
         
         let newNotifications = d.notifications;
-        if (investorToApprove && investorToApprove.submittedBy) {
+        if (investorToApprove.submittedBy) {
           newNotifications = [{
             id: `notif_${crypto.randomUUID()}`,
             date: new Date().toISOString(),
@@ -1035,50 +1033,50 @@ const approveBorrower = useCallback(
       });
     },
     [toast]
-  );
+);
 
   const rejectInvestor = useCallback(
     (investorId: string, reason: string) => {
-      setData(d => {
-        const investorToReject = d.investors.find((inv) => inv.id === investorId);
-        if (!investorToReject) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
-            return d;
-        }
-        if (investorToReject.status !== 'معلق') {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-            return d;
-        }
+        setData(d => {
+            const investorToReject = d.investors.find((inv) => inv.id === investorId);
+            if (!investorToReject) {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
+                return d;
+            }
+            if (investorToReject.status !== 'معلق') {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+                return d;
+            }
 
-        const newStatus: Investor['status'] = 'مرفوض';
-        const newInvestors = d.investors.map((i) =>
-          i.id === investorId ? { ...i, status: newStatus, rejectionReason: reason } : i
-        );
-        
-        const newUserStatus: User['status'] = 'مرفوض';
-        const newUsers = d.users.map((u) =>
-          u.id === investorId ? { ...u, status: newUserStatus } : u
-        );
-        
-        const rejectedInvestor = newInvestors.find(i => i.id === investorId);
-        let newNotifications = d.notifications;
-        if (rejectedInvestor && rejectedInvestor.submittedBy) {
-            newNotifications = [{
-                id: `notif_${crypto.randomUUID()}`,
-                date: new Date().toISOString(),
-                isRead: false,
-                recipientId: rejectedInvestor.submittedBy,
-                title: 'تم رفض طلبك',
-                description: `تم رفض طلب إضافة المستثمر "${rejectedInvestor.name}". السبب: ${reason}`,
-            }, ...d.notifications];
-        }
+            const newStatus: Investor['status'] = 'مرفوض';
+            const newInvestors = d.investors.map((i) =>
+                i.id === investorId ? { ...i, status: newStatus, rejectionReason: reason } : i
+            );
 
-        toast({ variant: 'destructive', title: 'تم رفض المستثمر' });
-        return {...d, investors: newInvestors, users: newUsers, notifications: newNotifications};
-      });
+            const newUserStatus: User['status'] = 'مرفوض';
+            const newUsers = d.users.map((u) =>
+                u.id === investorId ? { ...u, status: newUserStatus } : u
+            );
+
+            const rejectedInvestor = newInvestors.find(i => i.id === investorId);
+            let newNotifications = d.notifications;
+            if (rejectedInvestor && rejectedInvestor.submittedBy) {
+                newNotifications = [{
+                    id: `notif_${crypto.randomUUID()}`,
+                    date: new Date().toISOString(),
+                    isRead: false,
+                    recipientId: rejectedInvestor.submittedBy,
+                    title: 'تم رفض طلبك',
+                    description: `تم رفض طلب إضافة المستثمر "${rejectedInvestor.name}". السبب: ${reason}`,
+                }, ...d.notifications];
+            }
+
+            toast({ variant: 'destructive', title: 'تم رفض المستثمر' });
+            return {...d, investors: newInvestors, users: newUsers, notifications: newNotifications};
+        });
     },
     [toast]
-  );
+);
 
   const addInvestor = useCallback(
     async (investorPayload: Omit<NewInvestorPayload, 'status'>): Promise<{ success: boolean; message: string }> => {
@@ -1754,9 +1752,9 @@ const approveBorrower = useCallback(
                 u.id === userIdToDelete ? { ...u, status: newStatus } : u
             );
 
+            const newInvestorStatus: Investor['status'] = 'محذوف';
             const finalInvestors = investors.map(i => {
                 if (i.id === userIdToDelete) {
-                    const newInvestorStatus: Investor['status'] = 'محذوف';
                     return { ...i, status: newInvestorStatus };
                 }
                 return i;
