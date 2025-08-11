@@ -1,8 +1,8 @@
+
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
-import { useDataState } from '@/contexts/data-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { Button } from './ui/button';
 import { Notifications } from './notifications';
 import { LogOut, Menu, User } from 'lucide-react';
@@ -56,7 +56,7 @@ const UserMenuIcon = ({ userName }: { userName: string }) => (
 
 
 export function AppHeader() {
-  const { signOutUser } = useAuth();
+  const { signOutUser } = useDataActions();
   const { currentUser } = useDataState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const role = currentUser?.role;

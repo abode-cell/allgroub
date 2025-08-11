@@ -30,17 +30,23 @@ import type {
   AddBorrowerResult,
   Branch,
 } from '@/lib/types';
-import { useAuth } from './auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials } from '@/lib/utils';
 import { isPast } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { PageLoader } from '@/components/page-loader';
+import { useRouter } from 'next/navigation';
 
+type SignInCredentials = {
+  identifier: string; // Can be email or phone
+  password?: string;
+};
 
 type DataState = {
   currentUser: User | undefined;
+  userId: string | null;
+  authLoading: boolean;
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
@@ -57,6 +63,8 @@ type DataState = {
 };
 
 type DataActions = {
+  signIn: (credentials: SignInCredentials) => Promise<{ success: boolean; message: string }>;
+  signOutUser: () => void;
   addBranch: (branch: Omit<Branch, 'id'>) => Promise<{success: boolean, message: string}>;
   deleteBranch: (branchId: string) => void;
   updateSupportInfo: (info: { email?: string; phone?: string }) => void;
@@ -146,7 +154,7 @@ const DataActionsContext = createContext<DataActions | undefined>(undefined);
 
 export const APP_DATA_KEY = 'appData-v-supabase-live';
 
-const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
+const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'userId' | 'authLoading'> = {
   borrowers: [],
   investors: [],
   users: [],
@@ -164,9 +172,11 @@ const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers'> = {
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState(initialDataState);
   const [isDataLoading, setIsDataLoading] = useState(true);
-  const { userId } = useAuth();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const router = useRouter();
   const { toast } = useToast();
-
+  
   const fetchData = useCallback(async () => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -190,8 +200,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes
         ] = await Promise.all([
             supabase.from('users').select('*, branches(*)'),
-            supabase.from('investors').select('*, transactions(*)'),
-            supabase.from('borrowers').select('*, installments(*), borrower_funders(*)'),
+            supabase.from('investors').select('*, transaction_history:transactions(*)'),
+            supabase.from('borrowers').select('*, installments(*), fundedBy:borrower_funders(*)'),
             supabase.from('notifications').select('*'),
             supabase.from('support_tickets').select('*'),
             supabase.from('app_config').select('*'),
@@ -209,11 +219,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return acc;
         }, {} as any);
         
-        const allFunders = borrowersRes.data.flatMap(b => b.borrower_funders || []);
+        const allFunders = borrowersRes.data.flatMap(b => b.fundedBy || []);
 
         const borrowersWithData = borrowersRes.data.map(borrower => ({
             ...borrower,
-            fundedBy: (borrower.borrower_funders || []).map(f => ({ investorId: f.investor_id, amount: f.amount })),
+            fundedBy: (borrower.fundedBy || []).map(f => ({ investorId: f.investor_id, amount: f.amount })),
             installments: (borrower.installments || []).map(i => ({ month: i.month, status: i.status as InstallmentStatus })),
             partialPayment: borrower.partial_payment_paid_amount ? {
                 paidAmount: borrower.partial_payment_paid_amount,
@@ -223,7 +233,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         const investorsWithData = investorsRes.data.map(investor => ({
             ...investor,
-            transactionHistory: investor.transactions,
+            transactionHistory: investor.transaction_history,
             fundedLoanIds: allFunders.filter(f => f.investor_id === investor.id).map(f => f.borrower_id)
         }));
 
@@ -255,17 +265,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
+    // This effect runs once on the client when the component mounts to check for a logged-in user.
+    try {
+      const storedUserId = localStorage.getItem('loggedInUserId');
+      if (storedUserId) {
+        setUserId(storedUserId);
+      }
+    } catch (error) {
+      console.error("Could not access localStorage:", error);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // This effect triggers data fetching only when a user is confirmed to be logged in.
     if (userId) {
         fetchData();
     } else {
+        // If there's no user, we are not fetching data, so we should stop the main loading indicator.
         setIsDataLoading(false);
     }
-}, [userId, fetchData]);
+  }, [userId, fetchData]);
 
   useEffect(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) return;
+    if (!url || !key || !userId) return;
     
     const supabase = createBrowserClient(url, key);
 
@@ -280,7 +306,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchData]);
+  }, [fetchData, userId]);
 
 
   const currentUser = useMemo(() => {
@@ -311,6 +337,73 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return [currentUser];
   }, [currentUser, data.users]);
 
+  const signIn = useCallback(async (credentials: SignInCredentials) => {
+    const { identifier, password } = credentials;
+    const userToSignIn = data.users.find(u => u.email === identifier || u.phone === identifier);
+
+    if (!userToSignIn) {
+      return { success: false, message: 'الحساب غير موجود أو تم حذفه.' };
+    }
+
+    // Critical Security Check: If the user is a subordinate, check their manager's status first.
+    if (userToSignIn.managedBy) {
+        const manager = data.users.find(u => u.id === userToSignIn.managedBy);
+        if (!manager || manager.status !== 'نشط') {
+            return { success: false, message: 'تم تعليق حساب المدير المسؤول عنك. لا يمكنك تسجيل الدخول حالياً.' };
+        }
+    }
+    
+    // Check status first, as it's the most definitive state.
+    if (userToSignIn.status === 'محذوف') {
+      return { success: false, message: 'هذا الحساب تم حذفه ولا يمكن الوصول إليه.' };
+    }
+    if (userToSignIn.status === 'معلق') {
+      if (userToSignIn.role === 'مدير المكتب') {
+        const contactInfo = [data.supportEmail, data.supportPhone].filter(Boolean).join(' أو ');
+        const message = `حسابك قيد المراجعة. لمتابعة حالة الطلب، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
+        return { success: false, message };
+      }
+      return { success: false, message: 'حسابك معلق وفي انتظار موافقة المدير.' };
+    }
+    
+    if (userToSignIn.status === 'مرفوض') {
+       return { success: false, message: 'تم رفض طلب انضمام هذا الحساب. يرجى التواصل مع مديرك.' };
+    }
+
+    // Now, check for expired trial for office managers whose status is not 'نشط' (which implies it's suspended due to trial end)
+    if (userToSignIn.role === 'مدير المكتب' && userToSignIn.status !== 'نشط' && userToSignIn.trialEndsAt) {
+        const trialEndDate = new Date(userToSignIn.trialEndsAt);
+        if (isPast(trialEndDate)) {
+             const contactInfo = [data.supportEmail, data.supportPhone].filter(Boolean).join(' أو ');
+             const message = `انتهت الفترة التجريبية المجانية لحسابك. لتفعيل حسابك، يرجى التواصل مع الدعم الفني${contactInfo ? ` على: ${contactInfo}` : '.'}`;
+             return { success: false, message };
+        }
+    }
+
+    if (userToSignIn.password !== password) {
+      return { success: false, message: 'كلمة المرور غير صحيحة.' };
+    }
+
+    setUserId(userToSignIn.id);
+    try {
+      localStorage.setItem('loggedInUserId', userToSignIn.id);
+    } catch (error) {
+      console.error("Could not access localStorage:", error);
+    }
+    return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
+  }, [data.users, data.supportEmail, data.supportPhone]);
+
+  const signOutUser = useCallback(() => {
+    setUserId(null);
+    try {
+      localStorage.removeItem('loggedInUserId');
+      // Clearing the app data is crucial to prevent inconsistencies on next login.
+      localStorage.removeItem(APP_DATA_KEY);
+      router.push('/login'); // Use router for smoother navigation
+    } catch (error) {
+      console.error("Could not access localStorage:", error);
+    }
+  },[router]);
 
   const addNotification = useCallback(
     (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
@@ -1937,6 +2030,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const actions: DataActions = useMemo(
     () => ({
+      signIn,
+      signOutUser,
       addBranch,
       deleteBranch,
       updateSupportInfo,
@@ -1980,6 +2075,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markInvestorAsNotified,
     }),
     [
+      signIn,
+      signOutUser,
       addBranch,
       deleteBranch,
       updateSupportInfo,
@@ -2028,12 +2125,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     () => ({
       currentUser,
       visibleUsers,
+      userId,
+      authLoading,
       ...data,
     }),
-    [currentUser, visibleUsers, data]
+    [currentUser, visibleUsers, userId, authLoading, data]
   );
   
-  if (isDataLoading) {
+  if (isDataLoading && authLoading) {
     return <PageLoader />;
   }
 
@@ -2062,4 +2161,9 @@ export function useDataActions() {
   return context;
 }
 
+
+
+    
+
+    
 

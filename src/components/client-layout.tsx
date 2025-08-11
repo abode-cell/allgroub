@@ -1,16 +1,15 @@
 
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useDataState, useDataActions } from '@/contexts/data-context';
 import { AppHeader } from './app-header';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { useDataState } from '@/contexts/data-context';
 import { PageLoader } from './page-loader';
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
-    const { userId, signOutUser } = useAuth();
-    const { currentUser } = useDataState();
+    const { userId, currentUser } = useDataState();
+    const { signOutUser } = useDataActions();
     const router = useRouter();
     
     useEffect(() => {
@@ -47,8 +46,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { userId, loading: authLoading } = useAuth();
-  const { currentUser } = useDataState();
+  const { userId, authLoading, currentUser } = useDataState();
   
   const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
 
@@ -73,3 +71,5 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   // It contains its own logic to handle invalid sessions and redirect if necessary.
   return <ProtectedLayout>{children}</ProtectedLayout>;
 }
+
+    

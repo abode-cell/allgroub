@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/contexts/auth-context';
 import { ClientLayout } from '@/components/client-layout';
 import { DataProvider } from '@/contexts/data-context';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -37,9 +36,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <DataProvider>
-            <AuthProvider>
-              <ClientLayout>{children}</ClientLayout>
-            </AuthProvider>
+            <ClientLayout>{children}</ClientLayout>
           </DataProvider>
           <Toaster />
         </ThemeProvider>
@@ -47,3 +44,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    

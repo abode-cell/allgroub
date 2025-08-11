@@ -937,7 +937,8 @@ export function BorrowersTable({
 
                     const totalInterest = principal * (rate / 100) * term;
                     const totalPayment = principal + totalInterest;
-                    const monthlyPayment = (term * 12 > 0) ? totalPayment / (term * 12) : 0;
+                    const numberOfPayments = (term * 12);
+                    const monthlyPayment = numberOfPayments > 0 ? totalPayment / numberOfPayments : 0;
                     
                     return (
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 rounded-md border bg-muted/50">

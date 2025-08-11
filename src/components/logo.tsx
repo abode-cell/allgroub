@@ -1,6 +1,8 @@
 
+'use client';
+
 import Link from 'next/link';
-import { useAuth } from '@/contexts/auth-context';
+import { useDataState } from '@/contexts/data-context';
 
 export const logoSvg = `
 <svg
@@ -19,7 +21,7 @@ export const logoSvg = `
 `;
 
 export const Logo = () => {
-    const { userId } = useAuth();
+    const { userId } = useDataState();
     const href = userId ? "/dashboard" : "/";
 
     return (
@@ -68,3 +70,5 @@ export const Logo = () => {
       </Link>
     )
 };
+
+    
