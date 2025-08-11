@@ -676,36 +676,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const rejectBorrower = useCallback(
     (borrowerId: string, reason: string) => {
-        setData(d => {
-            const borrowerToReject = d.borrowers.find((b) => b.id === borrowerId);
-            if (!borrowerToReject) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
-                return d;
-            }
-            if (borrowerToReject.status !== 'معلق') {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-                return d;
-            }
+      setData(d => {
+        const borrowerToReject = d.borrowers.find((b) => b.id === borrowerId);
 
-            const newStatus: Borrower['status'] = 'مرفوض';
-            const rejectedBorrower: Borrower = { ...borrowerToReject, status: newStatus, rejectionReason: reason };
-            const newBorrowers = d.borrowers.map((b) => (b.id === borrowerId ? rejectedBorrower : b));
-            let newNotifications = d.notifications;
+        if (!borrowerToReject) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض.' });
+            return d;
+        }
+        
+        if (borrowerToReject.status !== 'معلق') {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+            return d;
+        }
 
-            if (rejectedBorrower.submittedBy) {
-                newNotifications = [{
-                    id: `notif_${crypto.randomUUID()}`,
-                    date: new Date().toISOString(),
-                    isRead: false,
-                    recipientId: rejectedBorrower.submittedBy,
-                    title: 'تم رفض طلبك',
-                    description: `تم رفض طلب إضافة القرض "${rejectedBorrower.name}". السبب: ${reason}`,
-                }, ...d.notifications];
-            }
+        const newStatus: Borrower['status'] = 'مرفوض';
+        const rejectedBorrower: Borrower = { ...borrowerToReject, status: newStatus, rejectionReason: reason };
+        const newBorrowers = d.borrowers.map((b) => (b.id === borrowerId ? rejectedBorrower : b));
+        
+        let newNotifications = d.notifications;
+        if (rejectedBorrower.submittedBy) {
+            newNotifications = [{
+                id: `notif_${crypto.randomUUID()}`,
+                date: new Date().toISOString(),
+                isRead: false,
+                recipientId: rejectedBorrower.submittedBy,
+                title: 'تم رفض طلبك',
+                description: `تم رفض طلب إضافة القرض "${rejectedBorrower.name}". السبب: ${reason}`,
+            }, ...d.notifications];
+        }
 
-            toast({ variant: 'destructive', title: 'تم رفض القرض' });
-            return { ...d, borrowers: newBorrowers, notifications: newNotifications };
-        });
+        toast({ variant: 'destructive', title: 'تم رفض القرض' });
+        return { ...d, borrowers: newBorrowers, notifications: newNotifications };
+      });
     },
     [toast]
   );
@@ -945,6 +947,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             date: new Date().toISOString(),
             loanType: 'مهلة',
             status: 'منتظم', // The new loan is active immediately.
+            paymentStatus: 'منتظم',
             fundedBy: originalBorrower.fundedBy, // Inherit funders.
             dueDate: new Date().toISOString().split('T')[0],
             submittedBy: originalBorrower.submittedBy,
@@ -996,91 +999,85 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const approveInvestor = useCallback(
     (investorId: string) => {
-        setData(d => {
-            const investorToApprove = d.investors.find((inv) => inv.id === investorId);
+      setData(d => {
+        const investorToApprove = d.investors.find((inv) => inv.id === investorId);
+        if (!investorToApprove) {
+          toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
+          return d;
+        }
+        if (investorToApprove.status !== 'معلق') {
+          toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+          return d;
+        }
 
-            if (!investorToApprove) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
-                return d;
-            }
-            if (investorToApprove.status !== 'معلق') {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-                return d;
-            }
-            
-            const newInvestorStatus: Investor['status'] = 'نشط';
-            const newUserStatus: User['status'] = 'نشط';
+        const newInvestorStatus: Investor['status'] = 'نشط';
+        const newInvestors = d.investors.map((i) =>
+          i.id === investorId ? { ...i, status: newInvestorStatus } : i
+        );
 
-            const newInvestors = d.investors.map((i) =>
-                i.id === investorId ? { ...i, status: newInvestorStatus } : i
-            );
-            const newUsers = d.users.map((u) =>
-                u.id === investorId ? { ...u, status: newUserStatus } : u
-            );
+        const newUserStatus: User['status'] = 'نشط';
+        const newUsers = d.users.map((u) =>
+          u.id === investorId ? { ...u, status: newUserStatus } : u
+        );
 
-            let newNotifications = d.notifications;
-            const approvedInvestor = newInvestors.find(i => i.id === investorId);
+        const approvedInvestor = newInvestors.find(i => i.id === investorId);
+        let newNotifications = d.notifications;
+        if (approvedInvestor && approvedInvestor.submittedBy) {
+          newNotifications = [{
+            id: `notif_${crypto.randomUUID()}`,
+            date: new Date().toISOString(),
+            isRead: false,
+            recipientId: approvedInvestor.submittedBy,
+            title: 'تمت الموافقة على طلبك',
+            description: `تمت الموافقة على طلب إضافة المستثمر "${approvedInvestor.name}".`,
+          }, ...d.notifications];
+        }
 
-            if (approvedInvestor && approvedInvestor.submittedBy) {
-                newNotifications = [{
-                    id: `notif_${crypto.randomUUID()}`,
-                    date: new Date().toISOString(),
-                    isRead: false,
-                    recipientId: approvedInvestor.submittedBy,
-                    title: 'تمت الموافقة على طلبك',
-                    description: `تمت الموافقة على طلب إضافة المستثمر "${approvedInvestor.name}".`,
-                }, ...d.notifications];
-            }
-
-            toast({ title: 'تمت الموافقة على المستثمر' });
-            return { ...d, investors: newInvestors, users: newUsers, notifications: newNotifications };
-        });
+        toast({ title: 'تمت الموافقة على المستثمر' });
+        return { ...d, investors: newInvestors, users: newUsers, notifications: newNotifications };
+      });
     },
     [toast]
-);
+  );
 
   const rejectInvestor = useCallback(
     (investorId: string, reason: string) => {
-        setData(d => {
-            const investorToReject = d.investors.find((inv) => inv.id === investorId);
-            if (!investorToReject) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
-                return d;
-            }
-            if (investorToReject.status !== 'معلق') {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
-                return d;
-            }
+      setData(d => {
+        const investorToReject = d.investors.find((inv) => inv.id === investorId);
+        if (!investorToReject) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستثمر.' });
+            return d;
+        }
+        if (investorToReject.status !== 'معلق') {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'تمت معالجة هذا الطلب بالفعل.' });
+            return d;
+        }
 
-            const newInvestorStatus: Investor['status'] = 'مرفوض';
-            const rejectedInvestor: Investor = { ...investorToReject, status: newInvestorStatus, rejectionReason: reason };
-            const newInvestors = d.investors.map((i) =>
-                i.id === investorId ? rejectedInvestor : i
-            );
+        const newInvestorStatus: Investor['status'] = 'مرفوض';
+        const rejectedInvestor: Investor = { ...investorToReject, status: newInvestorStatus, rejectionReason: reason };
+        const newInvestors = d.investors.map((i) => (i.id === investorId ? rejectedInvestor : i));
 
-            const newUserStatus: User['status'] = 'مرفوض';
-            const newUsers = d.users.map((u) =>
-                u.id === investorId ? { ...u, status: newUserStatus } : u
-            );
+        const newUserStatus: User['status'] = 'مرفوض';
+        const newUsers = d.users.map((u) => (u.id === investorId ? { ...u, status: newUserStatus } : u));
 
-            let newNotifications = d.notifications;
-            if (rejectedInvestor.submittedBy) {
-                newNotifications = [{
-                    id: `notif_${crypto.randomUUID()}`,
-                    date: new Date().toISOString(),
-                    isRead: false,
-                    recipientId: rejectedInvestor.submittedBy,
-                    title: 'تم رفض طلبك',
-                    description: `تم رفض طلب إضافة المستثمر "${rejectedInvestor.name}". السبب: ${reason}`,
-                }, ...d.notifications];
-            }
+        let newNotifications = d.notifications;
+        if (rejectedInvestor.submittedBy) {
+            newNotifications = [{
+                id: `notif_${crypto.randomUUID()}`,
+                date: new Date().toISOString(),
+                isRead: false,
+                recipientId: rejectedInvestor.submittedBy,
+                title: 'تم رفض طلبك',
+                description: `تم رفض طلب إضافة المستثمر "${rejectedInvestor.name}". السبب: ${reason}`,
+            }, ...d.notifications];
+        }
 
-            toast({ variant: 'destructive', title: 'تم رفض المستثمر' });
-            return {...d, investors: newInvestors, users: newUsers, notifications: newNotifications};
-        });
+        toast({ variant: 'destructive', title: 'تم رفض المستثمر' });
+        return { ...d, investors: newInvestors, users: newUsers, notifications: newNotifications };
+      });
     },
     [toast]
-);
+  );
 
   const addInvestor = useCallback(
     async (investorPayload: Omit<NewInvestorPayload, 'status'>): Promise<{ success: boolean; message: string }> => {
@@ -2061,5 +2058,7 @@ export function useDataActions() {
   return context;
 }
 
+
+    
 
     
