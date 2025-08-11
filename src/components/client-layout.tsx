@@ -3,55 +3,34 @@
 
 import { useDataState } from '@/contexts/data-context';
 import { AppHeader } from './app-header';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { PageLoader } from './page-loader';
+import React from 'react';
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { session, authLoading } = useDataState();
-  const router = useRouter();
 
   const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
-
-  useEffect(() => {
-    if (authLoading) {
-      return; 
-    }
-
-    if (!session && !isPublicPage) {
-      router.replace('/login');
-    }
-    
-    if (session && isPublicPage) {
-      router.replace('/dashboard');
-    }
-
-  }, [session, authLoading, isPublicPage, pathname, router]);
-
 
   if (authLoading) {
     return <PageLoader />;
   }
-  
-  if (!session && !isPublicPage) {
-    return <PageLoader />;
+
+  if (session && !isPublicPage) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background">
+        <AppHeader />
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
+    );
   }
-  
-  if (session && isPublicPage) {
-     return <PageLoader />;
-  }
-  
-  if (isPublicPage) {
+
+  if (!session && isPublicPage) {
     return <>{children}</>;
   }
 
-  return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <AppHeader />
-      <main className="flex-1">
-        {children}
-      </main>
-    </div>
-  );
+  return <PageLoader />;
 }

@@ -35,7 +35,7 @@ import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
 import { isPast } from 'date-fns';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { PageLoader } from '@/components/page-loader';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -180,13 +180,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
+  const [envError, setEnvError] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   
   const supabase = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) {
+      setEnvError(true);
       return null;
     }
     return createBrowserClient(url, key);
@@ -273,23 +276,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session) {
-        await fetchData();
-      } else {
-        setData(initialDataState);
-        setDataLoading(false);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        setAuthLoading(false);
+        if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session)) {
+          await fetchData();
+        } else if (event === 'SIGNED_OUT') {
+           setData(initialDataState);
+        }
       }
-      setAuthLoading(false);
-    });
+    );
 
     return () => {
-      subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
   }, [supabase, fetchData]);
+  
+    useEffect(() => {
+    if (authLoading) return; // Don't run redirects until auth is resolved
+
+    const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
+
+    if (session && isPublicPage) {
+      router.replace('/dashboard');
+    } else if (!session && !isPublicPage) {
+      router.replace('/login');
+    }
+  }, [authLoading, session, pathname, router]);
+
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -2034,16 +2049,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, visibleUsers, session, authLoading, data]
   );
   
-  if (!supabase) {
+  if (envError) {
     return <EnvError />;
   }
-
-  const isLoading = authLoading || (session && dataLoading);
+  
+  if (authLoading || (session && dataLoading && pathname !== '/login' && pathname !== '/signup' && pathname !== '/')) {
+      return <PageLoader />;
+  }
 
   return (
     <DataStateContext.Provider value={state}>
       <DataActionsContext.Provider value={actions}>
-        {isLoading ? <PageLoader /> : children}
+        {children}
       </DataActionsContext.Provider>
     </DataStateContext.Provider>
   );
