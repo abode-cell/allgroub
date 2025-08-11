@@ -946,9 +946,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             term: 0,
             date: new Date().toISOString(),
             loanType: 'مهلة',
-            status: 'منتظم', // The new loan is active immediately.
+            status: 'منتظم',
             paymentStatus: 'منتظم',
-            fundedBy: originalBorrower.fundedBy, // Inherit funders.
+            fundedBy: originalBorrower.fundedBy,
             dueDate: new Date().toISOString().split('T')[0],
             submittedBy: originalBorrower.submittedBy,
             isNotified: false,
@@ -1010,14 +1010,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return d;
         }
 
-        const newInvestorStatus: Investor['status'] = 'نشط';
-        const newInvestors = d.investors.map((i) =>
-          i.id === investorId ? { ...i, status: newInvestorStatus } : i
-        );
-
         const newUserStatus: User['status'] = 'نشط';
         const newUsers = d.users.map((u) =>
           u.id === investorId ? { ...u, status: newUserStatus } : u
+        );
+
+        const newInvestorStatus: Investor['status'] = 'نشط';
+        const newInvestors = d.investors.map((i) =>
+          i.id === investorId ? { ...i, status: newInvestorStatus } : i
         );
 
         const approvedInvestor = newInvestors.find(i => i.id === investorId);
