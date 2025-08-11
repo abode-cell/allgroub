@@ -181,19 +181,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
-  const [envError, setEnvError] = useState(false);
+  
   const router = useRouter();
   const { toast } = useToast();
   
-  const supabase = useMemo(() => {
+  const { supabase, envError } = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) {
       console.error("Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) are not set.");
-      setEnvError(true);
-      return null;
+      return { supabase: null, envError: true };
     }
-    return createBrowserClient(url, key);
+    return { supabase: createBrowserClient(url, key), envError: false };
   }, []);
   
 
@@ -280,21 +279,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setDataLoading(false);
       return;
     }
-  
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setAuthLoading(true);
-        if (session) {
-          await fetchData();
-        } else {
-          setData(initialDataState); // Clear data if no session
-          setDataLoading(false);
-        }
-        setAuthLoading(false);
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      if (session) {
+        await fetchData();
+      } else {
+        setData(initialDataState);
+        setDataLoading(false);
       }
-    );
-  
+      setAuthLoading(false);
+    });
+
     return () => {
       subscription.unsubscribe();
     };
@@ -339,7 +337,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
-    // The onAuthStateChange listener will handle fetching data and updating state.
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
   }, [supabase]);
 
@@ -348,7 +345,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
     }
     setSession(null); 
-    setData(initialDataState); // Reset data state on sign out
+    setData(initialDataState);
     router.push('/login');
   },[supabase, router]);
 
@@ -358,7 +355,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { email, password, phone, name, officeName } = payload;
     if (!password) return { success: false, message: "كلمة المرور مطلوبة." };
     
-    // Step 1: Create user in auth.users
     const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -376,7 +372,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'فشل في إنشاء الحساب، لم يتم إرجاع بيانات المستخدم من نظام المصادقة.' };
     }
 
-    // Step 2: Insert user profile into public.users
     const { error: insertError } = await supabase.from('users').insert({
         id: authData.user.id,
         name: name,
@@ -397,8 +392,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     if (insertError) {
         console.error("Error inserting user profile:", insertError);
-        // Optional: Attempt to delete the auth user to clean up
-        // await supabase.auth.admin.deleteUser(authData.user.id);
         return { success: false, message: "فشل في حفظ ملف تعريف المستخدم. يرجى التواصل مع الدعم." };
     }
 
@@ -407,11 +400,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
   }, [supabase, fetchData]);
   
-  // =========================================================================================
-  // The rest of the actions need to be refactored to use Supabase RPCs or direct table access with RLS
-  // For now, these are kept as local state changes for prototyping purposes.
-  // =========================================================================================
-
   const addNotification = useCallback(
     (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
       setData(d => {
@@ -829,7 +817,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                             managerPhone: loanManager.phone || 'غير متوفر'
                         }
                     };
-                    return d; // Important: return here to show the dialog
+                    return d;
                 }
             }
           }
@@ -2047,14 +2035,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       currentUser,
       visibleUsers,
       session,
-      authLoading: authLoading || (!!session && dataLoading),
+      authLoading,
       ...data,
     }),
-    [currentUser, visibleUsers, session, authLoading, dataLoading, data]
+    [currentUser, visibleUsers, session, authLoading, data]
   );
   
   if (envError) {
       return <EnvError />;
+  }
+
+  if (authLoading || (dataLoading && !!session)) {
+    return <PageLoader />;
   }
 
   return (
@@ -2081,3 +2073,4 @@ export function useDataActions() {
   }
   return context;
 }
+

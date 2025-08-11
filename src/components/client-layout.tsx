@@ -27,32 +27,33 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
 
   useEffect(() => {
-    if (authLoading) return; // Wait until authentication state is resolved
-
-    if (session && isPublicPage) {
-      router.replace('/dashboard');
+    if (authLoading) {
+      return; // Do nothing while loading
     }
-    
+
     if (!session && !isPublicPage) {
       router.replace('/login');
+    }
+    
+    if (session && isPublicPage) {
+      router.replace('/dashboard');
     }
 
   }, [session, authLoading, isPublicPage, pathname, router]);
   
-  // Show a loader while auth state is being determined, or if a redirect is imminent
   if (authLoading || (!session && !isPublicPage) || (session && isPublicPage)) {
       return <PageLoader />;
   }
   
-  // Render the appropriate layout
-  if (!session && isPublicPage) {
-      return <>{children}</>;
-  }
-
   if (session && !isPublicPage) {
-    return <ProtectedLayout>{children}</ProtectedLayout>;
+      return <ProtectedLayout>{children}</ProtectedLayout>;
   }
 
-  // Fallback for edge cases, might be momentarily visible during transitions
+  // Render public pages for users without a session
+  if (!session && isPublicPage) {
+    return <>{children}</>;
+  }
+
+  // Fallback loader if none of the conditions are met (should be rare)
   return <PageLoader />;
 }
