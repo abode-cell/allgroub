@@ -1,6 +1,7 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Borrower, Investor } from "./types"
+import type { Borrower, Investor, Transaction } from "./types"
 import { differenceInDays, addMonths, isPast, isValid } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
@@ -51,7 +52,6 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
 
   const todayDate = normalizeDate(today);
 
-  // For Grace period loans, status depends on the single due date.
   if (borrower.loanType === 'مهلة') {
     if (!borrower.dueDate || !isValid(new Date(borrower.dueDate))) {
         return { text: 'تاريخ غير صالح', variant: 'destructive' };
@@ -63,7 +63,6 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
     return { text: 'منتظم', variant: 'default' };
   }
   
-  // For Installment loans, status depends on the next unpaid installment.
   if (borrower.loanType === 'اقساط') {
       if (!borrower.term || !borrower.installments || !isValid(new Date(borrower.date))) {
           return { text: 'بيانات ناقصة', variant: 'secondary' };
@@ -74,7 +73,6 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
           .sort((a, b) => a.month - b.month)[0];
 
       if (!nextInstallment) {
-        // This case is covered by the 'مسدد بالكامل' check at the top, but as a fallback:
         return { text: 'منتظم', variant: 'default' };
       }
       
@@ -86,7 +84,7 @@ export const getBorrowerStatus = (borrower: Borrower, today: Date): BorrowerStat
       return { text: 'منتظم', variant: 'default' };
   }
   
-  return { text: borrower.status, variant: 'default' }; // Fallback
+  return { text: borrower.status, variant: 'default' };
 };
 
 export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text: string; isOverdue: boolean } => {
@@ -121,7 +119,6 @@ export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text
         
         const startDate = new Date(borrower.date);
         
-        // Find the first unpaid installment
         const nextInstallment = [...borrower.installments]
             .filter(i => i.status === 'لم يسدد بعد' || i.status === 'متأخر')
             .sort((a, b) => a.month - b.month)[0];
@@ -148,9 +145,10 @@ export const getRemainingDaysDetails = (borrower: Borrower, today: Date): { text
 };
 
 
-export const calculateInvestorFinancials = (investor: Investor, allBorrowers: Borrower[]) => {
-  const installmentTransactions = investor.transactionHistory?.filter(tx => tx.capitalSource === 'installment') || [];
-  const graceTransactions = investor.transactionHistory?.filter(tx => tx.capitalSource === 'grace') || [];
+export const calculateInvestorFinancials = (investor: Investor, allBorrowers: Borrower[], allTransactions: Transaction[]) => {
+  const investorTransactions = allTransactions.filter(tx => tx.investor_id === investor.id);
+  const installmentTransactions = investorTransactions.filter(tx => tx.capitalSource === 'installment') || [];
+  const graceTransactions = investorTransactions.filter(tx => tx.capitalSource === 'grace') || [];
 
   const totalInstallmentDeposits = installmentTransactions.filter(tx => tx.type === 'إيداع رأس المال').reduce((sum, tx) => sum + tx.amount, 0);
   const totalInstallmentWithdrawals = installmentTransactions.filter(tx => tx.type === 'سحب من رأس المال').reduce((sum, tx) => sum + tx.amount, 0);

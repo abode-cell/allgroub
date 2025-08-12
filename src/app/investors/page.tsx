@@ -106,7 +106,6 @@ export default function InvestorsPage() {
   const [newInvestor, setNewInvestor] = useState(getInitialNewInvestorState());
   
   useEffect(() => {
-    // Keep local state in sync with global state from context when it changes
     setNewInvestor(prev => ({
       ...prev,
       installmentProfitShare: String(investorSharePercentage),
@@ -175,7 +174,6 @@ export default function InvestorsPage() {
     }).then(result => {
         if (result.success) {
             setIsAddDialogOpen(false);
-            // Resetting the form is handled by onOpenChange now
         }
     }).finally(() => {
         setIsSubmitting(false);

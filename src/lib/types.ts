@@ -97,7 +97,7 @@ export type Borrower = {
   discount?: number;
   submittedBy?: string;
   rejectionReason?: string;
-  fundedBy?: { investorId: string; amount: number }[];
+  fundedBy: { investorId: string; amount: number }[];
   paymentStatus?: BorrowerPaymentStatus;
   installments?: { month: number; status: InstallmentStatus }[];
   isNotified?: boolean;
@@ -125,13 +125,13 @@ export type WithdrawalMethod = 'نقدي' | 'بنكي';
 
 export type Transaction = {
   id: string;
+  investor_id: string;
   date: string;
   type: TransactionType;
   amount: number;
   description: string;
   withdrawalMethod?: WithdrawalMethod;
   capitalSource: 'installment' | 'grace'; // To specify which capital pool was used
-  meta?: { [key: string]: any }; // For internal tracking, e.g., linking to a borrower status change
 };
 
 export type Investor = {
@@ -139,14 +139,11 @@ export type Investor = {
   name: string;
   date: string;
   status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض' | 'محذوف';
-  transactionHistory: Transaction[];
-  fundedLoanIds: string[];
   submittedBy?: string;
   rejectionReason?: string;
   isNotified?: boolean;
   installmentProfitShare?: number;
   gracePeriodProfitShare?: number;
-  transaction_history?: any[];
 };
 
 export type UpdatableInvestor = Pick<

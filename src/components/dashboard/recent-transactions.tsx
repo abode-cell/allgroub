@@ -16,15 +16,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useDataState } from '@/contexts/data-context';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import type { Borrower, Investor } from '@/lib/types';
 import { useMemo } from 'react';
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(value);
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } = {
     'مكتمل': 'default',
@@ -33,26 +27,28 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } 
 };
 
 export function RecentTransactions({ borrowers: propsBorrowers, investors: propsInvestors }: { borrowers?: Borrower[], investors?: Investor[] }) {
-  const { investors: allInvestors, borrowers: allBorrowers } = useDataState();
+  const { investors: allInvestors, borrowers: allBorrowers, transactions: allTransactions, users } = useDataState();
   
-  const { borrowers, investors } = useMemo(() => ({
+  const { borrowers, investors, transactions } = useMemo(() => ({
       borrowers: propsBorrowers ?? allBorrowers,
       investors: propsInvestors ?? allInvestors,
-  }), [propsBorrowers, propsInvestors, allBorrowers, allInvestors]);
+      transactions: allTransactions,
+  }), [propsBorrowers, propsInvestors, allBorrowers, allInvestors, allTransactions]);
 
 
-  const investorTransactions = investors.flatMap(investor => 
-    (investor.transactionHistory || []).map(tx => ({
+  const investorTransactions = transactions.map(tx => {
+    const investor = investors.find(i => i.id === tx.investor_id);
+    return {
       id: tx.id,
       type: tx.type,
-      user: investor.name,
+      user: investor?.name || 'مستخدم محذوف',
       amount: tx.amount,
       isDeposit: tx.type.includes('إيداع'),
       date: tx.date,
       status: 'مكتمل' as const,
       rawDate: new Date(tx.date)
-    }))
-  );
+    }
+  });
 
   const loanTransactions = borrowers
     .filter(b => b.status !== 'معلق' && b.status !== 'مرفوض')
@@ -61,17 +57,17 @@ export function RecentTransactions({ borrowers: propsBorrowers, investors: props
       type: `تمويل قرض جديد`,
       user: borrower.name,
       amount: borrower.amount,
-      isDeposit: false, // Funding a loan is an outflow from the platform's perspective
+      isDeposit: false,
       date: borrower.date,
       status: 'مكتمل' as const,
       rawDate: new Date(borrower.date)
   }));
   
-  const allTransactions = [...investorTransactions, ...loanTransactions];
+  const allTx = [...investorTransactions, ...loanTransactions];
 
-  const sortedTransactions = allTransactions
+  const sortedTransactions = allTx
     .sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime())
-    .slice(0, 10); // Show top 10 recent transactions
+    .slice(0, 10);
 
   return (
     <Card>

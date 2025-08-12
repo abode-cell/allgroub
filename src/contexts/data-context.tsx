@@ -21,8 +21,6 @@ import type {
   BorrowerPaymentStatus,
   PermissionKey,
   NewUserPayload,
-  TransactionType,
-  WithdrawalMethod,
   UpdatableInvestor,
   NewInvestorPayload,
   InstallmentStatus,
@@ -37,7 +35,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 type DataState = {
   currentUser: User | undefined;
@@ -46,6 +44,7 @@ type DataState = {
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
+  transactions: Transaction[];
   visibleUsers: User[];
   supportTickets: SupportTicket[];
   notifications: Notification[];
@@ -79,7 +78,7 @@ type DataActions = {
   addBorrower: (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus' | 'fundedBy'
     >,
     investorIds: string[],
     force?: boolean
@@ -101,7 +100,7 @@ type DataActions = {
   rejectInvestor: (investorId: string, reason: string) => void;
   addInvestorTransaction: (
     investorId: string,
-    transaction: Omit<Transaction, 'id'>
+    transaction: Omit<Transaction, 'id' | 'investor_id'>
   ) => void;
   updateUserIdentity: (
     updates: Partial<User>
@@ -149,6 +148,7 @@ const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'sessio
   borrowers: [],
   investors: [],
   users: [],
+  transactions: [],
   supportTickets: [],
   notifications: [],
   salaryRepaymentPercentage: 30,
@@ -181,7 +181,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [dataLoading, setDataLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const pathname = usePathname();
   
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -199,14 +198,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setDataLoading(true);
     try {
         const [
-            usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes
+            usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes, transactionsRes
         ] = await Promise.all([
             supabase.from('users').select('*, branches(id, name, city)'),
-            supabase.from('investors').select('*, transaction_history:transaction_history(id, date, type, amount, description, withdrawalMethod, capitalSource)'),
+            supabase.from('investors').select('*'),
             supabase.from('borrowers').select('*, installments:borrower_installments(borrower_id, month, status), fundedBy:borrower_funders(borrower_id, investor_id, amount)'),
             supabase.from('notifications').select('*'),
             supabase.from('support_tickets').select('*'),
             supabase.from('app_config').select('*'),
+            supabase.from('transactions').select('*'),
         ]);
 
         if (usersRes.error) throw usersRes.error;
@@ -215,14 +215,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (notificationsRes.error) throw notificationsRes.error;
         if (supportTicketsRes.error) throw supportTicketsRes.error;
         if (configRes.error) throw configRes.error;
+        if (transactionsRes.error) throw transactionsRes.error;
 
         const configData = configRes.data.reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
             return acc;
         }, {} as any);
         
-        const allFunders = borrowersRes.data.flatMap((b: any) => b.fundedBy || []);
-
         const borrowersWithData: Borrower[] = borrowersRes.data.map((borrower: any) => ({
             ...borrower,
             fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investor_id, amount: f.amount })),
@@ -233,16 +232,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const investorsWithData: Investor[] = investorsRes.data.map((investor: any) => ({
-            ...investor,
-            transactionHistory: investor.transaction_history,
-            fundedLoanIds: allFunders.filter((f: any) => f.investor_id === investor.id).map((f: any) => f.borrower_id)
-        }));
-
         setData({
             users: usersRes.data || [],
-            investors: investorsWithData,
+            investors: investorsRes.data || [],
             borrowers: borrowersWithData,
+            transactions: transactionsRes.data || [],
             notifications: notificationsRes.data || [],
             supportTickets: supportTicketsRes.data || [],
             salaryRepaymentPercentage: configData.salaryRepaymentPercentage ?? initialDataState.salaryRepaymentPercentage,
@@ -287,19 +281,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, [supabase, fetchData]);
-  
-  useEffect(() => {
-    // This effect handles routing decisions after authentication state is resolved.
-    if (!authLoading) {
-      const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
-      
-      if (session && isPublicPage) {
-        router.replace('/dashboard');
-      } else if (!session && !isPublicPage) {
-        router.replace('/login');
-      }
-    }
-  }, [authLoading, session, pathname, router]);
 
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -348,8 +329,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
       setSession(null);
       setData(initialDataState);
+      router.push('/login');
     }
-  },[supabase]);
+  },[supabase, router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     if (!supabase) return { success: false, message: "فشل الاتصال بقاعدة البيانات." };
@@ -360,6 +342,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+            data: {
+                name,
+                officeName,
+                phone,
+                role: 'مدير المكتب'
+            }
+        }
     });
 
     if (authError) {
@@ -369,35 +359,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error("Supabase sign up error:", authError);
         return { success: false, message: 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
     }
-
+    
     if (!authData.user) {
         return { success: false, message: 'فشل في إنشاء الحساب، لم يتم إرجاع بيانات المستخدم من نظام المصادقة.' };
     }
 
-    const { error: insertError } = await supabase.from('users').insert({
-        id: authData.user.id,
-        name: name,
-        officeName: officeName,
-        email: email,
-        phone: phone,
-        role: 'مدير المكتب',
-        status: 'معلق',
-        registrationDate: new Date().toISOString(),
-        investorLimit: 3,
-        employeeLimit: 1,
-        assistantLimit: 1,
-        branchLimit: 3,
-        allowEmployeeSubmissions: true,
-        hideEmployeeInvestorFunds: false,
-        allowEmployeeLoanEdits: false,
-    });
-
-    if (insertError) {
-        console.error("Error inserting user profile:", insertError);
-        return { success: false, message: "فشل في حفظ ملف تعريف المستخدم. يرجى التواصل مع الدعم." };
-    }
-
-
+    // The trigger will handle user creation in the public.users table. We just need to fetch data again.
     await fetchData();
     return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
   }, [supabase, fetchData]);
@@ -638,15 +605,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let remainingAmountToFund = loanToApprove.amount;
         const fundedByDetails: { investorId: string; amount: number }[] = [];
         
-        const updatedInvestorsMap = new Map(d.investors.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
-
         for (const invId of investorIds) {
             if (remainingAmountToFund <= 0) break;
             
-            const currentInvestorState = updatedInvestorsMap.get(invId);
+            const currentInvestorState = d.investors.find(i => i.id === invId);
             if (!currentInvestorState) continue;
             
-            const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
+            const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers, d.transactions);
             const availableCapital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
             
             const contribution = Math.min(availableCapital, remainingAmountToFund);
@@ -654,9 +619,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 remainingAmountToFund -= contribution;
                 totalFundedAmount += contribution;
                 fundedByDetails.push({ investorId: invId, amount: contribution });
-                
-                currentInvestorState.fundedLoanIds.push(loanToApprove.id);
-                updatedInvestorsMap.set(invId, currentInvestorState);
             }
         }
         
@@ -690,7 +652,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newNotifications = [...notificationsToQueue.map(n => ({...n, id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false})), ...d.notifications];
         
         toast({ title: 'تمت الموافقة على القرض بنجاح' });
-        return { ...d, borrowers: newBorrowers, investors: Array.from(updatedInvestorsMap.values()), notifications: newNotifications };
+        return { ...d, borrowers: newBorrowers, notifications: newNotifications };
       })
     },
     [toast]
@@ -770,7 +732,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (
       borrower: Omit<
         Borrower,
-        'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus'
+        'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus' | 'fundedBy'
       >,
       investorIds: string[],
       force: boolean = false
@@ -825,45 +787,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
 
           const isPending = borrower.status === 'معلق';
-          if (!isPending && investorIds.length === 0 && !borrower.fundedBy) {
+          if (!isPending && investorIds.length === 0) {
                result = { success: false, message: 'يجب اختيار مستثمر واحد على الأقل لتمويل قرض نشط.' };
               toast({ variant: 'destructive', title: 'خطأ في التمويل', description: result.message });
               return d;
           }
           
           const newId = `bor_${Date.now()}_${crypto.randomUUID()}`;
-          const fundedByDetails: { investorId: string; amount: number }[] = borrower.fundedBy || [];
+          const fundedByDetails: { investorId: string; amount: number }[] = [];
           let remainingAmountToFund = borrower.amount;
           
-          let newInvestorsData = [...d.investors]; 
+          let newTransactions = [...d.transactions];
 
-          if(!isPending && !borrower.fundedBy) {
-              const updatedInvestorsMap = new Map(newInvestorsData.map(inv => [inv.id, {...inv, fundedLoanIds: [...(inv.fundedLoanIds || [])]}])); 
-
+          if(!isPending) {
               for (const invId of investorIds) {
                   if (remainingAmountToFund <= 0) break;
                   
-                  const currentInvestorState = updatedInvestorsMap.get(invId);
+                  const currentInvestorState = d.investors.find(i => i.id === invId);
                   if (!currentInvestorState) continue;
                   
-                  const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers);
+                  const financials = calculateInvestorFinancials(currentInvestorState, d.borrowers, d.transactions);
                   const availableCapital = borrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
                   
                   const contribution = Math.min(availableCapital, remainingAmountToFund);
                   if (contribution > 0) {
                       remainingAmountToFund -= contribution;
                       fundedByDetails.push({ investorId: invId, amount: contribution });
-                      
-                      if (currentInvestorState.fundedLoanIds) {
-                         currentInvestorState.fundedLoanIds.push(newId);
-                      } else {
-                         currentInvestorState.fundedLoanIds = [newId];
-                      }
-                      
-                      updatedInvestorsMap.set(invId, currentInvestorState);
                   }
               }
-              newInvestorsData = Array.from(updatedInvestorsMap.values());
           }
 
           const newEntry: Borrower = {
@@ -882,7 +833,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
           let newNotifications = d.notifications;
           const notificationsToQueue: Omit<Notification, 'id' | 'date' | 'isRead'>[] = [];
-          if (fundedByDetails.length > 0 && !borrower.fundedBy) {
+          if (fundedByDetails.length > 0) {
               fundedByDetails.forEach(funder => {
                   notificationsToQueue.push({
                       recipientId: funder.investorId,
@@ -904,7 +855,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
           result = { success: true, message: 'تمت إضافة القرض بنجاح.' };
           toast({ title: result.message });
-          return { ...d, borrowers: newBorrowers, investors: newInvestorsData, notifications: newNotifications };
+          return { ...d, borrowers: newBorrowers, transactions: newTransactions, notifications: newNotifications };
       });
       return result;
     },
@@ -1161,11 +1112,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
           managedBy: managerId,
         };
         
-        const transactionHistory: Transaction[] = [];
+        const newTransactions: Transaction[] = [];
 
         if (installmentCapital > 0) {
-            transactionHistory.push({
+            newTransactions.push({
                 id: `tx_init_inst_${newId}`,
+                investor_id: newId,
                 date: new Date().toISOString(),
                 type: 'إيداع رأس المال',
                 amount: installmentCapital,
@@ -1174,8 +1126,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             });
         }
         if (graceCapital > 0) {
-             transactionHistory.push({
+             newTransactions.push({
                 id: `tx_init_grace_${newId}`,
+                investor_id: newId,
                 date: new Date().toISOString(),
                 type: 'إيداع رأس المال',
                 amount: graceCapital,
@@ -1189,8 +1142,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           name: investorPayload.name,
           status: status,
           date: new Date().toISOString(),
-          transactionHistory: transactionHistory,
-          fundedLoanIds: [],
           submittedBy: currentUser.id,
           isNotified: false,
           installmentProfitShare: investorPayload.installmentProfitShare,
@@ -1215,6 +1166,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           ...d,
           users: [...d.users, newUser],
           investors: [...d.investors, newInvestorEntry],
+          transactions: [...d.transactions, ...newTransactions],
           notifications: newNotifications
         };
       });
@@ -1233,841 +1185,3 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 toast({ variant: 'destructive', title: 'خطأ', description: result.message });
                 return d;
             }
-            
-            if (d.users.some((u) => u.email === payload.email || u.phone === payload.phone)) {
-                result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
-            if (!payload.password || payload.password.length < 6) {
-                result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
-
-            const isEmployee = role === 'موظف';
-            const limit = isEmployee ? currentUser.employeeLimit : currentUser.assistantLimit;
-            const currentCount = d.users.filter(u => u.managedBy === currentUser.id && u.role === role).length;
-
-            if (currentCount >= (limit ?? 0)) {
-                result = { success: false, message: `لقد وصلت للحد الأقصى لعدد ${isEmployee ? 'الموظفين' : 'المساعدين'}.` };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
-            }
-
-            const newId = `user_${isEmployee ? 'emp' : 'asst'}_${Date.now()}`;
-            const newUser: User = {
-                id: newId, name: payload.name, email: payload.email, phone: payload.phone,
-                role: role, status: 'نشط', managedBy: currentUser.id, photoURL: `https://placehold.co/40x40.png`, registrationDate: new Date().toISOString(),
-                permissions: {},
-            };
-            result = { success: true, message: `تمت إضافة ${isEmployee ? 'الموظف' : 'المساعد'} بنجاح.` };
-            toast({ title: 'نجاح', description: result.message });
-            return {...d, users: [...d.users, newUser] };
-        });
-        return result;
-    },
-    [currentUser, toast]
-  );
-
-  const addInvestorTransaction = useCallback(
-    (investorId: string, transaction: Omit<Transaction, 'id'>) => {
-      setData(d => {
-        const investor = d.investors.find(i => i.id === investorId);
-        if (!investor) return d;
-        
-        if (transaction.type.includes('سحب')) {
-            const financials = calculateInvestorFinancials(investor, d.borrowers);
-            const availableCapital = transaction.capitalSource === 'installment' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
-            if (availableCapital < transaction.amount) {
-                toast({ variant: 'destructive', title: 'رصيد غير كافي', description: `المبلغ المطلوب للسحب يتجاوز الرصيد المتاح في محفظة ${transaction.capitalSource === 'installment' ? 'الأقساط' : 'المهلة'}.` });
-                return d;
-            }
-        }
-
-        const newInvestors = d.investors.map((i) => {
-          if (i.id === investorId) {
-            const newTransaction: Transaction = {
-              ...transaction,
-              id: `tx_man_${investorId}_${crypto.randomUUID()}`,
-            };
-            return { ...i, transactionHistory: [...(i.transactionHistory || []), newTransaction] };
-          }
-          return i;
-        });
-        
-        const notificationTitle = transaction.type.includes('إيداع') ? 'عملية إيداع ناجحة' : 'عملية سحب ناجحة';
-        const newNotifications = [{
-            id: `notif_${crypto.randomUUID()}`,
-            date: new Date().toISOString(), isRead: false,
-            recipientId: investorId,
-            title: notificationTitle,
-            description: `تمت عملية "${transaction.type}" بمبلغ ${formatCurrency(transaction.amount)} بنجاح.`,
-        }, ...d.notifications];
-        
-        toast({ title: 'تمت العملية بنجاح' });
-        return {...d, investors: newInvestors, notifications: newNotifications};
-      });
-    },
-    [toast]
-  );
-
-  const updateUserIdentity = useCallback(
-    async (updates: Partial<User>) => {
-      if (!currentUser) return { success: false, message: 'لم يتم العثور على المستخدم.' };
-      let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
-      setData(d => {
-        const newUsers = d.users.map((u) => (u.id === currentUser.id ? { ...u, ...updates } : u));
-        
-        const newInvestors = d.investors.map((i) => {
-          if (i.id === currentUser.id && updates.name) {
-              return { ...i, name: updates.name };
-          }
-          return i;
-        });
-
-        result = { success: true, message: 'تم تحديث معلوماتك بنجاح.' };
-        toast({ title: 'نجاح', description: 'تم تحديث معلوماتك بنجاح.' });
-        return {
-          ...d,
-          users: newUsers,
-          investors: newInvestors
-        };
-      });
-      return result;
-    },
-    [currentUser, toast]
-  );
-
-  const updateUserCredentials = useCallback(
-    async (userIdToUpdate: string, updates: { email?: string; password?: string, officeName?: string; }) => {
-      if (!currentUser) return { success: false, message: 'غير مصرح لك.' };
-      let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
-      setData(d => {
-        const userToUpdate = d.users.find(u => u.id === userIdToUpdate);
-        if (!userToUpdate) {
-             result = { success: false, message: 'المستخدم المستهدف غير موجود.' };
-             return d;
-        }
-
-        const isSystemAdmin = currentUser.role === 'مدير النظام';
-        const isOfficeManager = currentUser.role === 'مدير المكتب';
-
-        const canEdit = isSystemAdmin || 
-                        (isOfficeManager && userToUpdate.managedBy === currentUser.id);
-        
-        if (!canEdit || userToUpdate.role === 'مدير النظام') {
-            result = { success: false, message: 'ليس لديك الصلاحية لتعديل هذا المستخدم.' };
-            return d;
-        }
-
-
-        if (updates.email) {
-            const emailInUse = d.users.some(
-            (u) => u.email === updates.email && u.id !== userIdToUpdate
-            );
-            if (emailInUse) {
-                result = { success: false, message: 'هذا البريد الإلكتروني مستخدم بالفعل.' };
-                return d;
-            }
-        }
-        if (updates.password && updates.password.length < 6) {
-            result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
-            return d;
-        }
-
-        result = { success: true, message: 'تم تحديث بيانات الدخول بنجاح.' };
-        return {
-            ...d,
-            users: d.users.map((u) => (u.id === userIdToUpdate ? { ...u, ...updates } : u)),
-        };
-      });
-
-      if(!result.success) {
-        toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-      } else {
-        toast({ title: 'نجاح', description: result.message });
-      }
-      return result;
-    },
-    [currentUser, toast]
-  );
-
-  const updateUserStatus = useCallback(
-    async (userIdToUpdate: string, status: User['status']) => {
-      if (!currentUser) return;
-      setData(d => {
-        const userToUpdate = d.users.find((u) => u.id === userIdToUpdate);
-        if (!userToUpdate) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
-            return d;
-        }
-
-        if (userToUpdate.lastStatusChange) {
-            const lastChangeTime = new Date(userToUpdate.lastStatusChange).getTime();
-            const now = new Date().getTime();
-            if (now - lastChangeTime < 5000) {
-                toast({
-                    variant: 'destructive',
-                    title: 'الرجاء الانتظار',
-                    description: 'يجب الانتظار بضع ثوان قبل تغيير حالة هذا المستخدم مرة أخرى.',
-                });
-                return d;
-            }
-        }
-
-        const isAssistantManagingEmployee = currentUser.role === 'مساعد مدير المكتب' &&
-                                            currentUser.permissions?.manageEmployeePermissions &&
-                                            userToUpdate.role === 'موظف' &&
-                                            userToUpdate.managedBy === currentUser.managedBy;
-
-        const isManagerManagingSubordinate = currentUser.role === 'مدير المكتب' && 
-                                             userToUpdate.managedBy === currentUser.id &&
-                                             userToUpdate.role !== 'مدير المكتب';
-
-        const canUpdate = currentUser.role === 'مدير النظام' || isManagerManagingSubordinate || isAssistantManagingEmployee;
-
-        if (!canUpdate) {
-            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير حالة هذا المستخدم.' });
-            return d;
-        }
-        
-        if (currentUser.role === 'مساعد مدير المكتب' && userToUpdate.role === 'مدير المكتب') {
-            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'لا يمكنك تغيير حالة مديرك.' });
-            return d;
-        }
-
-        const systemAdmin = d.users.find(u => u.role === 'مدير النظام');
-        
-        let finalUsers = d.users;
-        
-        const newStatus: User['status'] = status;
-
-        const newUsers = d.users.map((u) => {
-            if (u.id === userIdToUpdate) {
-                const updatedUser: User = { ...u, status: newStatus, lastStatusChange: new Date().toISOString() };
-                
-                if (updatedUser.role === 'مدير المكتب' && userToUpdate.status === 'معلق' && newStatus === 'نشط') {
-                    if (!userToUpdate.trialEndsAt) { 
-                        const trialDays = systemAdmin?.defaultTrialPeriodDays ?? 14;
-                        const trialEndsAt = new Date();
-                        trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
-                        updatedUser.trialEndsAt = trialEndsAt.toISOString();
-                    } 
-                    else if (isPast(new Date(userToUpdate.trialEndsAt))) {
-                        delete updatedUser.trialEndsAt;
-                    }
-                }
-                return updatedUser;
-            }
-            return u;
-        });
-
-        const isSuspendingManager = userToUpdate.role === 'مدير المكتب' && newStatus === 'معلق';
-        if (isSuspendingManager) {
-            finalUsers = newUsers.map(u => {
-                if (u.managedBy === userIdToUpdate) {
-                    const newSubordinateStatus: User['status'] = 'معلق';
-                    return { ...u, status: newSubordinateStatus };
-                }
-                return u;
-            });
-        } else {
-            finalUsers = newUsers;
-        }
-
-        const isSuspending = newStatus === 'معلق';
-        const isReactivating = newStatus === 'نشط' && userToUpdate.status === 'معلق';
-        let newInvestors = d.investors;
-        let newNotifications = d.notifications;
-
-        if (userToUpdate.role === 'مدير المكتب') {
-            const managerInvestors = d.investors.filter(inv => {
-                const invUser = d.users.find(u => u.id === inv.id);
-                return invUser?.managedBy === userIdToUpdate;
-            });
-            
-             if (isSuspending) {
-                newInvestors = d.investors.map((inv) => {
-                    if (managerInvestors.some(mi => mi.id === inv.id) && inv.status === 'نشط') {
-                        const newInvestorStatus: Investor['status'] = 'غير نشط';
-                        return { ...inv, status: newInvestorStatus };
-                    }
-                    return inv;
-                });
-                toast({ title: 'تم التحديث', description: 'تم تعليق حساب المدير والحسابات المرتبطة به.' });
-            } else if (isReactivating) {
-                newNotifications = [{
-                    id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
-                    recipientId: userIdToUpdate,
-                    title: 'تم إعادة تفعيل مكتبك',
-                    description: `تمت إعادة تفعيل حسابك وحسابات فريقك. يرجى مراجعة حالة المستثمرين لديك وإعادة تفعيلهم حسب الحاجة.`,
-                }, ...newNotifications];
-                toast({ title: 'تم التحديث', description: 'تم تفعيل حساب المدير وفريقه.' });
-            }
-        }
-        
-        if (newStatus === 'نشط' && userToUpdate.status === 'معلق' && userToUpdate.role !== 'مدير المكتب') {
-            newNotifications = [{
-                id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
-                recipientId: userIdToUpdate,
-                title: 'تم تفعيل حسابك!',
-                description: `مرحباً ${userToUpdate.name}، تم تفعيل حسابك. يمكنك الآن تسجيل الدخول.`,
-            }, ...newNotifications];
-            toast({ title: 'تم التحديث', description: 'تم تحديث حالة المستخدم بنجاح.' });
-        }
-
-
-        return { ...d, users: finalUsers, investors: newInvestors, notifications: newNotifications };
-      });
-    },
-    [currentUser, toast]
-  );
-
-  const updateUserRole = useCallback(
-    (userIdToChange: string, newRole: UserRole) => {
-      if (!currentUser) return;
-      setData(d => {
-        if (currentUser?.role !== 'مدير النظام') {
-            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير النظام يمكنه تغيير الأدوار.' });
-            return d;
-        }
-
-        if (userIdToChange === currentUser.id) {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'لا يمكنك تغيير دورك الخاص.' });
-          return d;
-        }
-        
-        const userToChange = d.users.find((u) => u.id === userIdToChange);
-        if (!userToChange) {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
-          return d;
-        }
-
-        if (userToChange.role === 'مدير النظام') {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'لا يمكن تغيير دور مدير نظام آخر.' });
-          return d;
-        }
-
-        if (userToChange.role === 'مدير المكتب') {
-          const managedUsersCount = d.users.filter(u => u.managedBy === userIdToChange).length;
-          if (managedUsersCount > 0) {
-            toast({
-              variant: 'destructive',
-              title: 'لا يمكن تغيير الدور',
-              description: `لا يمكن تغيير دور هذا المدير لأنه يدير ${managedUsersCount} مستخدمًا. يرجى حذف المستخدمين المرتبطين به أولاً.`,
-            });
-            return d;
-          }
-        }
-
-        if (userToChange.role === 'مستثمر' || newRole === 'مستثمر') {
-          toast({
-            variant: 'destructive',
-            title: 'لا يمكن تغيير الدور',
-            description: 'لا يمكن تغيير دور المستخدم من وإلى "مستثمر" مباشرة. يرجى حذف وإعادة إنشاء المستخدم بالدور الصحيح.',
-          });
-          return d;
-        }
-
-        const newUsers = d.users.map((u) => {
-          if (u.id === userIdToChange) {
-            const updatedUser: User = { ...u, role: newRole };
-            
-            if (newRole === 'مدير المكتب') {
-                updatedUser.investorLimit = updatedUser.investorLimit ?? 10;
-                updatedUser.employeeLimit = updatedUser.employeeLimit ?? 5;
-                updatedUser.assistantLimit = updatedUser.assistantLimit ?? 1;
-                updatedUser.branchLimit = updatedUser.branchLimit ?? 3;
-                updatedUser.branches = updatedUser.branches ?? [];
-                updatedUser.allowEmployeeSubmissions = updatedUser.allowEmployeeSubmissions ?? true;
-                updatedUser.hideEmployeeInvestorFunds = updatedUser.hideEmployeeInvestorFunds ?? false;
-                updatedUser.allowEmployeeLoanEdits = updatedUser.allowEmployeeLoanEdits ?? false;
-                delete updatedUser.managedBy;
-            } else {
-                delete updatedUser.investorLimit;
-                delete updatedUser.employeeLimit;
-                delete updatedUser.assistantLimit;
-                delete updatedUser.branchLimit;
-                delete updatedUser.branches;
-                delete updatedUser.allowEmployeeSubmissions;
-                delete updatedUser.hideEmployeeInvestorFunds;
-                delete updatedUser.allowEmployeeLoanEdits;
-            }
-            
-            if (newRole === 'مساعد مدير المكتب' || newRole === 'موظف') {
-              updatedUser.permissions = updatedUser.permissions || {};
-            } else {
-              delete updatedUser.permissions;
-            }
-
-            if (newRole !== 'موظف' && newRole !== 'مساعد مدير المكتب' && newRole !== 'مدير المكتب') {
-                delete updatedUser.managedBy;
-            }
-
-            return updatedUser;
-          }
-          return u;
-        });
-
-        toast({ title: 'تم تحديث دور المستخدم بنجاح' });
-        return { ...d, users: newUsers };
-      });
-    },
-    [currentUser, toast]
-  );
-
-  const updateUserLimits = useCallback(
-    (userIdToUpdate: string, limits: { investorLimit: number; employeeLimit: number; assistantLimit: number; branchLimit: number }) => {
-      if (!currentUser) return;
-      setData(d => {
-        if (currentUser?.role !== 'مدير النظام') {
-            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير النظام يمكنه تغيير الحدود.' });
-            return d;
-        }
-        return ({...d, users: d.users.map((u) => (u.id === userIdToUpdate ? { ...u, ...limits } : u))})
-      });
-      toast({ title: 'تم تحديث حدود المستخدم بنجاح.' });
-    },
-    [currentUser, toast]
-  );
-
-  const updateManagerSettings = useCallback(
-    (managerId: string, settings: {
-      allowEmployeeSubmissions?: boolean;
-      hideEmployeeInvestorFunds?: boolean;
-      allowEmployeeLoanEdits?: boolean;
-    }) => {
-      if (!currentUser) return;
-      setData(d => {
-        if (currentUser.role !== 'مدير النظام' && currentUser.id !== managerId) {
-            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير هذه الإعدادات.' });
-            return d;
-        }
-
-        return ({...d, users: d.users.map((u) => (u.id === managerId ? { ...u, ...settings } : u))})
-      });
-      toast({ title: 'تم تحديث إعدادات المدير بنجاح.' });
-    },
-    [currentUser, toast]
-  );
-
-  const updateAssistantPermission = useCallback(
-    (assistantId: string, key: PermissionKey, value: boolean) => {
-      if (!currentUser) return;
-      setData(d => {
-        if (currentUser?.role !== 'مدير المكتب') {
-             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'فقط مدير المكتب يمكنه تغيير صلاحيات المساعد.' });
-             return d;
-        }
-        return ({...d, users: d.users.map((u) =>
-          u.id === assistantId
-            ? { ...u, permissions: { ...(u.permissions || {}), [key]: value } }
-            : u
-        )})
-      });
-      toast({ title: 'تم تحديث صلاحية المساعد بنجاح.' });
-    },
-    [currentUser, toast]
-  );
-
-  const updateEmployeePermission = useCallback(
-    (employeeId: string, key: PermissionKey, value: boolean) => {
-      if (!currentUser) return;
-      setData(d => {
-         if (currentUser?.role !== 'مدير المكتب' && !(currentUser?.role === 'مساعد مدير المكتب' && currentUser.permissions?.manageEmployeePermissions)) {
-             toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتغيير صلاحيات الموظف.' });
-             return d;
-        }
-        return ({...d, users: d.users.map((u) =>
-          u.id === employeeId
-            ? { ...u, permissions: { ...(u.permissions || {}), [key]: value } }
-            : u
-        )})
-      });
-      toast({ title: 'تم تحديث صلاحية الموظف بنجاح.' });
-    },
-    [currentUser, toast]
-  );
-
-  const deleteUser = useCallback(
-    (userIdToDelete: string) => {
-        if (!currentUser) return;
-        setData(d => {
-            const { users, investors, borrowers } = d;
-            const userToDelete = users.find(u => u.id === userIdToDelete);
-
-            if (!userToDelete) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على المستخدم.' });
-                return d;
-            }
-
-            if (userToDelete.id === currentUser.id || userToDelete.role === 'مدير النظام') {
-                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكنك حذف هذا الحساب.' });
-                return d;
-            }
-
-            const canDelete = currentUser.role === 'مدير النظام' || (currentUser.role === 'مدير المكتب' && userToDelete.managedBy === currentUser.id);
-            if (!canDelete) {
-                toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لحذف هذا المستخدم.' });
-                return d;
-            }
-
-            if (userToDelete.role === 'مدير المكتب') {
-                const activeSubordinates = users.filter(u => u.managedBy === userIdToDelete && u.status !== 'محذوف');
-                if (activeSubordinates.length > 0) {
-                    toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${activeSubordinates.length} مستخدمًا نشطًا. يرجى حذف الموظفين والمساعدين المرتبطين به أولاً.` });
-                    return d;
-                }
-                const linkedInvestors = investors.filter(i => {
-                    const investorUser = users.find(u => u.id === i.id);
-                    return investorUser?.managedBy === userIdToDelete && i.status !== 'محذوف';
-                });
-                if (linkedInvestors.length > 0) {
-                    toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه يدير ${linkedInvestors.length} مستثمرًا. يرجى حذف المستثمرين المرتبطين به أولاً.` });
-                    return d;
-                }
-                if (userToDelete.branches && userToDelete.branches.length > 0) {
-                    toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المدير لأنه لديه ${userToDelete.branches.length} فرعًا. يرجى حذف الفروع أولاً.` });
-                    return d;
-                }
-            }
-          
-            if (borrowers.some(b => b.submittedBy === userIdToDelete && b.status !== 'مرفوض')) {
-                toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستخدم لأنه قام بتسجيل قروض نشطة. لسلامة السجلات، يتم منع الحذف.` });
-                return d;
-            }
-          
-            if (userToDelete.role === 'مستثمر') {
-                const investorRecord = investors.find(i => i.id === userIdToDelete);
-                if (investorRecord) {
-                    const hasActiveLoans = investorRecord.fundedLoanIds?.some(loanId => {
-                        const loan = borrowers.find(b => b.id === loanId);
-                        return loan && loan.status !== 'مسدد بالكامل' && loan.paymentStatus !== 'تم السداد';
-                    });
-
-                    if (hasActiveLoans) {
-                        toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأنه قام بتمويل قروض نشطة. لسلامة السجلات، يتم منع الحذف.` });
-                        return d;
-                    }
-                    const financials = calculateInvestorFinancials(investorRecord, borrowers);
-                    if (financials.totalCapitalInSystem > 0) {
-                        toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: `لا يمكن حذف هذا المستثمر لأن لديه رصيد متبقٍ. يرجى سحب جميع الأموال أولاً.` });
-                        return d;
-                    }
-                }
-            }
-            
-            const newStatus: User['status'] = 'محذوف';
-            const finalUsers = users.map(u => 
-                u.id === userIdToDelete ? { ...u, status: newStatus } : u
-            );
-
-            const newInvestorStatus: Investor['status'] = 'محذوف';
-            const finalInvestors = investors.map(i => {
-                if (i.id === userIdToDelete) {
-                    return { ...i, status: newInvestorStatus };
-                }
-                return i;
-            });
-          
-            toast({ title: 'اكتمل الحذف', description: `تم حذف الحساب "${userToDelete.name}" وتعيينه كـ "محذوف".` });
-
-            return { ...d, users: finalUsers, investors: finalInvestors };
-        });
-    },
-    [currentUser, toast]
-  );
-  
-
-  const requestCapitalIncrease = useCallback(
-    (investorId: string) => {
-      const investor = data.investors.find((i) => i.id === investorId);
-      if (!investor) return;
-
-      const systemAdmins = data.users.filter((u) => u.role === 'مدير النظام');
-      systemAdmins.forEach((admin) => {
-        addNotification({
-          recipientId: admin.id,
-          title: 'طلب زيادة رأس المال',
-          description: `المستثمر "${investor.name}" يرغب بزيادة رأس ماله للاستمرار بالاستثمار.`,
-        });
-      });
-
-      toast({
-        title: 'تم إرسال طلبك',
-        description: 'تم إعلام الإدارة برغبتك في زيادة رأس المال.',
-      });
-    },
-    [data.investors, data.users, addNotification, toast]
-  );
-
-  const addSupportTicket = useCallback(
-    (ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead' | 'isReplied'>) => {
-        setData(d => {
-            const newTicket: SupportTicket = {
-                ...ticket, id: `ticket_${Date.now()}`, date: new Date().toISOString(),
-                isRead: false, isReplied: false,
-            };
-
-            let newNotifications = d.notifications;
-            const systemAdmin = d.users.find((u) => u.role === 'مدير النظام');
-            if (systemAdmin) {
-                newNotifications = [{
-                    id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
-                    recipientId: systemAdmin.id,
-                    title: 'طلب دعم جديد',
-                    description: `رسالة جديدة من ${ticket.fromUserName} بخصوص: ${ticket.subject}`,
-                }, ...d.notifications];
-            }
-            toast({
-                title: 'تم إرسال طلب الدعم بنجاح',
-                description: 'سيقوم مدير النظام بمراجعة طلبك في أقرب وقت.',
-            });
-            return { ...d, supportTickets: [newTicket, ...d.supportTickets], notifications: newNotifications };
-        });
-    },
-    [toast]
-  );
-
-  const deleteSupportTicket = useCallback(
-    (ticketId: string) => {
-      setData(d => ({ ...d, supportTickets: d.supportTickets.filter((t) => t.id !== ticketId) }));
-      toast({
-        variant: 'destructive',
-        title: 'تم حذف الرسالة',
-        description: 'تم حذف رسالة الدعم بنجاح.',
-      });
-    },
-    [toast]
-  );
-
-  const replyToSupportTicket = useCallback((ticketId: string, replyMessage: string) => {
-    setData(d => {
-        const repliedTicket = d.supportTickets.find(ticket => ticket.id === ticketId);
-
-        if (repliedTicket) {
-            const newSupportTickets = d.supportTickets.map(ticket => 
-                ticket.id === ticketId ? { ...ticket, isReplied: true, isRead: true } : ticket
-            );
-
-            const newNotifications = [{
-                id: `notif_${crypto.randomUUID()}`, date: new Date().toISOString(), isRead: false,
-                recipientId: repliedTicket.fromUserId,
-                title: `رد على رسالتك: "${repliedTicket.subject}"`,
-                description: replyMessage,
-            }, ...d.notifications];
-
-            toast({
-                title: 'تم إرسال الرد بنجاح',
-                description: `تم إرسال ردك إلى ${repliedTicket.fromUserName}.`,
-            });
-            return { ...d, supportTickets: newSupportTickets, notifications: newNotifications };
-        }
-        return d;
-    });
-  }, [toast]);
-  
-  const markBorrowerAsNotified = useCallback((borrowerId: string, message: string) => {
-      setData(d => ({...d, borrowers: d.borrowers.map(b => b.id === borrowerId ? { ...b, isNotified: true } : b)}));
-      toast({ title: "تم إرسال الرسالة بنجاح", description: "تم تحديث حالة تبليغ العميل." });
-  }, [toast]);
-
-  const markInvestorAsNotified = useCallback((investorId: string, message: string) => {
-      setData(d => ({...d, investors: d.investors.map(i => i.id === investorId ? { ...i, isNotified: true } : i)}));
-      toast({ title: "تم إرسال الرسالة بنجاح", description: "تم تحديث حالة تبليغ المستثمر." });
-  }, [toast]);
-
-  const addBranch = useCallback(
-    async (branch: Omit<Branch, 'id'>): Promise<{success: boolean, message: string}> => {
-        let result: {success: boolean, message: string} = {success: false, message: "فشل غير متوقع"};
-        if (!currentUser) return result;
-        setData(d => {
-            if (currentUser.role !== 'مدير المكتب') {
-                result = {success: false, message: "غير مصرح لك."};
-                return d;
-            }
-
-            const currentBranches = currentUser.branches || [];
-            if (currentBranches.length >= (currentUser.branchLimit ?? 0)) {
-                result = {success: false, message: "لقد وصلت إلى الحد الأقصى للفروع."};
-                return d;
-            }
-            
-            const newBranch: Branch = { ...branch, id: `branch_${crypto.randomUUID()}` };
-            const newUsers = d.users.map(u => 
-                u.id === currentUser.id 
-                ? { ...u, branches: [...currentBranches, newBranch] }
-                : u
-            );
-            
-            result = {success: true, message: "تمت إضافة الفرع بنجاح."};
-            return { ...d, users: newUsers };
-        });
-
-        if (result.success) {
-            toast({ title: "نجاح", description: result.message });
-        } else {
-            toast({ variant: 'destructive', title: "خطأ", description: result.message });
-        }
-
-        return result;
-    },
-    [currentUser, toast]
-  );
-
-  const deleteBranch = useCallback(
-    (branchId: string) => {
-        if (!currentUser) return;
-        setData(d => {
-            if (currentUser.role !== 'مدير المكتب') {
-                return d;
-            }
-
-            const newUsers = d.users.map(u => {
-                if (u.id === currentUser.id) {
-                    const updatedBranches = (u.branches || []).filter(b => b.id !== branchId);
-                    return { ...u, branches: updatedBranches };
-                }
-                return u;
-            });
-
-            toast({ title: 'تم الحذف', description: 'تم حذف الفرع بنجاح.' });
-            return { ...d, users: newUsers };
-        });
-    },
-    [currentUser, toast]
-  );
-
-  const actions: DataActions = useMemo(
-    () => ({
-      signIn,
-      signOutUser,
-      registerNewOfficeManager,
-      addBranch,
-      deleteBranch,
-      updateSupportInfo,
-      updateBaseInterestRate,
-      updateInvestorSharePercentage,
-      updateSalaryRepaymentPercentage,
-      updateGraceTotalProfitPercentage,
-      updateGraceInvestorSharePercentage,
-      updateTrialPeriod,
-      addSupportTicket,
-      deleteSupportTicket,
-      replyToSupportTicket,
-      addBorrower,
-      updateBorrower,
-      updateBorrowerPaymentStatus,
-      updateInstallmentStatus,
-      handlePartialPayment,
-      approveBorrower,
-      rejectBorrower,
-      deleteBorrower,
-      addInvestor,
-      addNewSubordinateUser,
-      updateInvestor,
-      approveInvestor,
-      rejectInvestor,
-      addInvestorTransaction,
-      updateUserIdentity,
-      updateUserCredentials,
-      updateUserStatus,
-      updateUserRole,
-      updateUserLimits,
-      updateManagerSettings,
-      updateAssistantPermission,
-      updateEmployeePermission,
-      requestCapitalIncrease,
-      deleteUser,
-      clearUserNotifications,
-      markUserNotificationsAsRead,
-      markBorrowerAsNotified,
-      markInvestorAsNotified,
-    }),
-    [
-      signIn,
-      signOutUser,
-      registerNewOfficeManager,
-      addBranch,
-      deleteBranch,
-      updateSupportInfo,
-      updateBaseInterestRate,
-      updateInvestorSharePercentage,
-      updateSalaryRepaymentPercentage,
-      updateGraceTotalProfitPercentage,
-      updateGraceInvestorSharePercentage,
-      updateTrialPeriod,
-      addSupportTicket,
-      deleteSupportTicket,
-      replyToSupportTicket,
-      addBorrower,
-      updateBorrower,
-      updateBorrowerPaymentStatus,
-      updateInstallmentStatus,
-      handlePartialPayment,
-      approveBorrower,
-      rejectBorrower,
-      deleteBorrower,
-      addInvestor,
-      addNewSubordinateUser,
-      updateInvestor,
-      approveInvestor,
-      rejectInvestor,
-      addInvestorTransaction,
-      updateUserIdentity,
-      updateUserCredentials,
-      updateUserStatus,
-      updateUserRole,
-      updateUserLimits,
-      updateManagerSettings,
-      updateAssistantPermission,
-      updateEmployeePermission,
-      requestCapitalIncrease,
-      deleteUser,
-      clearUserNotifications,
-      markUserNotificationsAsRead,
-      markBorrowerAsNotified,
-      markInvestorAsNotified,
-    ]
-  );
-
-  const state: DataState = useMemo(
-    () => ({
-      currentUser,
-      visibleUsers,
-      session,
-      authLoading,
-      ...data,
-    }),
-    [currentUser, visibleUsers, session, authLoading, data]
-  );
-  
-  if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
-  
-  return (
-    <DataStateContext.Provider value={state}>
-      <DataActionsContext.Provider value={actions}>
-        {children}
-      </DataActionsContext.Provider>
-    </DataStateContext.Provider>
-  );
-}
-
-export function useDataState() {
-  const context = useContext(DataStateContext);
-  if (context === undefined) {
-    throw new Error('useDataState must be used within a DataProvider');
-  }
-  return context;
-}
-
-export function useDataActions() {
-  const context = useContext(DataActionsContext);
-  if (context === undefined) {
-    throw new Error('useDataActions must be used within a DataProvider');
-  }
-  return context;
-}

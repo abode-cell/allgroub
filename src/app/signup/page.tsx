@@ -11,11 +11,13 @@ import { Loader2, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
+import { useRouter } from 'next/navigation';
 
 
 export default function SignUpPage() {
   const { registerNewOfficeManager } = useDataActions();
   const { toast } = useToast();
+  const router = useRouter();
   
   const [name, setName] = useState('');
   const [officeName, setOfficeName] = useState('');
@@ -49,6 +51,7 @@ export default function SignUpPage() {
             title: 'نجاح!',
             description: result.message,
         });
+        router.push('/login');
     } else {
       setError(result.message);
     }

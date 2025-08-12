@@ -87,7 +87,7 @@ export function InvestorsTable({
   borrowers,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { currentUser, users, visibleUsers, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage } = useDataState();
+  const { currentUser, users, visibleUsers, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage, transactions } = useDataState();
   const { updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified, deleteUser } = useDataActions();
   const { toast } = useToast();
   const role = currentUser?.role;
@@ -121,13 +121,14 @@ export function InvestorsTable({
   
   const investorsWithFinancials = useMemo(() => {
     return investors.map(investor => {
-        const financials = calculateInvestorFinancials(investor, borrowers);
+        const investorTransactions = transactions.filter(t => t.investor_id === investor.id);
+        const financials = calculateInvestorFinancials(investor, borrowers, investorTransactions);
         return {
             ...investor,
             ...financials,
         };
     });
-  }, [investors, borrowers]);
+  }, [investors, borrowers, transactions]);
 
   const availableWithdrawalSources = useMemo(() => {
     if (!selectedInvestor) return [];
@@ -173,9 +174,7 @@ export function InvestorsTable({
         return;
     }
     
-    // Calculate financial details for the message
-    const myFundedLoanIds = investor.fundedLoanIds || [];
-    const myFundedLoans = borrowers.filter(b => myFundedLoanIds.includes(b.id));
+    const myFundedLoans = borrowers.filter(b => b.fundedBy?.some(f => f.investorId === investor.id));
     const totalProfits = myFundedLoans
         .filter(b => (b.status !== 'معلق' && b.status !== 'مرفوض'))
         .reduce((sum, loan) => {
@@ -195,7 +194,8 @@ export function InvestorsTable({
           return sum + profitForInvestor;
         }, 0);
         
-    const financials = calculateInvestorFinancials(investor, borrowers);
+    const investorTransactions = transactions.filter(t => t.investor_id === investor.id);
+    const financials = calculateInvestorFinancials(investor, borrowers, investorTransactions);
 
     setSelectedInvestor(investor);
     const defaultMessage = `مرحباً ${investor.name},\n\nهذا ملخص لأداء استثماراتك معنا:\n- إجمالي الأرباح المتوقعة: ${formatCurrency(totalProfits)}\n- إجمالي الأموال المتعثرة: ${formatCurrency(financials.defaultedFunds || 0)}\n- الرصيد الخامل المتاح: ${formatCurrency(financials.idleInstallmentCapital + financials.idleGraceCapital)}\n\nنشكركم على ثقتكم،\nإدارة الموقع`;
@@ -511,7 +511,8 @@ export function InvestorsTable({
             </DialogDescription>
           </DialogHeader>
           {selectedInvestor && (() => {
-            const financials = calculateInvestorFinancials(selectedInvestor, borrowers);
+            const investorTransactions = transactions.filter(t => t.investor_id === selectedInvestor.id);
+            const financials = calculateInvestorFinancials(selectedInvestor, borrowers, investorTransactions);
             const userDetails = visibleUsers.find(u => u.id === selectedInvestor.id);
 
             return (
@@ -582,8 +583,8 @@ export function InvestorsTable({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {selectedInvestor.transactionHistory && selectedInvestor.transactionHistory.length > 0 ? (
-                                    selectedInvestor.transactionHistory
+                                {investorTransactions && investorTransactions.length > 0 ? (
+                                    investorTransactions
                                         .slice()
                                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                                         .map(tx => (
@@ -793,5 +794,3 @@ export function InvestorsTable({
     </>
   );
 }
-
-    

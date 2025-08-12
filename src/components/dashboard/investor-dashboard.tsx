@@ -12,10 +12,15 @@ import { useMemo } from 'react';
 import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
 
 export function InvestorDashboard() {
-  const { currentUser, investors, borrowers, graceTotalProfitPercentage, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
+  const { currentUser, investors, borrowers, transactions, graceTotalProfitPercentage, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
 
   // Fetch data for the logged-in investor
   const investor = useMemo(() => investors.find(i => i.id === currentUser?.id), [investors, currentUser]);
+  const investorTransactions = useMemo(() => transactions.filter(t => t.investor_id === investor?.id), [transactions, investor]);
+  const myFundedLoans = useMemo(() => {
+    if (!investor) return [];
+    return borrowers.filter(b => b.fundedBy?.some(f => f.investorId === investor.id))
+  }, [borrowers, investor]);
 
   const {
     totalInvestment,
@@ -26,7 +31,7 @@ export function InvestorDashboard() {
       if (!investor) {
           return { totalInvestment: 0, defaultedFunds: 0, activeInvestment: 0, idleFunds: 0 };
       }
-      const financials = calculateInvestorFinancials(investor, borrowers);
+      const financials = calculateInvestorFinancials(investor, myFundedLoans, investorTransactions);
       
       return { 
           totalInvestment: financials.totalCapitalInSystem, 
@@ -34,18 +39,14 @@ export function InvestorDashboard() {
           activeInvestment: financials.activeCapital,
           idleFunds: financials.idleInstallmentCapital + financials.idleGraceCapital
       };
-  }, [investor, borrowers]);
+  }, [investor, myFundedLoans, investorTransactions]);
 
   const totalProfits = useMemo(() => {
     if (!investor) return 0;
-
-    const myFundedLoanIds = investor.fundedLoanIds || [];
-    const myFundedLoans = borrowers.filter(b => 
-      myFundedLoanIds.includes(b.id) &&
-      (b.status !== 'معلق' && b.status !== 'مرفوض')
-    );
-      
-    return myFundedLoans.reduce((sum, loan) => {
+    
+    return myFundedLoans
+      .filter(b => b.status !== 'معلق' && b.status !== 'مرفوض')
+      .reduce((sum, loan) => {
         const fundingDetails = loan.fundedBy?.find(f => f.investorId === investor.id);
         if (!fundingDetails) return sum;
 
@@ -62,7 +63,7 @@ export function InvestorDashboard() {
 
         return sum + profitForInvestor;
     }, 0);
-  }, [investor, borrowers, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+  }, [investor, myFundedLoans, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
 
   if (!investor) {
@@ -78,8 +79,6 @@ export function InvestorDashboard() {
       </div>
     );
   }
-
-  const transactionHistory = investor.transactionHistory || [];
 
   return (
     <div className="flex flex-col flex-1">
@@ -137,7 +136,7 @@ export function InvestorDashboard() {
                         <CardDescription>قائمة بآخر المبالغ المسحوبة من حسابك.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {transactionHistory.length > 0 ? (
+                        {investorTransactions.length > 0 ? (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -147,7 +146,7 @@ export function InvestorDashboard() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {transactionHistory
+                                    {investorTransactions
                                         .filter(tx => tx.type.includes('سحب'))
                                         .slice(0, 5).map(w => (
                                         <TableRow key={w.id}>

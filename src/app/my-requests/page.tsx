@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
-import type { Borrower, Investor } from '@/lib/types';
+import type { Borrower, Investor, Transaction } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/utils';
 
@@ -43,7 +43,7 @@ const getStatusText = (status: Borrower['status'] | Investor['status']) => {
 }
 
 export default function MyRequestsPage() {
-  const { borrowers, investors, currentUser } = useDataState();
+  const { borrowers, investors, currentUser, transactions } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;
@@ -69,9 +69,9 @@ export default function MyRequestsPage() {
     return <PageSkeleton />;
   }
   
-  const getInvestorInitialCapital = (investor: Investor): number => {
-    const capitalDeposit = investor.transactionHistory?.find(
-      (tx) => tx.type === 'إيداع رأس المال' && tx.description.includes('تأسيسي')
+  const getInvestorInitialCapital = (investorId: string): number => {
+    const capitalDeposit = transactions.find(
+      (tx) => tx.investor_id === investorId && tx.description.includes('تأسيسي')
     );
     return capitalDeposit?.amount || 0;
   };
@@ -153,7 +153,7 @@ export default function MyRequestsPage() {
                     myInvestorRequests.map((investor) => (
                       <TableRow key={investor.id}>
                         <TableCell className="font-medium">{investor.name}</TableCell>
-                        <TableCell>{formatCurrency(getInvestorInitialCapital(investor))}</TableCell>
+                        <TableCell>{formatCurrency(getInvestorInitialCapital(investor.id))}</TableCell>
                         <TableCell className="text-center">
                            <Badge variant={statusVariant[investor.status] || 'outline'}>
                                 {getStatusText(investor.status)}

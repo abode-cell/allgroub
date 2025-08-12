@@ -31,7 +31,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import type { Borrower, Investor } from '@/lib/types';
+import type { Borrower, Investor, Transaction } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -81,6 +81,7 @@ export default function RequestsPage() {
     investors: allInvestors, 
     users,
     currentUser,
+    transactions,
   } = useDataState();
   const {
     approveBorrower, 
@@ -137,7 +138,6 @@ export default function RequestsPage() {
       rejectInvestor(itemToReject.id, rejectionReason);
     }
     
-    // Reset state
     setIsRejectDialogOpen(false);
     setRejectionReason('');
     setItemToReject(null);
@@ -146,7 +146,7 @@ export default function RequestsPage() {
   const handleApproveClick = (loan: Borrower) => {
     setLoanToApprove(loan);
     setIsApproveDialogOpen(true);
-    setSelectedInvestors([]); // Reset selections
+    setSelectedInvestors([]);
   };
 
   const proceedToApproveBorrower = (investorIds: string[]) => {
@@ -176,7 +176,8 @@ export default function RequestsPage() {
       const totalAvailableFromSelected = investors
         .filter(inv => selectedInvestors.includes(inv.id))
         .reduce((sum, inv) => {
-            const financials = calculateInvestorFinancials(inv, borrowers);
+            const investorTransactions = transactions.filter(t => t.investor_id === inv.id);
+            const financials = calculateInvestorFinancials(inv, borrowers, investorTransactions);
             const available = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
             return sum + available;
         }, 0);
@@ -194,7 +195,8 @@ export default function RequestsPage() {
     if (!loanToApprove) return [];
     return investors
       .map(investor => {
-        const financials = calculateInvestorFinancials(investor, borrowers);
+        const investorTransactions = transactions.filter(t => t.investor_id === investor.id);
+        const financials = calculateInvestorFinancials(investor, borrowers, investorTransactions);
         const capital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
         return {
           ...investor,
@@ -205,7 +207,7 @@ export default function RequestsPage() {
         i.status === 'نشط' && 
         i.availableCapital > 0
       );
-  }, [investors, borrowers, loanToApprove]);
+  }, [investors, borrowers, loanToApprove, transactions]);
 
 
   const getStatusForBorrower = (borrower: Borrower) => {
@@ -346,10 +348,12 @@ export default function RequestsPage() {
                   </TableHeader>
                   <TableBody>
                     {investorRequests.length > 0 ? (
-                      investorRequests.map((investor) => (
+                      investorRequests.map((investor) => {
+                        const investorTransactions = transactions.filter(t => t.investor_id === investor.id);
+                        return (
                         <TableRow key={investor.id}>
                           <TableCell className="font-medium">{investor.name}</TableCell>
-                          <TableCell>{formatCurrency(investor.transactionHistory.find(tx => tx.description.includes('تأسيسي'))?.amount ?? 0)}</TableCell>
+                          <TableCell>{formatCurrency(investorTransactions.find(tx => tx.description.includes('تأسيسي'))?.amount ?? 0)}</TableCell>
                           <TableCell className="text-center">
                             {getStatusForInvestor(investor)}
                           </TableCell>
@@ -372,7 +376,7 @@ export default function RequestsPage() {
                             )}
                           </TableCell>
                         </TableRow>
-                      ))
+                      )})
                     ) : (
                       <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center">
