@@ -35,12 +35,12 @@ import type { SupabaseClient, Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { PageLoader } from '@/components/page-loader';
 
 type DataContextValue = {
   currentUser: User | undefined;
   session: Session | null;
   authLoading: boolean;
+  dataLoading: boolean;
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
@@ -141,7 +141,7 @@ type DataContextValue = {
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
 
-const initialDataState: Omit<DataContextValue, keyof DataContextValue> = {
+const initialDataState: Omit<DataContextValue, keyof Omit<DataContextValue, keyof any>> = {
   borrowers: [],
   investors: [],
   users: [],
@@ -175,19 +175,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
-  if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
+  // This is the core fix: `useState` initializes with a function that runs only once.
+  const [supabase] = useState(() => {
+    if (!supabaseUrl || !supabaseKey) return null;
+    return createBrowserClient(supabaseUrl, supabaseKey);
+  });
   
-  const [supabase] = useState(() => createBrowserClient(supabaseUrl, supabaseKey));
-  
-  const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof Omit<DataContextValue, keyof typeof initialDataState>>);
+  const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof any>);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
-
+  
   const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
     setDataLoading(true);
     try {
@@ -270,6 +270,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   
   useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      setDataLoading(false);
+      return;
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -327,6 +333,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [currentUser, data.users]);
 
   const signIn = useCallback(async (email: string, password?: string) => {
+    if (!supabase) return { success: false, message: "خدمة المصادقة غير متاحة." };
     if (!password) return { success: false, message: "بيانات غير مكتملة." };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -342,11 +349,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [supabase, router]);
 
   const signOutUser = useCallback(async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     router.push('/login');
   },[supabase, router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+    if (!supabase) return { success: false, message: "خدمة المصادقة غير متاحة." };
     const { email, password, phone, name, officeName } = payload;
     if (!password) return { success: false, message: "كلمة المرور مطلوبة." };
     
@@ -1227,7 +1236,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const updateUserIdentity = useCallback(
     async (updates: Partial<User>): Promise<{ success: boolean; message: string }> => {
-        if (!currentUser) {
+        if (!currentUser || !supabase) {
           return { success: false, message: 'فشل: لم يتم العثور على المستخدم.' };
         }
         
@@ -1570,7 +1579,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
       currentUser,
       session,
-      authLoading: authLoading || dataLoading,
+      authLoading,
+      dataLoading,
       ...data,
       visibleUsers,
       signIn,
@@ -1633,6 +1643,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markInvestorAsNotified
   ]);
   
+  if (!supabaseUrl || !supabaseKey) {
+    return <EnvError />;
+  }
+
   return (
     <DataContext.Provider value={value}>
         {children}
@@ -1647,5 +1661,3 @@ export function useDataState() {
   }
   return context;
 }
-
-    

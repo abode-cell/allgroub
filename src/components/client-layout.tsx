@@ -8,7 +8,7 @@ import React, { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
-  const { session, authLoading } = useDataState();
+  const { session, authLoading, dataLoading } = useDataState();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -27,7 +27,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }, [session, authLoading, isPublicPage, isAuthPage, pathname, router]);
 
 
-  if (authLoading && !isPublicPage) {
+  if ((authLoading || dataLoading) && !isPublicPage) {
     return <PageLoader />;
   }
 
