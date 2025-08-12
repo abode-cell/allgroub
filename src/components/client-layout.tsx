@@ -22,6 +22,5 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // For non-authenticated users, just render the content of public pages
   return <main>{children}</main>;
 }
