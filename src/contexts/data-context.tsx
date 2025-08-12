@@ -35,7 +35,7 @@ import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
 import { isPast } from 'date-fns';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { PageLoader } from '@/components/page-loader';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -186,13 +186,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
+  const supabase = useMemo(() => {
+    if (!supabaseUrl || !supabaseKey) {
+        return null;
+    }
+    return createBrowserClient(supabaseUrl, supabaseKey);
+  }, [supabaseUrl, supabaseKey]);
+  
   if (!supabaseUrl || !supabaseKey) {
     return <EnvError />;
   }
-  
-  const supabase = useMemo(() => {
-    return createBrowserClient(supabaseUrl, supabaseKey);
-  }, [supabaseUrl, supabaseKey]);
   
 
   const fetchData = useCallback(async () => {
@@ -270,35 +273,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   
   useEffect(() => {
+    if (!supabase) return;
+
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
         setAuthLoading(false);
-        
-        if (event === 'SIGNED_IN' && session) {
-            await fetchData();
-        } else if (event === 'SIGNED_OUT') {
-            setData(initialDataState);
-        }
       }
     );
-
-    const checkInitialSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        if (session) {
-            await fetchData();
-        }
-        setAuthLoading(false);
-    };
-
-    checkInitialSession();
-
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, fetchData]);
+  }, [supabase]);
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -339,9 +326,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
+    await fetchData();
     router.push('/dashboard');
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
-  }, [supabase, router]);
+  }, [supabase, router, fetchData]);
 
   const signOutUser = useCallback(async () => {
     if (supabase) {
@@ -2042,7 +2030,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, visibleUsers, session, authLoading, data]
   );
   
-  if (dataLoading) {
+  if (dataLoading && authLoading) {
       return <PageLoader />;
   }
 
