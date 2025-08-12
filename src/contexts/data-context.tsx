@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -141,7 +142,23 @@ type DataContextValue = {
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
 
-const initialDataState: Omit<DataContextValue, keyof Omit<DataContextValue, keyof any>> = {
+type InitialDataState = Pick<DataContextValue, 
+  | 'borrowers' 
+  | 'investors' 
+  | 'users' 
+  | 'transactions' 
+  | 'supportTickets' 
+  | 'notifications' 
+  | 'salaryRepaymentPercentage' 
+  | 'baseInterestRate' 
+  | 'investorSharePercentage' 
+  | 'graceTotalProfitPercentage' 
+  | 'graceInvestorSharePercentage' 
+  | 'supportEmail' 
+  | 'supportPhone'
+>;
+
+const initialDataState: InitialDataState = {
   borrowers: [],
   investors: [],
   users: [],
@@ -172,7 +189,7 @@ const EnvError = () => (
 
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof any>);
+  const [data, setData] = useState(initialDataState);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
@@ -272,7 +289,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               fetchData(client);
           }
           if (event === 'SIGNED_OUT') {
-              setData(initialDataState as any);
+              setData(initialDataState);
           }
           setAuthLoading(false);
       });
