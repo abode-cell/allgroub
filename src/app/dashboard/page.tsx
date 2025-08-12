@@ -9,7 +9,7 @@ import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
 import { useDataState } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { Borrower, Investor, User, UserRole, SupportTicket } from '@/lib/types';
+import type { Borrower, Investor, User, UserRole, SupportTicket, Transaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -35,6 +35,7 @@ interface CalculationInput {
     borrowers: Borrower[];
     investors: Investor[];
     users: User[];
+    transactions: Transaction[];
     currentUser: User;
     supportTickets: SupportTicket[];
     config: {
@@ -349,7 +350,7 @@ function calculateGracePeriodMetrics(borrowers: Borrower[], investors: Investor[
     };
 }
 
-function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBorrowers: Borrower[], supportTickets: SupportTicket[]) {
+function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBorrowers: Borrower[], allTransactions: Transaction[], supportTickets: SupportTicket[]) {
     const officeManagers = users.filter(u => u.role === 'مدير المكتب');
     const userMap = new Map(users.map(u => [u.id, u]));
     const officeManagerIds = new Set(officeManagers.map(m => m.id));
@@ -363,7 +364,7 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBo
     });
 
     const { totalCapital, installmentCapital, graceCapital } = relevantInvestors.reduce((acc, investor) => {
-        const financials = calculateInvestorFinancials(investor, allBorrowers);
+        const financials = calculateInvestorFinancials(investor, allBorrowers, allTransactions);
         acc.totalCapital += financials.totalCapitalInSystem;
         acc.installmentCapital += financials.idleInstallmentCapital;
         acc.graceCapital += financials.idleGraceCapital;
@@ -387,11 +388,11 @@ function calculateSystemAdminMetrics(users: User[], investors: Investor[], allBo
     };
 }
 
-function calculateIdleFundsMetrics(investors: Investor[], relevantBorrowers: Borrower[]) {
+function calculateIdleFundsMetrics(investors: Investor[], relevantBorrowers: Borrower[], allTransactions: Transaction[]) {
     const idleInvestorsData = investors
         .filter(i => i.status === 'نشط')
         .map(investor => {
-            const financials = calculateInvestorFinancials(investor, relevantBorrowers);
+            const financials = calculateInvestorFinancials(investor, relevantBorrowers, allTransactions);
             return {
                 ...investor,
                 idleInstallmentCapital: financials.idleInstallmentCapital,
@@ -419,6 +420,7 @@ function calculateIdleFundsMetrics(investors: Investor[], relevantBorrowers: Bor
 const getDefaultMetrics = (): DashboardMetricsOutput => {
     const emptyBorrowers: Borrower[] = [];
     const emptyInvestors: Investor[] = [];
+    const emptyTransactions: Transaction[] = [];
     const emptyConfig = { investorSharePercentage: 0, graceTotalProfitPercentage: 0, graceInvestorSharePercentage: 0 };
 
     return {
@@ -437,19 +439,19 @@ const getDefaultMetrics = (): DashboardMetricsOutput => {
             capital: { total: 0, installments: 0, grace: 0, active: 0 },
             installments: calculateInstallmentsMetrics(emptyBorrowers, emptyInvestors, emptyConfig),
             gracePeriod: calculateGracePeriodMetrics(emptyBorrowers, emptyInvestors, emptyConfig),
-            idleFunds: calculateIdleFundsMetrics(emptyInvestors, emptyBorrowers),
+            idleFunds: calculateIdleFundsMetrics(emptyInvestors, emptyBorrowers, emptyTransactions),
         }
     };
 };
 
 function calculateAllDashboardMetrics(input: CalculationInput): DashboardMetricsOutput {
-    const { currentUser, users, investors, borrowers, supportTickets, config } = input;
+    const { currentUser, users, investors, borrowers, transactions, supportTickets, config } = input;
     const { role } = currentUser;
 
     const defaults = getDefaultMetrics();
 
     if (role === 'مدير النظام') {
-        const adminMetrics = calculateSystemAdminMetrics(users, investors, borrowers, supportTickets);
+        const adminMetrics = calculateSystemAdminMetrics(users, investors, borrowers, transactions, supportTickets);
         return {
             ...defaults,
             role: role,
@@ -471,7 +473,7 @@ function calculateAllDashboardMetrics(input: CalculationInput): DashboardMetrics
     const managerName = managerUser?.name || '';
 
     const capitalMetrics = filteredInvestors.reduce((acc, investor) => {
-        const financials = calculateInvestorFinancials(investor, filteredBorrowers);
+        const financials = calculateInvestorFinancials(investor, filteredBorrowers, transactions);
         acc.total += financials.totalCapitalInSystem;
         acc.installments += financials.idleInstallmentCapital;
         acc.grace += financials.idleGraceCapital;
@@ -500,7 +502,7 @@ function calculateAllDashboardMetrics(input: CalculationInput): DashboardMetrics
         capital: capitalMetrics,
         installments: calculateInstallmentsMetrics(filteredBorrowers, filteredInvestors, config),
         gracePeriod: calculateGracePeriodMetrics(filteredBorrowers, filteredInvestors, config),
-        idleFunds: calculateIdleFundsMetrics(filteredInvestors, filteredBorrowers),
+        idleFunds: calculateIdleFundsMetrics(filteredInvestors, filteredBorrowers, transactions),
     };
 
     return {
@@ -977,7 +979,7 @@ const SystemAdminDashboard = ({ metrics, onExport }: { metrics: AdminMetrics, on
 }
 
 export default function DashboardPage() {
-  const { currentUser, users, borrowers, investors, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, updateUserStatus } = useDataState();
+  const { currentUser, users, borrowers, investors, transactions, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, updateUserStatus } = useDataState();
   const [error, setError] = useState<string | null>(null);
 
   const metrics = useMemo(() => {
@@ -987,6 +989,7 @@ export default function DashboardPage() {
             borrowers,
             investors,
             users,
+            transactions,
             currentUser,
             supportTickets,
             config: {
@@ -1001,7 +1004,7 @@ export default function DashboardPage() {
         setError(`حدث خطأ أثناء حساب مقاييس لوحة التحكم: ${e.message}`);
         return null;
     }
-  }, [borrowers, investors, users, currentUser, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
+  }, [borrowers, investors, users, transactions, currentUser, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage]);
 
   useEffect(() => {
     if (!metrics && currentUser && !error) {

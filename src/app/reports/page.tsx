@@ -109,7 +109,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { borrowers: allBorrowers, investors: allInvestors, currentUser, visibleUsers: users } = useDataState();
+  const { borrowers: allBorrowers, investors: allInvestors, currentUser, visibleUsers: users, transactions } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;
@@ -197,9 +197,9 @@ export default function ReportsPage() {
   const investorsWithFinancials = useMemo(() => {
     return activeInvestors.map(investor => ({
       ...investor,
-      ...calculateInvestorFinancials(investor, borrowers),
+      ...calculateInvestorFinancials(investor, borrowers, transactions),
     }));
-  }, [activeInvestors, borrowers]);
+  }, [activeInvestors, borrowers, transactions]);
 
   const installmentLoans = useMemo(() => loansForReport.filter(b => b.loanType === 'اقساط'), [loansForReport]);
   const gracePeriodLoans = useMemo(() => loansForReport.filter(b => b.loanType === 'مهلة'), [loansForReport]);
@@ -269,7 +269,7 @@ export default function ReportsPage() {
   const handleExportSingleInvestor = (investor: Investor) => {
     if (!currentUser) return;
 
-    const financials = calculateInvestorFinancials(investor, borrowers);
+    const financials = calculateInvestorFinancials(investor, borrowers, transactions);
     const { 
         totalInstallmentCapital, totalGraceCapital,
         activeInstallmentCapital, activeGraceCapital,
@@ -468,7 +468,7 @@ export default function ReportsPage() {
                                     <p className="flex justify-between"><span>الأموال المتعثرة:</span> <span className='font-bold text-destructive'>{formatCurrency(defaultedInstallmentFunds)}</span></p>
                                 </div>
                                 <div className="p-3 rounded-md border bg-background shadow-sm space-y-1">
-                                    <h5 className="font-semibold text-center pb-2 border-b">محفظة المهلة</h5>
+                                     <h5 className="font-semibold text-center pb-2 border-b">محفظة المهلة</h5>
                                     <p className="flex justify-between"><span>إجمالي رأس المال:</span> <span className='font-bold'>{formatCurrency(totalGraceCapital)}</span></p>
                                     <p className="flex justify-between"><span>الأموال النشطة:</span> <span className='font-bold text-green-600'>{formatCurrency(activeGraceCapital)}</span></p>
                                     <p className="flex justify-between"><span>الأموال الخاملة:</span> <span className='font-bold'>{formatCurrency(idleGraceCapital)}</span></p>
