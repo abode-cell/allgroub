@@ -198,3 +198,5 @@ export const calculateInvestorFinancials = (investor: Investor, allBorrowers: Bo
     defaultedFunds: defaultedInstallmentFunds + defaultedGraceFunds,
   };
 };
+
+    

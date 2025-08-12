@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useDataState } from '@/contexts/data-context';
@@ -41,3 +42,5 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   
   return <>{children}</>;
 }
+
+    

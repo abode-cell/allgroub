@@ -175,23 +175,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
-  const [supabase] = useState(() => {
-    if (supabaseUrl && supabaseKey) {
-      return createBrowserClient(supabaseUrl, supabaseKey);
-    }
-    return null;
-  });
-  
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof any>);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
+  const [envError, setEnvError] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   
+  useEffect(() => {
     if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
+        setEnvError(true);
+        setAuthLoading(false);
+        setDataLoading(false);
+        return;
+    }
+    setSupabase(createBrowserClient(supabaseUrl, supabaseKey));
+  }, [supabaseUrl, supabaseKey]);
+
   
   const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
     setDataLoading(true);
@@ -276,8 +278,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   useEffect(() => {
     if (!supabase) {
-      setAuthLoading(false);
-      setDataLoading(false);
+      if (!envError) { // Only run this logic if env vars were not the issue
+          setAuthLoading(false);
+          setDataLoading(false);
+      }
       return;
     }
 
@@ -307,7 +311,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, fetchData]);
+  }, [supabase, fetchData, envError]);
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -1648,6 +1652,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markInvestorAsNotified
   ]);
   
+  if (envError) {
+    return <EnvError />;
+  }
+
   return (
     <DataContext.Provider value={value}>
         {children}
@@ -1660,7 +1668,7 @@ export function useDataState() {
   if (context === undefined) {
     throw new Error('useDataState must be used within a DataProvider');
   }
-  const { signIn, registerNewOfficeManager, ...rest } = context;
+  const { signIn, registerNewOfficeManager, signOutUser, ...rest } = context;
   return rest;
 }
 
