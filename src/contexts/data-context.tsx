@@ -186,11 +186,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
-  if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
-
   const supabase = useMemo(() => {
+    if (!supabaseUrl || !supabaseKey) {
+      return null;
+    }
     return createBrowserClient(supabaseUrl, supabaseKey);
   }, [supabaseUrl, supabaseKey]);
 
@@ -311,7 +310,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, [supabase, fetchData]);
-
+  
+  if (!supabaseUrl || !supabaseKey) {
+    return <EnvError />;
+  }
 
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
