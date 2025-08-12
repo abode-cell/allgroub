@@ -1360,10 +1360,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      setData(d => {
-        const userToUpdate = d.users.find(u => u.id === userId);
-        if (!userToUpdate) return d;
+      const supabase = getSupabaseBrowserClient();
+      const userToUpdate = data.users.find(u => u.id === userId);
+      if (!userToUpdate) return;
+      
+      // Update users table
+      const { error: userError } = await supabase
+        .from('users')
+        .update({ status: status })
+        .eq('id', userId);
         
+      if (userError) {
+        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حالة المستخدم في قاعدة البيانات." });
+        console.error("Error updating user status:", userError);
+        return;
+      }
+
+      // If user is an investor, update investors table too
+      if (userToUpdate.role === 'مستثمر') {
+        const investorStatus: Investor['status'] = status === 'محذوف' ? 'محذوف' : (status === 'نشط' ? 'نشط' : 'غير نشط');
+        const { error: investorError } = await supabase
+          .from('investors')
+          .update({ status: investorStatus })
+          .eq('id', userId);
+          
+        if (investorError) {
+            toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حالة المستثمر في قاعدة البيانات." });
+            console.error("Error updating investor status:", investorError);
+            // Optionally, revert the user status change here.
+            return;
+        }
+      }
+      
+      // Optimistically update local state after successful db updates
+      setData(d => {
         const newUsers = d.users.map(u => (u.id === userId ? { ...u, status } : u));
         let newInvestors = d.investors;
         if(userToUpdate.role === 'مستثمر') {
@@ -1375,7 +1405,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { ...d, users: newUsers, investors: newInvestors };
       });
     },
-    [currentUser, toast]
+    [currentUser, data.users, toast]
   );
   
   const updateUserRole = useCallback((userId: string, role: UserRole) => {
