@@ -165,13 +165,13 @@ const initialDataState: InitialDataState = {
   transactions: [],
   supportTickets: [],
   notifications: [],
-  salaryRepaymentPercentage: 30,
-  baseInterestRate: 5.5,
-  investorSharePercentage: 70,
-  graceTotalProfitPercentage: 30,
-  graceInvestorSharePercentage: 33.3,
-  supportEmail: 'qzmpty678@gmail.com',
-  supportPhone: '0598360380',
+  salaryRepaymentPercentage: 0,
+  baseInterestRate: 0,
+  investorSharePercentage: 0,
+  graceTotalProfitPercentage: 0,
+  graceInvestorSharePercentage: 0,
+  supportEmail: '',
+  supportPhone: '',
 };
 
 const EnvError = () => (
@@ -255,13 +255,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             transactions: transactionsRes.data || [],
             notifications: notificationsRes.data || [],
             supportTickets: supportTicketsRes.data || [],
-            salaryRepaymentPercentage: configData.salaryRepaymentPercentage ?? initialDataState.salaryRepaymentPercentage,
-            baseInterestRate: configData.baseInterestRate ?? initialDataState.baseInterestRate,
-            investorSharePercentage: configData.investorSharePercentage ?? initialDataState.investorSharePercentage,
-            graceTotalProfitPercentage: configData.graceTotalProfitPercentage ?? initialDataState.graceTotalProfitPercentage,
-            graceInvestorSharePercentage: configData.graceInvestorSharePercentage ?? initialDataState.graceInvestorSharePercentage,
-            supportEmail: configData.supportEmail ?? initialDataState.supportEmail,
-            supportPhone: configData.supportPhone ?? initialDataState.supportPhone,
+            salaryRepaymentPercentage: configData.salaryRepaymentPercentage ?? 0,
+            baseInterestRate: configData.baseInterestRate ?? 0,
+            investorSharePercentage: configData.investorSharePercentage ?? 0,
+            graceTotalProfitPercentage: configData.graceTotalProfitPercentage ?? 0,
+            graceInvestorSharePercentage: configData.graceInvestorSharePercentage ?? 0,
+            supportEmail: configData.supportEmail ?? '',
+            supportPhone: configData.supportPhone ?? '',
         });
 
     } catch (error: any) {
