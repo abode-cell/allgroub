@@ -15,28 +15,36 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const isPublicPage = ['/login', '/signup', '/'].includes(pathname);
 
   useEffect(() => {
-    if (!authLoading && !session && !isPublicPage) {
+    if (authLoading) {
+      return; // Do nothing while loading
+    }
+    if (!session && !isPublicPage) {
       router.replace('/login');
     }
-  }, [authLoading, session, isPublicPage, router]);
+    if(session && isPublicPage) {
+        router.replace('/dashboard');
+    }
+  }, [authLoading, session, isPublicPage, router, pathname]);
 
   if (authLoading) {
     return <PageLoader />;
   }
-
+  
   if (!session && !isPublicPage) {
     return <PageLoader />;
   }
 
   if (session && isPublicPage) {
-    router.replace('/dashboard');
     return <PageLoader />;
   }
   
+  // If we reach here, we are in a valid state to render the children.
   if (isPublicPage) {
+    // Not logged in, on a public page
     return <main>{children}</main>;
   }
 
+  // Logged in, on a protected page
   return (
     <div className="flex flex-col min-h-screen bg-muted/40">
       <AppHeader />

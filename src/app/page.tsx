@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Phone, Rocket, TrendingUp, Handshake, ShieldCheck } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { useDataState } from '@/contexts/data-context';
 
 export default function LandingPage() {
-    const { supportEmail, supportPhone } = useDataState();
+    // These values are hardcoded for the landing page for now.
+    const supportEmail = 'qzmpty678@gmail.com';
+    const supportPhone = '0598360380';
 
     return (
         <div className="flex flex-col min-h-screen bg-background text-foreground">

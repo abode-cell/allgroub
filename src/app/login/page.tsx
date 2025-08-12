@@ -35,7 +35,7 @@ export default function LoginPage() {
     const result = await signIn(email, password);
 
     if (result.success) {
-      router.replace('/dashboard');
+      // The client-layout will handle the redirect
     } else {
       setError(result.message);
       setIsLoading(false);
