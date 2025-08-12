@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import type { Investor, Transaction, TransactionType, WithdrawalMethod, UpdatableInvestor, NewInvestorPayload, Borrower } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -87,8 +87,7 @@ export function InvestorsTable({
   borrowers,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { currentUser, users, visibleUsers, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage, transactions } = useDataState();
-  const { updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified, deleteUser } = useDataActions();
+  const { currentUser, users, visibleUsers, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage, transactions, updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified, deleteUser } = useDataState();
   const { toast } = useToast();
   const role = currentUser?.role;
 

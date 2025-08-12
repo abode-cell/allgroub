@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import { useState } from 'react';
-import { useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import { useRouter } from 'next/navigation';
 
 
 export default function SignUpPage() {
-  const { registerNewOfficeManager } = useDataActions();
+  const { registerNewOfficeManager } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
   

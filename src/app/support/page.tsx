@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -15,12 +16,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Inbox, Loader2, Send, Mail, Phone } from 'lucide-react';
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import Link from 'next/link';
 
 export default function SupportPage() {
-  const { currentUser, supportEmail, supportPhone } = useDataState();
-  const { addSupportTicket } = useDataActions();
+  const { currentUser, supportEmail, supportPhone, addSupportTicket } = useDataState();
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');

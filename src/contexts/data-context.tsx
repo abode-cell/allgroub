@@ -30,14 +30,14 @@ import type {
 } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
-import { createBrowserClient } from '@/lib/supabase/client';
-import type { Session } from '@supabase/supabase-js';
+import { createBrowserClient as createSupabaseClient } from '@/lib/supabase/client';
+import type { SupabaseClient, Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PageLoader } from '@/components/page-loader';
 
-type DataState = {
+type DataContextValue = {
   currentUser: User | undefined;
   session: Session | null;
   authLoading: boolean;
@@ -138,9 +138,10 @@ type DataState = {
   markInvestorAsNotified: (investorId: string, message: string) => void;
 };
 
-const DataContext = createContext<DataState | undefined>(undefined);
 
-const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'session' | 'authLoading' | keyof Omit<DataState, 'session' | 'authLoading'>> = {
+const DataContext = createContext<DataContextValue | undefined>(undefined);
+
+const initialDataState: Omit<DataContextValue, keyof DataContextValue> = {
   borrowers: [],
   investors: [],
   users: [],
@@ -174,11 +175,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
-  if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
-
-  const [data, setData] = useState(initialDataState);
+  const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof Omit<DataContextValue, keyof typeof initialDataState>>);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
@@ -186,15 +183,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   
   const supabase = useMemo(() => {
-    return createBrowserClient(supabaseUrl, supabaseKey);
+    if (!supabaseUrl || !supabaseKey) return null;
+    return createSupabaseClient(supabaseUrl, supabaseKey);
   }, [supabaseUrl, supabaseKey]);
 
-  const fetchData = useCallback(async () => {
-    if (!supabase) return;
-    
+  const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
     setDataLoading(true);
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabaseClient.auth.getUser();
 
         if (!user) {
             setDataLoading(false);
@@ -204,14 +200,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const [
             usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes, transactionsRes, branchesRes
         ] = await Promise.all([
-            supabase.from('users').select('*'),
-            supabase.from('investors').select('*'),
-            supabase.from('borrowers').select('*, installments:borrower_installments(borrower_id, month, status), fundedBy:borrower_funders(borrower_id, investor_id, amount)'),
-            supabase.from('notifications').select('*'),
-            supabase.from('support_tickets').select('*'),
-            supabase.from('app_config').select('*'),
-            supabase.from('transactions').select('*'),
-            supabase.from('branches').select('*')
+            supabaseClient.from('users').select('*'),
+            supabaseClient.from('investors').select('*'),
+            supabaseClient.from('borrowers').select('*, installments:borrower_installments(borrower_id, month, status), fundedBy:borrower_funders(borrower_id, investor_id, amount)'),
+            supabaseClient.from('notifications').select('*'),
+            supabaseClient.from('support_tickets').select('*'),
+            supabaseClient.from('app_config').select('*'),
+            supabaseClient.from('transactions').select('*'),
+            supabaseClient.from('branches').select('*')
         ]);
 
         if (usersRes.error) throw usersRes.error;
@@ -269,7 +265,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } finally {
       setDataLoading(false);
     }
-  }, [supabase, toast]);
+  }, [toast]);
   
   
   useEffect(() => {
@@ -284,10 +280,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((event, session) => {
         setSession(session);
         if (event === 'SIGNED_IN') {
-            fetchData();
+            fetchData(supabase);
         }
         if (event === 'SIGNED_OUT') {
-            setData(initialDataState);
+            setData(initialDataState as any);
         }
         setAuthLoading(false);
     });
@@ -296,7 +292,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setAuthLoading(false);
         if (session) {
-            fetchData();
+            fetchData(supabase);
         } else {
             setDataLoading(false);
         }
@@ -388,7 +384,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'فشل في إنشاء الحساب، لم يتم إرجاع بيانات المستخدم من نظام المصادقة.' };
     }
 
-    await fetchData();
+    await fetchData(supabase);
     return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
   }, [supabase, fetchData]);
   
@@ -1447,7 +1443,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           subject,
           message
       });
-  }, [currentUser, data.investors, data.users, toast]);
+  }, [currentUser, data.investors, data.users, toast, addSupportTicket]);
   
   const addBranch = useCallback(async (branch: Omit<Branch, 'id'>): Promise<{success: boolean, message: string}> => {
     let result = {success: false, message: 'فشل غير متوقع.'};
@@ -1580,25 +1576,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
   }, [toast]);
   
-  return (
-    <DataContext.Provider value={{
+  const value = useMemo(() => ({
       currentUser,
       session,
       authLoading: authLoading || dataLoading,
-      borrowers: data.borrowers,
-      investors: data.investors,
-      users: data.users,
-      transactions: data.transactions,
+      ...data,
       visibleUsers,
-      supportTickets: data.supportTickets,
-      notifications: data.notifications,
-      salaryRepaymentPercentage: data.salaryRepaymentPercentage,
-      baseInterestRate: data.baseInterestRate,
-      investorSharePercentage: data.investorSharePercentage,
-      graceTotalProfitPercentage: data.graceTotalProfitPercentage,
-      graceInvestorSharePercentage: data.graceInvestorSharePercentage,
-      supportEmail: data.supportEmail,
-      supportPhone: data.supportPhone,
       signIn,
       signOutUser,
       registerNewOfficeManager,
@@ -1642,8 +1625,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markUserNotificationsAsRead,
       markBorrowerAsNotified,
       markInvestorAsNotified,
-    }}>
-      {children}
+  }), [
+      currentUser, session, authLoading, dataLoading, data, visibleUsers,
+      signIn, signOutUser, registerNewOfficeManager, addBranch, deleteBranch,
+      updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage,
+      updateSalaryRepaymentPercentage, updateGraceTotalProfitPercentage,
+      updateGraceInvestorSharePercentage, updateTrialPeriod, addSupportTicket,
+      deleteSupportTicket, replyToSupportTicket, addBorrower, updateBorrower,
+      updateBorrowerPaymentStatus, approveBorrower, rejectBorrower, deleteBorrower,
+      updateInstallmentStatus, handlePartialPayment, addInvestor, addNewSubordinateUser,
+      updateInvestor, approveInvestor, rejectInvestor, addInvestorTransaction,
+      updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
+      updateUserLimits, updateManagerSettings, updateAssistantPermission,
+      updateEmployeePermission, requestCapitalIncrease, deleteUser,
+      clearUserNotifications, markUserNotificationsAsRead, markBorrowerAsNotified,
+      markInvestorAsNotified
+  ]);
+  
+  if (!supabaseUrl || !supabaseKey) {
+    return <EnvError />;
+  }
+
+  return (
+    <DataContext.Provider value={value}>
+        {children}
     </DataContext.Provider>
   );
 }
@@ -1654,4 +1659,14 @@ export function useDataState() {
     throw new Error('useDataState must be used within a DataProvider');
   }
   return context;
+}
+
+export function useDataActions() {
+    const context = useDataState();
+    return {
+        signIn: context.signIn,
+        signOutUser: context.signOutUser,
+        registerNewOfficeManager: context.registerNewOfficeManager,
+        addSupportTicket: context.addSupportTicket,
+    }
 }

@@ -70,6 +70,9 @@ export function AppHeader() {
       if (role === 'مساعد مدير المكتب') {
         return currentUser?.permissions?.[item.permission];
       }
+      if(role === 'موظف' && (item.permission === 'manageInvestors' || item.permission === 'manageBorrowers')) {
+         return true; // Employees have implicit permission for these two
+      }
     }
     // For other roles or items without a specific permission, show if role matches.
     return true;

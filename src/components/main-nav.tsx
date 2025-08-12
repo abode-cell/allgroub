@@ -39,14 +39,12 @@ export const allMenuItems: MenuItem[] = [
     label: 'المستثمرون',
     icon: PiggyBank,
     roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
-    permission: 'manageInvestors',
   },
   {
     href: '/borrowers',
     label: 'القروض',
     icon: Landmark,
     roles: ['مدير المكتب', 'مساعد مدير المكتب', 'موظف'],
-    permission: 'manageBorrowers',
   },
   {
     href: '/import',
