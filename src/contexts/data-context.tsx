@@ -1585,7 +1585,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
   }, [toast]);
   
-  if (!supabase) {
+  if (!supabaseUrl || !supabaseKey) {
     return <EnvError />;
   }
   
