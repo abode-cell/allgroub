@@ -37,6 +37,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 type DataState = {
   currentUser: User | undefined;
@@ -179,6 +180,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
   
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -265,22 +267,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+        setAuthLoading(false);
+        return;
+    }
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
         setSession(session);
         setAuthLoading(false);
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          await fetchData();
+          fetchData();
+        } else if (event === 'SIGNED_OUT') {
+          router.push('/login');
         }
       }
     );
 
     return () => {
-      authListener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, [supabase, fetchData]);
+  }, [supabase, fetchData, router]);
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -321,7 +328,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
-    // Redirect is handled by next.config.js and ClientLayout
+    // The ClientLayout will react to the session change and render the correct page.
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
   }, [supabase]);
 

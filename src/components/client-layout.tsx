@@ -26,15 +26,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     );
   }
   
-  if (!session && isPublicPage) {
-     return <main>{children}</main>;
-  }
-
-  // Fallback for edge cases (e.g., trying to access protected page while logged out)
-  // The redirects in next.config.js should handle this, but this is a safeguard.
-  if (!session && !isPublicPage) {
-    return <PageLoader />; // Show loader while redirecting
-  }
-
+  // For logged-out users, or logged-in users on a public page
   return <main>{children}</main>;
 }
