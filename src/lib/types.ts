@@ -62,6 +62,7 @@ export type User = {
   phone?: string;
   managedBy?: string | null;
   registrationDate?: string;
+  password?: string;
   
   // Trial Period Fields
   trialEndsAt?: string; // For Office Managers on trial
@@ -144,7 +145,6 @@ export type Investor = {
   isNotified?: boolean;
   installmentProfitShare?: number;
   gracePeriodProfitShare?: number;
-  transactionHistory: Transaction[];
 };
 
 export type UpdatableInvestor = Pick<
@@ -198,5 +198,3 @@ export type AddBorrowerResult = {
         managerPhone: string;
     }
 }
-
-    
