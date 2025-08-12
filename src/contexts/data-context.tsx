@@ -30,7 +30,6 @@ import type {
 } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
-import { isPast } from 'date-fns';
 import { createBrowserClient } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -176,13 +175,6 @@ const EnvError = () => (
 
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState(initialDataState);
-  const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(true);
-  const { toast } = useToast();
-  const router = useRouter();
-  
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
@@ -190,6 +182,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return <EnvError />;
   }
 
+  const [data, setData] = useState(initialDataState);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
+  const { toast } = useToast();
+  const router = useRouter();
+  
   const supabase = useMemo(() => {
     return createBrowserClient(supabaseUrl, supabaseKey);
   }, [supabaseUrl, supabaseKey]);

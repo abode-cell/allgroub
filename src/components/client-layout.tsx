@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useDataState } from '@/contexts/data-context';
@@ -15,36 +14,35 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const isPublicPage = ['/login', '/signup', '/'].includes(pathname);
 
   useEffect(() => {
-    if (authLoading) {
-      return; 
-    }
-    
-    if (!session && !isPublicPage) {
+    if (!authLoading && !session && !isPublicPage) {
       router.replace('/login');
     }
-    
-    if (session && isPublicPage) {
-      router.replace('/dashboard');
-    }
   }, [session, authLoading, isPublicPage, pathname, router]);
-
-
-  if (authLoading || (!session && !isPublicPage) || (session && isPublicPage)) {
+  
+  if (authLoading) {
     return <PageLoader />;
   }
   
-  if (!session && isPublicPage) {
-    return <main>{children}</main>;
+  if (!session && !isPublicPage) {
+    return <PageLoader />;
   }
 
-  if (session && !isPublicPage) {
-     return (
+  if (session && isPublicPage && pathname !== '/') {
+      router.replace('/dashboard');
+      return <PageLoader />;
+  }
+
+  // Render the appropriate layout based on session status
+  return (
+    <>
+      {session ? (
         <div className="flex flex-col min-h-screen bg-muted/40">
             <AppHeader />
             <main className="flex-1">{children}</main>
         </div>
-    );
-  }
-  
-  return <PageLoader />;
+      ) : (
+        <main>{children}</main>
+      )}
+    </>
+  );
 }
