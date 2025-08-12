@@ -172,14 +172,8 @@ const EnvError = () => (
 
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [supabase] = useState(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseKey) {
-        return null;
-    }
-    return createBrowserClient(supabaseUrl, supabaseKey);
-  });
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [envError, setEnvError] = useState(false);
   const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof any>);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -269,18 +263,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   
   useEffect(() => {
-    if (!supabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+        setEnvError(true);
         setAuthLoading(false);
         setDataLoading(false);
         return;
     }
 
+    const client = createBrowserClient(supabaseUrl, supabaseKey);
+    setSupabase(client);
+    
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = client.auth.onAuthStateChange((event, session) => {
         setSession(session);
         if (event === 'SIGNED_IN') {
-            fetchData(supabase);
+            fetchData(client);
         }
         if (event === 'SIGNED_OUT') {
             setData(initialDataState as any);
@@ -288,11 +289,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    client.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
         setAuthLoading(false);
         if (session) {
-            fetchData(supabase);
+            fetchData(client);
         } else {
             setDataLoading(false);
         }
@@ -301,7 +302,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, fetchData]);
+  }, [fetchData]);
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -1642,7 +1643,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markInvestorAsNotified,
   ]);
   
-  if (!supabase) {
+  if (envError) {
     return <EnvError />;
   }
 
