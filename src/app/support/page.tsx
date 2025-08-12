@@ -18,8 +18,7 @@ import { Inbox, Loader2, Send, Mail, Phone } from 'lucide-react';
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import Link from 'next/link';
 
-// This component now conditionally fetches data only when needed
-function SupportPageContent() {
+export default function SupportPage() {
   const { currentUser, supportEmail, supportPhone } = useDataState();
   const { addSupportTicket } = useDataActions();
   const { toast } = useToast();
@@ -165,19 +164,4 @@ function SupportPageContent() {
       </main>
     </div>
   );
-}
-
-export default function SupportPage() {
-  const { currentUser } = useDataState();
-  
-  // Conditionally render based on whether user data is needed and available.
-  // This prevents the component from breaking on the server or for logged-out users.
-  if (!currentUser) {
-    // A simplified view for logged-out users, avoiding hooks that need user data.
-    // In a real app, you might fetch support contact info differently for public pages.
-    return <SupportPageContent />;
-  }
-
-  // The full-featured component for logged-in users.
-  return <SupportPageContent />;
 }
