@@ -12,7 +12,14 @@ export const getSupabaseBrowserClient = (): SupabaseClient => {
       throw new Error('Supabase URL or anonymous key is not set. Check your .env file.');
     }
     
-    supabaseClient = originalCreateClient(supabaseUrl, supabaseKey);
+    supabaseClient = originalCreateClient(supabaseUrl, supabaseKey, {
+        auth: {
+            flowType: 'pkce',
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storageKey: 'supabase-auth-token',
+        }
+    });
   }
   return supabaseClient;
 };

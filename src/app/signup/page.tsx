@@ -23,22 +23,43 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  const validatePassword = (password: string): boolean => {
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const hasSufficientLength = password.length >= 6;
+
+    if (!hasUpperCase || !hasLowerCase || !hasSpecialChar || !hasSufficientLength) {
+      setError('يجب أن تحتوي كلمة المرور على 6 أحرف على الأقل، بما في ذلك حرف كبير وحرف صغير ورمز خاص.');
+      return false;
+    }
+    return true;
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !phone || !password || !officeName) {
+    setError('');
+
+    if (!name || !email || !phone || !password || !officeName || !confirmPassword) {
       setError('الرجاء تعبئة جميع الحقول.');
       return;
     }
-     if (password.length < 6) {
-      setError('يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.');
+
+    if (!validatePassword(password)) {
       return;
     }
-    setError('');
+
+    if (password !== confirmPassword) {
+      setError('كلمتا المرور غير متطابقتين.');
+      return;
+    }
+
     setIsLoading(true);
     
     const result = await registerNewOfficeManager({ email, password, phone, name, officeName });
@@ -50,7 +71,6 @@ export default function SignUpPage() {
             title: 'نجاح!',
             description: result.message,
         });
-        router.push('/login');
     } else {
       setError(result.message);
     }
@@ -59,11 +79,13 @@ export default function SignUpPage() {
   if(success) {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-            <Card className="w-full max-w-sm text-center">
+            <Card className="w-full max-w-md text-center">
                 <CardHeader>
-                    <CardTitle className="text-2xl">تم استلام طلبك</CardTitle>
-                    <CardDescription>
-                        تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة. سيتم إعلامك عند تفعيله.
+                    <CardTitle className="text-2xl">تم استلام طلبك بنجاح</CardTitle>
+                    <CardDescription className='text-base/relaxed'>
+                        تم إنشاء حسابك وهو الآن قيد المراجعة.
+                        <br />
+                        <strong className="text-primary mt-2 block">الرجاء تأكيد بريدك الإلكتروني من خلال الرابط الذي أرسلناه إليك للمتابعة.</strong>
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -109,6 +131,10 @@ export default function SignUpPage() {
              <div className="space-y-2">
               <Label htmlFor="password">كلمة المرور</Label>
               <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="confirmPassword">تأكيد كلمة المرور</Label>
+              <Input id="confirmPassword" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
             </div>
             {error && <p className="text-sm text-center text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={isLoading}>
