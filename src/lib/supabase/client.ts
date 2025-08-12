@@ -1,4 +1,4 @@
-import { createBrowserClient as originalCreateBrowserClient } from '@supabase/ssr'
+import { createBrowserClient as originalCreateBrowserClient } from '@supabase/supabase-js'
 
 // Create a single supabase client for the browser
 export const createBrowserClient = (url: string, key: string) => originalCreateBrowserClient(
