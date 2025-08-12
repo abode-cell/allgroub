@@ -30,7 +30,7 @@ import type {
 } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
-import { createBrowserClient as createSupabaseClient } from '@/lib/supabase/client';
+import { createBrowserClient } from '@/lib/supabase/client';
 import type { SupabaseClient, Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -175,17 +175,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
+  if (!supabaseUrl || !supabaseKey) {
+    return <EnvError />;
+  }
+  
+  const [supabase] = useState(() => createBrowserClient(supabaseUrl, supabaseKey));
+  
   const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof Omit<DataContextValue, keyof typeof initialDataState>>);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
-  
-  const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseKey) return null;
-    return createSupabaseClient(supabaseUrl, supabaseKey);
-  }, [supabaseUrl, supabaseKey]);
 
   const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
     setDataLoading(true);
@@ -269,12 +270,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   
   useEffect(() => {
-    if (!supabase) {
-      setAuthLoading(false);
-      setDataLoading(false);
-      return;
-    }
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -332,7 +327,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [currentUser, data.users]);
 
   const signIn = useCallback(async (email: string, password?: string) => {
-    if (!supabase || !password) return { success: false, message: "بيانات غير مكتملة." };
+    if (!password) return { success: false, message: "بيانات غير مكتملة." };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
@@ -347,15 +342,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [supabase, router]);
 
   const signOutUser = useCallback(async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
-      router.push('/login');
-    }
+    await supabase.auth.signOut();
+    router.push('/login');
   },[supabase, router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
-    if (!supabase) return { success: false, message: "فشل الاتصال بقاعدة البيانات." };
-
     const { email, password, phone, name, officeName } = payload;
     if (!password) return { success: false, message: "كلمة المرور مطلوبة." };
     
@@ -1236,7 +1227,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const updateUserIdentity = useCallback(
     async (updates: Partial<User>): Promise<{ success: boolean; message: string }> => {
-        if (!currentUser || !supabase) {
+        if (!currentUser) {
           return { success: false, message: 'فشل: لم يتم العثور على المستخدم.' };
         }
         
@@ -1329,7 +1320,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateUserStatus = useCallback(
     async (userId: string, status: User['status']) => {
-      if (!supabase || !currentUser) return;
+      if (!currentUser) return;
       if (currentUser.id === userId) {
         toast({ variant: "destructive", title: "خطأ", description: "لا يمكنك تغيير حالتك بنفسك."});
         return;
@@ -1350,7 +1341,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { ...d, users: newUsers, investors: newInvestors };
       });
     },
-    [supabase, currentUser, toast]
+    [currentUser, toast]
   );
   
   const updateUserRole = useCallback((userId: string, role: UserRole) => {
@@ -1642,10 +1633,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markInvestorAsNotified
   ]);
   
-  if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
-
   return (
     <DataContext.Provider value={value}>
         {children}
@@ -1661,12 +1648,4 @@ export function useDataState() {
   return context;
 }
 
-export function useDataActions() {
-    const context = useDataState();
-    return {
-        signIn: context.signIn,
-        signOutUser: context.signOutUser,
-        registerNewOfficeManager: context.registerNewOfficeManager,
-        addSupportTicket: context.addSupportTicket,
-    }
-}
+    

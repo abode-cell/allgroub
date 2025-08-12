@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useDataState } from '@/contexts/data-context';
@@ -13,30 +12,25 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublicPage = ['/login', '/signup', '/'].includes(pathname);
+  const isAuthPage = ['/login', '/signup'].includes(pathname);
+  const isPublicPage = isAuthPage || pathname === '/';
 
   useEffect(() => {
-    if (!authLoading && !session && !isPublicPage) {
+    if (authLoading) return; // Wait until auth state is confirmed
+
+    if (!session && !isPublicPage) {
       router.replace('/login');
     }
-    if (!authLoading && session && isPublicPage && pathname !== '/') {
+    if (session && isAuthPage) {
         router.replace('/dashboard');
     }
-  }, [session, authLoading, isPublicPage, pathname, router]);
+  }, [session, authLoading, isPublicPage, isAuthPage, pathname, router]);
 
 
-  if (authLoading) {
+  if (authLoading && !isPublicPage) {
     return <PageLoader />;
   }
 
-  if (!session && !isPublicPage) {
-    return <PageLoader />;
-  }
-
-  if (session && isPublicPage && pathname !== '/') {
-      return <PageLoader />;
-  }
-  
   if (session && !isPublicPage) {
       return (
         <div className="flex flex-col min-h-screen bg-muted/40">
@@ -45,7 +39,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         </div>
       )
   }
-
-  // For public pages, just render the children
-  return <main>{children}</main>;
+  
+  return <>{children}</>;
 }
