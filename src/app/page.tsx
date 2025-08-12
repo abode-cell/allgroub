@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -8,7 +7,8 @@ import { Mail, Phone, Rocket, TrendingUp, Handshake, ShieldCheck } from 'lucide-
 import { Logo } from '@/components/logo';
 
 export default function LandingPage() {
-    // These values are hardcoded for the landing page for now.
+    // These values can be fetched from a global config or context if they need to be dynamic.
+    // For a simple landing page, hardcoding is fine.
     const supportEmail = 'qzmpty678@gmail.com';
     const supportPhone = '0598360380';
 

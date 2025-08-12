@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDataState } from '@/contexts/data-context';
+import { useDataActions } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,7 +14,7 @@ import { Logo } from '@/components/logo';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn } = useDataState();
+  const { signIn } = useDataActions();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

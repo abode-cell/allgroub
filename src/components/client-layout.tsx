@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useDataState } from '@/contexts/data-context';
@@ -27,10 +26,10 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }, [session, authLoading, isPublicPage, isAuthPage, pathname, router]);
 
 
-  if ((authLoading || dataLoading) && !isPublicPage) {
+  if (authLoading || (dataLoading && !isPublicPage)) {
     return <PageLoader />;
   }
-
+  
   if (session && !isPublicPage) {
       return (
         <div className="flex flex-col min-h-screen bg-muted/40">

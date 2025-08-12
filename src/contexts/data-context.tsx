@@ -175,10 +175,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
-  // This is the core fix: `useState` initializes with a function that runs only once.
   const [supabase] = useState(() => {
-    if (!supabaseUrl || !supabaseKey) return null;
-    return createBrowserClient(supabaseUrl, supabaseKey);
+    if (supabaseUrl && supabaseKey) {
+      return createBrowserClient(supabaseUrl, supabaseKey);
+    }
+    return null;
   });
   
   const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof any>);
@@ -187,6 +188,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [dataLoading, setDataLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
+  
+    if (!supabaseUrl || !supabaseKey) {
+    return <EnvError />;
+  }
   
   const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
     setDataLoading(true);
@@ -1643,10 +1648,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markInvestorAsNotified
   ]);
   
-  if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
-
   return (
     <DataContext.Provider value={value}>
         {children}
@@ -1659,5 +1660,106 @@ export function useDataState() {
   if (context === undefined) {
     throw new Error('useDataState must be used within a DataProvider');
   }
-  return context;
+  const { signIn, registerNewOfficeManager, ...rest } = context;
+  return rest;
 }
+
+export function useDataActions() {
+    const context = useContext(DataContext);
+    if (context === undefined) {
+        throw new Error('useDataActions must be used within a DataProvider');
+    }
+    const { 
+      signIn,
+      signOutUser,
+      registerNewOfficeManager,
+      addBranch,
+      deleteBranch,
+      updateSupportInfo,
+      updateBaseInterestRate,
+      updateInvestorSharePercentage,
+      updateSalaryRepaymentPercentage,
+      updateGraceTotalProfitPercentage,
+      updateGraceInvestorSharePercentage,
+      updateTrialPeriod,
+      addSupportTicket,
+      deleteSupportTicket,
+      replyToSupportTicket,
+      addBorrower,
+      updateBorrower,
+      updateBorrowerPaymentStatus,
+      approveBorrower,
+      rejectBorrower,
+      deleteBorrower,
+      updateInstallmentStatus,
+      handlePartialPayment,
+      addInvestor,
+      addNewSubordinateUser,
+      updateInvestor,
+      approveInvestor,
+      rejectInvestor,
+      addInvestorTransaction,
+      updateUserIdentity,
+      updateUserCredentials,
+      updateUserStatus,
+      updateUserRole,
+      updateUserLimits,
+      updateManagerSettings,
+      updateAssistantPermission,
+      updateEmployeePermission,
+      requestCapitalIncrease,
+      deleteUser,
+      clearUserNotifications,
+      markUserNotificationsAsRead,
+      markBorrowerAsNotified,
+      markInvestorAsNotified,
+    } = context;
+    
+    return {
+      signIn,
+      signOutUser,
+      registerNewOfficeManager,
+      addBranch,
+      deleteBranch,
+      updateSupportInfo,
+      updateBaseInterestRate,
+      updateInvestorSharePercentage,
+      updateSalaryRepaymentPercentage,
+      updateGraceTotalProfitPercentage,
+      updateGraceInvestorSharePercentage,
+      updateTrialPeriod,
+      addSupportTicket,
+      deleteSupportTicket,
+      replyToSupportTicket,
+      addBorrower,
+      updateBorrower,
+      updateBorrowerPaymentStatus,
+      approveBorrower,
+      rejectBorrower,
+      deleteBorrower,
+      updateInstallmentStatus,
+      handlePartialPayment,
+      addInvestor,
+      addNewSubordinateUser,
+      updateInvestor,
+      approveInvestor,
+      rejectInvestor,
+      addInvestorTransaction,
+      updateUserIdentity,
+      updateUserCredentials,
+      updateUserStatus,
+      updateUserRole,
+      updateUserLimits,
+      updateManagerSettings,
+      updateAssistantPermission,
+      updateEmployeePermission,
+      requestCapitalIncrease,
+      deleteUser,
+      clearUserNotifications,
+      markUserNotificationsAsRead,
+      markBorrowerAsNotified,
+      markInvestorAsNotified,
+    };
+}
+
+    
