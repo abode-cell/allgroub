@@ -144,6 +144,7 @@ export type Investor = {
   isNotified?: boolean;
   installmentProfitShare?: number;
   gracePeriodProfitShare?: number;
+  transactionHistory: Transaction[];
 };
 
 export type UpdatableInvestor = Pick<

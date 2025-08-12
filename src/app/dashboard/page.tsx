@@ -482,7 +482,7 @@ function calculateAllDashboardMetrics(input: CalculationInput): DashboardMetrics
     }, { total: 0, installments: 0, grace: 0, active: 0 });
 
     const totalInvestments = filteredInvestors.reduce((total, investor) => {
-        const capitalDeposits = (investor.transactionHistory || [])
+        const capitalDeposits = (transactions.filter(tx => tx.investor_id === investor.id) || [])
           .filter(tx => tx.type === 'إيداع رأس المال')
           .reduce((sum, tx) => sum + tx.amount, 0);
         return total + capitalDeposits;
@@ -1202,3 +1202,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
