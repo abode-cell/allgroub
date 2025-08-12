@@ -30,7 +30,7 @@ import type {
 } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
-import { createBrowserClient } from '@/lib/supabase/client';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { SupabaseClient, Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -172,8 +172,6 @@ const EnvError = () => (
 
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
-  const [envError, setEnvError] = useState(false);
   const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof any>);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -263,46 +261,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   
   useEffect(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    try {
+      const client = getSupabaseBrowserClient();
+      
+      const {
+        data: { subscription },
+      } = client.auth.onAuthStateChange((event, session) => {
+          setSession(session);
+          if (event === 'SIGNED_IN') {
+              fetchData(client);
+          }
+          if (event === 'SIGNED_OUT') {
+              setData(initialDataState as any);
+          }
+          setAuthLoading(false);
+      });
 
-    if (!supabaseUrl || !supabaseKey) {
-        setEnvError(true);
+      client.auth.getSession().then(({ data: { session } }) => {
+          setSession(session);
+          setAuthLoading(false);
+          if (session) {
+              fetchData(client);
+          } else {
+              setDataLoading(false);
+          }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'خطأ فادح', description: 'لا يمكن تهيئة الاتصال بقاعدة البيانات. تحقق من إعدادات البيئة.'});
         setAuthLoading(false);
         setDataLoading(false);
-        return;
     }
-
-    const client = createBrowserClient(supabaseUrl, supabaseKey);
-    setSupabase(client);
-    
-    const {
-      data: { subscription },
-    } = client.auth.onAuthStateChange((event, session) => {
-        setSession(session);
-        if (event === 'SIGNED_IN') {
-            fetchData(client);
-        }
-        if (event === 'SIGNED_OUT') {
-            setData(initialDataState as any);
-        }
-        setAuthLoading(false);
-    });
-
-    client.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        setAuthLoading(false);
-        if (session) {
-            fetchData(client);
-        } else {
-            setDataLoading(false);
-        }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [fetchData]);
+  }, [fetchData, toast]);
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -333,7 +327,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [currentUser, data.users]);
 
   const signIn = useCallback(async (email: string, password?: string) => {
-    if (!supabase) return { success: false, message: "خدمة المصادقة غير متاحة." };
+    const supabase = getSupabaseBrowserClient();
     if (!password) return { success: false, message: "بيانات غير مكتملة." };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -346,16 +340,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     router.push('/dashboard');
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
-  }, [supabase, router]);
+  }, [router]);
 
   const signOutUser = useCallback(async () => {
-    if (!supabase) return;
+    const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
     router.push('/login');
-  },[supabase, router]);
+  },[router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
-    if (!supabase) return { success: false, message: "خدمة المصادقة غير متاحة." };
+    const supabase = getSupabaseBrowserClient();
     const { email, password, phone, name, officeName } = payload;
     if (!password) return { success: false, message: "كلمة المرور مطلوبة." };
     
@@ -386,7 +380,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     await fetchData(supabase);
     return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
-  }, [supabase, fetchData]);
+  }, [fetchData]);
   
   const addNotification = useCallback(
     (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
@@ -1236,7 +1230,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const updateUserIdentity = useCallback(
     async (updates: Partial<User>): Promise<{ success: boolean; message: string }> => {
-        if (!currentUser || !supabase) {
+        const supabase = getSupabaseBrowserClient();
+        if (!currentUser) {
           return { success: false, message: 'فشل: لم يتم العثور على المستخدم.' };
         }
         
@@ -1256,7 +1251,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         return { success: true, message: 'تم تحديث ملفك الشخصي بنجاح.' };
     },
-    [currentUser, supabase]
+    [currentUser]
   );
   
   const updateUserCredentials = useCallback(async (
@@ -1643,10 +1638,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markInvestorAsNotified,
   ]);
   
-  if (envError) {
-    return <EnvError />;
-  }
-
   return (
     <DataContext.Provider value={value}>
         {children}
