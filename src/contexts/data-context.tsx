@@ -162,7 +162,7 @@ const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'sessio
 };
 
 const EnvError = () => (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-background">
         <Alert variant="destructive" className="max-w-2xl">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>خطأ في الإعدادات</AlertTitle>
@@ -180,21 +180,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
-  const [envError, setEnvError] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
   const { toast } = useToast();
   
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
   const supabase = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) {
-      setEnvError(true);
+    if (!supabaseUrl || !supabaseKey) {
       return null;
     }
-    return createBrowserClient(url, key);
-  }, []);
-  
+    return createBrowserClient(supabaseUrl, supabaseKey);
+  }, [supabaseUrl, supabaseKey]);
 
   const fetchData = useCallback(async () => {
     if (!supabase) return;
@@ -278,12 +275,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setAuthLoading(false);
-        if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session)) {
-          await fetchData();
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setSession(session);
+          if (session) {
+            await fetchData();
+          }
+          setAuthLoading(false);
         } else if (event === 'SIGNED_OUT') {
-           setData(initialDataState);
+          setSession(null);
+          setData(initialDataState);
+          setAuthLoading(false);
         }
       }
     );
@@ -292,19 +293,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       authListener.subscription.unsubscribe();
     };
   }, [supabase, fetchData]);
-  
-    useEffect(() => {
-    if (authLoading) return; // Don't run redirects until auth is resolved
-
-    const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
-
-    if (session && isPublicPage) {
-      router.replace('/dashboard');
-    } else if (!session && !isPublicPage) {
-      router.replace('/login');
-    }
-  }, [authLoading, session, pathname, router]);
-
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -351,10 +339,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const signOutUser = useCallback(async () => {
     if (supabase) {
       await supabase.auth.signOut();
+      router.push('/login');
     }
-    setSession(null); 
-    setData(initialDataState);
-    router.push('/login');
   },[supabase, router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
@@ -2049,11 +2035,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, visibleUsers, session, authLoading, data]
   );
   
-  if (envError) {
+  if (!supabaseUrl || !supabaseKey) {
     return <EnvError />;
   }
   
-  if (authLoading || (session && dataLoading && pathname !== '/login' && pathname !== '/signup' && pathname !== '/')) {
+  if (authLoading || (session && dataLoading)) {
       return <PageLoader />;
   }
 
