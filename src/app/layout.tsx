@@ -7,7 +7,6 @@ import { DataProvider } from '@/contexts/data-context';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Tajawal } from 'next/font/google';
 import { cn } from '@/lib/utils';
-import { logoSvg } from '@/components/logo';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,14 +16,9 @@ const tajawal = Tajawal({
   variable: '--font-sans',
 });
 
-const base64Logo = Buffer.from(logoSvg).toString('base64');
-
 export const metadata: Metadata = {
   title: 'منصة عال',
   description: 'منصة متكاملة لإدارة التمويل والاستثمارات والقروض.',
-  icons: {
-    icon: `data:image/svg+xml;base64,${base64Logo}`,
-  },
 };
 
 export default function RootLayout({
