@@ -61,7 +61,7 @@ const PageSkeleton = () => (
 
 
 export default function BorrowersPage() {
-  const { addBorrower, borrowers: allBorrowers, investors: allInvestors, visibleUsers: users, baseInterestRate, currentUser } = useDataState();
+  const { addBorrower, borrowers: allBorrowers, investors: allInvestors, visibleUsers: users, baseInterestRate, currentUser, transactions } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -212,7 +212,7 @@ export default function BorrowersPage() {
     const totalAvailableFromSelected = investors
       .filter(inv => selectedInvestors.includes(inv.id))
       .reduce((sum, inv) => {
-        const financials = calculateInvestorFinancials(inv, allBorrowers);
+        const financials = calculateInvestorFinancials(inv, allBorrowers, transactions);
         const available = newBorrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
         return sum + available;
       }, 0);
@@ -259,7 +259,7 @@ export default function BorrowersPage() {
   const availableInvestorsForDropdown = useMemo(() => {
     return investors
       .map(investor => {
-        const financials = calculateInvestorFinancials(investor, allBorrowers);
+        const financials = calculateInvestorFinancials(investor, allBorrowers, transactions);
         const capital = newBorrower.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
         return {
           ...investor,
@@ -271,12 +271,12 @@ export default function BorrowersPage() {
         typeof i.availableCapital !== 'undefined' &&
         i.availableCapital > 0
       );
-  }, [investors, allBorrowers, newBorrower.loanType]);
+  }, [investors, allBorrowers, newBorrower.loanType, transactions]);
   
   const hasAvailableInvestorsForType = (type: 'اقساط' | 'مهلة') => {
     return investors.some(i => {
         if (i.status !== 'نشط') return false;
-        const financials = calculateInvestorFinancials(i, allBorrowers);
+        const financials = calculateInvestorFinancials(i, allBorrowers, transactions);
         const capital = type === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
         return typeof capital !== 'undefined' && capital > 0;
     });
@@ -601,3 +601,5 @@ export default function BorrowersPage() {
     </div>
   );
 }
+
+    
