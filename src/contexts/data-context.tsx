@@ -227,6 +227,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (configRes.error) throw configRes.error;
         if (transactionsRes.error) throw transactionsRes.error;
         if (branchesRes.error) throw branchesRes.error;
+        
+        const localUser = usersRes.data?.find(u => u.id === user.id);
+        if (localUser && localUser.status !== 'نشط') {
+            let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
+            if(localUser.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
+            if(localUser.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
+            
+            await supabaseClient.auth.signOut();
+            toast({ variant: "destructive", title: "تم تسجيل الخروج", description: message });
+            setDataLoading(false);
+            return;
+        }
 
         const configData = configRes.data.reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
@@ -347,7 +359,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     if (!password) return { success: false, message: "بيانات غير مكتملة." };
 
-    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         if (error.message === 'Invalid login credentials') {
@@ -356,34 +368,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
-    if (!signInData.user) {
-        return { success: false, message: 'فشل تسجيل الدخول، لم يتم العثور على المستخدم.' };
-    }
-    
-    // Fetch user profile from public.users to check status
-    const { data: userProfile, error: profileError } = await supabase
-        .from('users')
-        .select('status')
-        .eq('id', signInData.user.id)
-        .single();
-        
-    if (profileError || !userProfile) {
-        await supabase.auth.signOut();
-        return { success: false, message: 'فشل في جلب ملف المستخدم. تم تسجيل خروجك.' };
-    }
-    
-    if (userProfile.status !== 'نشط') {
-        let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
-        if(userProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
-        if(userProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
-        
-        await supabase.auth.signOut();
-        return { success: false, message };
-    }
-    
-    router.push('/dashboard');
-    return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
-  }, [router]);
+    // The onAuthStateChange listener will handle fetching data and navigation
+    return { success: true, message: 'جاري تسجيل الدخول...' };
+  }, []);
 
   const signOutUser = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
