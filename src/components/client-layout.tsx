@@ -14,30 +14,33 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
   const isPublicPage = ['/login', '/signup', '/'].includes(pathname);
 
-  // While loading authentication state, show a full-screen loader.
-  // This is the most important part of the fix to prevent race conditions.
+  useEffect(() => {
+    if (!authLoading && !session && !isPublicPage) {
+      router.replace('/login');
+    }
+  }, [authLoading, session, isPublicPage, router]);
+
   if (authLoading) {
     return <PageLoader />;
   }
 
-  // After loading, if the user is not logged in and trying to access a protected page,
-  // redirect them to the login page.
   if (!session && !isPublicPage) {
-    router.replace('/login');
-    // Also show a loader while redirecting to prevent flickering.
+    return <PageLoader />;
+  }
+
+  if (session && isPublicPage) {
+    router.replace('/dashboard');
     return <PageLoader />;
   }
   
-  // If the user is logged in, show the main app layout with the header.
-  if (session) {
-    return (
-      <div className="flex flex-col min-h-screen bg-muted/40">
-        <AppHeader />
-        <main className="flex-1">{children}</main>
-      </div>
-    );
+  if (isPublicPage) {
+    return <main>{children}</main>;
   }
 
-  // For public pages when not logged in, just render the content.
-  return <main>{children}</main>;
+  return (
+    <div className="flex flex-col min-h-screen bg-muted/40">
+      <AppHeader />
+      <main className="flex-1">{children}</main>
+    </div>
+  );
 }

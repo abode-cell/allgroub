@@ -35,7 +35,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { PageLoader } from '@/components/page-loader';
 
 type DataState = {

@@ -1,13 +1,12 @@
 
-
 'use client';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDataState } from '@/contexts/data-context';
 import { Mail, Phone, Rocket, TrendingUp, Handshake, ShieldCheck } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { useDataState } from '@/contexts/data-context';
 
 export default function LandingPage() {
     const { supportEmail, supportPhone } = useDataState();
