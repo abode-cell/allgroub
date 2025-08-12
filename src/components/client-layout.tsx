@@ -16,7 +16,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (authLoading) {
-      return; // Do nothing while loading
+      return; 
     }
     
     if (!session && !isPublicPage) {
@@ -26,26 +26,25 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     if (session && isPublicPage) {
       router.replace('/dashboard');
     }
-  }, [session, authLoading, isPublicPage, router]);
+  }, [session, authLoading, isPublicPage, pathname, router]);
 
-  if (authLoading) {
+
+  if (authLoading || (!session && !isPublicPage) || (session && isPublicPage)) {
     return <PageLoader />;
   }
   
-  if (!session && !isPublicPage) {
-    // While redirecting, show a loader to avoid flashing content.
-    return <PageLoader />;
-  }
-
-  // If we're on a public page, or if we have a session on a private page, render children.
-  if (isPublicPage) {
+  if (!session && isPublicPage) {
     return <main>{children}</main>;
   }
 
-  return (
-      <div className="flex flex-col min-h-screen bg-muted/40">
-          <AppHeader />
-          <main className="flex-1">{children}</main>
-      </div>
-  );
+  if (session && !isPublicPage) {
+     return (
+        <div className="flex flex-col min-h-screen bg-muted/40">
+            <AppHeader />
+            <main className="flex-1">{children}</main>
+        </div>
+    );
+  }
+  
+  return <PageLoader />;
 }

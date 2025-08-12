@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -17,7 +18,7 @@ import { Inbox, Loader2, Send, Mail, Phone } from 'lucide-react';
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import Link from 'next/link';
 
-export default function SupportPage() {
+function SupportPageContent() {
   const { currentUser, supportEmail, supportPhone } = useDataState();
   const { addSupportTicket } = useDataActions();
   const { toast } = useToast();
@@ -117,7 +118,7 @@ export default function SupportPage() {
                         required
                         />
                     </div>
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    <Button type="submit" className="w-full" disabled={isSubmitting || !currentUser}>
                         {isSubmitting ? (
                         <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                         ) : (
@@ -163,4 +164,20 @@ export default function SupportPage() {
       </main>
     </div>
   );
+}
+
+export default function SupportPage() {
+  const { currentUser } = useDataState();
+  
+  if (!currentUser) {
+    return (
+      <div className="flex flex-col flex-1 p-4 md:p-8">
+        <p className="text-center text-muted-foreground">
+          الرجاء تسجيل الدخول للوصول إلى الدعم.
+        </p>
+      </div>
+    );
+  }
+
+  return <SupportPageContent />;
 }
