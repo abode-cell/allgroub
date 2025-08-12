@@ -1,10 +1,11 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -27,10 +28,10 @@
     --ring: 206 90% 51%;
     --radius: 0.5rem;
     --chart-1: 206 90% 51%;
-    --chart-2: 187 100% 42%;
-    --chart-3: 206 80% 75%;
-    --chart-4: 187 90% 50%;
-    --chart-5: 190 80% 60%;
+    --chart-2: 142.1 76.2% 36.3%;
+    --chart-3: 210 40% 96.1%;
+    --chart-4: 0 84.2% 60.2%;
+    --chart-5: 38 92% 50%;
   }
 
   .dark {
@@ -56,10 +57,10 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 206 90% 51%;
     --chart-1: 206 90% 51%;
-    --chart-2: 187 100% 42%;
-    --chart-3: 206 80% 50%;
-    --chart-4: 187 90% 60%;
-    --chart-5: 190 70% 55%;
+    --chart-2: 142.1 70.2% 46.3%;
+    --chart-3: 217.2 32.6% 17.5%;
+    --chart-4: 0 62.8% 30.6%;
+    --chart-5: 38 92% 50%;
   }
 }
 
@@ -74,3 +75,5 @@
     @apply bg-background text-foreground;
   }
 }
+
+    

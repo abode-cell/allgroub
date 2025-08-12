@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -17,7 +18,7 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
-  title: 'منصة تمويل وإدارة استثمار متكاملة',
+  title: 'منصة عال',
   description: 'منصة متكاملة لإدارة التمويل والاستثمارات والقروض.',
   icons: {
     icon: `data:image/svg+xml;base64,${btoa(logoSvg)}`,
@@ -47,3 +48,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    

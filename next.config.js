@@ -18,32 +18,8 @@ const nextConfig = {
       },
     ],
   },
-  async redirects() {
-    return [
-      {
-        source: '/login',
-        destination: '/',
-        has: [
-          {
-            type: 'cookie',
-            key: 'sb-access-token',
-          },
-        ],
-        permanent: false,
-      },
-       {
-        source: '/signup',
-        destination: '/',
-        has: [
-          {
-            type: 'cookie',
-            key: 'sb-access-token',
-          },
-        ],
-        permanent: false,
-      },
-    ]
-  },
 };
 
 export default nextConfig;
+
+    

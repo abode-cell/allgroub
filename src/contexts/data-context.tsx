@@ -37,7 +37,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 type DataState = {
   currentUser: User | undefined;
@@ -181,6 +181,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [dataLoading, setDataLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -200,9 +201,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const [
             usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes
         ] = await Promise.all([
-            supabase.from('users').select('*, branches(*)'),
-            supabase.from('investors').select('*, transaction_history(*)'),
-            supabase.from('borrowers').select('*, installments(*), fundedBy:borrower_funders(*)'),
+            supabase.from('users').select('*, branches(id, name, city)'),
+            supabase.from('investors').select('*, transaction_history:transaction_history(id, date, type, amount, description, withdrawalMethod, capitalSource)'),
+            supabase.from('borrowers').select('*, installments:borrower_installments(borrower_id, month, status), fundedBy:borrower_funders(borrower_id, investor_id, amount)'),
             supabase.from('notifications').select('*'),
             supabase.from('support_tickets').select('*'),
             supabase.from('app_config').select('*'),
@@ -268,27 +269,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   useEffect(() => {
     if (!supabase) {
-        setAuthLoading(false);
-        return;
+      setAuthLoading(false);
+      return;
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setAuthLoading(false);
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          fetchData();
-        } else if (event === 'SIGNED_OUT') {
-          router.push('/login');
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        fetchData();
       }
-    );
+      setAuthLoading(false);
+    });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, fetchData, router]);
+  }, [supabase, fetchData]);
   
+  useEffect(() => {
+    // This effect handles routing decisions after authentication state is resolved.
+    if (!authLoading) {
+      const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/signup';
+      
+      if (session && isPublicPage) {
+        router.replace('/dashboard');
+      } else if (!session && !isPublicPage) {
+        router.replace('/login');
+      }
+    }
+  }, [authLoading, session, pathname, router]);
+
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
     return data.users.find((u) => u.id === session.user.id);
@@ -328,7 +340,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
-    // The ClientLayout will react to the session change and render the correct page.
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
   }, [supabase]);
 

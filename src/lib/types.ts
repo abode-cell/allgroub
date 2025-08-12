@@ -60,7 +60,7 @@ export type User = {
   role: UserRole;
   status: 'نشط' | 'معلق' | 'مرفوض' | 'محذوف';
   phone?: string;
-  managedBy?: string;
+  managedBy?: string | null;
   registrationDate?: string;
   
   // Trial Period Fields
@@ -200,3 +200,5 @@ export type AddBorrowerResult = {
         managerPhone: string;
     }
 }
+
+    
