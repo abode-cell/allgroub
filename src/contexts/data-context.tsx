@@ -1430,72 +1430,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }))
   }, []);
   
-  const requestCapitalIncrease = useCallback((investorId: string) => {
-      if(!currentUser) return;
-      
-      const investor = data.investors.find(i => i.id === investorId);
-      if(!investor) return;
-
-      const subject = `طلب زيادة رأس مال للمستثمر: ${investor.name}`;
-      const message = `يرجى العلم بأن المستثمر "${investor.name}" قد استنفد رصيده الخامل.\n\nنرجو التواصل معه لترتيب إيداع جديد لزيادة رأس المال المتاح للاستثمار.\n\nهذه الرسالة تم إنشاؤها تلقائيًا من قبل مدير المكتب: ${currentUser.name}.`;
-      
-      const systemAdmin = data.users.find(u => u.role === 'مدير النظام');
-      if (!systemAdmin) {
-        toast({variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على مدير النظام لإرسال الطلب.'});
-        return;
-      }
-      
-      addSupportTicket({
-          fromUserId: currentUser.id,
-          fromUserName: currentUser.name,
-          fromUserEmail: currentUser.email,
-          subject,
-          message
-      });
-  }, [currentUser, data.investors, data.users, toast, addSupportTicket]);
-  
-  const addBranch = useCallback(async (branch: Omit<Branch, 'id'>): Promise<{success: boolean, message: string}> => {
-    let result = {success: false, message: 'فشل غير متوقع.'};
-    if (!currentUser) return result;
-    
-    setData(d => {
-        if(currentUser.role !== 'مدير المكتب') {
-            result = {success: false, message: 'غير مصرح به.'};
-            return d;
-        }
-
-        if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
-            result = {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
-            toast({variant: 'destructive', title: 'خطأ', description: result.message});
-            return d;
-        }
-
-        const newBranch: Branch = { ...branch, id: `branch_${crypto.randomUUID()}` };
-        const updatedUsers = d.users.map(u => 
-            u.id === currentUser.id ? { ...u, branches: [...(u.branches || []), newBranch] } : u
-        );
-
-        result = {success: true, message: 'تمت إضافة الفرع بنجاح.'};
-        toast({title: result.message});
-        return { ...d, users: updatedUsers };
-    });
-    return result;
-  }, [currentUser, toast]);
-  
-  const deleteBranch = useCallback((branchId: string) => {
-      if (!currentUser || currentUser.role !== 'مدير المكتب') return;
-      setData(d => {
-          const updatedUsers = d.users.map(u => {
-              if (u.id === currentUser.id) {
-                  return { ...u, branches: (u.branches || []).filter(b => b.id !== branchId) };
-              }
-              return u;
-          });
-          toast({title: 'تم حذف الفرع بنجاح.'});
-          return { ...d, users: updatedUsers };
-      });
-  }, [currentUser, toast]);
-
   const addSupportTicket = useCallback((ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead' | 'isReplied'>) => {
     setData(d => {
       const newTicket: SupportTicket = {
@@ -1529,6 +1463,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { ...d, supportTickets: [newTicket, ...d.supportTickets], notifications: newNotifications };
     });
   }, [toast]);
+  
+  const requestCapitalIncrease = useCallback((investorId: string) => {
+      if(!currentUser) return;
+      
+      const investor = data.investors.find(i => i.id === investorId);
+      if(!investor) return;
+
+      const subject = `طلب زيادة رأس مال للمستثمر: ${investor.name}`;
+      const message = `يرجى العلم بأن المستثمر "${investor.name}" قد استنفد رصيده الخامل.\n\nنرجو التواصل معه لترتيب إيداع جديد لزيادة رأس المال المتاح للاستثمار.\n\nهذه الرسالة تم إنشاؤها تلقائيًا من قبل مدير المكتب: ${currentUser.name}.`;
+      
+      const systemAdmin = data.users.find(u => u.role === 'مدير النظام');
+      if (!systemAdmin) {
+        toast({variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على مدير النظام لإرسال الطلب.'});
+        return;
+      }
+      
+      addSupportTicket({
+          fromUserId: currentUser.id,
+          fromUserName: currentUser.name,
+          fromUserEmail: currentUser.email,
+          subject,
+          message
+      });
+  }, [addSupportTicket, currentUser, data.investors, data.users, toast]);
   
   const deleteSupportTicket = useCallback((ticketId: string) => {
     setData(d => ({
@@ -1584,6 +1542,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
         description: `تم إرسال الرسالة إلى المستثمر. محتوى الرسالة: ${message}`,
       });
   }, [toast]);
+  
+  const addBranch = useCallback(async (branch: Omit<Branch, 'id'>): Promise<{success: boolean, message: string}> => {
+    let result = {success: false, message: 'فشل غير متوقع.'};
+    if (!currentUser) return result;
+    
+    setData(d => {
+        if(currentUser.role !== 'مدير المكتب') {
+            result = {success: false, message: 'غير مصرح به.'};
+            return d;
+        }
+
+        if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
+            result = {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
+            toast({variant: 'destructive', title: 'خطأ', description: result.message});
+            return d;
+        }
+
+        const newBranch: Branch = { ...branch, id: `branch_${crypto.randomUUID()}` };
+        const updatedUsers = d.users.map(u => 
+            u.id === currentUser.id ? { ...u, branches: [...(u.branches || []), newBranch] } : u
+        );
+
+        result = {success: true, message: 'تمت إضافة الفرع بنجاح.'};
+        toast({title: result.message});
+        return { ...d, users: updatedUsers };
+    });
+    return result;
+  }, [currentUser, toast]);
+  
+  const deleteBranch = useCallback((branchId: string) => {
+      if (!currentUser || currentUser.role !== 'مدير المكتب') return;
+      setData(d => {
+          const updatedUsers = d.users.map(u => {
+              if (u.id === currentUser.id) {
+                  return { ...u, branches: (u.branches || []).filter(b => b.id !== branchId) };
+              }
+              return u;
+          });
+          toast({title: 'تم حذف الفرع بنجاح.'});
+          return { ...d, users: updatedUsers };
+      });
+  }, [currentUser, toast]);
   
   const value = useMemo(() => ({
       currentUser,
@@ -1649,7 +1649,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateUserLimits, updateManagerSettings, updateAssistantPermission,
       updateEmployeePermission, requestCapitalIncrease, deleteUser,
       clearUserNotifications, markUserNotificationsAsRead, markBorrowerAsNotified,
-      markInvestorAsNotified
+      markInvestorAsNotified,
   ]);
   
   if (envError) {
@@ -1769,5 +1769,3 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
-
-    
