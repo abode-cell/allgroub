@@ -18,7 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle } from 'lucide-react';
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import type { Investor, NewInvestorPayload, Borrower } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -44,8 +44,7 @@ const PageSkeleton = () => (
 );
 
 export default function InvestorsPage() {
-  const { addInvestor } = useDataActions();
-  const { investors: allInvestors, borrowers: allBorrowers, visibleUsers: users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
+  const { addInvestor, investors: allInvestors, borrowers: allBorrowers, visibleUsers: users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
   

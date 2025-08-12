@@ -7,7 +7,7 @@ import { KpiCard } from '@/components/dashboard/kpi-card';
 import { LoansStatusChart } from '@/components/dashboard/loans-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { InvestorDashboard } from '@/components/dashboard/investor-dashboard';
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Borrower, Investor, User, UserRole, SupportTicket } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -869,7 +869,7 @@ const IdleFundsCard = ({ metrics }: { metrics: IdleFundsMetrics }) => {
 
 
 const SystemAdminDashboard = ({ metrics, onExport }: { metrics: AdminMetrics, onExport: () => void }) => {
-    const { updateUserStatus } = useDataActions();
+    const { updateUserStatus } = useDataState();
     
     return (
         <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8">
@@ -977,7 +977,7 @@ const SystemAdminDashboard = ({ metrics, onExport }: { metrics: AdminMetrics, on
 }
 
 export default function DashboardPage() {
-  const { currentUser, users, borrowers, investors, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage } = useDataState();
+  const { currentUser, users, borrowers, investors, supportTickets, investorSharePercentage, graceTotalProfitPercentage, graceInvestorSharePercentage, updateUserStatus } = useDataState();
   const [error, setError] = useState<string | null>(null);
 
   const metrics = useMemo(() => {
@@ -1199,5 +1199,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

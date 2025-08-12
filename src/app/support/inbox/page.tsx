@@ -1,6 +1,6 @@
 'use client';
 
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
@@ -59,8 +59,7 @@ const PageSkeleton = () => (
 );
 
 export default function SupportInboxPage() {
-  const { currentUser, supportTickets } = useDataState();
-  const { deleteSupportTicket, replyToSupportTicket } = useDataActions();
+  const { currentUser, supportTickets, deleteSupportTicket, replyToSupportTicket } = useDataState();
   const router = useRouter();
   const [ticketToDelete, setTicketToDelete] = useState<SupportTicket | null>(null);
   const [ticketToReply, setTicketToReply] = useState<SupportTicket | null>(null);

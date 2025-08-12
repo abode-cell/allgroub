@@ -1,6 +1,6 @@
 'use client';
 
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,8 +37,7 @@ const PageSkeleton = () => (
 );
 
 export default function SupportSettingsPage() {
-  const { currentUser, supportEmail, supportPhone } = useDataState();
-  const { updateSupportInfo } = useDataActions();
+  const { currentUser, supportEmail, supportPhone, updateSupportInfo } = useDataState();
   const router = useRouter();
   
   const [localEmail, setLocalEmail] = useState(supportEmail);

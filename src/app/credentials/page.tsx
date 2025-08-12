@@ -1,6 +1,6 @@
 'use client';
 
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -28,8 +28,7 @@ const PageSkeleton = () => (
 );
 
 export default function CredentialsPage() {
-  const { users, currentUser } = useDataState();
-  const { updateUserCredentials } = useDataActions();
+  const { users, currentUser, updateUserCredentials } = useDataState();
   const router = useRouter();
   const { toast } = useToast();
 

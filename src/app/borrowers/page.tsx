@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, AlertCircle } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import type { Borrower } from '@/lib/types';
 import {
   DropdownMenu,
@@ -61,8 +61,7 @@ const PageSkeleton = () => (
 
 
 export default function BorrowersPage() {
-  const { addBorrower } = useDataActions();
-  const { borrowers: allBorrowers, investors: allInvestors, visibleUsers: users, baseInterestRate, currentUser } = useDataState();
+  const { addBorrower, borrowers: allBorrowers, investors: allInvestors, visibleUsers: users, baseInterestRate, currentUser } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
 

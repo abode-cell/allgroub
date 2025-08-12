@@ -1,6 +1,6 @@
 'use client';
 
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -53,8 +53,7 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' } 
   };
 
 export default function TrialPeriodsPage() {
-  const { currentUser, users } = useDataState();
-  const { updateTrialPeriod, updateUserStatus } = useDataActions();
+  const { currentUser, users, updateTrialPeriod, updateUserStatus } = useDataState();
   const router = useRouter();
   
   const systemAdmin = useMemo(() => users.find(u => u.role === 'مدير النظام'), [users]);

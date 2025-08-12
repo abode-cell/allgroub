@@ -55,9 +55,6 @@ type DataState = {
   graceInvestorSharePercentage: number;
   supportEmail: string;
   supportPhone: string;
-};
-
-type DataActions = {
   signIn: (email: string, password?: string) => Promise<{ success: boolean; message: string }>;
   signOutUser: () => void;
   registerNewOfficeManager: (payload: NewManagerPayload) => Promise<{ success: boolean; message: string }>;
@@ -141,10 +138,9 @@ type DataActions = {
   markInvestorAsNotified: (investorId: string, message: string) => void;
 };
 
-const DataStateContext = createContext<DataState | undefined>(undefined);
-const DataActionsContext = createContext<DataActions | undefined>(undefined);
+const DataContext = createContext<DataState | undefined>(undefined);
 
-const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'session' | 'authLoading'> = {
+const initialDataState: Omit<DataState, 'currentUser' | 'visibleUsers' | 'session' | 'authLoading' | keyof Omit<DataState, 'session' | 'authLoading'>> = {
   borrowers: [],
   investors: [],
   users: [],
@@ -1451,7 +1447,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           subject,
           message
       });
-  }, [currentUser, data.investors, data.users, addSupportTicket, toast]);
+  }, [currentUser, data.investors, data.users, toast]);
   
   const addBranch = useCallback(async (branch: Omit<Branch, 'id'>): Promise<{success: boolean, message: string}> => {
     let result = {success: false, message: 'فشل غير متوقع.'};
@@ -1585,7 +1581,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
   
   return (
-    <DataStateContext.Provider value={{
+    <DataContext.Provider value={{
       currentUser,
       session,
       authLoading: authLoading || dataLoading,
@@ -1603,72 +1599,59 @@ export function DataProvider({ children }: { children: ReactNode }) {
       graceInvestorSharePercentage: data.graceInvestorSharePercentage,
       supportEmail: data.supportEmail,
       supportPhone: data.supportPhone,
+      signIn,
+      signOutUser,
+      registerNewOfficeManager,
+      addBranch,
+      deleteBranch,
+      updateSupportInfo,
+      updateBaseInterestRate,
+      updateInvestorSharePercentage,
+      updateSalaryRepaymentPercentage,
+      updateGraceTotalProfitPercentage,
+      updateGraceInvestorSharePercentage,
+      updateTrialPeriod,
+      addSupportTicket,
+      deleteSupportTicket,
+      replyToSupportTicket,
+      addBorrower,
+      updateBorrower,
+      updateBorrowerPaymentStatus,
+      approveBorrower,
+      rejectBorrower,
+      deleteBorrower,
+      updateInstallmentStatus,
+      handlePartialPayment,
+      addInvestor,
+      addNewSubordinateUser,
+      updateInvestor,
+      approveInvestor,
+      rejectInvestor,
+      addInvestorTransaction,
+      updateUserIdentity,
+      updateUserCredentials,
+      updateUserStatus,
+      updateUserRole,
+      updateUserLimits,
+      updateManagerSettings,
+      updateAssistantPermission,
+      updateEmployeePermission,
+      requestCapitalIncrease,
+      deleteUser,
+      clearUserNotifications,
+      markUserNotificationsAsRead,
+      markBorrowerAsNotified,
+      markInvestorAsNotified,
     }}>
-      <DataActionsContext.Provider value={{
-          signIn,
-          signOutUser,
-          registerNewOfficeManager,
-          addBranch,
-          deleteBranch,
-          updateSupportInfo,
-          updateBaseInterestRate,
-          updateInvestorSharePercentage,
-          updateSalaryRepaymentPercentage,
-          updateGraceTotalProfitPercentage,
-          updateGraceInvestorSharePercentage,
-          updateTrialPeriod,
-          addSupportTicket,
-          deleteSupportTicket,
-          replyToSupportTicket,
-          addBorrower,
-          updateBorrower,
-          updateBorrowerPaymentStatus,
-          approveBorrower,
-          rejectBorrower,
-          deleteBorrower,
-          updateInstallmentStatus,
-          handlePartialPayment,
-          addInvestor,
-          addNewSubordinateUser,
-          updateInvestor,
-          approveInvestor,
-          rejectInvestor,
-          addInvestorTransaction,
-          updateUserIdentity,
-          updateUserCredentials,
-          updateUserStatus,
-          updateUserRole,
-          updateUserLimits,
-          updateManagerSettings,
-          updateAssistantPermission,
-          updateEmployeePermission,
-          requestCapitalIncrease,
-          deleteUser,
-          clearUserNotifications,
-          markUserNotificationsAsRead,
-          markBorrowerAsNotified,
-          markInvestorAsNotified,
-      }}>
-        {children}
-      </DataActionsContext.Provider>
-    </DataStateContext.Provider>
+      {children}
+    </DataContext.Provider>
   );
 }
 
 export function useDataState() {
-  const context = useContext(DataStateContext);
+  const context = useContext(DataContext);
   if (context === undefined) {
     throw new Error('useDataState must be used within a DataProvider');
   }
   return context;
 }
-
-export function useDataActions() {
-  const context = useContext(DataActionsContext);
-  if (context === undefined) {
-    throw new Error('useDataActions must be used within a DataProvider');
-  }
-  return context;
-}
-
-    

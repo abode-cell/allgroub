@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,8 +41,7 @@ type ExcelRow = {
 };
 
 export default function ImportPage() {
-  const { addBorrower } = useDataActions();
-  const { currentUser } = useDataState();
+  const { addBorrower, currentUser } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -308,5 +307,3 @@ export default function ImportPage() {
     </div>
   );
 }
-
-    

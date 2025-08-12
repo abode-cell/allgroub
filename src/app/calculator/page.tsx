@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useDataState, useDataActions } from '@/contexts/data-context';
+import { useDataState } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -38,14 +39,12 @@ export default function CalculatorPage() {
     investorSharePercentage,
     graceTotalProfitPercentage,
     graceInvestorSharePercentage,
-  } = useDataState();
-  const {
     updateSalaryRepaymentPercentage,
     updateBaseInterestRate,
     updateInvestorSharePercentage,
     updateGraceTotalProfitPercentage,
     updateGraceInvestorSharePercentage,
-  } = useDataActions();
+  } = useDataState();
 
   const role = currentUser?.role;
   const hasAccess = role === 'مدير المكتب' || role === 'موظف' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.useCalculator);
