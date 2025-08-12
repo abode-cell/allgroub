@@ -36,6 +36,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
+import { PageLoader } from '@/components/page-loader';
 
 type DataState = {
   currentUser: User | undefined;
@@ -178,10 +179,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState(initialDataState);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
-  const pathname = usePathname();
   
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -198,6 +198,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     setDataLoading(true);
     try {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            setDataLoading(false);
+            return;
+        };
+
         const [
             usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes, transactionsRes, branchesRes
         ] = await Promise.all([
@@ -272,36 +279,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) {
       setAuthLoading(false);
+      setDataLoading(false);
       return;
     }
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        fetchData();
-      }
-      setAuthLoading(false);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+        setSession(session);
+        if (event === 'SIGNED_IN') {
+            fetchData();
+        }
+        if (event === 'SIGNED_OUT') {
+            setData(initialDataState);
+        }
+        setAuthLoading(false);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+        setAuthLoading(false);
+        if (session) {
+            fetchData();
+        } else {
+            setDataLoading(false);
+        }
     });
 
     return () => {
       subscription.unsubscribe();
     };
   }, [supabase, fetchData]);
-  
-  useEffect(() => {
-    if (authLoading) return;
-    const isPublicPage = ['/login', '/signup', '/'].includes(pathname);
-    
-    if (session && isPublicPage) {
-        router.replace('/dashboard');
-    }
-    
-    if (!session && !isPublicPage) {
-        router.replace('/login');
-    }
-  }, [session, authLoading, pathname, router]);
 
 
   const currentUser = useMemo(() => {
@@ -343,16 +351,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
+    router.push('/dashboard');
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
-  }, [supabase]);
+  }, [supabase, router]);
 
   const signOutUser = useCallback(async () => {
     if (supabase) {
       await supabase.auth.signOut();
-      setSession(null);
-      setData(initialDataState);
+      router.push('/login');
     }
-  },[supabase]);
+  },[supabase, router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     if (!supabase) return { success: false, message: "فشل الاتصال بقاعدة البيانات." };
