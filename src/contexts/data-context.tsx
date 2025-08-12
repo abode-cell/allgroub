@@ -346,13 +346,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password?: string) => {
     const supabase = getSupabaseBrowserClient();
     if (!password) return { success: false, message: "بيانات غير مكتملة." };
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         if (error.message === 'Invalid login credentials') {
             return { success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' };
         }
         return { success: false, message: error.message };
+    }
+    
+    if (!signInData.user) {
+        return { success: false, message: 'فشل تسجيل الدخول، لم يتم العثور على المستخدم.' };
+    }
+    
+    // Fetch user profile from public.users to check status
+    const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('status')
+        .eq('id', signInData.user.id)
+        .single();
+        
+    if (profileError || !userProfile) {
+        await supabase.auth.signOut();
+        return { success: false, message: 'فشل في جلب ملف المستخدم. تم تسجيل خروجك.' };
+    }
+    
+    if (userProfile.status !== 'نشط') {
+        let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
+        if(userProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
+        if(userProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
+        
+        await supabase.auth.signOut();
+        return { success: false, message };
     }
     
     router.push('/dashboard');
