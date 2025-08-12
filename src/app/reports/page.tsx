@@ -270,6 +270,7 @@ export default function ReportsPage() {
     if (!currentUser) return;
 
     const financials = calculateInvestorFinancials(investor, borrowers, transactions);
+    const investorTransactions = transactions.filter(tx => tx.investor_id === investor.id);
     const { 
         totalInstallmentCapital, totalGraceCapital,
         activeInstallmentCapital, activeGraceCapital,
@@ -337,7 +338,7 @@ export default function ReportsPage() {
                 <tr><th>التاريخ</th><th>النوع</th><th>الوصف</th><th>المبلغ</th><th>طريقة السحب</th><th>مصدر رأس المال</th></tr>
             </thead>
             <tbody>
-                 ${investor.transactionHistory.length > 0 ? [...investor.transactionHistory].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(tx => {
+                 ${investorTransactions.length > 0 ? [...investorTransactions].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(tx => {
                     return `<tr>
                         <td>${new Date(tx.date).toLocaleDateString('ar-SA')}</td>
                         <td>${tx.type}</td>
