@@ -1,3 +1,4 @@
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
@@ -16,43 +17,6 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
-  },
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/dashboard',
-        permanent: false,
-        has: [
-          {
-            type: 'cookie',
-            key: 'supabase-auth-token',
-          },
-        ],
-      },
-      {
-        source: '/',
-        destination: '/login',
-        permanent: false,
-        missing: [
-          {
-            type: 'cookie',
-            key: 'supabase-auth-token',
-          },
-        ],
-      },
-       {
-        source: '/dashboard',
-        destination: '/login',
-        permanent: false,
-        missing: [
-          {
-            type: 'cookie',
-            key: 'supabase-auth-token',
-          },
-        ],
-      },
-    ]
   },
 };
 

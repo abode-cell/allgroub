@@ -185,13 +185,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
+  
+  if (!supabaseUrl || !supabaseKey) {
+    return <EnvError />;
+  }
+  
   const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseKey) {
-      return null;
-    }
     return createBrowserClient(supabaseUrl, supabaseKey);
   }, [supabaseUrl, supabaseKey]);
+  
 
   const fetchData = useCallback(async () => {
     if (!supabase) return;
@@ -268,26 +270,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   
   useEffect(() => {
-    if (!supabase) {
-      setAuthLoading(false);
-      return;
-    }
-
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setSession(session);
-          if (session) {
+        setSession(session);
+        setAuthLoading(false);
+        
+        if (event === 'SIGNED_IN' && session) {
             await fetchData();
-          }
-          setAuthLoading(false);
         } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setData(initialDataState);
-          setAuthLoading(false);
+            setData(initialDataState);
         }
       }
     );
+
+    const checkInitialSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        if (session) {
+            await fetchData();
+        }
+        setAuthLoading(false);
+    };
+
+    checkInitialSession();
+
 
     return () => {
       authListener.subscription.unsubscribe();
@@ -333,8 +339,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
+    router.push('/dashboard');
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
-  }, [supabase]);
+  }, [supabase, router]);
 
   const signOutUser = useCallback(async () => {
     if (supabase) {
@@ -2035,11 +2042,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, visibleUsers, session, authLoading, data]
   );
   
-  if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
-  
-  if (authLoading || (session && dataLoading)) {
+  if (dataLoading) {
       return <PageLoader />;
   }
 
