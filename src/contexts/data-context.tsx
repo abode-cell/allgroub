@@ -34,8 +34,6 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
 import { isPast } from 'date-fns';
 import { createBrowserClient } from '@/lib/supabase/client';
-import { PageLoader } from '@/components/page-loader';
-import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -180,7 +178,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
-  const router = useRouter();
   const { toast } = useToast();
   
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -192,11 +189,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     return createBrowserClient(supabaseUrl, supabaseKey);
   }, [supabaseUrl, supabaseKey]);
-  
-  if (!supabaseUrl || !supabaseKey) {
-    return <EnvError />;
-  }
-  
 
   const fetchData = useCallback(async () => {
     if (!supabase) return;
@@ -279,13 +271,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         setSession(session);
         setAuthLoading(false);
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          await fetchData();
+        }
       }
     );
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, fetchData]);
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
@@ -326,17 +321,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
-    await fetchData();
-    router.push('/dashboard');
+    // Redirect is handled by next.config.js and ClientLayout
     return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
-  }, [supabase, router, fetchData]);
+  }, [supabase]);
 
   const signOutUser = useCallback(async () => {
     if (supabase) {
       await supabase.auth.signOut();
-      router.push('/login');
+      setSession(null);
+      setData(initialDataState);
     }
-  },[supabase, router]);
+  },[supabase]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     if (!supabase) return { success: false, message: "فشل الاتصال بقاعدة البيانات." };
@@ -2030,10 +2025,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, visibleUsers, session, authLoading, data]
   );
   
-  if (dataLoading && authLoading) {
-      return <PageLoader />;
+  if (!supabaseUrl || !supabaseKey) {
+    return <EnvError />;
   }
-
+  
   return (
     <DataStateContext.Provider value={state}>
       <DataActionsContext.Provider value={actions}>
