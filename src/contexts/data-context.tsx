@@ -172,9 +172,6 @@ const EnvError = () => (
 
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [data, setData] = useState(initialDataState as Omit<DataContextValue, keyof any>);
   const [session, setSession] = useState<Session | null>(null);
@@ -183,17 +180,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [envError, setEnvError] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  
-  useEffect(() => {
-    if (!supabaseUrl || !supabaseKey) {
-        setEnvError(true);
-        setAuthLoading(false);
-        setDataLoading(false);
-        return;
-    }
-    setSupabase(createBrowserClient(supabaseUrl, supabaseKey));
-  }, [supabaseUrl, supabaseKey]);
-
   
   const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
     setDataLoading(true);
@@ -277,20 +263,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   
   useEffect(() => {
-    if (!supabase) {
-      if (!envError) { // Only run this logic if env vars were not the issue
-          setAuthLoading(false);
-          setDataLoading(false);
-      }
-      return;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+        setEnvError(true);
+        setAuthLoading(false);
+        setDataLoading(false);
+        return;
     }
+    
+    const client = createBrowserClient(supabaseUrl, supabaseKey);
+    setSupabase(client);
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = client.auth.onAuthStateChange((event, session) => {
         setSession(session);
         if (event === 'SIGNED_IN') {
-            fetchData(supabase);
+            fetchData(client);
         }
         if (event === 'SIGNED_OUT') {
             setData(initialDataState as any);
@@ -298,11 +289,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    client.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
         setAuthLoading(false);
         if (session) {
-            fetchData(supabase);
+            fetchData(client);
         } else {
             setDataLoading(false);
         }
@@ -311,7 +302,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, fetchData, envError]);
+  }, [fetchData]);
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
