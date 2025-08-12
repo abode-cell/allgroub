@@ -17,11 +17,13 @@ const tajawal = Tajawal({
   variable: '--font-sans',
 });
 
+const base64Logo = Buffer.from(logoSvg).toString('base64');
+
 export const metadata: Metadata = {
   title: 'منصة عال',
   description: 'منصة متكاملة لإدارة التمويل والاستثمارات والقروض.',
   icons: {
-    icon: `data:image/svg+xml;base64,${btoa(logoSvg)}`,
+    icon: `data:image/svg+xml;base64,${base64Logo}`,
   },
 };
 
