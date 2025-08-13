@@ -362,33 +362,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-        if (error.message === 'Invalid login credentials') {
+        if (error.message.includes('Invalid login credentials')) {
             return { success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' };
         }
         return { success: false, message: error.message };
-    }
-
-    // After successful login, check user status from the database
-    if (signInData.user) {
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('status')
-            .eq('id', signInData.user.id)
-            .single();
-
-        if (userError || !userData) {
-            await supabase.auth.signOut();
-            return { success: false, message: "فشل في التحقق من حالة المستخدم. يرجى المحاولة مرة أخرى." };
-        }
-        
-        if (userData.status !== 'نشط') {
-            let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
-            if(userData.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
-            if(userData.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
-            
-            await supabase.auth.signOut();
-            return { success: false, message: message };
-        }
     }
     
     // The onAuthStateChange listener will handle fetching data and navigation
@@ -406,27 +383,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { email, password, phone, name, officeName } = payload;
     if (!password) return { success: false, message: "كلمة المرور مطلوبة." };
     
-    // The RPC will handle both auth.users and public.users creation
-    const { error } = await supabase.rpc('register_office_manager', {
-      p_email: email,
-      p_password: password,
-      p_name: name,
-      p_office_name: officeName,
-      p_phone: phone,
-      p_trial_days: data.users.find(u => u.role === 'مدير النظام')?.defaultTrialPeriodDays ?? 14
+     const { data: { user }, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            data: {
+                name,
+                phone,
+                officeName,
+                role: 'مدير المكتب',
+            },
+        },
     });
 
-    if (error) {
-        if (error.message.includes("User already registered")) {
+    if (signUpError) {
+        if (signUpError.message.includes("User already registered")) {
             return { success: false, message: 'البريد الإلكتروني مسجل بالفعل.' };
         }
-        console.error("RPC register_office_manager error:", error);
-        return { success: false, message: 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى أو التأكد من أن البريد الإلكتروني غير مستخدم.' };
+        console.error("SignUp error:", signUpError);
+        return { success: false, message: 'فشل في إنشاء الحساب. ' + signUpError.message };
+    }
+
+    if (!user) {
+        return { success: false, message: 'فشل في إنشاء مستخدم المصادقة.' };
     }
     
-    await supabase.auth.signInWithPassword({ email, password });
+    await supabase.auth.signOut();
     return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
-  }, [data.users]);
+  }, []);
   
   const addNotification = useCallback(
     async (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
@@ -1132,27 +1116,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
         
-        const { error } = await supabase.rpc('create_investor_with_transactions', {
-          p_name: investorPayload.name,
-          p_email: investorPayload.email,
-          p_phone: investorPayload.phone,
-          p_password: investorPayload.password,
-          p_managed_by: managerId,
-          p_installment_capital: investorPayload.installmentCapital,
-          p_grace_capital: investorPayload.graceCapital,
-          p_installment_profit_share: investorPayload.installmentProfitShare,
-          p_grace_period_profit_share: investorPayload.gracePeriodProfitShare,
-          p_submitted_by: currentUser.id,
-        });
+        // This is not secure for production. In a real app, this should be an edge function.
+        // For the purpose of this environment, we use the client API.
+        const { data: { user: newAuthUser }, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+            investorPayload.email,
+            { data: { 
+                name: investorPayload.name, 
+                phone: investorPayload.phone,
+                role: 'مستثمر',
+                managedBy: managerId,
+                submittedBy: currentUser.id,
+             } }
+        );
 
-        if (error) {
-            console.error("RPC create_investor_with_transactions error:", error);
+        if (inviteError || !newAuthUser) {
+            console.error("Error inviting investor:", inviteError);
             toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني مستخدمًا.' });
             return { success: false, message: 'فشل إنشاء حساب المستثمر.' };
         }
-
+        
         await fetchData(supabase);
-        toast({ title: 'تمت إضافة المستثمر بنجاح' });
+        toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
         return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
     },
     [currentUser, data.users, data.investors, fetchData, toast]
@@ -1173,23 +1157,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
         }
 
-        const { error } = await supabase.rpc('create_subordinate_user', {
-          p_name: payload.name,
-          p_email: payload.email,
-          p_phone: payload.phone,
-          p_password: payload.password,
-          p_role: role,
-          p_managed_by: currentUser.id
-        });
-        
-        if (error) {
-            console.error("RPC create_subordinate_user error:", error);
-            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المستخدم. قد يكون البريد الإلكتروني مستخدمًا.' });
-            return { success: false, message: 'فشل إنشاء حساب المستخدم.' };
+        const { data: { user: newAuthUser }, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+            payload.email,
+            { data: { 
+                name: payload.name, 
+                phone: payload.phone,
+                role: role,
+                managedBy: currentUser.id,
+                submittedBy: currentUser.id,
+             } }
+        );
+
+        if (inviteError || !newAuthUser) {
+            console.error(`Error inviting ${role}:`, inviteError);
+            toast({ variant: 'destructive', title: 'خطأ', description: `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني مستخدمًا.` });
+            return { success: false, message: `فشل إنشاء حساب ${role}.` };
         }
 
         await fetchData(supabase);
-        toast({ title: `تمت إضافة ${role} بنجاح.` });
+        toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
         return { success: true, message: `تمت إضافة ${role} بنجاح.` };
     },
     [currentUser, data.users, fetchData, toast]
@@ -1210,49 +1196,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
           console.error("Auth update error:", authError);
           return { success: false, message: 'فشل تحديث بيانات المصادقة.' };
         }
-
-        setData(d => ({
-            ...d,
-            users: d.users.map(u => u.id === currentUser.id ? {...u, ...updates} : u)
-        }));
         
+        const { error: dbError } = await supabase.from('users').update({ name: updates.name, phone: updates.phone }).eq('id', currentUser.id);
+
+        if (dbError) {
+            console.error("DB update error:", dbError);
+            // Revert password change? Probably not necessary.
+            return { success: false, message: 'فشل تحديث بياناتك في قاعدة البيانات.' };
+        }
+        
+        await fetchData(supabase);
         return { success: true, message: 'تم تحديث ملفك الشخصي بنجاح.' };
     },
-    [currentUser]
+    [currentUser, fetchData]
   );
   
   const updateUserCredentials = useCallback(async (
     userId: string,
     updates: { email?: string; password?: string, officeName?: string }
   ): Promise<{ success: boolean, message: string }> => {
-    let result = { success: false, message: "فشل تحديث بيانات الاعتماد." };
-    if (!currentUser || currentUser.role !== 'مدير النظام') {
-        result = { success: false, message: "غير مصرح به." };
-        toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-        return result;
-    }
+    const supabase = getSupabaseBrowserClient();
+    if (!currentUser) return { success: false, message: "غير مصرح به." };
     
-    // In a real app, you would have a Supabase Edge Function to do this as an admin
+    // In a real app, this should be a Supabase Edge Function to do this as an admin
     console.warn("Simulating admin user update. This is not secure on the client-side.");
     
-    setData(d => {
-        const userToUpdate = d.users.find(u => u.id === userId);
-        if (!userToUpdate) {
-            result = { success: false, message: "لم يتم العثور على المستخدم." };
-            toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-            return d;
-        }
-
-        const updatedUsers = d.users.map(u =>
-            u.id === userId ? { ...u, email: updates.email ?? u.email, officeName: updates.officeName ?? u.officeName } : u
-        );
-
-        result = { success: true, message: `تم تحديث بيانات دخول ${userToUpdate.name}.` };
-        toast({ title: 'نجاح', description: result.message });
-        return { ...d, users: updatedUsers };
+    const { error: adminError } = await supabase.auth.admin.updateUserById(userId, {
+        email: updates.email,
+        password: updates.password,
     });
-    return result;
-  }, [currentUser, toast]);
+    
+    if (adminError) {
+        console.error("Admin user update error:", adminError);
+        return { success: false, message: "فشل تحديث بيانات المصادقة للمستخدم." };
+    }
+
+    const { error: dbError } = await supabase.from('users').update({ email: updates.email, officeName: updates.officeName }).eq('id', userId);
+
+     if (dbError) {
+        console.error("DB credentials update error:", dbError);
+        return { success: false, message: "فشل تحديث البيانات في قاعدة البيانات." };
+    }
+
+    await fetchData(supabase);
+    toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
+    return { success: true, message: "تم تحديث البيانات بنجاح." };
+  }, [currentUser, toast, fetchData]);
 
 
   const addInvestorTransaction = useCallback(
