@@ -349,7 +349,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     const { error } = await supabase.functions.invoke('register-office-manager', {
-        body: payload,
+        body: {
+          name: payload.name,
+          email: payload.email,
+          phone: payload.phone,
+          officeName: payload.officeName,
+          password: payload.password,
+        },
     });
     
     if (error) {
