@@ -64,13 +64,19 @@ serve(async (req) => {
     if (!newAuthUser) throw new Error("Failed to create auth user.");
 
     // This is the correct way to send a confirmation link when creating a user as an admin.
-    const { error: sendError } = await supabaseAdmin.auth.resetPasswordForEmail(payload.email, {
-        redirectTo: `${Deno.env.get("NEXT_PUBLIC_SITE_URL")}/auth-confirmed`
+    const { error: sendError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: payload.email,
+        options: {
+            redirectTo: `${Deno.env.get("NEXT_PUBLIC_SITE_URL")}/auth-confirmed`
+        }
     });
+
 
     if (sendError) {
         console.error("Error sending confirmation email:", sendError);
         // Don't throw here, as the user is already created. Log the error.
+        // We still return a success response to the client because the account was made.
     }
 
     return new Response(JSON.stringify({ success: true, userId: newAuthUser.id }), {
