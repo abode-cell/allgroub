@@ -205,30 +205,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setDataLoading(false);
             return;
         };
-
-        const [
-            usersRes, investorsRes, borrowersRes, notificationsRes, supportTicketsRes, configRes, transactionsRes, branchesRes
-        ] = await Promise.all([
-            supabaseClient.from('users').select('*'),
-            supabaseClient.from('investors').select('*'),
-            supabaseClient.from('borrowers').select('*, installments:borrower_installments(borrower_id, month, status), fundedBy:borrower_funders(borrower_id, investor_id, amount)'),
-            supabaseClient.from('notifications').select('*'),
-            supabaseClient.from('support_tickets').select('*'),
-            supabaseClient.from('app_config').select('*'),
-            supabaseClient.from('transactions').select('*'),
-            supabaseClient.from('branches').select('*')
-        ]);
-
-        if (usersRes.error) throw usersRes.error;
-        if (investorsRes.error) throw investorsRes.error;
-        if (borrowersRes.error) throw borrowersRes.error;
-        if (notificationsRes.error) throw notificationsRes.error;
-        if (supportTicketsRes.error) throw supportTicketsRes.error;
-        if (configRes.error) throw configRes.error;
-        if (transactionsRes.error) throw transactionsRes.error;
-        if (branchesRes.error) throw branchesRes.error;
         
-        const localUser = usersRes.data?.find(u => u.id === user.id);
+        const { data: usersData, error: usersError } = await supabaseClient.rpc('get_user_data_and_context', { user_id_param: user.id });
+        if(usersError) throw usersError;
+        
+        const {
+             users_data, investors_data, borrowers_data, transactions_data,
+             notifications_data, support_tickets_data, app_config_data, branches_data
+        } = usersData[0];
+        
+        const localUser = users_data?.find((u: User) => u.id === user.id);
         if (localUser && localUser.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
             if(localUser.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
@@ -240,12 +226,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        const configData = configRes.data.reduce((acc: any, row: any) => {
+        const configData = app_config_data.reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
             return acc;
         }, {} as any);
         
-        const borrowersWithData: Borrower[] = borrowersRes.data.map((borrower: any) => ({
+        const borrowersWithData: Borrower[] = borrowers_data.map((borrower: any) => ({
             ...borrower,
             fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investor_id, amount: f.amount })),
             installments: (borrower.installments || []).map((i: any) => ({ month: i.month, status: i.status as InstallmentStatus })),
@@ -255,18 +241,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithBranches = (usersRes.data || []).map(u => ({
+        const usersWithBranches = (users_data || []).map((u: User) => ({
             ...u,
-            branches: (branchesRes.data || []).filter(b => b.manager_id === u.id)
+            branches: (branches_data || []).filter((b: Branch) => b.manager_id === u.id)
         }))
         
         setData({
             users: usersWithBranches,
-            investors: investorsRes.data || [],
+            investors: investors_data || [],
             borrowers: borrowersWithData,
-            transactions: transactionsRes.data || [],
-            notifications: notificationsRes.data || [],
-            supportTickets: supportTicketsRes.data || [],
+            transactions: transactions_data || [],
+            notifications: notifications_data || [],
+            supportTickets: support_tickets_data || [],
             salaryRepaymentPercentage: configData.salaryRepaymentPercentage ?? 0,
             baseInterestRate: configData.baseInterestRate ?? 0,
             investorSharePercentage: configData.investorSharePercentage ?? 0,
@@ -334,25 +320,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const visibleUsers = useMemo(() => {
     if (!currentUser) return [];
-    const { role, id } = currentUser;
-    const allUsers = data.users;
-
-    if (role === 'مدير النظام') {
-      return allUsers.filter(u => u.status !== 'محذوف');
-    }
-    
-    if (role === 'مستثمر') {
-      const manager = allUsers.find(u => u.id === currentUser.managedBy);
-      return manager ? [currentUser, manager] : [currentUser];
-    }
-    
-    const managerId = role === 'مدير المكتب' ? id : currentUser.managedBy;
-    if (managerId) {
-        const teamUsers = allUsers.filter(u => u.id === managerId || u.managedBy === managerId);
-        return teamUsers.filter(u => u.status !== 'محذوف');
-    }
-
-    return [currentUser];
+    return data.users.filter(u => u.status !== 'محذوف');
   }, [currentUser, data.users]);
 
   const signIn = useCallback(async (email: string, password?: string) => {
@@ -380,35 +348,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    const { email, password, phone, name, officeName } = payload;
-    if (!password) return { success: false, message: "كلمة المرور مطلوبة." };
-    
-     const { data: { user }, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-            data: {
-                name,
-                phone,
-                officeName,
-                role: 'مدير المكتب',
-            },
-        },
+    const { error } = await supabase.functions.invoke('register-office-manager', {
+        body: payload,
     });
-
-    if (signUpError) {
-        if (signUpError.message.includes("User already registered")) {
-            return { success: false, message: 'البريد الإلكتروني مسجل بالفعل.' };
-        }
-        console.error("SignUp error:", signUpError);
-        return { success: false, message: 'فشل في إنشاء الحساب. ' + signUpError.message };
-    }
-
-    if (!user) {
-        return { success: false, message: 'فشل في إنشاء مستخدم المصادقة.' };
+    
+    if (error) {
+        console.error("Register Office Manager Error:", error);
+        const errorMessage = error.context?.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+        return { success: false, message: errorMessage };
     }
     
-    await supabase.auth.signOut();
     return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
   }, []);
   
@@ -443,17 +392,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   const updateTrialPeriod = useCallback(
-    (days: number) => {
-      setData(d => ({
-        ...d,
-        users: d.users.map((u) => u.role === 'مدير النظام' ? { ...u, defaultTrialPeriodDays: days } : u)
-      }));
+    async (days: number) => {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.rpc('set_app_config', { key_to_set: 'defaultTrialPeriodDays', value_to_set: { value: days } });
+      await fetchData(supabase);
       toast({
         title: 'تم التحديث',
         description: `تم تحديث الفترة التجريبية إلى ${days} يوم.`,
       });
     },
-    [toast]
+    [toast, fetchData]
   );
 
   const updateSalaryRepaymentPercentage = useCallback(
@@ -508,18 +456,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateSupportInfo = useCallback(
-    (info: { email?: string; phone?: string }) => {
-      setData(d => ({
-          ...d,
-          supportEmail: info.email ?? d.supportEmail,
-          supportPhone: info.phone ?? d.supportPhone,
-      }));
+    async (info: { email?: string; phone?: string }) => {
+      const supabase = getSupabaseBrowserClient();
+      if(info.email) await supabase.rpc('set_app_config', { key_to_set: 'supportEmail', value_to_set: { value: info.email } });
+      if(info.phone) await supabase.rpc('set_app_config', { key_to_set: 'supportPhone', value_to_set: { value: info.phone } });
+      await fetchData(supabase);
       toast({
         title: 'تم تحديث معلومات الدعم',
         description: 'تم تحديث معلومات التواصل بنجاح.',
       });
     },
-    [toast]
+    [toast, fetchData]
   );
 
   const updateBorrower = useCallback(
@@ -1098,41 +1045,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
            return { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
         }
       
-        if (data.users.some((u) => u.email === investorPayload.email || u.phone === investorPayload.phone)) {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' });
-          return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
-        }
-      
-        const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-        const manager = data.users.find(u => u.id === managerId);
+        const manager = data.users.find(u => u.id === (currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy));
         if (manager) {
             const investorsAddedByManager = data.investors.filter(i => {
                 const investorUser = data.users.find(u => u.id === i.id);
                 return investorUser?.managedBy === manager.id;
             }).length;
             if (investorsAddedByManager >= (manager.investorLimit ?? 0)) {
-                toast({ variant: 'destructive', title: 'خطأ', description: `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).` });
-                return { success: false, message: `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).` };
+                const message = `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).`;
+                toast({ variant: 'destructive', title: 'خطأ', description: message });
+                return { success: false, message: message };
             }
         }
         
-        // This is not secure for production. In a real app, this should be an edge function.
-        // For the purpose of this environment, we use the client API.
-        const { data: { user: newAuthUser }, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-            investorPayload.email,
-            { data: { 
-                name: investorPayload.name, 
-                phone: investorPayload.phone,
-                role: 'مستثمر',
-                managedBy: managerId,
-                submittedBy: currentUser.id,
-             } }
-        );
+        const { error } = await supabase.functions.invoke('create-investor', {
+            body: investorPayload,
+        });
 
-        if (inviteError || !newAuthUser) {
-            console.error("Error inviting investor:", inviteError);
-            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني مستخدمًا.' });
-            return { success: false, message: 'فشل إنشاء حساب المستثمر.' };
+        if (error) {
+            console.error("Create Investor Error:", error);
+            const errorMessage = error.context?.message || 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+            toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
+            return { success: false, message: errorMessage };
         }
         
         await fetchData(supabase);
@@ -1145,40 +1079,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
-
-        if (currentUser.role !== 'مدير المكتب') {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'ليس لديك الصلاحية لإضافة مستخدمين.' });
-            return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
-        }
-        
-        if (data.users.some((u) => u.email === payload.email || u.phone === payload.phone)) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' });
-            return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+        if (!currentUser || currentUser.role !== 'مدير المكتب') {
+            const message = 'ليس لديك الصلاحية لإضافة مستخدمين.';
+            toast({ variant: 'destructive', title: 'خطأ', description: message });
+            return { success: false, message };
         }
 
-        const { data: { user: newAuthUser }, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-            payload.email,
-            { data: { 
-                name: payload.name, 
-                phone: payload.phone,
-                role: role,
-                managedBy: currentUser.id,
-                submittedBy: currentUser.id,
-             } }
-        );
+        const { error } = await supabase.functions.invoke('create-subordinate', {
+            body: { ...payload, role },
+        });
 
-        if (inviteError || !newAuthUser) {
-            console.error(`Error inviting ${role}:`, inviteError);
-            toast({ variant: 'destructive', title: 'خطأ', description: `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني مستخدمًا.` });
-            return { success: false, message: `فشل إنشاء حساب ${role}.` };
+        if (error) {
+            console.error(`Create ${role} Error:`, error);
+            const errorMessage = error.context?.message || `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.`;
+            toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
+            return { success: false, message: errorMessage };
         }
 
         await fetchData(supabase);
         toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
         return { success: true, message: `تمت إضافة ${role} بنجاح.` };
     },
-    [currentUser, data.users, fetchData, toast]
+    [currentUser, fetchData, toast]
   );
   
   const updateUserIdentity = useCallback(

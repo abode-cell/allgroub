@@ -32,7 +32,7 @@ export type NewUserPayload = {
   name: string;
   email: string;
   phone: string;
-  password: string;
+  password?: string;
   confirmPassword?: string;
 };
 
@@ -46,6 +46,7 @@ export type NewManagerPayload = {
 
 export type Branch = {
   id: string;
+  manager_id: string;
   name: string;
   city: string;
 };
@@ -162,7 +163,7 @@ export type NewInvestorPayload = {
     graceCapital: number;
     email: string;
     phone: string;
-    password: string;
+    password?: string;
     installmentProfitShare: number;
     gracePeriodProfitShare: number;
 };
