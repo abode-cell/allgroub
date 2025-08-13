@@ -42,13 +42,28 @@ serve(async (req) => {
         name: payload.name,
         phone: payload.phone,
         role: "مستثمر",
-        managedBy: invoker.id,
-        submittedBy: invoker.id,
       },
     });
 
     if (authError) throw new Error(`Auth Error: ${authError.message}`);
     if (!newAuthUser) throw new Error("Failed to create auth user.");
+
+    // Now insert into the public.users table
+    const { error: publicUserError } = await supabaseAdmin
+      .from("users")
+      .insert({
+        id: newAuthUser.id,
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        role: "مستثمر",
+        managedBy: invoker.id,
+        submittedBy: invoker.id,
+        status: "نشط",
+      });
+    
+    if (publicUserError) throw new Error(`Public users table insert error: ${publicUserError.message}`);
+
 
     const { error: investorError } = await supabaseAdmin
       .from("investors")

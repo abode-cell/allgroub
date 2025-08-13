@@ -31,7 +31,8 @@ serve(async (req) => {
     const { data: systemAdmins, error: adminError } = await supabaseAdmin
         .from('users')
         .select('id')
-        .eq('role', 'مدير النظام');
+        .eq('role', 'مدير النظام')
+        .limit(1);
     
     if (adminError || !systemAdmins || systemAdmins.length === 0) {
         console.error("System admin not found", adminError);
@@ -39,16 +40,16 @@ serve(async (req) => {
     }
     const systemAdmin = systemAdmins[0];
 
+    // Create the user in the auth schema
     const { data: { user: newAuthUser }, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
-      email_confirm: false, // User will confirm via the link
+      email_confirm: false, 
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
         officeName: payload.officeName,
         role: "مدير المكتب",
-        managedBy: systemAdmin.id
       },
     });
 
@@ -63,7 +64,28 @@ serve(async (req) => {
     }
     if (!newAuthUser) throw new Error("Failed to create auth user.");
 
-    // This is the correct way to send a confirmation link when creating a user as an admin.
+    // Manually insert into the public.users table
+    const { error: publicUserError } = await supabaseAdmin
+      .from("users")
+      .insert({
+        id: newAuthUser.id,
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        officeName: payload.officeName,
+        role: "مدير المكتب",
+        managedBy: systemAdmin.id,
+        status: "معلق", // Managers start as pending
+      });
+
+    if (publicUserError) {
+        // If this fails, we should ideally delete the auth user to avoid orphans.
+        await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
+        throw new Error(`Failed to create user in public table: ${publicUserError.message}`);
+    }
+    
+
+    // Generate a confirmation link (this is for email verification)
     const { error: sendError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: payload.email,
@@ -72,11 +94,8 @@ serve(async (req) => {
         }
     });
 
-
     if (sendError) {
         console.error("Error sending confirmation email:", sendError);
-        // Don't throw here, as the user is already created. Log the error.
-        // We still return a success response to the client because the account was made.
     }
 
     return new Response(JSON.stringify({ success: true, userId: newAuthUser.id }), {
