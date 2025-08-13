@@ -16,7 +16,6 @@ interface InvestorPayload {
 }
 
 serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -27,18 +26,18 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    const authHeader = req.headers.get("Authorization")!;
     const { data: { user: invoker } } = await supabaseAdmin.auth.getUser(
-      req.headers.get("Authorization")!.replace("Bearer ", "")
+      authHeader.replace("Bearer ", "")
     );
     if (!invoker) throw new Error("User not found");
 
     const payload: InvestorPayload = await req.json();
 
-    // 1. Create the auth user
     const { data: { user: newAuthUser }, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
-      password: payload.password || "default-password-123", // Set a default or require it
-      email_confirm: true, // Auto-confirm email
+      password: payload.password || "default-password-123",
+      email_confirm: true,
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
@@ -51,7 +50,6 @@ serve(async (req) => {
     if (authError) throw new Error(`Auth Error: ${authError.message}`);
     if (!newAuthUser) throw new Error("Failed to create auth user.");
 
-    // 2. Create the public.investors entry
     const { error: investorError } = await supabaseAdmin
       .from("investors")
       .insert({
@@ -65,7 +63,6 @@ serve(async (req) => {
 
     if (investorError) throw new Error(`Investor DB Error: ${investorError.message}`);
     
-    // 3. Create initial capital deposit transactions
     const transactionsToInsert = [];
     if (payload.installmentCapital > 0) {
       transactionsToInsert.push({

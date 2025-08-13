@@ -13,7 +13,6 @@ interface ManagerPayload {
 }
 
 serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -29,22 +28,21 @@ serve(async (req) => {
         throw new Error("Password is required");
     }
 
-    const { data: { user: systemAdmin }, error: adminError } = await supabaseAdmin
+    const { data: systemAdmins, error: adminError } = await supabaseAdmin
         .from('users')
         .select('id')
-        .eq('role', 'مدير النظام')
-        .limit(1)
-        .single();
+        .eq('role', 'مدير النظام');
     
-    if (adminError || !systemAdmin) {
+    if (adminError || !systemAdmins || systemAdmins.length === 0) {
         console.error("System admin not found", adminError);
         throw new Error("System admin account not found. Cannot assign manager.");
     }
+    const systemAdmin = systemAdmins[0];
 
     const { data: { user: newAuthUser }, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
-      email_confirm: false, // User must confirm their email
+      email_confirm: false,
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
@@ -65,19 +63,13 @@ serve(async (req) => {
     }
     if (!newAuthUser) throw new Error("Failed to create auth user.");
 
-    // The user will be created in the public.users table by a trigger.
-    // We don't need to insert it manually here.
-    // We just need to send the confirmation email.
-    
     const { error: sendError } = await supabaseAdmin.auth.resetPasswordForEmail(payload.email, {
         redirectTo: `${Deno.env.get("NEXT_PUBLIC_SITE_URL")}/auth-confirmed`
     });
 
     if (sendError) {
         console.error("Error sending confirmation email:", sendError);
-        // Don't throw, as the user is already created. They can request another confirmation later.
     }
-
 
     return new Response(JSON.stringify({ success: true, userId: newAuthUser.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
