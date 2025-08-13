@@ -346,32 +346,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   },[router]);
 
-  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) return { success: false, message: 'Supabase URL not configured.'};
+  const invokeFunction = useCallback(async (functionName: string, body: any) => {
+    const supabase = getSupabaseBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
     
+    if (!session) {
+        throw new Error("User not authenticated.");
+    }
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'An unknown error occurred during function invocation.');
+    }
+
+    return response.json();
+  }, []);
+
+  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     try {
-        const response = await fetch(`${supabaseUrl}/functions/v1/register-office-manager`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'An unknown error occurred.');
-        }
-
+        await invokeFunction('register-office-manager', payload);
         return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
-
     } catch (error: any) {
         console.error("Register Office Manager Error:", error);
         const errorMessage = error.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
         return { success: false, message: errorMessage };
     }
-  }, []);
+  }, [invokeFunction]);
   
   const addNotification = useCallback(
     async (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
@@ -1049,7 +1058,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addInvestor = useCallback(
     async (investorPayload: Omit<NewInvestorPayload, 'status'>): Promise<{ success: boolean; message: string }> => {
-        const supabase = getSupabaseBrowserClient();
         if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
 
         if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !currentUser.permissions?.manageInvestors) {
@@ -1070,49 +1078,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
         
-        const { error } = await supabase.functions.invoke('create-investor', {
-            body: investorPayload,
-        });
-
-        if (error) {
-            console.error("Create Investor Error:", error);
-            const errorMessage = error.context?.message || 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+        try {
+            await invokeFunction('create-investor', investorPayload);
+            await fetchData(getSupabaseBrowserClient());
+            toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
+            return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
+        } catch (error: any) {
+             console.error("Create Investor Error:", error);
+            const errorMessage = error.message || 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
-        
-        await fetchData(supabase);
-        toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
-        return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
     },
-    [currentUser, data.users, data.investors, fetchData, toast]
+    [currentUser, data.users, data.investors, fetchData, toast, invokeFunction]
   );
   
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
-        const supabase = getSupabaseBrowserClient();
         if (!currentUser || currentUser.role !== 'مدير المكتب') {
             const message = 'ليس لديك الصلاحية لإضافة مستخدمين.';
             toast({ variant: 'destructive', title: 'خطأ', description: message });
             return { success: false, message };
         }
 
-        const { error } = await supabase.functions.invoke('create-subordinate', {
-            body: { ...payload, role },
-        });
-
-        if (error) {
+        try {
+            await invokeFunction('create-subordinate', { ...payload, role });
+            await fetchData(getSupabaseBrowserClient());
+            toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
+            return { success: true, message: `تمت إضافة ${role} بنجاح.` };
+        } catch (error: any) {
             console.error(`Create ${role} Error:`, error);
-            const errorMessage = error.context?.message || `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.`;
+            const errorMessage = error.message || `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.`;
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
-
-        await fetchData(supabase);
-        toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
-        return { success: true, message: `تمت إضافة ${role} بنجاح.` };
     },
-    [currentUser, fetchData, toast]
+    [currentUser, fetchData, toast, invokeFunction]
   );
   
   const updateUserIdentity = useCallback(
@@ -1662,3 +1663,6 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
+
+
+    
