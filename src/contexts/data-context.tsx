@@ -359,13 +359,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     if (!password) return { success: false, message: "بيانات غير مكتملة." };
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         if (error.message === 'Invalid login credentials') {
             return { success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' };
         }
         return { success: false, message: error.message };
+    }
+
+    // After successful login, check user status from the database
+    if (signInData.user) {
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('status')
+            .eq('id', signInData.user.id)
+            .single();
+
+        if (userError || !userData) {
+            await supabase.auth.signOut();
+            return { success: false, message: "فشل في التحقق من حالة المستخدم. يرجى المحاولة مرة أخرى." };
+        }
+        
+        if (userData.status !== 'نشط') {
+            let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
+            if(userData.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
+            if(userData.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
+            
+            await supabase.auth.signOut();
+            return { success: false, message: message };
+        }
     }
     
     // The onAuthStateChange listener will handle fetching data and navigation
@@ -1092,170 +1115,97 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addInvestor = useCallback(
     async (investorPayload: Omit<NewInvestorPayload, 'status'>): Promise<{ success: boolean; message: string }> => {
-      let result = { success: false, message: 'فشل غير متوقع' };
-      if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
+        const supabase = getSupabaseBrowserClient();
+        if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
 
-      setData(d => {
         if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !currentUser.permissions?.manageInvestors) {
-           result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
-           toast({ variant: 'destructive', title: 'غير مصرح به', description: result.message });
-           return d;
+           toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك الصلاحية لإضافة مستثمرين.' });
+           return { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
         }
       
-        if (d.users.some((u) => u.email === investorPayload.email || u.phone === investorPayload.phone)) {
-          result = { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
-          toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-          return d;
+        if (data.users.some((u) => u.email === investorPayload.email || u.phone === investorPayload.phone)) {
+          toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' });
+          return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
         }
       
-        const installmentCapital = Number(investorPayload.installmentCapital) || 0;
-        const graceCapital = Number(investorPayload.graceCapital) || 0;
-
-        if (installmentCapital <= 0 && graceCapital <= 0) {
-           result = { success: false, message: 'يجب إدخال رأس مال واحد على الأقل.' };
-           toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-           return d;
-        }
-
         const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-        const manager = d.users.find(u => u.id === managerId);
-      
+        const manager = data.users.find(u => u.id === managerId);
         if (manager) {
-          const investorsAddedByManager = d.investors.filter(i => {
-            const investorUser = d.users.find(u => u.id === i.id);
-            return investorUser?.managedBy === manager.id;
-          }).length;
-      
-          if (investorsAddedByManager >= (manager.investorLimit ?? 0)) {
-            result = { success: false, message: `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).` };
-            toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-            return d;
-          }
+            const investorsAddedByManager = data.investors.filter(i => {
+                const investorUser = data.users.find(u => u.id === i.id);
+                return investorUser?.managedBy === manager.id;
+            }).length;
+            if (investorsAddedByManager >= (manager.investorLimit ?? 0)) {
+                toast({ variant: 'destructive', title: 'خطأ', description: `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).` });
+                return { success: false, message: `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).` };
+            }
         }
       
-        if (!investorPayload.password || investorPayload.password.length < 6) {
-          result = { success: false, message: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' };
-          toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-          return d;
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: investorPayload.email,
+            password: investorPayload.password,
+            options: {
+                data: {
+                    name: investorPayload.name,
+                    phone: investorPayload.phone,
+                    role: 'مستثمر',
+                    managedBy: managerId,
+                }
+            }
+        });
+
+        if (authError || !authData.user) {
+            console.error("Supabase sign up error:", authError);
+            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المصادقة للمستثمر.' });
+            return { success: false, message: 'فشل إنشاء حساب المصادقة للمستثمر.' };
         }
 
-        const status: User['status'] = (currentUser.role === 'موظف' || (currentUser.role === 'مساعد مدير المكتب' && !currentUser.permissions?.manageRequests)) ? 'معلق' : 'نشط';
-      
-        const newId = `user_inv_${Date.now()}`;
-      
-        const newUser: User = {
-          id: newId,
-          name: investorPayload.name,
-          email: investorPayload.email,
-          phone: investorPayload.phone,
-          role: 'مستثمر',
-          status: status,
-          photoURL: `https://placehold.co/40x40.png`,
-          registrationDate: new Date().toISOString(),
-          managedBy: managerId,
-        };
-        
-        const newTransactions: Transaction[] = [];
-
-        if (installmentCapital > 0) {
-            newTransactions.push({
-                id: `tx_init_inst_${newId}`,
-                investor_id: newId,
-                date: new Date().toISOString(),
-                type: 'إيداع رأس المال',
-                amount: installmentCapital,
-                description: 'إيداع تأسيسي - محفظة الأقساط',
-                capitalSource: 'installment',
-            });
-        }
-        if (graceCapital > 0) {
-             newTransactions.push({
-                id: `tx_init_grace_${newId}`,
-                investor_id: newId,
-                date: new Date().toISOString(),
-                type: 'إيداع رأس المال',
-                amount: graceCapital,
-                description: 'إيداع تأسيسي - محفظة المهلة',
-                capitalSource: 'grace',
-            });
-        }
-      
-        const newInvestorEntry: Investor = {
-          id: newId,
-          name: investorPayload.name,
-          status: status,
-          date: new Date().toISOString(),
-          submittedBy: currentUser.id,
-          isNotified: false,
-          installmentProfitShare: investorPayload.installmentProfitShare,
-          gracePeriodProfitShare: investorPayload.gracePeriodProfitShare,
-        };
-        
-        let newNotifications = d.notifications;
-        if (status === 'معلق' && managerId) {
-            newNotifications = [{
-                id: `notif_${crypto.randomUUID()}`,
-                date: new Date().toISOString(),
-                isRead: false,
-                recipientId: managerId,
-                title: 'طلب مستثمر جديد معلق',
-                description: `قدم الموظف "${currentUser.name}" طلبًا لإضافة المستثمر "${newInvestorEntry.name}".`,
-            }, ...d.notifications];
-        }
-    
-        result = { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
+        await fetchData(supabase);
         toast({ title: 'تمت إضافة المستثمر بنجاح' });
-        return {
-          ...d,
-          users: [...d.users, newUser],
-          investors: [...d.investors, newInvestorEntry],
-          transactions: [...d.transactions, ...newTransactions],
-          notifications: newNotifications
-        };
-      });
-      return result;
+        return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
     },
-    [currentUser, toast]
+    [currentUser, data.users, data.investors, fetchData, toast]
   );
   
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
-        let result: { success: boolean, message: string } = { success: false, message: 'فشل غير متوقع.' };
-        if (!currentUser) {
-            result = { success: false, message: 'يجب تسجيل الدخول أولاً.' };
-            return result;
-        };
+        const supabase = getSupabaseBrowserClient();
+        if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
 
-        setData(d => {
-            if (currentUser.role !== 'مدير المكتب') {
-                result = { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
-                toast({ variant: 'destructive', title: 'خطأ', description: result.message });
-                return d;
+        if (currentUser.role !== 'مدير المكتب') {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'ليس لديك الصلاحية لإضافة مستخدمين.' });
+            return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
+        }
+        
+        if (data.users.some((u) => u.email === payload.email || u.phone === payload.phone)) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' });
+            return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
+        }
+
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: payload.email,
+            password: payload.password,
+            options: {
+                data: {
+                    name: payload.name,
+                    phone: payload.phone,
+                    role: role,
+                    managedBy: currentUser.id,
+                }
             }
-
-            const newId = `user_sub_${Date.now()}`;
-            const newUser: User = {
-                id: newId,
-                name: payload.name,
-                email: payload.email,
-                phone: payload.phone,
-                role: role,
-                status: 'نشط',
-                managedBy: currentUser.id,
-                photoURL: `https://placehold.co/40x40.png`,
-                registrationDate: new Date().toISOString(),
-            };
-
-            result = { success: true, message: `تمت إضافة ${role} بنجاح.` };
-            toast({ title: result.message });
-            return {
-                ...d,
-                users: [...d.users, newUser],
-            };
         });
-        return result;
+        
+        if (authError || !authData.user) {
+            console.error("Supabase sign up error:", authError);
+            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المصادقة للمستخدم.' });
+            return { success: false, message: 'فشل إنشاء حساب المصادقة للمستخدم.' };
+        }
+
+        await fetchData(supabase);
+        toast({ title: `تمت إضافة ${role} بنجاح.` });
+        return { success: true, message: `تمت إضافة ${role} بنجاح.` };
     },
-    [currentUser, toast]
+    [currentUser, data.users, fetchData, toast]
   );
   
   const updateUserIdentity = useCallback(
