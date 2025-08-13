@@ -7,7 +7,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 interface ManagerPayload {
   name: string;
   email: string;
-  phone: string;
+  phone: string; // Corrected from phone_number to match frontend payload
   password?: string;
   officeName: string;
 }
@@ -27,15 +27,18 @@ serve(async (req) => {
     if (!payload.password) {
       throw new Error('Password is required');
     }
+    if (!payload.phone) {
+        throw new Error("Phone number is required");
+    }
 
-    // Step 1: Create the user in the auth schema
     const {
       data: { user: newAuthUser },
       error: authError,
     } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
-      email_confirm: false, // User will confirm via link
+      phone: payload.phone, // Use the phone number for auth as well
+      email_confirm: false, 
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
@@ -46,12 +49,10 @@ serve(async (req) => {
 
     if (authError) {
       if (authError.message.includes('Email rate limit exceeded')) {
-        throw new Error(
-          'تم تجاوز حد إرسال رسائل البريد الإلكتروني. يرجى المحاولة مرة أخرى لاحقًا.'
-        );
+        throw new Error('تم تجاوز حد إرسال رسائل البريد الإلكتروني. يرجى المحاولة مرة أخرى لاحقًا.');
       }
       if (authError.message.includes('User already registered')) {
-        throw new Error('البريد الإلكتروني مسجل بالفعل.');
+        throw new Error('البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.');
       }
       throw new Error(`Auth Error: ${authError.message}`);
     }
@@ -59,8 +60,6 @@ serve(async (req) => {
       throw new Error('Failed to create auth user.');
     }
 
-    // Step 2: Manually insert into the public.users table
-    // Note: We are not setting managedBy here. A system admin can be associated later if needed.
     const { error: publicUserError } = await supabaseAdmin.from('users').insert({
       id: newAuthUser.id,
       name: payload.name,
@@ -68,30 +67,23 @@ serve(async (req) => {
       phone: payload.phone,
       officeName: payload.officeName,
       role: 'مدير المكتب',
-      status: 'معلق', // Managers start as pending until activated by a system admin
+      status: 'معلق',
     });
 
     if (publicUserError) {
-      // If this fails, we must delete the auth user to avoid orphans.
       await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
       throw new Error(
         `Failed to create user in public table: ${publicUserError.message}`
       );
     }
-    
-    // Step 3: Send the confirmation email
+
     const { error: sendError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: payload.email,
-        options: {
-            redirectTo: `${Deno.env.get("NEXT_PUBLIC_SITE_URL")}/auth-confirmed`
-        }
     });
 
     if (sendError) {
         console.error("Could not send confirmation email:", sendError.message);
-        // We don't throw an error here, as the user is already created.
-        // The admin can resend the invite later.
     }
 
 
