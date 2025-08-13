@@ -7,7 +7,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 interface ManagerPayload {
   name: string;
   email: string;
-  phone: string; // Corrected from phone_number to match frontend payload
+  phone: string;
   password?: string;
   officeName: string;
 }
@@ -37,8 +37,8 @@ serve(async (req) => {
     } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
-      phone: payload.phone, // Use the phone number for auth as well
-      email_confirm: false, 
+      phone: payload.phone,
+      email_confirm: false,
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
@@ -59,6 +59,20 @@ serve(async (req) => {
     if (!newAuthUser) {
       throw new Error('Failed to create auth user.');
     }
+    
+    // Fetch default trial period days from config
+    const { data: configData, error: configError } = await supabaseAdmin
+        .from('app_config')
+        .select('value')
+        .eq('key', 'defaultTrialPeriodDays')
+        .single();
+    
+    if (configError) throw new Error(`Could not fetch trial period config: ${configError.message}`);
+    
+    const trialDays = configData.value.value || 14;
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + trialDays);
+
 
     const { error: publicUserError } = await supabaseAdmin.from('users').insert({
       id: newAuthUser.id,
@@ -68,22 +82,34 @@ serve(async (req) => {
       officeName: payload.officeName,
       role: 'مدير المكتب',
       status: 'معلق',
+      investorLimit: 10,
+      employeeLimit: 5,
+      assistantLimit: 2,
+      branchLimit: 3,
+      allowEmployeeSubmissions: true,
+      hideEmployeeInvestorFunds: false,
+      allowEmployeeLoanEdits: false,
+      trialEndsAt: trialEndDate.toISOString(),
+      registrationDate: new Date().toISOString(),
     });
 
     if (publicUserError) {
+      // If inserting into users fails, delete the auth user to keep things clean
       await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
       throw new Error(
         `Failed to create user in public table: ${publicUserError.message}`
       );
     }
-
-    const { error: sendError } = await supabaseAdmin.auth.admin.generateLink({
+    
+    // Generate email confirmation link
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: payload.email,
     });
 
-    if (sendError) {
-        console.error("Could not send confirmation email:", sendError.message);
+    if (linkError) {
+      // Log the error but don't fail the request, as the user is already created.
+      console.error("Could not generate confirmation email link:", linkError.message);
     }
 
 
@@ -95,6 +121,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
+    console.error('Function Error:', error.message);
     return new Response(JSON.stringify({ message: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
