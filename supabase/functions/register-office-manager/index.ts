@@ -42,7 +42,7 @@ serve(async (req) => {
     const { data: { user: newAuthUser }, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
-      email_confirm: false,
+      email_confirm: false, // User will confirm via the link
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
@@ -63,12 +63,14 @@ serve(async (req) => {
     }
     if (!newAuthUser) throw new Error("Failed to create auth user.");
 
+    // This is the correct way to send a confirmation link when creating a user as an admin.
     const { error: sendError } = await supabaseAdmin.auth.resetPasswordForEmail(payload.email, {
         redirectTo: `${Deno.env.get("NEXT_PUBLIC_SITE_URL")}/auth-confirmed`
     });
 
     if (sendError) {
         console.error("Error sending confirmation email:", sendError);
+        // Don't throw here, as the user is already created. Log the error.
     }
 
     return new Response(JSON.stringify({ success: true, userId: newAuthUser.id }), {
