@@ -24,37 +24,21 @@ serve(async (req) => {
     );
 
     const payload: ManagerPayload = await req.json();
-    if (!payload.password) {
-      throw new Error('Password is required');
+    if (!payload.password || !payload.phone || !payload.officeName) {
+      throw new Error('Incomplete data. Password, phone, and office name are required.');
     }
-    if (!payload.phone) {
-        throw new Error("Phone number is required");
-    }
-     if (!payload.officeName) {
-        throw new Error("Office name is required");
-    }
-
-
+    
+    // Step 1: Create the user with basic credentials
     const {
       data: { user: newAuthUser },
       error: authError,
     } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
-      phone: payload.phone,
-      email_confirm: false, 
-      user_metadata: {
-        name: payload.name,
-        phone: payload.phone,
-        officeName: payload.officeName,
-        role: 'مدير المكتب',
-      },
+      email_confirm: false,
     });
-
+    
     if (authError) {
-      if (authError.message.includes('Email rate limit exceeded')) {
-        throw new Error('تم تجاوز حد إرسال رسائل البريد الإلكتروني. يرجى المحاولة مرة أخرى لاحقًا.');
-      }
       if (authError.message.includes('User already registered')) {
         throw new Error('البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.');
       }
@@ -63,8 +47,26 @@ serve(async (req) => {
     if (!newAuthUser) {
       throw new Error('Failed to create auth user.');
     }
+
+    // Step 2: Update the new user's metadata
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        newAuthUser.id,
+        { 
+          user_metadata: {
+            name: payload.name,
+            phone: payload.phone,
+            officeName: payload.officeName,
+            role: 'مدير المكتب',
+          }
+        }
+    );
+
+    if (updateError) {
+        await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
+        throw new Error(`Failed to update user metadata: ${updateError.message}`);
+    }
     
-    // Fetch default trial period days from config
+    // Step 3: Fetch default trial period days from config
     const { data: configData, error: configError } = await supabaseAdmin
         .from('app_config')
         .select('value')
@@ -78,6 +80,7 @@ serve(async (req) => {
     trialEndDate.setDate(trialEndDate.getDate() + trialDays);
 
 
+    // Step 4: Insert into the public.users table
     const { error: publicUserError } = await supabaseAdmin.from('users').insert({
       id: newAuthUser.id,
       name: payload.name,
@@ -98,22 +101,12 @@ serve(async (req) => {
     });
 
     if (publicUserError) {
-      // If inserting into users fails, delete the auth user to keep things clean
       await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
       throw new Error(
         `Failed to create user in public table: ${publicUserError.message}`
       );
     }
     
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'magiclink',
-        email: payload.email,
-    });
-
-    if (linkError) {
-      console.error("Could not generate confirmation email link:", linkError.message);
-    }
-
     return new Response(
       JSON.stringify({ success: true, userId: newAuthUser.id }),
       {
