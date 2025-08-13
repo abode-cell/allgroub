@@ -33,30 +33,10 @@ export default function SignUpPage() {
   const [success, setSuccess] = useState(false);
 
   const validatePassword = (pass: string): boolean => {
-    const hasUpperCase = /[A-Z]/.test(pass);
-    const hasLowerCase = /[a-z]/.test(pass);
-    const hasSpecialChar = /[.@:,]/.test(pass);
-    const hasSufficientLength = pass.length >= 8;
-    const hasNoArabic = !/[\u0600-\u06FF]/.test(pass);
+    const hasSufficientLength = pass.length >= 6;
 
     if (!hasSufficientLength) {
-      setError('يجب أن لا تقل كلمة المرور عن 8 خانات.');
-      return false;
-    }
-    if (!hasUpperCase) {
-      setError('يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل.');
-      return false;
-    }
-    if (!hasLowerCase) {
-      setError('يجب أن تحتوي كلمة المرور على حرف صغير واحد على الأقل.');
-      return false;
-    }
-    if (!hasSpecialChar) {
-      setError('يجب أن تحتوي كلمة المرور على رمز خاص واحد على الأقل (.@:,).');
-      return false;
-    }
-     if (!hasNoArabic) {
-      setError('كلمة المرور يجب أن لا تحتوي على حروف عربية.');
+      setError('يجب أن لا تقل كلمة المرور عن 6 خانات.');
       return false;
     }
     return true;
@@ -169,10 +149,7 @@ export default function SignUpPage() {
                     </button>
                 </div>
                  <div className="text-xs text-muted-foreground mt-2 px-1 space-y-1">
-                    <p>يجب أن تحتوي على 8 خانات على الأقل.</p>
-                    <p>يجب أن تحتوي على حرف إنجليزي كبير وصغير.</p>
-                    <p>يجب أن تحتوي على أحد الرموز التالية: <code className="font-mono text-xs">.@:,</code></p>
-                    <p>غير مسموح بالحروف العربية.</p>
+                    <p>يجب أن تحتوي على 6 خانات على الأقل.</p>
                 </div>
             </div>
              <div className="space-y-2">
