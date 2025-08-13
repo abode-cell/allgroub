@@ -38,7 +38,7 @@ serve(async (req) => {
       email: payload.email,
       password: payload.password,
       phone: payload.phone,
-      email_confirm: false,
+      email_confirm: false, // Set to false to allow immediate login, but send confirmation email
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
