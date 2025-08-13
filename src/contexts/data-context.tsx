@@ -406,66 +406,57 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { email, password, phone, name, officeName } = payload;
     if (!password) return { success: false, message: "كلمة المرور مطلوبة." };
     
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-            data: {
-                name,
-                officeName,
-                phone,
-                role: 'مدير المكتب'
-            }
-        }
+    // The RPC will handle both auth.users and public.users creation
+    const { error } = await supabase.rpc('register_office_manager', {
+      p_email: email,
+      p_password: password,
+      p_name: name,
+      p_office_name: officeName,
+      p_phone: phone,
+      p_trial_days: data.users.find(u => u.role === 'مدير النظام')?.defaultTrialPeriodDays ?? 14
     });
 
-    if (authError) {
-        if (authError.message.includes("User already registered")) {
+    if (error) {
+        if (error.message.includes("User already registered")) {
             return { success: false, message: 'البريد الإلكتروني مسجل بالفعل.' };
         }
-        console.error("Supabase sign up error:", authError);
-        return { success: false, message: 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
+        console.error("RPC register_office_manager error:", error);
+        return { success: false, message: 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى أو التأكد من أن البريد الإلكتروني غير مستخدم.' };
     }
     
-    if (!authData.user) {
-        return { success: false, message: 'فشل في إنشاء الحساب، لم يتم إرجاع بيانات المستخدم من نظام المصادقة.' };
-    }
-
-    await fetchData(supabase);
+    await supabase.auth.signInWithPassword({ email, password });
     return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
-  }, [fetchData]);
+  }, [data.users]);
   
   const addNotification = useCallback(
-    (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
-      setData(d => {
-        const newNotification: Notification = {
-          ...notification,
-          id: `notif_${crypto.randomUUID()}`,
-          date: new Date().toISOString(),
-          isRead: false,
-        };
-        return { ...d, notifications: [newNotification, ...d.notifications] };
-      });
+    async (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
+       const supabase = getSupabaseBrowserClient();
+       const newNotification: Omit<Notification, 'id'> = {
+         ...notification,
+         date: new Date().toISOString(),
+         isRead: false,
+       };
+       await supabase.from('notifications').insert(newNotification);
+       fetchData(supabase);
     },
-    []
+    [fetchData]
   );
 
   const clearUserNotifications = useCallback(
-    (userId: string) => {
-      setData(d => ({ ...d, notifications: d.notifications.filter((n) => n.recipientId !== userId) }));
+    async (userId: string) => {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.from('notifications').delete().eq('recipientId', userId);
+      fetchData(supabase);
       toast({ title: 'تم حذف جميع التنبيهات' });
     },
-    [toast]
+    [toast, fetchData]
   );
 
-  const markUserNotificationsAsRead = useCallback((userId: string) => {
-    setData(d => ({
-        ...d,
-        notifications: d.notifications.map((n) =>
-            n.recipientId === userId && !n.isRead ? { ...n, isRead: true } : n
-        )
-    }));
-  }, []);
+  const markUserNotificationsAsRead = useCallback(async (userId: string) => {
+    const supabase = getSupabaseBrowserClient();
+    await supabase.from('notifications').update({ isRead: true }).eq('recipientId', userId).eq('isRead', false);
+    fetchData(supabase);
+  }, [fetchData]);
 
   const updateTrialPeriod = useCallback(
     (days: number) => {
@@ -1140,24 +1131,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 return { success: false, message: `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).` };
             }
         }
-      
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: investorPayload.email,
-            password: investorPayload.password,
-            options: {
-                data: {
-                    name: investorPayload.name,
-                    phone: investorPayload.phone,
-                    role: 'مستثمر',
-                    managedBy: managerId,
-                }
-            }
+        
+        const { error } = await supabase.rpc('create_investor_with_transactions', {
+          p_name: investorPayload.name,
+          p_email: investorPayload.email,
+          p_phone: investorPayload.phone,
+          p_password: investorPayload.password,
+          p_managed_by: managerId,
+          p_installment_capital: investorPayload.installmentCapital,
+          p_grace_capital: investorPayload.graceCapital,
+          p_installment_profit_share: investorPayload.installmentProfitShare,
+          p_grace_period_profit_share: investorPayload.gracePeriodProfitShare,
+          p_submitted_by: currentUser.id,
         });
 
-        if (authError || !authData.user) {
-            console.error("Supabase sign up error:", authError);
-            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المصادقة للمستثمر.' });
-            return { success: false, message: 'فشل إنشاء حساب المصادقة للمستثمر.' };
+        if (error) {
+            console.error("RPC create_investor_with_transactions error:", error);
+            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني مستخدمًا.' });
+            return { success: false, message: 'فشل إنشاء حساب المستثمر.' };
         }
 
         await fetchData(supabase);
@@ -1182,23 +1173,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: false, message: 'البريد الإلكتروني أو رقم الجوال مستخدم بالفعل.' };
         }
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: payload.email,
-            password: payload.password,
-            options: {
-                data: {
-                    name: payload.name,
-                    phone: payload.phone,
-                    role: role,
-                    managedBy: currentUser.id,
-                }
-            }
+        const { error } = await supabase.rpc('create_subordinate_user', {
+          p_name: payload.name,
+          p_email: payload.email,
+          p_phone: payload.phone,
+          p_password: payload.password,
+          p_role: role,
+          p_managed_by: currentUser.id
         });
         
-        if (authError || !authData.user) {
-            console.error("Supabase sign up error:", authError);
-            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المصادقة للمستخدم.' });
-            return { success: false, message: 'فشل إنشاء حساب المصادقة للمستخدم.' };
+        if (error) {
+            console.error("RPC create_subordinate_user error:", error);
+            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء حساب المستخدم. قد يكون البريد الإلكتروني مستخدمًا.' });
+            return { success: false, message: 'فشل إنشاء حساب المستخدم.' };
         }
 
         await fetchData(supabase);
@@ -1244,6 +1231,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         toast({ variant: 'destructive', title: 'خطأ', description: result.message });
         return result;
     }
+    
+    // In a real app, you would have a Supabase Edge Function to do this as an admin
+    console.warn("Simulating admin user update. This is not secure on the client-side.");
     
     setData(d => {
         const userToUpdate = d.users.find(u => u.id === userId);
@@ -1342,20 +1332,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // Optimistically update local state after successful db updates
-      setData(d => {
-        const newUsers = d.users.map(u => (u.id === userId ? { ...u, status } : u));
-        let newInvestors = d.investors;
-        if(userToUpdate.role === 'مستثمر') {
-            const investorStatus: Investor['status'] = status === 'محذوف' ? 'محذوف' : (status === 'نشط' ? 'نشط' : 'غير نشط');
-            newInvestors = d.investors.map(i => i.id === userId ? {...i, status: investorStatus} : i);
-        }
-        
-        toast({ title: `تم تحديث حالة ${userToUpdate.name} إلى "${status}"`});
-        return { ...d, users: newUsers, investors: newInvestors };
-      });
+      await fetchData(supabase);
+      toast({ title: `تم تحديث حالة ${userToUpdate.name} إلى "${status}"`});
     },
-    [currentUser, data.users, toast]
+    [currentUser, data.users, toast, fetchData]
   );
   
   const updateUserRole = useCallback((userId: string, role: UserRole) => {
@@ -1540,46 +1520,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
   
   const addBranch = useCallback(async (branch: Omit<Branch, 'id'>): Promise<{success: boolean, message: string}> => {
-    let result = {success: false, message: 'فشل غير متوقع.'};
-    if (!currentUser) return result;
+    const supabase = getSupabaseBrowserClient();
+    if (!currentUser || currentUser.role !== 'مدير المكتب') {
+        toast({variant: 'destructive', title: 'خطأ', description: 'غير مصرح به.'});
+        return {success: false, message: 'غير مصرح به.'};
+    }
+
+    if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
+        toast({variant: 'destructive', title: 'خطأ', description: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'});
+        return {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
+    }
+
+    const { error } = await supabase.from('branches').insert({ ...branch, manager_id: currentUser.id });
+
+    if (error) {
+        console.error("Error adding branch:", error);
+        toast({variant: 'destructive', title: 'خطأ', description: 'فشل في إضافة الفرع.'});
+        return {success: false, message: 'فشل في إضافة الفرع.'};
+    }
     
-    setData(d => {
-        if(currentUser.role !== 'مدير المكتب') {
-            result = {success: false, message: 'غير مصرح به.'};
-            return d;
-        }
-
-        if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
-            result = {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
-            toast({variant: 'destructive', title: 'خطأ', description: result.message});
-            return d;
-        }
-
-        const newBranch: Branch = { ...branch, id: `branch_${crypto.randomUUID()}` };
-        const updatedUsers = d.users.map(u => 
-            u.id === currentUser.id ? { ...u, branches: [...(u.branches || []), newBranch] } : u
-        );
-
-        result = {success: true, message: 'تمت إضافة الفرع بنجاح.'};
-        toast({title: result.message});
-        return { ...d, users: updatedUsers };
-    });
-    return result;
-  }, [currentUser, toast]);
+    await fetchData(supabase);
+    toast({title: 'تمت إضافة الفرع بنجاح.'});
+    return {success: true, message: 'تمت إضافة الفرع بنجاح.'};
+  }, [currentUser, toast, fetchData]);
   
-  const deleteBranch = useCallback((branchId: string) => {
+  const deleteBranch = useCallback(async (branchId: string) => {
+      const supabase = getSupabaseBrowserClient();
       if (!currentUser || currentUser.role !== 'مدير المكتب') return;
-      setData(d => {
-          const updatedUsers = d.users.map(u => {
-              if (u.id === currentUser.id) {
-                  return { ...u, branches: (u.branches || []).filter(b => b.id !== branchId) };
-              }
-              return u;
-          });
-          toast({title: 'تم حذف الفرع بنجاح.'});
-          return { ...d, users: updatedUsers };
-      });
-  }, [currentUser, toast]);
+      
+      const { error } = await supabase.from('branches').delete().eq('id', branchId);
+      if (error) {
+          console.error("Error deleting branch:", error);
+          toast({variant: 'destructive', title: 'خطأ', description: 'فشل في حذف الفرع.'});
+          return;
+      }
+      
+      await fetchData(supabase);
+      toast({title: 'تم حذف الفرع بنجاح.'});
+  }, [currentUser, toast, fetchData]);
   
   const value = useMemo(() => ({
       currentUser,
