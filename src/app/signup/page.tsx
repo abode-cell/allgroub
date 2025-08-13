@@ -1,17 +1,18 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDataActions } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Loader2, UserPlus, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 
 export default function SignUpPage() {
@@ -32,14 +33,27 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const validatePassword = (pass: string): boolean => {
-    const hasSufficientLength = pass.length >= 6;
+  const [passwordChecks, setPasswordChecks] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false,
+  });
 
-    if (!hasSufficientLength) {
-      setError('يجب أن لا تقل كلمة المرور عن 6 خانات.');
-      return false;
-    }
-    return true;
+  useEffect(() => {
+    setPasswordChecks({
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[\W_]/.test(password), // Matches any non-word character
+    });
+  }, [password]);
+
+
+  const validatePassword = (): boolean => {
+    return Object.values(passwordChecks).every(Boolean);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -56,7 +70,8 @@ export default function SignUpPage() {
       return;
     }
 
-    if (!validatePassword(password)) {
+    if (!validatePassword()) {
+      setError('كلمة المرور لا تفي بالمتطلبات الأمنية.');
       return;
     }
 
@@ -149,7 +164,26 @@ export default function SignUpPage() {
                     </button>
                 </div>
                  <div className="text-xs text-muted-foreground mt-2 px-1 space-y-1">
-                    <p>يجب أن تحتوي على 6 خانات على الأقل.</p>
+                    <p className={cn("flex items-center gap-2", passwordChecks.length ? "text-green-600" : "text-muted-foreground")}>
+                        {passwordChecks.length ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        <span>8 أحرف على الأقل</span>
+                    </p>
+                    <p className={cn("flex items-center gap-2", passwordChecks.uppercase ? "text-green-600" : "text-muted-foreground")}>
+                        {passwordChecks.uppercase ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        <span>حرف كبير واحد على الأقل (A-Z)</span>
+                    </p>
+                    <p className={cn("flex items-center gap-2", passwordChecks.lowercase ? "text-green-600" : "text-muted-foreground")}>
+                        {passwordChecks.lowercase ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        <span>حرف صغير واحد على الأقل (a-z)</span>
+                    </p>
+                    <p className={cn("flex items-center gap-2", passwordChecks.number ? "text-green-600" : "text-muted-foreground")}>
+                        {passwordChecks.number ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        <span>رقم واحد على الأقل (0-9)</span>
+                    </p>
+                    <p className={cn("flex items-center gap-2", passwordChecks.special ? "text-green-600" : "text-muted-foreground")}>
+                        {passwordChecks.special ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        <span>رمز خاص واحد على الأقل (!@#$...)</span>
+                    </p>
                 </div>
             </div>
              <div className="space-y-2">
