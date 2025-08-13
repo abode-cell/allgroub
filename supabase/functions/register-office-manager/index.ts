@@ -30,6 +30,10 @@ serve(async (req) => {
     if (!payload.phone) {
         throw new Error("Phone number is required");
     }
+     if (!payload.officeName) {
+        throw new Error("Office name is required");
+    }
+
 
     const {
       data: { user: newAuthUser },
@@ -38,7 +42,7 @@ serve(async (req) => {
       email: payload.email,
       password: payload.password,
       phone: payload.phone,
-      email_confirm: false, // Set to false to allow immediate login, but send confirmation email
+      email_confirm: false, 
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
@@ -101,17 +105,14 @@ serve(async (req) => {
       );
     }
     
-    // Generate email confirmation link
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: payload.email,
     });
 
     if (linkError) {
-      // Log the error but don't fail the request, as the user is already created.
       console.error("Could not generate confirmation email link:", linkError.message);
     }
-
 
     return new Response(
       JSON.stringify({ success: true, userId: newAuthUser.id }),
