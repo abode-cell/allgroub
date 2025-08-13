@@ -437,9 +437,9 @@ export default function UsersPage() {
 
   const handleAddBranch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBranch.name || !newBranch.city) return;
+    if (!newBranch.name || !newBranch.city || !currentUser) return;
     setIsSubmittingNewBranch(true);
-    const result = await addBranch(newBranch);
+    const result = await addBranch({ ...newBranch, manager_id: currentUser.id });
     if (result.success) {
       setIsAddBranchDialogOpen(false);
     }
