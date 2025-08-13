@@ -350,16 +350,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
     
-    if (!session) {
-        throw new Error("User not authenticated.");
+    const headers: { [key: string]: string } = {
+        'Content-Type': 'application/json',
+    };
+
+    if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
     }
     
     const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
