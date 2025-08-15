@@ -355,7 +355,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
     } catch (error: any) {
         console.error("Register Office Manager Error:", error);
-        const errorMessage = error.context?.message || error.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+        const errorMessage = error.data?.message || error.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
         return { success: false, message: errorMessage };
     }
   }, []);
@@ -1066,7 +1066,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
              console.error("Create Investor Error:", error);
-            const errorMessage = error.context?.message || error.message || 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+            const errorMessage = error.data?.message || error.message || 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -1092,7 +1092,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: true, message: `تمت إضافة ${role} بنجاح.` };
         } catch (error: any) {
             console.error(`Create ${role} Error:`, error);
-            const errorMessage = error.context?.message || error.message || `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.`;
+            const errorMessage = error.data?.message || error.message || `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.`;
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
