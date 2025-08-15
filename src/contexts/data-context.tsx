@@ -346,42 +346,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   },[router]);
 
-  const invokeFunction = useCallback(async (functionName: string, body: any) => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const headers: { [key: string]: string } = {
-        'Content-Type': 'application/json',
-    };
-
-    if (session) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-    }
-    
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'An unknown error occurred during function invocation.');
-    }
-
-    return response.json();
-  }, []);
-
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+    const supabase = getSupabaseBrowserClient();
     try {
-        await invokeFunction('register-office-manager', payload);
+        const { error } = await supabase.functions.invoke('register-office-manager', {
+            body: payload,
+        });
+
+        if (error) throw error;
+        
         return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
     } catch (error: any) {
         console.error("Register Office Manager Error:", error);
-        const errorMessage = error.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+        const errorMessage = error.context?.message || error.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
         return { success: false, message: errorMessage };
     }
-  }, [invokeFunction]);
+  }, []);
   
   const addNotification = useCallback(
     async (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
@@ -1059,6 +1039,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addInvestor = useCallback(
     async (investorPayload: Omit<NewInvestorPayload, 'status'>): Promise<{ success: boolean; message: string }> => {
+        const supabase = getSupabaseBrowserClient();
         if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
 
         if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !currentUser.permissions?.manageInvestors) {
@@ -1080,22 +1061,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         try {
-            await invokeFunction('create-investor', investorPayload);
-            await fetchData(getSupabaseBrowserClient());
+            const { error } = await supabase.functions.invoke('create-investor', {
+                body: investorPayload,
+            });
+            if (error) throw error;
+            
+            await fetchData(supabase);
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
              console.error("Create Investor Error:", error);
-            const errorMessage = error.message || 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+            const errorMessage = error.context?.message || error.message || 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
     },
-    [currentUser, data.users, data.investors, fetchData, toast, invokeFunction]
+    [currentUser, data.users, data.investors, fetchData, toast]
   );
   
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
+        const supabase = getSupabaseBrowserClient();
         if (!currentUser || currentUser.role !== 'مدير المكتب') {
             const message = 'ليس لديك الصلاحية لإضافة مستخدمين.';
             toast({ variant: 'destructive', title: 'خطأ', description: message });
@@ -1103,18 +1089,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-            await invokeFunction('create-subordinate', { ...payload, role });
-            await fetchData(getSupabaseBrowserClient());
+             const { error } = await supabase.functions.invoke('create-subordinate', {
+                body: { ...payload, role },
+            });
+            if (error) throw error;
+
+            await fetchData(supabase);
             toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
             return { success: true, message: `تمت إضافة ${role} بنجاح.` };
         } catch (error: any) {
             console.error(`Create ${role} Error:`, error);
-            const errorMessage = error.message || `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.`;
+            const errorMessage = error.context?.message || error.message || `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.`;
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
     },
-    [currentUser, fetchData, toast, invokeFunction]
+    [currentUser, fetchData, toast]
   );
   
   const updateUserIdentity = useCallback(
@@ -1664,6 +1654,3 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
-
-
-    
