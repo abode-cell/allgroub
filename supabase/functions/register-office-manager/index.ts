@@ -24,8 +24,8 @@ serve(async (req) => {
     );
 
     const payload: ManagerPayload = await req.json();
-    if (!payload.password || !payload.phone || !payload.officeName) {
-      throw new Error('Incomplete data. Password, phone, and office name are required.');
+    if (!payload.password || !payload.phone || !payload.officeName || !payload.email || !payload.name) {
+      throw new Error('Incomplete data. All fields are required.');
     }
     
     // Step 1: Create the user with basic credentials

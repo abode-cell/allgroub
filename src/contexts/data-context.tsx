@@ -349,13 +349,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
-        const { error } = await supabase.functions.invoke('register-office-manager', { body: payload });
+        const { error, data } = await supabase.functions.invoke('register-office-manager', { body: payload });
         if (error) throw error;
+        if(data?.message) throw new Error(data.message);
         
         return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
     } catch (error: any) {
         console.error("Register Office Manager Error:", error);
-        const errorMessage = error.data?.message || error.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+        const errorMessage = error.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
         return { success: false, message: errorMessage };
     }
   }, []);
