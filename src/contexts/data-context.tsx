@@ -1058,7 +1058,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         try {
-            const { error } = await supabase.functions.invoke('create-investor', { body: investorPayload });
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            const { error } = await supabase.functions.invoke('create-investor', { 
+                body: investorPayload,
+                headers: { Authorization: `Bearer ${token}` }
+            });
             if (error) throw error;
             
             await fetchData(supabase);
@@ -1084,7 +1089,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-             const { error } = await supabase.functions.invoke('create-subordinate', { body: { ...payload, role } });
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            const { error } = await supabase.functions.invoke('create-subordinate', { 
+              body: { ...payload, role },
+              headers: { Authorization: `Bearer ${token}` } 
+            });
             if (error) throw error;
 
             await fetchData(supabase);
