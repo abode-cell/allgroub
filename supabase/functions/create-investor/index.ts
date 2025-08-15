@@ -1,7 +1,7 @@
 // supabase/functions/create-investor/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
 interface InvestorPayload {
@@ -62,7 +62,11 @@ serve(async (req) => {
         status: "نشط",
       });
     
-    if (publicUserError) throw new Error(`Public users table insert error: ${publicUserError.message}`);
+    if (publicUserError) {
+        // Cleanup auth user if db insert fails
+        await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
+        throw new Error(`Public users table insert error: ${publicUserError.message}`);
+    }
 
 
     const { error: investorError } = await supabaseAdmin
@@ -74,9 +78,14 @@ serve(async (req) => {
         submittedBy: invoker.id,
         installmentProfitShare: payload.installmentProfitShare,
         gracePeriodProfitShare: payload.gracePeriodProfitShare,
+        date: new Date().toISOString(),
       });
 
-    if (investorError) throw new Error(`Investor DB Error: ${investorError.message}`);
+    if (investorError) {
+        // Cleanup
+        await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
+        throw new Error(`Investor DB Error: ${investorError.message}`);
+    }
     
     const transactionsToInsert = [];
     if (payload.installmentCapital > 0) {
@@ -85,7 +94,8 @@ serve(async (req) => {
         type: 'إيداع رأس المال',
         amount: payload.installmentCapital,
         description: 'رأس مال تأسيسي (محفظة الأقساط)',
-        capitalSource: 'installment'
+        capitalSource: 'installment',
+        date: new Date().toISOString(),
       });
     }
     if (payload.graceCapital > 0) {
@@ -94,13 +104,18 @@ serve(async (req) => {
         type: 'إيداع رأس المال',
         amount: payload.graceCapital,
         description: 'رأس مال تأسيسي (محفظة المهلة)',
-        capitalSource: 'grace'
+        capitalSource: 'grace',
+        date: new Date().toISOString(),
       });
     }
 
     if (transactionsToInsert.length > 0) {
         const { error: txError } = await supabaseAdmin.from('transactions').insert(transactionsToInsert);
-        if (txError) throw new Error(`Transaction DB Error: ${txError.message}`);
+        if (txError) {
+            // Cleanup
+            await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
+            throw new Error(`Transaction DB Error: ${txError.message}`);
+        }
     }
 
     return new Response(JSON.stringify({ success: true, userId: newAuthUser.id }), {

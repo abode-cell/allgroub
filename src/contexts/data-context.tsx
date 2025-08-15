@@ -91,7 +91,7 @@ type DataContextValue = {
   deleteBorrower: (borrowerId: string) => void;
   updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => void;
   handlePartialPayment: (borrowerId: string, paidAmount: number) => void;
-  addInvestor: (investor: Omit<NewInvestorPayload, 'status'>) => Promise<{ success: boolean; message: string }>;
+  addInvestor: (investor: NewInvestorPayload) => Promise<{ success: boolean; message: string }>;
   addNewSubordinateUser: (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب') => Promise<{ success: boolean, message: string }>;
   updateInvestor: (investor: UpdatableInvestor) => void;
   approveInvestor: (investorId: string) => void;
@@ -1035,7 +1035,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addInvestor = useCallback(
-    async (investorPayload: Omit<NewInvestorPayload, 'status'>): Promise<{ success: boolean; message: string }> => {
+    async (investorPayload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
         const supabase = getSupabaseBrowserClient();
         if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
 
