@@ -70,17 +70,32 @@ serve(async (req) => {
     if (updates.password) authUpdates.password = updates.password;
 
     if (Object.keys(authUpdates).length > 0) {
-        const { error: adminAuthError } = await supabaseAdmin.auth.admin.updateUserById(
+        const { data: { user: updatedAuthUser }, error: adminAuthError } = await supabaseAdmin.auth.admin.updateUserById(
             userId,
             authUpdates
         );
-        if (adminAuthError) throw new Error(`Auth update error: ${adminAuthError.message}`);
+        if (adminAuthError) {
+          if (adminAuthError.message.includes('already registered')) {
+            throw new Error('البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.');
+          }
+          throw new Error(`Auth update error: ${adminAuthError.message}`);
+        }
     }
 
     // 5. Update public.users table
     const dbUpdates: any = {};
     if (updates.email) dbUpdates.email = updates.email;
-    if (updates.officeName && userToUpdate.role === 'مدير المكتب') dbUpdates.officeName = updates.officeName;
+    if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
+      dbUpdates.officeName = updates.officeName;
+
+      // Also update the user_metadata in auth
+       const { error: metadataUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          { user_metadata: { officeName: updates.officeName } }
+      );
+      if (metadataUpdateError) throw new Error(`Metadata update error: ${metadataUpdateError.message}`);
+    }
+
 
     if (Object.keys(dbUpdates).length > 0) {
         const { error: dbError } = await supabaseAdmin

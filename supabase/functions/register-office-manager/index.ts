@@ -18,13 +18,12 @@ serve(async (req) => {
   }
 
   let newAuthUserId: string | null = null;
-
-  try {
-    const supabaseAdmin = createClient(
+  const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+  try {
     const payload: ManagerPayload = await req.json();
     if (!payload.password || !payload.phone || !payload.officeName || !payload.email || !payload.name) {
       throw new Error('Incomplete data. All fields are required.');
@@ -42,7 +41,7 @@ serve(async (req) => {
     });
     
     if (authError) {
-      if (authError.message.includes('User already registered')) {
+      if (authError.message.includes('already registered')) {
         throw new Error('البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.');
       }
       throw new Error(`Auth Error: ${authError.message}`);
@@ -51,7 +50,7 @@ serve(async (req) => {
       throw new Error('Failed to create auth user.');
     }
     
-    newAuthUserId = newAuthUser.id; // Store the new user ID for potential cleanup
+    newAuthUserId = newAuthUser.id;
 
     // Step 2: Update the new user's metadata
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -79,7 +78,7 @@ serve(async (req) => {
     
     if (configError) throw new Error(`Could not fetch trial period config: ${configError.message}`);
     
-    const trialDays = configData.value.value || 14; // Default to 14 days if not set
+    const trialDays = configData.value.value || 14;
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + trialDays);
 
@@ -92,7 +91,7 @@ serve(async (req) => {
       phone: payload.phone,
       officeName: payload.officeName,
       role: 'مدير المكتب',
-      status: 'معلق', // Managers start as pending until sys-admin approval
+      status: 'معلق',
       investorLimit: 10,
       employeeLimit: 5,
       assistantLimit: 2,
@@ -118,12 +117,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    // If any step fails after the auth user is created, delete the auth user
     if (newAuthUserId) {
-        const supabaseAdmin = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
         await supabaseAdmin.auth.admin.deleteUser(newAuthUserId);
     }
     

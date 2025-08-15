@@ -336,7 +336,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
-    // The onAuthStateChange listener will handle fetching data and navigation
     return { success: true, message: 'جاري تسجيل الدخول...' };
   }, []);
 
@@ -350,13 +349,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     try {
         const { error, data } = await supabase.functions.invoke('register-office-manager', { body: payload });
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         if(data?.message) throw new Error(data.message);
         
         return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
     } catch (error: any) {
         console.error("Register Office Manager Error:", error);
-        const errorMessage = error.message || 'فشل إنشاء الحساب. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+        const errorMessage = error.message.includes('already registered')
+            ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+            : (error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.');
         return { success: false, message: errorMessage };
     }
   }, []);
@@ -1062,14 +1063,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const { error } = await supabase.functions.invoke('create-investor', { 
                 body: investorPayload,
             });
-            if (error) throw error;
+            if (error) throw new Error(error.message);
             
             await fetchData(supabase);
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
              console.error("Create Investor Error:", error);
-            const errorMessage = error.data?.message || error.message || 'فشل إنشاء حساب المستثمر. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.';
+            const errorMessage = error.message.includes('already registered')
+                ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+                : (error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.');
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -1090,14 +1093,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const { error } = await supabase.functions.invoke('create-subordinate', { 
               body: { ...payload, role },
             });
-            if (error) throw error;
+            if (error) throw new Error(error.message);
 
             await fetchData(supabase);
             toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
             return { success: true, message: `تمت إضافة ${role} بنجاح.` };
         } catch (error: any) {
             console.error(`Create ${role} Error:`, error);
-            const errorMessage = error.data?.message || error.message || `فشل إنشاء حساب ${role}. قد يكون البريد الإلكتروني أو رقم الهاتف مستخدماً بالفعل.`;
+            const errorMessage = error.message.includes('already registered')
+                ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+                : (error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`);
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -1125,7 +1130,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         if (dbError) {
             console.error("DB update error:", dbError);
-            // Revert password change? Probably not necessary.
             return { success: false, message: 'فشل تحديث بياناتك في قاعدة البيانات.' };
         }
         
@@ -1146,7 +1150,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.functions.invoke('update-user-credentials', { 
             body: { userId, updates }
         });
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         
         await fetchData(supabase);
         toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
@@ -1154,7 +1158,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     } catch (error: any) {
         console.error("Update User Credentials Error:", error);
-        const errorMessage = error.data?.message || error.message || 'فشل تحديث بيانات المستخدم.';
+        const errorMessage = error.message.includes('already registered')
+            ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+            : (error.message || 'فشل تحديث بيانات المستخدم.');
         toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
         return { success: false, message: errorMessage };
     }
@@ -1210,7 +1216,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const userToUpdate = data.users.find(u => u.id === userId);
       if (!userToUpdate) return;
       
-      // Update users table
       const { error: userError } = await supabase
         .from('users')
         .update({ status: status })
@@ -1222,7 +1227,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // If user is an investor, update investors table too
       if (userToUpdate.role === 'مستثمر') {
         const investorStatus: Investor['status'] = status === 'محذوف' ? 'محذوف' : (status === 'نشط' ? 'نشط' : 'غير نشط');
         const { error: investorError } = await supabase
@@ -1233,7 +1237,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (investorError) {
             toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حالة المستثمر في قاعدة البيانات." });
             console.error("Error updating investor status:", investorError);
-            // Optionally, revert the user status change here.
             return;
         }
       }

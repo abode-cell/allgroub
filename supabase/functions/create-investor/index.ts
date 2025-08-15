@@ -20,12 +20,13 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  try {
-    const supabaseAdmin = createClient(
+  let newAuthUserId: string | null = null;
+  const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+  try {
     const authHeader = req.headers.get("Authorization")!;
     const { data: { user: invoker } } = await supabaseAdmin.auth.getUser(
       authHeader.replace("Bearer ", "")
@@ -38,6 +39,7 @@ serve(async (req) => {
       email: payload.email,
       password: payload.password || "default-password-123",
       email_confirm: true,
+       phone: payload.phone,
       user_metadata: {
         name: payload.name,
         phone: payload.phone,
@@ -45,8 +47,15 @@ serve(async (req) => {
       },
     });
 
-    if (authError) throw new Error(`Auth Error: ${authError.message}`);
+    if (authError) {
+      if (authError.message.includes('already registered')) {
+        throw new Error('البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.');
+      }
+      throw new Error(`Auth Error: ${authError.message}`);
+    }
     if (!newAuthUser) throw new Error("Failed to create auth user.");
+    
+    newAuthUserId = newAuthUser.id;
 
     // Now insert into the public.users table
     const { error: publicUserError } = await supabaseAdmin
@@ -63,8 +72,6 @@ serve(async (req) => {
       });
     
     if (publicUserError) {
-        // Cleanup auth user if db insert fails
-        await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
         throw new Error(`Public users table insert error: ${publicUserError.message}`);
     }
 
@@ -82,8 +89,6 @@ serve(async (req) => {
       });
 
     if (investorError) {
-        // Cleanup
-        await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
         throw new Error(`Investor DB Error: ${investorError.message}`);
     }
     
@@ -112,8 +117,6 @@ serve(async (req) => {
     if (transactionsToInsert.length > 0) {
         const { error: txError } = await supabaseAdmin.from('transactions').insert(transactionsToInsert);
         if (txError) {
-            // Cleanup
-            await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
             throw new Error(`Transaction DB Error: ${txError.message}`);
         }
     }
@@ -123,6 +126,9 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
+    if (newAuthUserId) {
+        await supabaseAdmin.auth.admin.deleteUser(newAuthUserId);
+    }
     return new Response(JSON.stringify({ message: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
