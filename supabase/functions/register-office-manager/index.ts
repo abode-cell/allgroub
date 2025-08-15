@@ -35,7 +35,7 @@ serve(async (req) => {
     } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
-      email_confirm: false,
+      email_confirm: false, // User needs to confirm their email
     });
     
     if (authError) {
@@ -62,6 +62,7 @@ serve(async (req) => {
     );
 
     if (updateError) {
+        // If metadata update fails, delete the created auth user to keep things clean
         await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
         throw new Error(`Failed to update user metadata: ${updateError.message}`);
     }
@@ -75,7 +76,7 @@ serve(async (req) => {
     
     if (configError) throw new Error(`Could not fetch trial period config: ${configError.message}`);
     
-    const trialDays = configData.value.value || 14;
+    const trialDays = configData.value.value || 14; // Default to 14 days if not set
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + trialDays);
 
@@ -88,7 +89,7 @@ serve(async (req) => {
       phone: payload.phone,
       officeName: payload.officeName,
       role: 'مدير المكتب',
-      status: 'معلق',
+      status: 'معلق', // Managers start as pending until sys-admin approval
       investorLimit: 10,
       employeeLimit: 5,
       assistantLimit: 2,
@@ -101,6 +102,7 @@ serve(async (req) => {
     });
 
     if (publicUserError) {
+      // If this fails, we need to delete the auth user we just created
       await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
       throw new Error(
         `Failed to create user in public table: ${publicUserError.message}`
