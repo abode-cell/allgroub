@@ -1058,10 +1058,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         try {
-            const token = (await supabase.auth.getSession()).data.session?.access_token;
             const { error } = await supabase.functions.invoke('create-investor', { 
                 body: investorPayload,
-                headers: { Authorization: `Bearer ${token}` }
             });
             if (error) throw error;
             
@@ -1088,10 +1086,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-            const token = (await supabase.auth.getSession()).data.session?.access_token;
             const { error } = await supabase.functions.invoke('create-subordinate', { 
               body: { ...payload, role },
-              headers: { Authorization: `Bearer ${token}` } 
             });
             if (error) throw error;
 
@@ -1145,29 +1141,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     if (!currentUser) return { success: false, message: "غير مصرح به." };
     
-    // In a real app, this should be a Supabase Edge Function to do this as an admin
-    console.warn("Simulating admin user update. This is not secure on the client-side.");
-    
-    const { error: adminError } = await supabase.auth.admin.updateUserById(userId, {
-        email: updates.email,
-        password: updates.password,
-    });
-    
-    if (adminError) {
-        console.error("Admin user update error:", adminError);
-        return { success: false, message: "فشل تحديث بيانات المصادقة للمستخدم." };
+    try {
+        const { error } = await supabase.functions.invoke('update-user-credentials', { 
+            body: { userId, updates }
+        });
+        if (error) throw error;
+        
+        await fetchData(supabase);
+        toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
+        return { success: true, message: "تم تحديث البيانات بنجاح." };
+
+    } catch (error: any) {
+        console.error("Update User Credentials Error:", error);
+        const errorMessage = error.data?.message || error.message || 'فشل تحديث بيانات المستخدم.';
+        toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
+        return { success: false, message: errorMessage };
     }
-
-    const { error: dbError } = await supabase.from('users').update({ email: updates.email, officeName: updates.officeName }).eq('id', userId);
-
-     if (dbError) {
-        console.error("DB credentials update error:", dbError);
-        return { success: false, message: "فشل تحديث البيانات في قاعدة البيانات." };
-    }
-
-    await fetchData(supabase);
-    toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
-    return { success: true, message: "تم تحديث البيانات بنجاح." };
   }, [currentUser, toast, fetchData]);
 
 
