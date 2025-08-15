@@ -349,7 +349,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
-        const { error } = await supabase.functions.invoke('register-office-manager', payload);
+        const { error } = await supabase.functions.invoke('register-office-manager', { body: payload });
         if (error) throw error;
         
         return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
@@ -1058,7 +1058,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         try {
-            const { error } = await supabase.functions.invoke('create-investor', investorPayload);
+            const { error } = await supabase.functions.invoke('create-investor', { body: investorPayload });
             if (error) throw error;
             
             await fetchData(supabase);
@@ -1084,7 +1084,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-             const { error } = await supabase.functions.invoke('create-subordinate', { ...payload, role });
+             const { error } = await supabase.functions.invoke('create-subordinate', { body: { ...payload, role } });
             if (error) throw error;
 
             await fetchData(supabase);
