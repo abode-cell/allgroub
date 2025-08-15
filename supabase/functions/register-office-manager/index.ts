@@ -36,6 +36,7 @@ serve(async (req) => {
       email: payload.email,
       password: payload.password,
       email_confirm: false, // User needs to confirm their email
+      phone: payload.phone,
     });
     
     if (authError) {
