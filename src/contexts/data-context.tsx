@@ -1058,8 +1058,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         try {
-            const { data: sessionData } = await supabase.auth.getSession();
-            const token = sessionData.session?.access_token;
+            const token = (await supabase.auth.getSession()).data.session?.access_token;
             const { error } = await supabase.functions.invoke('create-investor', { 
                 body: investorPayload,
                 headers: { Authorization: `Bearer ${token}` }
@@ -1089,8 +1088,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-            const { data: sessionData } = await supabase.auth.getSession();
-            const token = sessionData.session?.access_token;
+            const token = (await supabase.auth.getSession()).data.session?.access_token;
             const { error } = await supabase.functions.invoke('create-subordinate', { 
               body: { ...payload, role },
               headers: { Authorization: `Bearer ${token}` } 
