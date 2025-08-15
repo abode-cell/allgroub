@@ -348,17 +348,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
-        const { error, data } = await supabase.functions.invoke('register-office-manager', { body: payload });
-        if (error) throw new Error(error.message);
-        if(data?.message) throw new Error(data.message);
+        const { error, data } = await supabase.auth.signUp({
+          email: payload.email,
+          password: payload.password,
+          options: {
+            data: {
+              name: payload.name,
+              phone: payload.phone,
+              officeName: payload.officeName,
+              role: 'مدير المكتب',
+            },
+          },
+        });
         
-        return { success: true, message: 'تم إنشاء حسابك بنجاح وهو الآن قيد المراجعة.' };
+        if (error) {
+          if (error.message.includes('already registered')) {
+            return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
+          }
+           return { success: false, message: error.message };
+        }
+        
+        return { success: true, message: 'تم إنشاء حسابك بنجاح. الرجاء التحقق من بريدك الإلكتروني للتفعيل.' };
     } catch (error: any) {
         console.error("Register Office Manager Error:", error);
-        const errorMessage = error.message.includes('already registered')
-            ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
-            : (error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.');
-        return { success: false, message: errorMessage };
+        return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
     }
   }, []);
   
@@ -1040,6 +1053,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (investorPayload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
         const supabase = getSupabaseBrowserClient();
         if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
+        
+        const {data: { session }} = await supabase.auth.getSession();
+        if (!session) return { success: false, message: "No active session" };
 
         if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !currentUser.permissions?.manageInvestors) {
            toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك الصلاحية لإضافة مستثمرين.' });
@@ -1062,6 +1078,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         try {
             const { error } = await supabase.functions.invoke('create-investor', { 
                 body: investorPayload,
+                 headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                },
             });
             if (error) throw new Error(error.message);
             
@@ -1088,10 +1107,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ variant: 'destructive', title: 'خطأ', description: message });
             return { success: false, message };
         }
+        
+        const {data: { session }} = await supabase.auth.getSession();
+        if (!session) return { success: false, message: "No active session" };
 
         try {
             const { error } = await supabase.functions.invoke('create-subordinate', { 
               body: { ...payload, role },
+              headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+              },
             });
             if (error) throw new Error(error.message);
 
@@ -1146,9 +1171,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     if (!currentUser) return { success: false, message: "غير مصرح به." };
     
+    const {data: { session }} = await supabase.auth.getSession();
+    if (!session) return { success: false, message: "No active session" };
+    
     try {
         const { error } = await supabase.functions.invoke('update-user-credentials', { 
-            body: { userId, updates }
+            body: { userId, updates },
+            headers: {
+                Authorization: `Bearer ${session.access_token}`,
+            },
         });
         if (error) throw new Error(error.message);
         
