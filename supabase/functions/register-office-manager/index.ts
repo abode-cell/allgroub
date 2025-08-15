@@ -17,6 +17,8 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  let newAuthUserId: string | null = null;
+
   try {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -48,6 +50,8 @@ serve(async (req) => {
     if (!newAuthUser) {
       throw new Error('Failed to create auth user.');
     }
+    
+    newAuthUserId = newAuthUser.id; // Store the new user ID for potential cleanup
 
     // Step 2: Update the new user's metadata
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -63,8 +67,6 @@ serve(async (req) => {
     );
 
     if (updateError) {
-        // If metadata update fails, delete the created auth user to keep things clean
-        await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
         throw new Error(`Failed to update user metadata: ${updateError.message}`);
     }
     
@@ -103,8 +105,6 @@ serve(async (req) => {
     });
 
     if (publicUserError) {
-      // If this fails, we need to delete the auth user we just created
-      await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
       throw new Error(
         `Failed to create user in public table: ${publicUserError.message}`
       );
@@ -118,6 +118,15 @@ serve(async (req) => {
       }
     );
   } catch (error) {
+    // If any step fails after the auth user is created, delete the auth user
+    if (newAuthUserId) {
+        const supabaseAdmin = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        await supabaseAdmin.auth.admin.deleteUser(newAuthUserId);
+    }
+    
     console.error('Function Error:', error.message);
     return new Response(JSON.stringify({ message: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
