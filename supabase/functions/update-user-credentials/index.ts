@@ -35,6 +35,10 @@ serve(async (req) => {
 
     // 2. Get the payload
     const { userId, updates }: UpdatePayload = await req.json();
+    
+    const { data: invokerProfile } = await supabaseAdmin.from('users').select('role').eq('id', invoker.id).single();
+    if (!invokerProfile) throw new Error("Could not find invoker profile.");
+
 
     // 3. Authorization Check: Ensure only authorized users can perform this action
     const { data: userToUpdate, error: userFetchError } = await supabaseAdmin
@@ -45,8 +49,8 @@ serve(async (req) => {
     
     if(userFetchError) throw new Error(`Could not fetch user to update: ${userFetchError.message}`);
 
-    const isSystemAdmin = invoker.user_metadata?.role === 'مدير النظام';
-    const isOfficeManager = invoker.user_metadata?.role === 'مدير المكتب';
+    const isSystemAdmin = invokerProfile.role === 'مدير النظام';
+    const isOfficeManager = invokerProfile.role === 'مدير المكتب';
     
     let isAuthorized = false;
     if (isSystemAdmin) {
@@ -67,11 +71,15 @@ serve(async (req) => {
 
     // 4. Update Auth User
     const authUpdates: any = {};
+    const metadataUpdates: any = {};
+
     if (updates.email) authUpdates.email = updates.email;
     if (updates.password) authUpdates.password = updates.password;
      if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
-      authUpdates.user_metadata = { office_name: updates.officeName };
+      metadataUpdates.office_name = updates.officeName;
     }
+
+    authUpdates.data = metadataUpdates;
 
     if (Object.keys(authUpdates).length > 0) {
         const { data: { user: updatedAuthUser }, error: adminAuthError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -86,13 +94,12 @@ serve(async (req) => {
         }
     }
 
-    // 5. Update public.users table
+    // 5. Update public.users table - this will be handled by the trigger now
     const dbUpdates: any = {};
     if (updates.email) dbUpdates.email = updates.email;
     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
       dbUpdates.office_name = updates.officeName;
     }
-
 
     if (Object.keys(dbUpdates).length > 0) {
         const { error: dbError } = await supabaseAdmin

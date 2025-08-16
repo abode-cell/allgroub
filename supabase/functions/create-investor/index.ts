@@ -41,9 +41,9 @@ serve(async (req) => {
       email_confirm: true,
        phone: payload.phone,
       user_metadata: {
-        name: payload.name,
-        phone: payload.phone,
-        role: "مستثمر",
+        full_name: payload.name,
+        raw_phone_number: payload.phone,
+        user_role: "مستثمر",
       },
     });
 
@@ -57,24 +57,8 @@ serve(async (req) => {
     
     newAuthUserId = newAuthUser.id;
 
-    // Now insert into the public.users table
-    const { error: publicUserError } = await supabaseAdmin
-      .from("users")
-      .insert({
-        id: newAuthUser.id,
-        name: payload.name,
-        email: payload.email,
-        phone: payload.phone,
-        role: "مستثمر",
-        managedBy: invoker.id,
-        submittedBy: invoker.id,
-        status: "نشط",
-      });
-    
-    if (publicUserError) {
-        throw new Error(`Public users table insert error: ${publicUserError.message}`);
-    }
-
+    // The handle_new_user trigger will automatically create an entry in the public.users table.
+    // We just need to create the investor-specific entry.
 
     const { error: investorError } = await supabaseAdmin
       .from("investors")

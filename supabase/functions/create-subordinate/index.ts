@@ -41,9 +41,11 @@ serve(async (req) => {
       email_confirm: true,
       phone: payload.phone,
       user_metadata: {
-        name: payload.name,
-        phone: payload.phone,
-        role: payload.role,
+        full_name: payload.name,
+        raw_phone_number: payload.phone,
+        user_role: payload.role,
+        managedBy: manager.id,
+        submittedBy: manager.id,
       },
     });
 
@@ -57,23 +59,8 @@ serve(async (req) => {
 
     newAuthUserId = newAuthUser.id;
 
-     // Now insert into the public.users table
-    const { error: publicUserError } = await supabaseAdmin
-      .from("users")
-      .insert({
-        id: newAuthUser.id,
-        name: payload.name,
-        email: payload.email,
-        phone: payload.phone,
-        role: payload.role,
-        managedBy: manager.id,
-        submittedBy: manager.id,
-        status: "نشط",
-      });
+    // The handle_new_user trigger will now handle inserting the user into the public.users table automatically.
     
-    if (publicUserError) throw new Error(`Public users table insert error: ${publicUserError.message}`);
-
-
     return new Response(JSON.stringify({ success: true, userId: newAuthUser.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
