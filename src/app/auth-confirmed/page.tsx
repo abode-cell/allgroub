@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -21,13 +22,11 @@ export default function AuthConfirmedPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                        إذا أردت تسجيل الدخول، اضغط على{' '}
-                        <Link href="/login" className="underline text-primary hover:text-primary/80 font-semibold">
-                            هنا
+                     <Button asChild>
+                        <Link href="/login">
+                            المتابعة إلى صفحة تسجيل الدخول
                         </Link>
-                        .
-                    </p>
+                    </Button>
                 </CardContent>
             </Card>
         </div>

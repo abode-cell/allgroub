@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -35,6 +34,12 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { SupabaseClient, Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 
+type SignInResult = {
+  success: boolean;
+  message: string;
+  reason?: 'unconfirmed_email' | 'other';
+}
+
 type DataContextValue = {
   currentUser: User | undefined;
   session: Session | null;
@@ -54,7 +59,7 @@ type DataContextValue = {
   graceInvestorSharePercentage: number;
   supportEmail: string;
   supportPhone: string;
-  signIn: (email: string, password?: string) => Promise<{ success: boolean; message: string }>;
+  signIn: (email: string, password?: string) => Promise<SignInResult>;
   signOutUser: () => void;
   registerNewOfficeManager: (payload: NewManagerPayload) => Promise<{ success: boolean; message: string }>;
   addBranch: (branch: Omit<Branch, 'id'>) => Promise<{success: boolean, message: string}>;
@@ -215,7 +220,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return acc;
         }, {} as any);
         
-        const borrowersWithData: Borrower[] = borrowers_data.map((borrower: any) => ({
+        const borrowersWithData: Borrower[] = (borrowers_data || []).map((borrower: any) => ({
             ...borrower,
             fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investor_id, amount: f.amount })),
             installments: (borrower.installments || []).map((i: any) => ({ month: i.month, status: i.status as InstallmentStatus })),
@@ -307,17 +312,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return data.users.filter(u => u.status !== 'محذوف');
   }, [currentUser, data.users]);
 
-  const signIn = useCallback(async (email: string, password?: string) => {
+  const signIn = useCallback(async (email: string, password?: string): Promise<SignInResult> => {
     const supabase = getSupabaseBrowserClient();
     if (!password) return { success: false, message: "بيانات غير مكتملة." };
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         if (error.message.includes('Invalid login credentials')) {
             return { success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' };
         }
+        if (error.message.includes('Email not confirmed')) {
+            return { success: false, message: 'الرجاء تأكيد بريدك الإلكتروني أولاً.', reason: 'unconfirmed_email' };
+        }
         return { success: false, message: error.message };
+    }
+    
+    if (data.user && !data.user.email_confirmed_at) {
+        return { success: false, message: 'الرجاء تأكيد بريدك الإلكتروني أولاً.', reason: 'unconfirmed_email' };
     }
     
     return { success: true, message: 'جاري تسجيل الدخول...' };
@@ -1521,7 +1533,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       markUserNotificationsAsRead,
       markBorrowerAsNotified,
       markInvestorAsNotified,
-  }), [
+    }), [
       currentUser, session, authLoading, dataLoading, data, visibleUsers,
       signIn, signOutUser, registerNewOfficeManager, addBranch, deleteBranch,
       updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage,

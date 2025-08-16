@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
+import { Loader2, LogIn, Eye, EyeOff, MailCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,16 +32,47 @@ export default function LoginPage() {
     }
     setError('');
     setIsLoading(true);
+    setNeedsConfirmation(false);
     
     const result = await signIn(email, password);
 
+    setIsLoading(false);
     if (result.success) {
-      // The client-layout will handle the redirect
+      // The ClientLayout component will handle redirection to the dashboard.
     } else {
-      setError(result.message);
-      setIsLoading(false);
+      if (result.reason === 'unconfirmed_email') {
+        setNeedsConfirmation(true);
+      } else {
+        setError(result.message);
+      }
     }
   };
+
+  if (needsConfirmation) {
+    return (
+       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+          <div className="mb-6">
+            <Logo />
+          </div>
+          <Card className="w-full max-w-md text-center">
+            <CardHeader className="items-center">
+                <MailCheck className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">الرجاء تأكيد بريدك الإلكتروني</CardTitle>
+                <CardDescription className="text-base/relaxed pt-2">
+                    لقد أرسلنا رابط تأكيد إلى <strong className="text-foreground">{email}</strong>.
+                    <br />
+                    الرجاء الضغط على الرابط في البريد الإلكتروني لتفعيل حسابك قبل تسجيل الدخول.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={() => setNeedsConfirmation(false)}>
+                    العودة إلى صفحة تسجيل الدخول
+                </Button>
+            </CardContent>
+          </Card>
+        </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -121,5 +153,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
