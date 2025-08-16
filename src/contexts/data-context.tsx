@@ -341,10 +341,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       password: payload.password,
       options: {
         data: {
-          name: payload.name,
-          phone: payload.phone,
-          officeName: payload.officeName,
-          role: 'مدير المكتب',
+          full_name: payload.name,
+          raw_phone_number: payload.phone,
+          office_name: payload.officeName,
+          user_role: 'مدير المكتب',
         }
       }
     });

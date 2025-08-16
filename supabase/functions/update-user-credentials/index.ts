@@ -1,4 +1,5 @@
 
+
 // supabase/functions/update-user-credentials/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -87,13 +88,6 @@ serve(async (req) => {
     if (updates.email) dbUpdates.email = updates.email;
     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
       dbUpdates.officeName = updates.officeName;
-
-      // Also update the user_metadata in auth
-       const { error: metadataUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-          userId,
-          { user_metadata: { officeName: updates.officeName } }
-      );
-      if (metadataUpdateError) throw new Error(`Metadata update error: ${metadataUpdateError.message}`);
     }
 
 
@@ -104,6 +98,19 @@ serve(async (req) => {
             .eq("id", userId);
         if (dbError) throw new Error(`DB update error: ${dbError.message}`);
     }
+
+    // Also update the user_metadata in auth if officeName is present
+    if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
+       const { data: authUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
+       if(getUserError) throw new Error(`Could not get user for metadata update: ${getUserError.message}`);
+       
+       const { error: metadataUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          { user_metadata: { ...authUser.user.user_metadata, office_name: updates.officeName } }
+      );
+      if (metadataUpdateError) throw new Error(`Metadata update error: ${metadataUpdateError.message}`);
+    }
+
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
