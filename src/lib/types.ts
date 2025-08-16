@@ -38,7 +38,7 @@ export type NewUserPayload = {
 
 export type NewManagerPayload = {
     email: string;
-    password: string;
+    password?: string;
     phone: string;
     name: string;
     officeName: string;

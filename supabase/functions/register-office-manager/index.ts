@@ -39,6 +39,12 @@ serve(async (req) => {
       password: payload.password,
       email_confirm: false, // User needs to confirm their email
       phone: payload.phone,
+      user_metadata: {
+        name: payload.name,
+        phone: payload.phone,
+        officeName: payload.officeName,
+        role: 'مدير المكتب',
+      }
     });
     
     if (authError) {
@@ -52,25 +58,8 @@ serve(async (req) => {
     }
     
     newAuthUserId = newAuthUser.id;
-
-    // Step 2: Update the new user's metadata
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        newAuthUser.id,
-        { 
-          user_metadata: {
-            name: payload.name,
-            phone: payload.phone,
-            officeName: payload.officeName,
-            role: 'مدير المكتب',
-          }
-        }
-    );
-
-    if (updateError) {
-        throw new Error(`Failed to update user metadata: ${updateError.message}`);
-    }
     
-    // Step 3: Fetch default trial period days from config
+    // Step 2: Fetch default trial period days from config
     const { data: configData, error: configError } = await supabaseAdmin
         .from('app_config')
         .select('value')
@@ -84,7 +73,7 @@ serve(async (req) => {
     trialEndDate.setDate(trialEndDate.getDate() + trialDays);
 
 
-    // Step 4: Insert into the public.users table
+    // Step 3: Insert into the public.users table
     const { error: publicUserError } = await supabaseAdmin.from('users').insert({
       id: newAuthUser.id,
       name: payload.name,
@@ -119,6 +108,7 @@ serve(async (req) => {
     );
   } catch (error) {
     if (newAuthUserId) {
+        // If any step after auth user creation fails, delete the auth user to allow retries
         await supabaseAdmin.auth.admin.deleteUser(newAuthUserId);
     }
     

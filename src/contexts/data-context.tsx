@@ -174,20 +174,6 @@ const initialDataState: InitialDataState = {
   supportPhone: '',
 };
 
-const EnvError = () => (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-background">
-        <Alert variant="destructive" className="max-w-2xl">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>خطأ في الإعدادات</AlertTitle>
-            <AlertDescription>
-                <p>لم يتم العثور على متغيرات بيئة Supabase. لا يمكن للتطبيق الاتصال بقاعدة البيانات.</p>
-                <p className="mt-2">الرجاء التأكد من إضافة متغيرات <code className="font-mono text-xs bg-red-100 dark:bg-red-900 p-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code> و <code className="font-mono text-xs bg-red-100 dark:bg-red-900 p-1 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> إلى إعدادات المشروع.</p>
-            </AlertDescription>
-        </Alert>
-    </div>
-);
-
-
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState(initialDataState);
   const [session, setSession] = useState<Session | null>(null);
@@ -327,7 +313,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     if (!password) return { success: false, message: "بيانات غير مكتملة." };
 
-    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         if (error.message.includes('Invalid login credentials')) {
@@ -347,7 +333,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    if (!payload.password) return { success: false, message: 'كلمة المرور مطلوبة.'};
+    if (!payload.password) {
+      return { success: false, message: 'كلمة المرور مطلوبة.' };
+    }
+
     try {
         const { error } = await supabase.functions.invoke('register-office-manager', { 
             body: payload,
