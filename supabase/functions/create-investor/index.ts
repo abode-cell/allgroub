@@ -44,6 +44,7 @@ serve(async (req) => {
         full_name: payload.name,
         raw_phone_number: payload.phone,
         user_role: "مستثمر",
+        managedBy: invoker.id
       },
     });
 
