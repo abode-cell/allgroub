@@ -326,11 +326,9 @@ $$;
 -- ========= Setup Row Level Security (RLS) Policies =========
 
 -- USERS TABLE
-CREATE POLICY "Allow users to read their own data" ON public.users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Allow users to see their managers and colleagues" ON public.users FOR SELECT USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND (users.managedBy = managedBy OR users.id = managedBy)));
-CREATE POLICY "Allow system admin to see all users" ON public.users FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
+CREATE POLICY "Allow system admin to manage all users" ON public.users FOR ALL USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
+CREATE POLICY "Allow users to view their own data and team members" ON public.users FOR SELECT USING (id = auth.uid() OR managedBy = (SELECT managedBy FROM users WHERE id = auth.uid()) OR managedBy = auth.uid());
 CREATE POLICY "Allow users to update their own data" ON public.users FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Allow system admin to update user limits" ON public.users FOR UPDATE USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
 CREATE POLICY "Allow managers to update their subordinates' settings" ON public.users FOR UPDATE USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير المكتب' AND managedBy = auth.uid()));
 
 -- INVESTORS TABLE
@@ -368,3 +366,5 @@ CREATE POLICY "Allow manager to manage their own branches" ON public.branches FO
 CREATE POLICY "Allow subordinates to view their office branches" ON public.branches FOR SELECT USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND managedBy = manager_id));
 
 ```
+
+    
