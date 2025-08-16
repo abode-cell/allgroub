@@ -329,7 +329,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   },[router]);
 
-  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+ const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     
     if (!payload.password) {
@@ -341,10 +341,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       password: payload.password,
       options: {
         data: {
-          full_name: payload.name,
-          raw_phone_number: payload.phone,
+          name: payload.name,
+          phone: payload.phone,
           office_name: payload.officeName,
-          user_role: 'مدير المكتب',
+          role: 'مدير المكتب',
         }
       }
     });
