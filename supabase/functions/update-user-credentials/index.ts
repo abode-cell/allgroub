@@ -69,6 +69,9 @@ serve(async (req) => {
     const authUpdates: any = {};
     if (updates.email) authUpdates.email = updates.email;
     if (updates.password) authUpdates.password = updates.password;
+     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
+      authUpdates.user_metadata = { office_name: updates.officeName };
+    }
 
     if (Object.keys(authUpdates).length > 0) {
         const { data: { user: updatedAuthUser }, error: adminAuthError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -87,7 +90,7 @@ serve(async (req) => {
     const dbUpdates: any = {};
     if (updates.email) dbUpdates.email = updates.email;
     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
-      dbUpdates.officeName = updates.officeName;
+      dbUpdates.office_name = updates.officeName;
     }
 
 
@@ -98,19 +101,6 @@ serve(async (req) => {
             .eq("id", userId);
         if (dbError) throw new Error(`DB update error: ${dbError.message}`);
     }
-
-    // Also update the user_metadata in auth if officeName is present
-    if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
-       const { data: authUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
-       if(getUserError) throw new Error(`Could not get user for metadata update: ${getUserError.message}`);
-       
-       const { error: metadataUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-          userId,
-          { user_metadata: { ...authUser.user.user_metadata, office_name: updates.officeName } }
-      );
-      if (metadataUpdateError) throw new Error(`Metadata update error: ${metadataUpdateError.message}`);
-    }
-
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

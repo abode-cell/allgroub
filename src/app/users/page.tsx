@@ -321,7 +321,7 @@ export default function UsersPage() {
   
   const handleEditCredsClick = (user: User) => {
     setUserToEdit(user);
-    setEditCredsForm({ email: user.email, password: '', officeName: user.officeName || '' });
+    setEditCredsForm({ email: user.email, password: '', officeName: user.office_name || '' });
     setIsEditCredsDialogOpen(true);
   };
 
@@ -342,7 +342,7 @@ export default function UsersPage() {
     if (editCredsForm.password) {
       updates.password = editCredsForm.password;
     }
-     if (userToEdit.role === 'مدير المكتب' && editCredsForm.officeName !== (userToEdit.officeName || '')) {
+     if (userToEdit.role === 'مدير المكتب' && editCredsForm.officeName !== (userToEdit.office_name || '')) {
       updates.officeName = editCredsForm.officeName;
     }
 
@@ -509,7 +509,7 @@ export default function UsersPage() {
                           <div className="flex flex-1 items-center justify-between">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                               <div className="font-bold text-base">
-                                {manager.officeName || manager.name}
+                                {manager.office_name || manager.name}
                               </div>
                               <div className="text-xs text-muted-foreground sm:text-sm">
                                 {manager.email}
