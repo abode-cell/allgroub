@@ -342,8 +342,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       options: {
         data: {
           full_name: payload.name,
-          raw_phone_number: payload.phone,
           office_name: payload.officeName,
+          raw_phone_number: payload.phone,
           user_role: 'مدير المكتب',
         }
       }
@@ -352,6 +352,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (error) {
       if (error.message.includes('User already registered')) {
         return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
+      }
+       if (error.message.includes('Database error saving new user')) {
+        return { success: false, message: 'خطأ في قاعدة البيانات أثناء حفظ المستخدم الجديد. يرجى مراجعة إعدادات قاعدة البيانات والمشغلات (Triggers).' };
       }
       return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
     }
