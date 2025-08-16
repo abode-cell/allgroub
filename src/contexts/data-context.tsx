@@ -33,8 +33,6 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { SupabaseClient, Session } from '@supabase/supabase-js';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 type DataContextValue = {
@@ -333,22 +331,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
+    
     if (!payload.password) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
+    
+    const { error } = await supabase.auth.signUp({
+      email: payload.email,
+      password: payload.password,
+      options: {
+        data: {
+          name: payload.name,
+          phone: payload.phone,
+          officeName: payload.officeName,
+          role: 'مدير المكتب',
+        }
+      }
+    });
 
-    try {
-        const { error } = await supabase.functions.invoke('register-office-manager', { 
-            body: payload,
-        });
-
-        if (error) throw new Error(error.message);
-        
-        return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
-    } catch (error: any) {
-        console.error("Register Office Manager Error:", error);
-        return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
+    if (error) {
+      if (error.message.includes('User already registered')) {
+        return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
+      }
+      return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
     }
+    
+    return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
   }, []);
   
   const addNotification = useCallback(
