@@ -372,6 +372,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
+    
     if (!payload.password) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
@@ -384,7 +385,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           full_name: payload.name,
           office_name: payload.officeName,
           raw_phone_number: payload.phone,
-          user_role: 'مدير المكتب', // This is the crucial fix
+          user_role: 'مدير المكتب', // Correctly passing user_role here
         }
       }
     });
