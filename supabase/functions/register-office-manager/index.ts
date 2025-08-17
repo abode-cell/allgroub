@@ -13,6 +13,7 @@ interface NewManagerPayload {
 }
 
 serve(async (req) => {
+  // This is needed to handle CORS preflight requests.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -29,11 +30,12 @@ serve(async (req) => {
       throw new Error("Password is required");
     }
 
+    // First, create the user in the auth schema
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
       phone: payload.phone,
-      email_confirm: true, // User must confirm their email
+      email_confirm: true, // User must confirm their email before they can log in
       user_metadata: {
         full_name: payload.name,
         office_name: payload.officeName,
