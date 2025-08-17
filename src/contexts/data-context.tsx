@@ -393,7 +393,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
       }
        if (error.message.includes('Database error saving new user')) {
-        return { success: false, message: 'خطأ في قاعدة البيانات أثناء حفظ المستخدم الجديد. يرجى مراجعة إعدادات قاعدة البيانات والمشغلات (Triggers).' };
+        return { success: false, message: 'فشل الحفظ في قاعدة البيانات لأن حقل "role" مطلوب. تأكد من أن قيمة "user_role" يتم إرسالها بشكل صحيح عند استدعاء دالة التسجيل.' };
       }
       return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
     }
