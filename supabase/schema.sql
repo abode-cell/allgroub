@@ -1,4 +1,3 @@
-
 -- Drop everything in the correct order to avoid dependency errors
 DROP TABLE IF EXISTS "public"."transactions" CASCADE;
 DROP TABLE IF EXISTS "public"."borrowers" CASCADE;
@@ -10,6 +9,8 @@ DROP TABLE IF EXISTS "public"."notifications" CASCADE;
 DROP TABLE IF EXISTS "public"."support_tickets" CASCADE;
 
 DROP FUNCTION IF EXISTS "public"."handle_new_user"() CASCADE;
+DROP FUNCTION IF EXISTS "public"."get_my_claim"(text) CASCADE;
+DROP FUNCTION IF EXISTS "public"."get_my_claims"() CASCADE;
 
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
 DROP TYPE IF EXISTS "public"."borrower_status" CASCADE;
