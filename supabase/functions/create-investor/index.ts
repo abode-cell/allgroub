@@ -1,4 +1,3 @@
-
 // supabase/functions/create-investor/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -40,7 +39,7 @@ serve(async (req) => {
       email: payload.email,
       password: payload.password || "default-password-123",
       email_confirm: true,
-       phone: payload.phone,
+      phone: payload.phone,
       user_metadata: {
         full_name: payload.name,
         raw_phone_number: payload.phone,
@@ -121,5 +120,3 @@ serve(async (req) => {
     });
   }
 });
-
-    
