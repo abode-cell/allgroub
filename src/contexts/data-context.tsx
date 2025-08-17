@@ -188,20 +188,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
     setDataLoading(true);
     try {
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        if (!user) {
+        const { data: { user: authUser } } = await supabaseClient.auth.getUser();
+        if (!authUser) {
             setDataLoading(false);
             return;
         };
 
-        const { data: users, error: usersError } = await supabaseClient.from('users').select('*');
-        if(usersError) throw usersError;
+        // Step 1: Fetch the current user's profile from 'users' table. This is the most crucial step.
+        const { data: currentUserProfile, error: profileError } = await supabaseClient
+            .from('users')
+            .select('*')
+            .eq('id', authUser.id)
+            .single();
 
-        const localUser = users?.find((u: User) => u.id === user.id);
-        if (localUser && localUser.status !== 'نشط') {
+        if (profileError || !currentUserProfile) {
+            throw new Error(`فشل في جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
+        }
+
+        // Step 2: Check user status. If not active, sign out and stop.
+        if (currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
-            if(localUser.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
-            if(localUser.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
+            if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
+            if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
             
             await supabaseClient.auth.signOut();
             toast({ variant: "destructive", title: "تم تسجيل الخروج", description: message });
@@ -209,7 +217,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        // Step 3: Now that we have a valid, active user, fetch all other data.
         const [
+          { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
           { data: borrowers_data, error: borrowersError },
           { data: transactions_data, error: transactionsError },
@@ -218,6 +228,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           { data: app_config_data, error: appConfigError },
           { data: branches_data, error: branchesError }
         ] = await Promise.all([
+          supabaseClient.from('users').select('*'),
           supabaseClient.from('investors').select('*'),
           supabaseClient.from('borrowers').select('*'),
           supabaseClient.from('transactions').select('*'),
@@ -228,7 +239,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ]);
         
         if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
-          throw new Error('فشل في جلب أحد الموارد.');
+          console.error({usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
+          throw new Error('فشل في جلب أحد الموارد الثانوية.');
         }
 
         const configData = app_config_data.reduce((acc: any, row: any) => {
@@ -246,7 +258,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithBranches = (users || []).map((u: User) => ({
+        const usersWithBranches = (all_users_data || []).map((u: User) => ({
             ...u,
             branches: (branches_data || []).filter((b: Branch) => b.manager_id === u.id)
         }))
