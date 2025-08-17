@@ -1,269 +1,213 @@
 
--- Drop existing policies and functions to ensure a clean slate
-DROP POLICY IF EXISTS "Enable all access for authenticated users" ON "public"."app_config";
-DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."app_config";
-DROP POLICY IF EXISTS "Allow delete for users based on user_id" ON "public"."borrowers";
-DROP POLICY IF EXISTS "Allow insert for authenticated users" ON "public"."borrowers";
-DROP POLICY IF EXISTS "Allow update for users based on user_id" ON "public"."borrowers";
-DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."borrowers";
-DROP POLICY IF EXISTS "Allow delete for users based on user_id" ON "public"."investors";
-DROP POLICY IF EXISTS "Allow insert for authenticated users" ON "public"."investors";
-DROP POLICY IF EXISTS "Allow update for users based on user_id" ON "public"."investors";
-DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."investors";
-DROP POLICY IF EXISTS "Allow delete for users based on user_id" ON "public"."notifications";
-DROP POLICY IF EXISTS "Allow insert for authenticated users" ON "public"."notifications";
-DROP POLICY IF EXISTS "Allow update for users based on user_id" ON "public"."notifications";
-DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."notifications";
-DROP POLICY IF EXISTS "Allow delete for users based on user_id" ON "public"."support_tickets";
-DROP POLICY IF EXISTS "Allow insert for authenticated users" ON "public"."support_tickets";
-DROP POLICY IF EXISTS "Allow update for users based on user_id" ON "public"."support_tickets";
-DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."support_tickets";
-DROP POLICY IF EXISTS "Allow delete for users based on user_id" ON "public"."transactions";
-DROP POLICY IF EXISTS "Allow insert for authenticated users" ON "public"."transactions";
-DROP POLICY IF EXISTS "Allow update for users based on user_id" ON "public"."transactions";
-DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."transactions";
-DROP POLICY IF EXISTS "Allow delete for users based on user_id" ON "public"."users";
-DROP POLICY IF EXISTS "Allow insert for authenticated users" ON "public"."users";
-DROP POLICY IF EXISTS "Allow update for users based on user_id" ON "public"."users";
-DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."users";
-DROP POLICY IF EXISTS "Allow users to update their own profiles" ON "public"."users";
-DROP POLICY IF EXISTS "Allow users to read their own user data" ON "public"."users";
-DROP POLICY IF EXISTS "Enable all for service_role" ON "public"."branches";
-DROP POLICY IF EXISTS "Allow manager to access their branches" ON "public"."branches";
+-- Drop existing triggers and functions if they exist to start clean
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user;
 
+-- Create the function to handle new user creation
+create function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  user_role text;
+  office_name_text text;
+  trial_period_days int;
+  trial_end_date timestamp with time zone;
+begin
+  -- Extract user_role and office_name from metadata, provide defaults if missing
+  user_role := new.raw_user_meta_data ->> 'user_role';
+  office_name_text := new.raw_user_meta_data ->> 'office_name';
 
-DROP FUNCTION IF EXISTS public.handle_new_user();
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+  -- Set default role to 'مدير المكتب' if not provided
+  if user_role is null or user_role = '' then
+    user_role := 'مدير المكتب';
+  end if;
 
--- Recreate Tables
-CREATE TABLE IF NOT EXISTS public.users (
-    id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    name character varying,
-    office_name character varying,
-    email character varying UNIQUE,
-    phone character varying UNIQUE,
-    role character varying NOT NULL,
-    status character varying DEFAULT 'معلق',
-    managedBy uuid REFERENCES public.users(id),
-    registrationDate timestamp with time zone DEFAULT now(),
-    investorLimit integer DEFAULT 10,
-    employeeLimit integer DEFAULT 5,
-    assistantLimit integer DEFAULT 2,
-    branchLimit integer DEFAULT 3,
-    allowEmployeeSubmissions boolean DEFAULT false,
-    hideEmployeeInvestorFunds boolean DEFAULT false,
-    allowEmployeeLoanEdits boolean DEFAULT false,
-    permissions jsonb,
-    trialEndsAt timestamp with time zone,
-    lastStatusChange timestamp with time zone
-);
-
-CREATE TABLE IF NOT EXISTS public.investors (
-    id uuid NOT NULL PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
-    name character varying,
-    date timestamp with time zone DEFAULT now(),
-    status character varying,
-    submittedBy uuid,
-    rejectionReason text,
-    isNotified boolean DEFAULT false,
-    installmentProfitShare double precision,
-    gracePeriodProfitShare double precision
-);
-
-CREATE TABLE IF NOT EXISTS public.borrowers (
-    id text NOT NULL PRIMARY KEY,
-    name character varying,
-    nationalId text,
-    phone text,
-    amount double precision,
-    rate double precision,
-    term double precision,
-    date timestamp with time zone DEFAULT now(),
-    loanType text,
-    status character varying,
-    dueDate date,
-    discount double precision,
-    submittedBy uuid,
-    rejectionReason text,
-    fundedBy jsonb,
-    paymentStatus text,
-    installments jsonb,
-    isNotified boolean DEFAULT false,
-    lastStatusChange timestamp with time zone,
-    paidOffDate timestamp with time zone,
-    partial_payment_paid_amount double precision,
-    partial_payment_remaining_loan_id text,
-    originalLoanId text
-);
-
-CREATE TABLE IF NOT EXISTS public.transactions (
-    id text NOT NULL PRIMARY KEY,
-    investor_id uuid REFERENCES public.investors(id) ON DELETE CASCADE,
-    date timestamp with time zone DEFAULT now(),
-    type text,
-    amount double precision,
-    description text,
-    withdrawalMethod text,
-    capitalSource text
-);
-
-CREATE TABLE IF NOT EXISTS public.notifications (
-    id text NOT NULL PRIMARY KEY,
-    date timestamp with time zone DEFAULT now(),
-    recipientId uuid,
-    title text,
-    description text,
-    isRead boolean DEFAULT false
-);
-
-CREATE TABLE IF NOT EXISTS public.support_tickets (
-    id text NOT NULL PRIMARY KEY,
-    date timestamp with time zone DEFAULT now(),
-    fromUserId uuid,
-    fromUserName text,
-    fromUserEmail text,
-    subject text,
-    message text,
-    isRead boolean DEFAULT false,
-    isReplied boolean DEFAULT false
-);
-
-CREATE TABLE IF NOT EXISTS public.app_config (
-    key text NOT NULL PRIMARY KEY,
-    value jsonb,
-    description text
-);
-
-CREATE TABLE IF NOT EXISTS public.branches (
-    id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    manager_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    name character varying,
-    city character varying,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- New, more robust handle_new_user function
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  user_role_from_meta text;
-  trial_period_days integer;
-  new_trial_ends_at timestamp with time zone;
-BEGIN
-  -- Extract user role from metadata, defaulting to 'مدير المكتب' if not present
-  user_role_from_meta := new.raw_user_meta_data->>'user_role';
-
-  -- Get the default trial period from app_config
-  SELECT (value->>'value')::integer INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
-  
-  -- If not found in config, use a fallback
-  IF trial_period_days IS NULL THEN
-    trial_period_days := 14;
-  END IF;
-
-  -- Calculate trial end date only for 'مدير المكتب'
-  IF user_role_from_meta = 'مدير المكتب' THEN
-    new_trial_ends_at := now() + (trial_period_days * interval '1 day');
-  ELSE
-    new_trial_ends_at := null;
-  END IF;
+  -- Set trial period only for 'مدير المكتب'
+  if user_role = 'مدير المكتب' then
+    -- Get default trial days from app_config, default to 14 if not found
+    select (value ->> 'value')::int into trial_period_days from public.app_config where key = 'defaultTrialPeriodDays' limit 1;
+    if not found then
+      trial_period_days := 14;
+    end if;
+    trial_end_date := now() + (trial_period_days || ' days')::interval;
+  else
+    trial_end_date := null;
+  end if;
   
   -- Insert into public.users table
-  INSERT INTO public.users (id, name, office_name, email, phone, role, managedBy, trialEndsAt)
-  VALUES (
+  insert into public.users (id, email, name, office_name, phone, role, status, "managedBy", "submittedBy", "registrationDate", "trialEndsAt")
+  values (
     new.id,
-    new.raw_user_meta_data->>'full_name',
-    new.raw_user_meta_data->>'office_name',
     new.email,
-    new.raw_user_meta_data->>'raw_phone_number',
-    user_role_from_meta,
-    (new.raw_user_meta_data->>'managedBy')::uuid,
-    new_trial_ends_at
+    new.raw_user_meta_data ->> 'full_name',
+    office_name_text,
+    new.raw_user_meta_data ->> 'raw_phone_number',
+    user_role,
+    case when user_role = 'مدير المكتب' then 'معلق' else 'نشط' end, -- Office managers start as 'معلق'
+    (new.raw_user_meta_data ->> 'managedBy')::uuid,
+    (new.raw_user_meta_data ->> 'submittedBy')::uuid,
+    new.created_at,
+    trial_end_date
   );
-  
-  RETURN new;
-END;
+  return new;
+end;
 $$;
 
--- Recreate Trigger
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+-- Create the trigger on the auth.users table
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- #################################################################
+-- # RLS (Row Level Security) Policies
+-- #################################################################
+
+-- Enable RLS for all relevant tables
+alter table public.users enable row level security;
+alter table public.investors enable row level security;
+alter table public.borrowers enable row level security;
+alter table public.transactions enable row level security;
+alter table public.notifications enable row level security;
+alter table public.support_tickets enable row level security;
+alter table public.app_config enable row level security;
+alter table public.branches enable row level security;
 
 
--- RLS Policies
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable read access for all users" ON "public"."users" FOR SELECT USING (true);
-CREATE POLICY "Allow users to update their own profiles" ON "public"."users" FOR UPDATE USING (auth.uid() = id);
+-- Drop existing policies to avoid conflicts
+drop policy if exists "Enable read access for all authenticated users" on public.users;
+drop policy if exists "Enable read access for related users" on public.users;
+drop policy if exists "SysAdmins can manage all users" on public.users;
+drop policy if exists "Users can update their own profile" on public.users;
 
-ALTER TABLE public.investors ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable read access for all users" ON "public"."investors" FOR SELECT USING (true);
+drop policy if exists "Enable read access for related users" on public.investors;
+drop policy if exists "Enable full access for managers" on public.investors;
 
-ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable read access for all users" ON "public"."borrowers" FOR SELECT USING (true);
+drop policy if exists "Enable read access for related users" on public.borrowers;
+drop policy if exists "Enable full access for managers" on public.borrowers;
 
-ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable read access for all users" ON "public"."transactions" FOR SELECT USING (true);
+drop policy if exists "Enable read access for related users" on public.transactions;
+drop policy if exists "Enable insert for managers" on public.transactions;
 
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable read access for all users" ON "public"."notifications" FOR SELECT USING (true);
-CREATE POLICY "Allow users to manage their own notifications" ON public.notifications
-    FOR ALL
-    USING (auth.uid() = "recipientId")
-    WITH CHECK (auth.uid() = "recipientId");
+drop policy if exists "Enable read access for recipients" on public.notifications;
+drop policy if exists "Enable insert for all users" on public.notifications;
+drop policy if exists "Enable delete for recipients" on public.notifications;
+drop policy if exists "Enable update for recipients" on public.notifications;
 
-ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable read access for all users" ON "public"."support_tickets" FOR SELECT USING (true);
-CREATE POLICY "System admins can manage all tickets" ON public.support_tickets
-    FOR ALL
-    USING (public.is_system_admin(auth.uid()))
-    WITH CHECK (public.is_system_admin(auth.uid()));
-CREATE POLICY "Users can create their own tickets" ON public.support_tickets
-    FOR INSERT
-    WITH CHECK (auth.uid() = "fromUserId");
+drop policy if exists "Enable insert for all users" on public.support_tickets;
+drop policy if exists "Enable read/delete for SysAdmins" on public.support_tickets;
 
-ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable read access for all users" ON "public"."app_config" FOR SELECT USING (true);
-CREATE POLICY "Enable all access for system admins" ON "public"."app_config"
-    FOR ALL
-    USING (public.is_system_admin(auth.uid()))
-    WITH CHECK (public.is_system_admin(auth.uid()));
+drop policy if exists "Enable read access for all users" on public.app_config;
+drop policy if exists "Enable update for SysAdmins" on public.app_config;
 
-ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all for service_role" ON "public"."branches" TO service_role FOR ALL USING (true);
-CREATE POLICY "Allow manager to access their branches" ON "public"."branches" 
-    FOR ALL 
-    USING (auth.uid() = manager_id);
+drop policy if exists "Enable read for related users" on public.branches;
+drop policy if exists "Enable insert/delete for managers" on public.branches;
 
 
--- Helper Function for RLS
-CREATE OR REPLACE FUNCTION public.is_system_admin(user_id uuid)
-RETURNS boolean
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  user_role text;
-BEGIN
-  SELECT role INTO user_role FROM public.users WHERE id = user_id;
-  RETURN user_role = 'مدير النظام';
-END;
-$$;
+-- Create Policies for 'users' table
+create policy "Enable read access for related users" on public.users for select using (
+  auth.uid() = id or -- User can see their own data
+  auth.uid() = "managedBy" or -- Manager can see their subordinates
+  (select "managedBy" from public.users where id = auth.uid()) = "managedBy" -- Subordinates can see their colleagues and manager
+);
+create policy "SysAdmins can manage all users" on public.users for all using (
+  (select role from public.users where id = auth.uid()) = 'مدير النظام'
+);
+create policy "Users can update their own profile" on public.users for update using (
+  auth.uid() = id
+);
 
 
--- Initial App Config Data (run this only once)
-INSERT INTO public.app_config (key, value, description) VALUES
-('baseInterestRate', '{"value": 15}', 'نسبة الربح السنوية الافتراضية لقروض الأقساط'),
-('investorSharePercentage', '{"value": 70}', 'حصة المستثمر الافتراضية من أرباح قروض الأقساط'),
-('graceTotalProfitPercentage', '{"value": 20}', 'إجمالي نسبة الربح من أصل القرض لقروض المهلة'),
-('graceInvestorSharePercentage', '{"value": 50}', 'حصة المستثمر من إجمالي الربح في قروض المهلة'),
-('salaryRepaymentPercentage', '{"value": 65}', 'النسبة القصوى المسموح بخصمها من الراتب لقروض المهلة'),
-('supportEmail', '{"value": "qzmpty678@gmail.com"}', 'البريد الإلكتروني لجهة الدعم الفني'),
-('supportPhone', '{"value": "0598360380"}', 'رقم الهاتف لجهة الدعم الفني'),
-('defaultTrialPeriodDays', '{"value": 14}', 'المدة بالأيام للفترة التجريبية لحسابات مدراء المكاتب')
-ON CONFLICT (key) DO NOTHING;
+-- Create Policies for 'investors' table
+create policy "Enable read access for related users" on public.investors for select using (
+  auth.uid() = id or -- Investor can see their own profile
+  (select role from public.users where id = auth.uid()) = 'مدير النظام' or
+  ( -- Manager and their team can see investors linked to the manager
+    (select "managedBy" from public.users where id = (select "managedBy" from public.users where id = auth.uid())) = (select "managedBy" from public.users where id = public.investors.id)
+    or
+    auth.uid() = (select "managedBy" from public.users where id = public.investors.id)
+  )
+);
+create policy "Enable full access for managers" on public.investors for all using (
+  (select role from public.users where id = auth.uid()) in ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب')
+);
 
-    
+
+-- Create Policies for 'borrowers' table
+create policy "Enable read access for related users" on public.borrowers for select using (
+  (select role from public.users where id = auth.uid()) = 'مدير النظام' or
+  ( -- Manager and their team can see borrowers submitted by anyone on the team
+    (select "managedBy" from public.users where id = auth.uid()) = (select "managedBy" from public.users where id = public.borrowers."submittedBy")
+     or
+    auth.uid() = (select "managedBy" from public.users where id = public.borrowers."submittedBy")
+  )
+);
+create policy "Enable full access for managers" on public.borrowers for all using (
+  (select role from public.users where id = auth.uid()) in ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف')
+);
+
+
+-- Create Policies for 'transactions' table
+create policy "Enable read access for related users" on public.transactions for select using (
+  auth.uid() = investor_id or -- Investor can see their own transactions
+  (select role from public.users where id = auth.uid()) = 'مدير النظام' or
+  ( -- Manager and their team can see transactions of investors they manage
+    (select "managedBy" from public.users where id = auth.uid()) = (select "managedBy" from public.users where id = public.transactions.investor_id)
+     or
+    auth.uid() = (select "managedBy" from public.users where id = public.transactions.investor_id)
+  )
+);
+create policy "Enable insert for managers" on public.transactions for insert with check (
+  (select role from public.users where id = auth.uid()) in ('مدير النظام', 'مدير المكتب')
+);
+
+
+-- Create Policies for 'notifications' table
+create policy "Enable read access for recipients" on public.notifications for select using (auth.uid() = "recipientId");
+create policy "Enable insert for all users" on public.notifications for insert with check (true);
+create policy "Enable delete for recipients" on public.notifications for delete using (auth.uid() = "recipientId");
+create policy "Enable update for recipients" on public.notifications for update using (auth.uid() = "recipientId");
+
+
+-- Create Policies for 'support_tickets' table
+create policy "Enable insert for all users" on public.support_tickets for insert with check (auth.uid() = "fromUserId");
+create policy "Enable read/delete for SysAdmins" on public.support_tickets for all using (
+  (select role from public.users where id = auth.uid()) = 'مدير النظام'
+);
+
+
+-- Create Policies for 'app_config' table
+create policy "Enable read access for all users" on public.app_config for select using (true);
+create policy "Enable update for SysAdmins" on public.app_config for update using (
+  (select role from public.users where id = auth.uid()) = 'مدير النظام'
+);
+
+-- Create Policies for 'branches' table
+create policy "Enable read for related users" on public.branches for select using (
+    auth.uid() = manager_id or
+    (select "managedBy" from public.users where id = auth.uid()) = manager_id
+);
+create policy "Enable insert/delete for managers" on public.branches for all using (
+    auth.uid() = manager_id and (select role from public.users where id = auth.uid()) = 'مدير المكتب'
+);
+
+
+-- #################################################################
+-- # Initial Data Seeding
+-- #################################################################
+
+-- Clear existing config data to avoid duplicates
+delete from public.app_config;
+
+-- Insert default app configuration
+insert into public.app_config (key, value) values
+('baseInterestRate', '{"value": 15}'::jsonb),
+('investorSharePercentage', '{"value": 70}'::jsonb),
+('salaryRepaymentPercentage', '{"value": 65}'::jsonb),
+('graceTotalProfitPercentage', '{"value": 50}'::jsonb),
+('graceInvestorSharePercentage', '{"value": 33.3}'::jsonb),
+('supportEmail', '{"value": "qzmpty678@gmail.com"}'::jsonb),
+('supportPhone', '{"value": "0598360380"}'::jsonb),
+('defaultTrialPeriodDays', '{"value": 14}'::jsonb);
+
