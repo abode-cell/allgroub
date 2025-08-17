@@ -370,37 +370,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   },[router]);
 
- const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    
     if (!payload.password) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
-    const { error } = await supabase.auth.signUp({
-      email: payload.email,
-      password: payload.password,
-      options: {
-        data: {
-          full_name: payload.name,
-          office_name: payload.officeName,
-          raw_phone_number: payload.phone,
-          user_role: 'مدير المكتب',
-        }
+    try {
+      const { error } = await supabase.functions.invoke('register-office-manager', { 
+        body: payload 
+      });
+      if (error) {
+        throw new Error(error.message);
       }
-    });
-
-    if (error) {
-      if (error.message.includes('User already registered')) {
-        return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
-      }
-       if (error.message.includes('Database error saving new user')) {
-        return { success: false, message: 'خطأ في قاعدة البيانات أثناء حفظ المستخدم الجديد. يرجى مراجعة إعدادات قاعدة البيانات والمشغلات (Triggers).' };
-      }
-      return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
+      return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل والمتابعة.' };
+    } catch (error: any) {
+      console.error("Register Manager Error:", error);
+      const errorMessage = error.message.includes('already registered')
+          ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+          : (error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.');
+      return { success: false, message: errorMessage };
     }
-    
-    return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
   }, []);
   
   const addNotification = useCallback(
@@ -1720,4 +1710,3 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
-
