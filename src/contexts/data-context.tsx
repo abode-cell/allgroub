@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -1719,3 +1720,4 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
+
