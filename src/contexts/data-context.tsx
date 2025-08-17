@@ -390,7 +390,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      if (error.message.includes('already registered')) {
+      if (error.message.includes('User already registered')) {
         return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
       }
        if (error.message.includes('Database error saving new user')) {
@@ -1719,3 +1719,5 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
+
+    
