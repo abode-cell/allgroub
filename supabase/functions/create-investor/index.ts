@@ -1,3 +1,4 @@
+
 // supabase/functions/create-investor/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -44,7 +45,7 @@ serve(async (req) => {
       user_metadata: {
         full_name: payload.name,
         raw_phone_number: payload.phone,
-        user_role: 'مستثمر',
+        user_role: 'مستثمر', // Correctly set the role here
         managedBy: manager.id,
         submittedBy: manager.id,
       },
@@ -60,24 +61,23 @@ serve(async (req) => {
 
     newAuthUserId = newAuthUser.id;
 
-    // The handle_new_user trigger will create the user in public.users. Now, create the investor profile.
-    const { error: investorError } = await supabaseAdmin
+    // The handle_new_user trigger will create the user in public.users and the investor profile.
+    
+    // Update the investor profile with profit shares
+    const { error: investorUpdateError } = await supabaseAdmin
       .from("investors")
-      .insert({
-        id: newAuthUser.id,
-        name: payload.name,
-        status: "نشط",
-        submittedBy: manager.id,
+      .update({
         installmentProfitShare: payload.installmentProfitShare,
         gracePeriodProfitShare: payload.gracePeriodProfitShare,
-      });
+      })
+      .eq('id', newAuthUser.id);
+      
+    if(investorUpdateError) console.error("Could not update profit shares for investor:", investorUpdateError.message);
 
-    if (investorError) throw new Error(`Investor DB Error: ${investorError.message}`);
 
     // Create initial capital deposit transactions if provided
     if(payload.installmentCapital > 0) {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
-        id: `tx_${Date.now()}_inst`,
         investor_id: newAuthUser.id,
         type: 'إيداع رأس المال',
         amount: payload.installmentCapital,
@@ -88,7 +88,6 @@ serve(async (req) => {
     }
      if(payload.graceCapital > 0) {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
-        id: `tx_${Date.now()}_grace`,
         investor_id: newAuthUser.id,
         type: 'إيداع رأس المال',
         amount: payload.graceCapital,

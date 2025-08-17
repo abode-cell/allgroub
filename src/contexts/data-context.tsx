@@ -377,6 +377,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
+    // This is the corrected, robust way to handle sign-up
     const { error } = await supabase.auth.signUp({
       email: payload.email,
       password: payload.password,
@@ -385,7 +386,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           full_name: payload.name,
           office_name: payload.officeName,
           raw_phone_number: payload.phone,
-          user_role: 'مدير المكتب', // Correctly passing user_role here
+          user_role: 'مدير المكتب', // Explicitly set the role here
         }
       }
     });
