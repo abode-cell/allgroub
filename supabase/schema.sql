@@ -1,3 +1,4 @@
+
 -- Drop everything in the correct order to avoid dependency errors
 DROP TABLE IF EXISTS "public"."transactions" CASCADE;
 DROP TABLE IF EXISTS "public"."borrowers" CASCADE;
@@ -9,8 +10,6 @@ DROP TABLE IF EXISTS "public"."notifications" CASCADE;
 DROP TABLE IF EXISTS "public"."support_tickets" CASCADE;
 
 DROP FUNCTION IF EXISTS "public"."handle_new_user"() CASCADE;
-DROP FUNCTION IF EXISTS "public"."get_my_claim"(text) CASCADE;
-DROP FUNCTION IF EXISTS "public"."get_my_claims"() CASCADE;
 
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
 DROP TYPE IF EXISTS "public"."borrower_status" CASCADE;
@@ -200,7 +199,7 @@ declare
   trial_end_date timestamp with time zone;
 begin
   -- Extract user role from user_metadata, default to 'مستثمر' if not present
-  user_role := (new.raw_user_meta_data ->> 'user_role')::public.user_role;
+  user_role := COALESCE((new.raw_user_meta_data ->> 'user_role')::public.user_role, 'مستثمر');
   managed_by_id := (new.raw_user_meta_data ->> 'managedBy')::uuid;
 
   -- Set trial period only for Office Managers
@@ -394,4 +393,3 @@ INSERT INTO public.app_config (key, value) VALUES
     ('supportPhone', '{"value": "0598360380"}')
 ON CONFLICT (key) DO UPDATE 
 SET value = EXCLUDED.value;
-    
