@@ -1,42 +1,19 @@
--- Drop existing policies, functions, and types with CASCADE to ensure a clean slate
-DROP POLICY IF EXISTS "Allow individual read access" ON "public"."app_config" CASCADE;
-DROP POLICY IF EXISTS "Allow individual read access" ON "public"."borrowers" CASCADE;
-DROP POLICY IF EXISTS "Allow individual read access" ON "public"."investors" CASCADE;
-DROP POLICY IF EXISTS "Allow individual read access" ON "public"."transactions" CASCADE;
-DROP POLICY IF EXISTS "Allow individual read access" ON "public"."users" CASCADE;
-DROP POLICY IF EXISTS "Allow managers to read their team data" ON "public"."users" CASCADE;
-DROP POLICY IF EXISTS "Allow system admin to read all data" ON "public"."app_config" CASCADE;
-DROP POLICY IF EXISTS "Allow system admin to read all data" ON "public"."borrowers" CASCADE;
-DROP POLICY IF EXISTS "Allow system admin to read all data" ON "public"."investors" CASCADE;
-DROP POLICY IF EXISTS "Allow system admin to read all data" ON "public"."transactions" CASCADE;
-DROP POLICY IF EXISTS "Allow system admin to read all data" ON "public"."users" CASCADE;
-DROP POLICY IF EXISTS "Allow auth users to read all app_config" ON "public"."app_config" CASCADE;
-DROP POLICY IF EXISTS "Allow users to see their own notifications" ON "public"."notifications" CASCADE;
-DROP POLICY IF EXISTS "Allow admin to see all support tickets" ON "public"."support_tickets" CASCADE;
-DROP POLICY IF EXISTS "Allow users to see their own submitted tickets" ON "public"."support_tickets" CASCADE;
-DROP POLICY IF EXISTS "Allow investors to see their transactions" ON "public"."transactions" CASCADE;
-DROP POLICY IF EXISTS "Allow managers to see their investors transactions" ON "public"."transactions" CASCADE;
-DROP POLICY IF EXISTS "Allow admin to read all transactions" ON "public"."transactions" CASCADE;
-DROP POLICY IF EXISTS "Allow managers to read branches" ON "public"."branches" CASCADE;
-DROP POLICY IF EXISTS "Allow admin to read all branches" ON "public"."branches" CASCADE;
-DROP POLICY IF EXISTS "Allow users to read their own data" ON "public"."users" CASCADE;
-DROP POLICY IF EXISTS "Allow team members to read their manager data" ON "public"."users" CASCADE;
-DROP POLICY IF EXISTS "Allow admin to read all users" ON "public"."users" CASCADE;
-DROP POLICY IF EXISTS "Allow users to update their own data" ON "public"."users" CASCADE;
-DROP POLICY IF EXISTS "Allow investors to read their own data" ON "public"."investors" CASCADE;
-DROP POLICY IF EXISTS "Allow managers to read their investors" ON "public"."investors" CASCADE;
-DROP POLICY IF EXISTS "Allow admin to read all investors" ON "public"."investors" CASCADE;
-DROP POLICY IF EXISTS "Allow managers to read team borrowers" ON "public"."borrowers" CASCADE;
-DROP POLICY IF EXISTS "Allow investors to read their funded loans" ON "public"."borrowers" CASCADE;
-DROP POLICY IF EXISTS "Allow admin to read all borrowers" ON "public"."borrowers" CASCADE;
 
-
+-- Drop existing objects with CASCADE to ensure a clean slate
 DROP FUNCTION IF EXISTS "public"."get_my_claim"(text) CASCADE;
 DROP FUNCTION IF EXISTS "public"."get_my_claims"() CASCADE;
 DROP FUNCTION IF EXISTS "public"."get_user_role"() CASCADE;
 DROP FUNCTION IF EXISTS "public"."is_claims_admin"() CASCADE;
 DROP FUNCTION IF EXISTS "public"."handle_new_user"() CASCADE;
 
+DROP TABLE IF EXISTS "public"."users" CASCADE;
+DROP TABLE IF EXISTS "public"."branches" CASCADE;
+DROP TABLE IF EXISTS "public"."investors" CASCADE;
+DROP TABLE IF EXISTS "public"."borrowers" CASCADE;
+DROP TABLE IF EXISTS "public"."transactions" CASCADE;
+DROP TABLE IF EXISTS "public"."app_config" CASCADE;
+DROP TABLE IF EXISTS "public"."notifications" CASCADE;
+DROP TABLE IF EXISTS "public"."support_tickets" CASCADE;
 
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
 DROP TYPE IF EXISTS "public"."borrower_status" CASCADE;
@@ -46,6 +23,7 @@ DROP TYPE IF EXISTS "public"."loan_type" CASCADE;
 DROP TYPE IF EXISTS "public"."transaction_type" CASCADE;
 DROP TYPE IF EXISTS "public"."withdrawal_method" CASCADE;
 DROP TYPE IF EXISTS "public"."installment_status" CASCADE;
+
 
 -- Create custom types
 CREATE TYPE "public"."user_role" AS ENUM ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف', 'مستثمر');
@@ -278,7 +256,8 @@ end;
 $$;
 
 -- ATTACH TRIGGER to auth.users table
-create trigger on_auth_user_created
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
@@ -440,4 +419,7 @@ INSERT INTO public.app_config (key, value) VALUES
     ('graceInvestorSharePercentage', '{"value": 33.3}'),
     ('supportEmail', '{"value": "qzmpty678@gmail.com"}'),
     ('supportPhone', '{"value": "0598360380"}')
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT (key) DO UPDATE 
+SET value = EXCLUDED.value;
+
+    
