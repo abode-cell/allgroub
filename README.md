@@ -137,7 +137,7 @@ COMMENT ON TABLE public.support_tickets IS 'Stores support requests from users.'
 -- Notifications Table
 CREATE TABLE public.notifications (
     id TEXT PRIMARY KEY,
-    date TIMESTAMTz DEFAULT NOW(),
+    date TIMESTAMPTZ DEFAULT NOW(),
     recipientId UUID NOT NULL REFERENCES public.users(id),
     title TEXT NOT NULL,
     description TEXT NOT NULL,
@@ -287,6 +287,4 @@ INSERT INTO public.app_config (key, value, description) VALUES
 ('supportEmail', '{"value": "qzmpty678@gmail.com"}', 'Contact email for support inquiries'),
 ('supportPhone', '{"value": "0598360380"}', 'Contact phone for support inquiries'),
 ('defaultTrialPeriodDays', '{"value": 14}', 'Default trial period in days for new office managers');
-
 ```
-
