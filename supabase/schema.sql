@@ -394,3 +394,4 @@ INSERT INTO public.app_config (key, value) VALUES
     ('supportPhone', '{"value": "0598360380"}')
 ON CONFLICT (key) DO UPDATE 
 SET value = EXCLUDED.value;
+    
