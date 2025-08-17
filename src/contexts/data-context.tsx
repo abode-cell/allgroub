@@ -1719,5 +1719,3 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
-
-    
