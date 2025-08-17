@@ -32,29 +32,6 @@ CREATE TYPE "public"."transaction_type" AS ENUM ('إيداع رأس المال',
 CREATE TYPE "public"."withdrawal_method" AS ENUM ('نقدي', 'بنكي');
 CREATE TYPE "public"."installment_status" AS ENUM ('لم يسدد بعد', 'تم السداد', 'متأخر');
 
--- Helper functions from Supabase auth to read JWT claims
-create or replace function public.get_my_claims()
-returns table (claim text, value jsonb)
-language sql stable
-as $$
-  select
-    claims.key::text as claim,
-    claims.value
-  from
-    jsonb_each(auth.jwt() -> 'user_metadata') as claims;
-$$;
-
-create or replace function public.get_my_claim(claim_name text)
-returns jsonb
-language sql stable
-as $$
-  select
-    coalesce(
-      (select claims.value from public.get_my_claims() as claims where claims.claim = claim_name),
-      'null'::jsonb
-    );
-$$;
-
 -- Create users table
 CREATE TABLE "public"."users" (
     "id" "uuid" NOT NULL,
@@ -287,7 +264,7 @@ USING (id IN ( SELECT users."managedBy" FROM users WHERE users.id = auth.uid() )
 CREATE POLICY "Allow admin to read all users" ON "public"."users"
 AS PERMISSIVE FOR SELECT
 TO authenticated
-USING (get_my_claim('user_role')::text = '"مدير النظام"');
+USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
 
 CREATE POLICY "Allow users to update their own data" ON "public"."users"
 AS PERMISSIVE FOR UPDATE
@@ -305,7 +282,7 @@ CREATE POLICY "Allow managers to read their investors" ON "public"."investors"
 AS PERMISSIVE FOR SELECT
 TO authenticated
 USING (
-  get_my_claim('user_role')::text IN ('"مدير المكتب"', '"مساعد مدير المكتب"', '"موظف"')
+  (auth.jwt() -> 'user_metadata' ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')
   AND "submittedBy" IN (
     SELECT id FROM users WHERE "managedBy" = (SELECT "managedBy" FROM users WHERE id = auth.uid())
     UNION
@@ -316,14 +293,14 @@ USING (
 CREATE POLICY "Allow admin to read all investors" ON "public"."investors"
 AS PERMISSIVE FOR SELECT
 TO authenticated
-USING (get_my_claim('user_role')::text = '"مدير النظام"');
+USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
 
 -- BORROWERS TABLE
 CREATE POLICY "Allow managers to read team borrowers" ON "public"."borrowers"
 AS PERMISSIVE FOR SELECT
 TO authenticated
 USING (
-  get_my_claim('user_role')::text IN ('"مدير المكتب"', '"مساعد مدير المكتب"', '"موظف"')
+  (auth.jwt() -> 'user_metadata' ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')
   AND "submittedBy" IN (
     SELECT id FROM users WHERE "managedBy" = (SELECT "managedBy" FROM users WHERE id = auth.uid()) OR id = (SELECT "managedBy" FROM users WHERE id = auth.uid())
     UNION
@@ -335,7 +312,7 @@ CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrower
 AS PERMISSIVE FOR SELECT
 TO authenticated
 USING (
-  (get_my_claim('user_role')::text = '"مستثمر"') AND
+  ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مستثمر') AND
   ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text)))
 );
 
@@ -343,7 +320,7 @@ USING (
 CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers"
 AS PERMISSIVE FOR SELECT
 TO authenticated
-USING (get_my_claim('user_role')::text = '"مدير النظام"');
+USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
 
 -- OTHER TABLES (simple policies)
 CREATE POLICY "Allow auth users to read all app_config" ON "public"."app_config"
@@ -359,7 +336,7 @@ USING (auth.uid() = "recipientId");
 CREATE POLICY "Allow admin to see all support tickets" ON "public"."support_tickets"
 AS PERMISSIVE FOR SELECT
 TO authenticated
-USING (get_my_claim('user_role')::text = '"مدير النظام"');
+USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
 
 CREATE POLICY "Allow users to see their own submitted tickets" ON "public"."support_tickets"
 AS PERMISSIVE FOR SELECT
@@ -375,7 +352,7 @@ CREATE POLICY "Allow managers to see their investors transactions" ON "public"."
 AS PERMISSIVE FOR SELECT
 TO authenticated
 USING (
-  get_my_claim('user_role')::text IN ('"مدير المكتب"', '"مساعد مدير المكتب"')
+  (auth.jwt() -> 'user_metadata' ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب')
   AND investor_id IN (
     SELECT id FROM investors WHERE "submittedBy" IN (
       SELECT id FROM users WHERE "managedBy" = (SELECT "managedBy" FROM users WHERE id = auth.uid())
@@ -388,20 +365,20 @@ USING (
 CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions"
 AS PERMISSIVE FOR SELECT
 TO authenticated
-USING (get_my_claim('user_role')::text = '"مدير النظام"');
+USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
 
 CREATE POLICY "Allow managers to read branches" ON "public"."branches"
 AS PERMISSIVE FOR SELECT
 TO authenticated
 USING (
-  get_my_claim('user_role')::text IN ('"مدير المكتب"', '"مساعد مدير المكتب"', '"موظف"')
+  (auth.jwt() -> 'user_metadata' ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')
 );
 
 CREATE POLICY "Allow admin to read all branches" ON "public"."branches"
 AS PERMISSIVE FOR SELECT
 TO authenticated
 USING (
-  get_my_claim('user_role')::text = '"مدير النظام"'
+  (auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام'
 );
 
 
