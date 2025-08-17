@@ -15,9 +15,8 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 -- Drop the function if it exists
 DROP FUNCTION IF EXISTS public.handle_new_user;
-
--- Drop dependent views/functions first if they exist
 DROP FUNCTION IF EXISTS public.get_user_data_and_context;
+DROP FUNCTION IF EXISTS public.set_app_config;
 
 -- Drop tables in reverse order of dependency
 DROP TABLE IF EXISTS public.notifications;
@@ -223,148 +222,46 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- Function to get all relevant data for a logged-in user
-CREATE OR REPLACE FUNCTION public.get_user_data_and_context(user_id_param uuid)
-RETURNS TABLE (
-    users_data json,
-    investors_data json,
-    borrowers_data json,
-    transactions_data json,
-    notifications_data json,
-    support_tickets_data json,
-    app_config_data json,
-    branches_data json
-)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    current_user_role user_role;
-    current_user_managed_by uuid;
-    manager_id_to_use uuid;
-    relevant_user_ids uuid[];
-BEGIN
-    -- Get current user's role and manager
-    SELECT role, managedBy INTO current_user_role, current_user_managed_by
-    FROM public.users
-    WHERE id = user_id_param;
-
-    -- Determine the set of users to fetch data for
-    IF current_user_role = 'مدير النظام' THEN
-        SELECT array_agg(id) INTO relevant_user_ids FROM public.users;
-    ELSIF current_user_role = 'مدير المكتب' THEN
-        manager_id_to_use := user_id_param;
-        SELECT array_agg(id) INTO relevant_user_ids
-        FROM public.users
-        WHERE id = manager_id_to_use OR managedBy = manager_id_to_use;
-    ELSIF current_user_role IN ('مساعد مدير المكتب', 'موظف') THEN
-        manager_id_to_use := current_user_managed_by;
-        SELECT array_agg(id) INTO relevant_user_ids
-        FROM public.users
-        WHERE id = manager_id_to_use OR managedBy = manager_id_to_use;
-    ELSIF current_user_role = 'مستثمر' THEN
-        manager_id_to_use := current_user_managed_by;
-         SELECT array_agg(id) INTO relevant_user_ids
-        FROM public.users
-        WHERE id = manager_id_to_use OR managedBy = manager_id_to_use;
-    END IF;
-
-    -- Aggregate data into JSON
-    SELECT json_agg(u) INTO users_data FROM public.users u;
-    SELECT json_agg(c) INTO app_config_data FROM public.app_config c;
-
-    IF current_user_role = 'مدير النظام' THEN
-        SELECT json_agg(i) INTO investors_data FROM public.investors i;
-        SELECT json_agg(b) INTO borrowers_data FROM public.borrowers b;
-        SELECT json_agg(t) INTO transactions_data FROM public.transactions t;
-        SELECT json_agg(st) INTO support_tickets_data FROM public.support_tickets st;
-        SELECT json_agg(br) INTO branches_data FROM public.branches br;
-
-    ELSIF current_user_role = 'مستثمر' THEN
-        SELECT json_agg(i) INTO investors_data FROM public.investors i WHERE i.id = user_id_param;
-        SELECT json_agg(b) INTO borrowers_data FROM public.borrowers b WHERE b.fundedBy::text LIKE '%' || user_id_param::text || '%';
-        SELECT json_agg(t) INTO transactions_data FROM public.transactions t WHERE t.investor_id = user_id_param;
-
-    ELSE -- For Manager, Assistant, Employee
-        SELECT json_agg(i) INTO investors_data FROM public.investors i WHERE EXISTS (SELECT 1 FROM public.users u WHERE u.id = i.id AND u.managedBy = manager_id_to_use);
-        SELECT json_agg(b) INTO borrowers_data FROM public.borrowers b WHERE b.submittedBy = ANY(relevant_user_ids);
-        SELECT json_agg(t) INTO transactions_data FROM public.transactions t WHERE EXISTS (SELECT 1 FROM public.investors i JOIN public.users u ON i.id = u.id WHERE t.investor_id = i.id AND u.managedBy = manager_id_to_use);
-        SELECT json_agg(br) INTO branches_data FROM public.branches br WHERE br.manager_id = manager_id_to_use;
-    END IF;
-
-    SELECT json_agg(n) INTO notifications_data FROM public.notifications n WHERE n.recipientId = user_id_param;
-    IF current_user_role = 'مدير النظام' THEN
-       SELECT json_agg(st) INTO support_tickets_data FROM public.support_tickets st;
-    END IF;
-
-    RETURN QUERY SELECT
-        users_data,
-        investors_data,
-        borrowers_data,
-        transactions_data,
-        notifications_data,
-        support_tickets_data,
-        app_config_data,
-        branches_data;
-END;
-$$;
-
--- Function to set app config values
-CREATE OR REPLACE FUNCTION set_app_config(key_to_set TEXT, value_to_set JSONB)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  INSERT INTO public.app_config(key, value)
-  VALUES(key_to_set, value_to_set)
-  ON CONFLICT (key)
-  DO UPDATE SET value = value_to_set;
-END;
-$$;
-
 
 -- ========= Setup Row Level Security (RLS) Policies =========
 
 -- USERS TABLE
-CREATE POLICY "Allow system admin to manage all users" ON public.users FOR ALL USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
-CREATE POLICY "Allow users to view their own data and team members" ON public.users FOR SELECT USING (id = auth.uid() OR managedBy = (SELECT managedBy FROM users WHERE id = auth.uid()) OR managedBy = auth.uid());
+CREATE POLICY "Allow system admin to manage all users" ON public.users FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام' );
+CREATE POLICY "Allow users to view their own data" ON public.users FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Allow manager to view their team" ON public.users FOR SELECT USING (managedBy = auth.uid());
+CREATE POLICY "Allow team members to view their manager" ON public.users FOR SELECT USING (id = (SELECT managedBy FROM public.users WHERE id = auth.uid()));
 CREATE POLICY "Allow users to update their own data" ON public.users FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Allow managers to update their subordinates' settings" ON public.users FOR UPDATE USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير المكتب' AND managedBy = auth.uid()));
+CREATE POLICY "Allow managers to update their subordinates" ON public.users FOR UPDATE USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('مدير المكتب', 'مساعد مدير المكتب') AND managedBy = auth.uid()));
 
 -- INVESTORS TABLE
-CREATE POLICY "Allow investor to see their own profile" ON public.investors FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Allow manager/staff to see their investors" ON public.investors FOR SELECT USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND (role IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')) AND submittedBy = id));
-CREATE POLICY "Allow system admin to see all investors" ON public.investors FOR SELECT USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
-CREATE POLICY "Allow manager/assistant to update their investors" ON public.investors FOR UPDATE USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('مدير المكتب', 'مساعد مدير المكتب') AND submittedBy = auth.uid()));
+CREATE POLICY "Allow system admin to manage all investors" ON public.investors FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to manage their team investors" ON public.investors FOR ALL USING (EXISTS (SELECT 1 FROM users u WHERE u.id = investors.id AND u.managedBy = auth.uid()));
+CREATE POLICY "Allow investors to view their own profile" ON public.investors FOR SELECT USING (auth.uid() = id);
 
 -- BORROWERS TABLE
-CREATE POLICY "Allow manager/staff to see their borrowers" ON public.borrowers FOR SELECT USING (EXISTS (SELECT 1 FROM users u WHERE u.id = auth.uid() AND (u.id = submittedBy OR u.managedBy = (SELECT managedBy FROM users WHERE id = submittedBy))));
+CREATE POLICY "Allow system admin to manage all borrowers" ON public.borrowers FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow team to manage their submitted borrowers" ON public.borrowers FOR ALL USING (EXISTS (SELECT 1 FROM users u WHERE u.id = borrowers.submittedBy AND (u.id = auth.uid() OR u.managedBy = auth.uid())));
 CREATE POLICY "Allow investors to see loans they funded" ON public.borrowers FOR SELECT USING (fundedBy::text LIKE '%' || auth.uid()::text || '%');
-CREATE POLICY "Allow system admin to see all borrowers" ON public.borrowers FOR SELECT USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
 
 -- TRANSACTIONS TABLE
-CREATE POLICY "Allow investor to see their own transactions" ON public.transactions FOR SELECT USING (auth.uid() = investor_id);
-CREATE POLICY "Allow manager/staff to see their investors' transactions" ON public.transactions FOR SELECT USING (EXISTS (SELECT 1 FROM investors i JOIN users u ON i.id = u.id WHERE i.id = investor_id AND u.managedBy = (SELECT managedBy FROM users WHERE id = auth.uid())));
-CREATE POLICY "Allow system admin to see all transactions" ON public.transactions FOR SELECT USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
+CREATE POLICY "Allow system admin to see all transactions" ON public.transactions FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow investors to see their own transactions" ON public.transactions FOR SELECT USING (auth.uid() = investor_id);
+CREATE POLICY "Allow managers to see their investors' transactions" ON public.transactions FOR SELECT USING (EXISTS (SELECT 1 FROM public.users u WHERE u.id = transactions.investor_id AND u.managedBy = auth.uid()));
 
 -- NOTIFICATIONS TABLE
-CREATE POLICY "Allow users to see their own notifications" ON public.notifications FOR SELECT USING (auth.uid() = recipientId);
-CREATE POLICY "Allow server to create notifications" ON public.notifications FOR INSERT WITH CHECK (true); -- Assuming notifications are created by trusted server roles/functions
-CREATE POLICY "Allow users to delete their own notifications" ON public.notifications FOR DELETE USING (auth.uid() = recipientId);
-CREATE POLICY "Allow users to mark their own notifications as read" ON public.notifications FOR UPDATE USING (auth.uid() = recipientId);
+CREATE POLICY "Allow users to manage their own notifications" ON public.notifications FOR ALL USING (auth.uid() = recipientId);
+CREATE POLICY "Allow server-side code to insert notifications" on public.notifications FOR INSERT WITH CHECK (true);
 
 -- SUPPORT TICKETS TABLE
 CREATE POLICY "Allow users to create support tickets" ON public.support_tickets FOR INSERT WITH CHECK (auth.uid() = fromUserId);
-CREATE POLICY "Allow system admin to manage all tickets" ON public.support_tickets FOR ALL USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
+CREATE POLICY "Allow system admin to manage all tickets" ON public.support_tickets FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 
 -- APP CONFIG TABLE
 CREATE POLICY "Allow authenticated users to read config" ON public.app_config FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow only System Admin to modify config" ON public.app_config FOR ALL USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام')) WITH CHECK (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'مدير النظام'));
+CREATE POLICY "Allow only System Admin to modify config" ON public.app_config FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 
 -- BRANCHES TABLE
 CREATE POLICY "Allow manager to manage their own branches" ON public.branches FOR ALL USING (auth.uid() = manager_id);
 CREATE POLICY "Allow subordinates to view their office branches" ON public.branches FOR SELECT USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND managedBy = manager_id));
 
 ```
-
-    

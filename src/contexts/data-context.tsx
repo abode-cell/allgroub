@@ -189,21 +189,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setDataLoading(true);
     try {
         const { data: { user } } = await supabaseClient.auth.getUser();
-
         if (!user) {
             setDataLoading(false);
             return;
         };
-        
-        const { data: usersData, error: usersError } = await supabaseClient.rpc('get_user_data_and_context', { user_id_param: user.id });
+
+        const { data: users, error: usersError } = await supabaseClient.from('users').select('*');
         if(usersError) throw usersError;
-        
-        const {
-             users_data, investors_data, borrowers_data, transactions_data,
-             notifications_data, support_tickets_data, app_config_data, branches_data
-        } = usersData[0];
-        
-        const localUser = users_data?.find((u: User) => u.id === user.id);
+
+        const localUser = users?.find((u: User) => u.id === user.id);
         if (localUser && localUser.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
             if(localUser.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
@@ -213,6 +207,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ variant: "destructive", title: "تم تسجيل الخروج", description: message });
             setDataLoading(false);
             return;
+        }
+
+        const [
+          { data: investors_data, error: investorsError },
+          { data: borrowers_data, error: borrowersError },
+          { data: transactions_data, error: transactionsError },
+          { data: notifications_data, error: notificationsError },
+          { data: support_tickets_data, error: supportTicketsError },
+          { data: app_config_data, error: appConfigError },
+          { data: branches_data, error: branchesError }
+        ] = await Promise.all([
+          supabaseClient.from('investors').select('*'),
+          supabaseClient.from('borrowers').select('*'),
+          supabaseClient.from('transactions').select('*'),
+          supabaseClient.from('notifications').select('*'),
+          supabaseClient.from('support_tickets').select('*'),
+          supabaseClient.from('app_config').select('*'),
+          supabaseClient.from('branches').select('*')
+        ]);
+        
+        if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
+          throw new Error('فشل في جلب أحد الموارد.');
         }
 
         const configData = app_config_data.reduce((acc: any, row: any) => {
@@ -230,7 +246,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithBranches = (users_data || []).map((u: User) => ({
+        const usersWithBranches = (users || []).map((u: User) => ({
             ...u,
             branches: (branches_data || []).filter((b: Branch) => b.manager_id === u.id)
         }))
@@ -407,77 +423,105 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateTrialPeriod = useCallback(
     async (days: number) => {
       const supabase = getSupabaseBrowserClient();
-      await supabase.rpc('set_app_config', { key_to_set: 'defaultTrialPeriodDays', value_to_set: { value: days } });
-      await fetchData(supabase);
-      toast({
-        title: 'تم التحديث',
-        description: `تم تحديث الفترة التجريبية إلى ${days} يوم.`,
-      });
+      const { error } = await supabase.from('app_config').update({ value: { value: days } }).eq('key', 'defaultTrialPeriodDays');
+      if (error) {
+        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث الفترة التجريبية." });
+      } else {
+        await fetchData(supabase);
+        toast({
+          title: 'تم التحديث',
+          description: `تم تحديث الفترة التجريبية إلى ${days} يوم.`,
+        });
+      }
     },
     [toast, fetchData]
   );
 
   const updateSalaryRepaymentPercentage = useCallback(
-    (percentage: number) => {
-      setData(d => ({...d, salaryRepaymentPercentage: percentage}));
-      toast({
-        title: 'تم التحديث',
-        description: `تم تحديث نسبة السداد من الراتب إلى ${percentage}%.`,
-      });
+    async (percentage: number) => {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.from('app_config').update({ value: { value: percentage } }).eq('key', 'salaryRepaymentPercentage');
+      if (error) {
+        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث نسبة السداد." });
+      } else {
+        await fetchData(supabase);
+        toast({ title: 'تم التحديث', description: `تم تحديث نسبة السداد من الراتب إلى ${percentage}%.` });
+      }
     },
-    [toast]
+    [toast, fetchData]
   );
   const updateBaseInterestRate = useCallback(
-    (rate: number) => {
-      setData(d => ({...d, baseInterestRate: rate}));
-      toast({
-        title: 'تم التحديث',
-        description: `تم تحديث نسبة الربح الأساسية إلى ${rate}%.`,
-      });
+    async (rate: number) => {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.from('app_config').update({ value: { value: rate } }).eq('key', 'baseInterestRate');
+      if (error) {
+        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث نسبة الربح." });
+      } else {
+        await fetchData(supabase);
+        toast({ title: 'تم التحديث', description: `تم تحديث نسبة الربح الأساسية إلى ${rate}%.` });
+      }
     },
-    [toast]
+    [toast, fetchData]
   );
   const updateInvestorSharePercentage = useCallback(
-    (percentage: number) => {
-      setData(d => ({...d, investorSharePercentage: percentage}));
-      toast({
-        title: 'تم التحديث',
-        description: `تم تحديث حصة المستثمر من الأرباح إلى ${percentage}%.`,
-      });
+    async (percentage: number) => {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.from('app_config').update({ value: { value: percentage } }).eq('key', 'investorSharePercentage');
+      if (error) {
+        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حصة المستثمر." });
+      } else {
+        await fetchData(supabase);
+        toast({ title: 'تم التحديث', description: `تم تحديث حصة المستثمر من الأرباح إلى ${percentage}%.` });
+      }
     },
-    [toast]
+    [toast, fetchData]
   );
   const updateGraceTotalProfitPercentage = useCallback(
-    (percentage: number) => {
-      setData(d => ({...d, graceTotalProfitPercentage: percentage}));
-      toast({
-        title: 'تم التحديث',
-        description: `تم تحديث نسبة الربح الإجمالية لتمويل المهلة إلى ${percentage}%.`,
-      });
+    async (percentage: number) => {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.from('app_config').update({ value: { value: percentage } }).eq('key', 'graceTotalProfitPercentage');
+      if (error) {
+        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث ربح المهلة." });
+      } else {
+        await fetchData(supabase);
+        toast({ title: 'تم التحديث', description: `تم تحديث نسبة الربح الإجمالية لتمويل المهلة إلى ${percentage}%.` });
+      }
     },
-    [toast]
+    [toast, fetchData]
   );
   const updateGraceInvestorSharePercentage = useCallback(
-    (percentage: number) => {
-      setData(d => ({...d, graceInvestorSharePercentage: percentage}));
-      toast({
-        title: 'تم التحديث',
-        description: `تم تحديث حصة المستثمر من أرباح المهلة إلى ${percentage}%.`,
-      });
+    async (percentage: number) => {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.from('app_config').update({ value: { value: percentage } }).eq('key', 'graceInvestorSharePercentage');
+      if (error) {
+        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حصة مستثمر المهلة." });
+      } else {
+        await fetchData(supabase);
+        toast({ title: 'تم التحديث', description: `تم تحديث حصة المستثمر من أرباح المهلة إلى ${percentage}%.` });
+      }
     },
-    [toast]
+    [toast, fetchData]
   );
 
   const updateSupportInfo = useCallback(
     async (info: { email?: string; phone?: string }) => {
       const supabase = getSupabaseBrowserClient();
-      if(info.email) await supabase.rpc('set_app_config', { key_to_set: 'supportEmail', value_to_set: { value: info.email } });
-      if(info.phone) await supabase.rpc('set_app_config', { key_to_set: 'supportPhone', value_to_set: { value: info.phone } });
+      if(info.email) {
+        const { error } = await supabase.from('app_config').update({ value: { value: info.email } }).eq('key', 'supportEmail');
+        if (error) {
+          toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث البريد الإلكتروني للدعم." });
+          return;
+        }
+      }
+      if(info.phone) {
+        const { error } = await supabase.from('app_config').update({ value: { value: info.phone } }).eq('key', 'supportPhone');
+        if (error) {
+          toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث هاتف الدعم." });
+          return;
+        }
+      }
       await fetchData(supabase);
-      toast({
-        title: 'تم تحديث معلومات الدعم',
-        description: 'تم تحديث معلومات التواصل بنجاح.',
-      });
+      toast({ title: 'تم تحديث معلومات الدعم', description: 'تم تحديث معلومات التواصل بنجاح.' });
     },
     [toast, fetchData]
   );

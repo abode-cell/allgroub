@@ -1,6 +1,7 @@
-import { createClient as originalCreateClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// This is a singleton pattern to ensure we only have one instance of the client.
 let supabaseClient: SupabaseClient | null = null;
 
 export const getSupabaseBrowserClient = (): SupabaseClient => {
@@ -12,14 +13,7 @@ export const getSupabaseBrowserClient = (): SupabaseClient => {
       throw new Error('Supabase URL or anonymous key is not set. Check your .env file.');
     }
     
-    supabaseClient = originalCreateClient(supabaseUrl, supabaseKey, {
-        auth: {
-            flowType: 'pkce',
-            autoRefreshToken: true,
-            detectSessionInUrl: true,
-            storageKey: 'supabase-auth-token',
-        }
-    });
+    supabaseClient = createBrowserClient(supabaseUrl, supabaseKey);
   }
   return supabaseClient;
 };
