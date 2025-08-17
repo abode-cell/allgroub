@@ -1,19 +1,16 @@
-
--- Drop existing objects with CASCADE to ensure a clean slate
-DROP FUNCTION IF EXISTS "public"."get_my_claim"(text) CASCADE;
-DROP FUNCTION IF EXISTS "public"."get_my_claims"() CASCADE;
-DROP FUNCTION IF EXISTS "public"."get_user_role"() CASCADE;
-DROP FUNCTION IF EXISTS "public"."is_claims_admin"() CASCADE;
-DROP FUNCTION IF EXISTS "public"."handle_new_user"() CASCADE;
-
-DROP TABLE IF EXISTS "public"."users" CASCADE;
-DROP TABLE IF EXISTS "public"."branches" CASCADE;
-DROP TABLE IF EXISTS "public"."investors" CASCADE;
-DROP TABLE IF EXISTS "public"."borrowers" CASCADE;
+-- Drop everything in the correct order to avoid dependency errors
 DROP TABLE IF EXISTS "public"."transactions" CASCADE;
+DROP TABLE IF EXISTS "public"."borrowers" CASCADE;
+DROP TABLE IF EXISTS "public"."investors" CASCADE;
+DROP TABLE IF EXISTS "public"."branches" CASCADE;
+DROP TABLE IF EXISTS "public"."users" CASCADE;
 DROP TABLE IF EXISTS "public"."app_config" CASCADE;
 DROP TABLE IF EXISTS "public"."notifications" CASCADE;
 DROP TABLE IF EXISTS "public"."support_tickets" CASCADE;
+
+DROP FUNCTION IF EXISTS "public"."handle_new_user"() CASCADE;
+DROP FUNCTION IF EXISTS "public"."get_my_claim"(text) CASCADE;
+DROP FUNCTION IF EXISTS "public"."get_my_claims"() CASCADE;
 
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
 DROP TYPE IF EXISTS "public"."borrower_status" CASCADE;
@@ -256,7 +253,6 @@ end;
 $$;
 
 -- ATTACH TRIGGER to auth.users table
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
@@ -339,8 +335,8 @@ CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrower
 AS PERMISSIVE FOR SELECT
 TO authenticated
 USING (
-  get_my_claim('user_role')::text = '"مستثمر"' AND
-  "fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text))
+  (get_my_claim('user_role')::text = '"مستثمر"') AND
+  ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text)))
 );
 
 
@@ -421,5 +417,3 @@ INSERT INTO public.app_config (key, value) VALUES
     ('supportPhone', '{"value": "0598360380"}')
 ON CONFLICT (key) DO UPDATE 
 SET value = EXCLUDED.value;
-
-    
