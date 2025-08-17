@@ -1,246 +1,311 @@
--- ========= Drop Existing Objects (for a clean slate) =========
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.handle_new_user;
-DROP TABLE IF EXISTS public.notifications;
-DROP TABLE IF EXISTS public.support_tickets;
-DROP TABLE IF EXISTS public.transactions;
-DROP TABLE IF EXISTS public.borrowers;
-DROP TABLE IF EXISTS public.investors;
-DROP TABLE IF EXISTS public.branches;
-DROP TABLE IF EXISTS public.app_config;
-DROP TABLE IF EXISTS public.users;
-DROP TYPE IF EXISTS public.user_role;
-DROP TYPE IF EXISTS public.user_status;
 
--- ========= Create Custom Types =========
-CREATE TYPE public.user_role AS ENUM ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف', 'مستثمر');
-CREATE TYPE public.user_status AS ENUM ('نشط', 'معلق', 'مرفوض', 'محذوف');
-
--- ========= Create Tables =========
-
--- Users Table
-CREATE TABLE public.users (
-  id uuid NOT NULL PRIMARY KEY,
-  name text,
-  office_name text,
-  email text UNIQUE,
-  phone text UNIQUE,
-  role user_role,
-  status user_status DEFAULT 'معلق',
-  managedBy uuid REFERENCES public.users(id) ON DELETE SET NULL,
-  investorLimit integer DEFAULT 10,
-  employeeLimit integer DEFAULT 5,
-  assistantLimit integer DEFAULT 2,
-  branchLimit integer DEFAULT 3,
-  permissions jsonb,
-  allowEmployeeSubmissions boolean DEFAULT false,
-  hideEmployeeInvestorFunds boolean DEFAULT false,
-  allowEmployeeLoanEdits boolean DEFAULT false,
-  registrationDate timestamptz DEFAULT now(),
-  trialEndsAt timestamptz
-);
-
+-- Enable RLS
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-
--- Branches Table
-CREATE TABLE public.branches (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  manager_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  name text NOT NULL,
-  city text NOT NULL,
-  created_at timestamptz DEFAULT now()
-);
-
+ALTER TABLE public.investors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 
--- Investors Table
-CREATE TABLE public.investors (
-  id uuid NOT NULL PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
-  name text,
-  date timestamptz,
-  status user_status DEFAULT 'معلق',
-  submittedBy uuid REFERENCES public.users(id),
-  rejectionReason text,
-  isNotified boolean DEFAULT false,
-  installmentProfitShare numeric,
-  gracePeriodProfitShare numeric
-);
 
-ALTER TABLE public.investors ENABLE ROW LEVEL SECURITY;
+-- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Allow users to read their own data" ON public.users;
+DROP POLICY IF EXISTS "Allow managers to read their team data" ON public.users;
+DROP POLICY IF EXISTS "Allow admin to read all users" ON public.users;
+DROP POLICY IF EXISTS "Allow authenticated users to read investors" ON public.investors;
+DROP POLICY IF EXISTS "Allow authenticated users to read borrowers" ON public.borrowers;
+DROP POLICY IF EXISTS "Allow authenticated users to read transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Allow users to read their own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Allow admin to read all support tickets" ON public.support_tickets;
+DROP POLICY IF EXISTS "Allow users to read their own support tickets" ON public.support_tickets;
+DROP POLICY IF EXISTS "Allow authenticated users to read app_config" ON public.app_config;
+DROP POLICY IF EXISTS "Allow managers to read their branches" ON public.branches;
 
--- Borrowers Table
-CREATE TABLE public.borrowers (
-  id text NOT NULL PRIMARY KEY,
-  name text,
-  nationalId text,
-  phone text,
-  amount numeric,
-  rate numeric,
-  term numeric,
-  date timestamptz,
-  loanType text,
-  status text,
-  dueDate date,
-  discount numeric,
-  submittedBy uuid REFERENCES public.users(id),
-  rejectionReason text,
-  fundedBy jsonb,
-  paymentStatus text,
-  installments jsonb,
-  isNotified boolean,
-  lastStatusChange timestamptz,
-  paidOffDate timestamptz,
-  partial_payment_paid_amount numeric,
-  partial_payment_remaining_loan_id text,
-  originalLoanId text
-);
 
-ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
+-- Create Policies for public.users
+CREATE POLICY "Allow users to read their own data"
+ON public.users FOR SELECT
+USING (auth.uid() = id);
 
--- Transactions Table
-CREATE TABLE public.transactions (
-  id text NOT NULL PRIMARY KEY,
-  investor_id uuid REFERENCES public.investors(id),
-  date timestamptz,
-  type text,
-  amount numeric,
-  description text,
-  withdrawalMethod text,
-  capitalSource text
-);
+CREATE POLICY "Allow managers to read their team data"
+ON public.users FOR SELECT
+USING (id IN (
+  SELECT user_id FROM get_managed_user_ids(auth.uid())
+));
 
-ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow admin to read all users"
+ON public.users FOR SELECT
+USING (get_my_claim('user_role')::text = 'مدير النظام');
 
--- Notifications Table
-CREATE TABLE public.notifications (
-  id uuid primary key default gen_random_uuid(),
-  date timestamptz,
-  recipientId uuid REFERENCES public.users(id),
-  title text,
-  description text,
-  isRead boolean
-);
+-- Create Policies for other tables
+CREATE POLICY "Allow authenticated users to read investors"
+ON public.investors FOR SELECT
+USING (auth.role() = 'authenticated');
 
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow authenticated users to read borrowers"
+ON public.borrowers FOR SELECT
+USING (auth.role() = 'authenticated');
 
--- Support Tickets Table
-CREATE TABLE public.support_tickets (
-  id uuid primary key default gen_random_uuid(),
-  date timestamptz,
-  fromUserId uuid,
-  fromUserName text,
-  fromUserEmail text,
-  subject text,
-  message text,
-  isRead boolean,
-  isReplied boolean
-);
+CREATE POLICY "Allow authenticated users to read transactions"
+ON public.transactions FOR SELECT
+USING (auth.role() = 'authenticated');
 
-ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow users to read their own notifications"
+ON public.notifications FOR SELECT
+USING (auth.uid() = "recipientId");
 
--- App Config Table
-CREATE TABLE public.app_config (
-  id bigint generated by default as identity primary key,
-  key text unique not null,
-  value jsonb not null
-);
+CREATE POLICY "Allow admin to read all support tickets"
+ON public.support_tickets FOR SELECT
+USING (get_my_claim('user_role')::text = 'مدير النظام');
 
-ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow users to read their own support tickets"
+ON public.support_tickets FOR SELECT
+USING (auth.uid() = "fromUserId");
 
--- ========= Insert Default Config Data =========
-INSERT INTO public.app_config (key, value)
-VALUES
-  ('baseInterestRate', '{"value": 15}'::jsonb),
-  ('investorSharePercentage', '{"value": 70}'::jsonb),
-  ('salaryRepaymentPercentage', '{"value": 65}'::jsonb),
-  ('graceTotalProfitPercentage', '{"value": 20}'::jsonb),
-  ('graceInvestorSharePercentage', '{"value": 50}'::jsonb),
-  ('supportEmail', '{"value": "support@example.com"}'::jsonb),
-  ('supportPhone', '{"value": "920000000"}'::jsonb),
-  ('defaultTrialPeriodDays', '{"value": 14}'::jsonb)
-ON CONFLICT (key) DO NOTHING;
+CREATE POLICY "Allow authenticated users to read app_config"
+ON public.app_config FOR SELECT
+USING (auth.role() = 'authenticated');
 
--- ========= Create Functions & Triggers =========
+CREATE POLICY "Allow managers to read their branches"
+ON public.branches FOR SELECT
+USING (auth.uid() = manager_id);
 
--- Function to handle new user creation from Supabase Auth
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  trial_days INT;
+
+-- Helper function to get the role of the current user from the JWT claim
+CREATE OR REPLACE FUNCTION get_my_claim(claim TEXT) RETURNS TEXT AS $$
+  SELECT nullif(current_setting('request.jwt.claims', true)::jsonb ->> claim, '')::TEXT;
+$$ LANGUAGE sql STABLE;
+
+-- Helper function to get the user's role from the users table
+CREATE OR REPLACE FUNCTION get_user_role(user_id_input UUID) RETURNS TEXT AS $$
+  SELECT role FROM public.users WHERE id = user_id_input;
+$$ LANGUAGE sql STABLE;
+
+-- Helper function to recursively get all users managed by a manager
+CREATE OR REPLACE FUNCTION get_managed_user_ids(manager_id_input UUID)
+RETURNS TABLE(user_id UUID) AS $$
 BEGIN
-  -- Insert a new row into the public.users table
-  INSERT INTO public.users (id, name, email, phone, role, status, managedBy, office_name)
-  VALUES (
-    new.id,
-    new.raw_user_meta_data->>'full_name',
-    new.email,
-    new.raw_user_meta_data->>'raw_phone_number',
-    (new.raw_user_meta_data->>'user_role')::user_role,
-    'معلق', -- Always start as pending
-    (new.raw_user_meta_data->>'managedBy')::uuid,
-    new.raw_user_meta_data->>'office_name'
-  );
+  RETURN QUERY
+  WITH RECURSIVE managed_users AS (
+    -- Start with the direct subordinates of the manager
+    SELECT id FROM public.users WHERE managed_by = manager_id_input
+    UNION ALL
+    -- Recursively find subordinates of subordinates
+    SELECT u.id FROM public.users u
+    INNER JOIN managed_users mu ON u.managed_by = mu.id
+  )
+  -- Add the manager themselves to the list
+  SELECT manager_id_input
+  UNION
+  SELECT id FROM managed_users;
+END;
+$$ LANGUAGE plpgsql STABLE;
 
-  -- If the new user is an Office Manager, set their trial period
-  IF (new.raw_user_meta_data->>'user_role')::user_role = 'مدير المكتب' THEN
-    SELECT (value->>'value')::INT INTO trial_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays';
-    UPDATE public.users
-    SET trialEndsAt = now() + (trial_days || ' days')::interval
-    WHERE id = new.id;
+
+-- Trigger to copy user data from auth.users to public.users and assign trial
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  manager_id_val UUID;
+  user_role_val TEXT;
+  office_name_val TEXT;
+  phone_val TEXT;
+  trial_days INTEGER;
+BEGIN
+  -- Extract user role and managed_by from user_metadata
+  user_role_val := NEW.raw_user_meta_data ->> 'user_role';
+  manager_id_val := (NEW.raw_user_meta_data ->> 'managedBy')::UUID;
+  office_name_val := NEW.raw_user_meta_data ->> 'office_name';
+  phone_val := NEW.raw_user_meta_data ->> 'raw_phone_number';
+
+  -- Get the default trial period from app_config
+  SELECT value ->> 'value' INTO trial_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
+  IF trial_days IS NULL THEN
+    trial_days := 14; -- Fallback value
   END IF;
 
-  RETURN new;
+  INSERT INTO public.users (id, name, email, phone, role, managed_by, office_name, status, trialEndsAt)
+  VALUES (
+    NEW.id,
+    NEW.raw_user_meta_data ->> 'full_name',
+    NEW.email,
+    phone_val,
+    user_role_val,
+    manager_id_val,
+    office_name_val,
+    'معلق', -- Always start as 'pending' for admin/manager approval
+    CASE
+      WHEN user_role_val = 'مدير المكتب' THEN NOW() + (trial_days || ' days')::INTERVAL
+      ELSE NULL
+    END
+  );
+  RETURN NEW;
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger to call the function when a new auth user is created
+-- Drop existing trigger if it exists
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+-- Create the trigger
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Set custom claims on user's JWT
+CREATE OR REPLACE FUNCTION public.get_user_claims(uid UUID)
+RETURNS jsonb AS $$
+DECLARE
+    claims jsonb;
+BEGIN
+    SELECT
+        jsonb_build_object(
+            'user_role', u.role,
+            'user_status', u.status,
+            'managed_by', u.managed_by
+        )
+    INTO claims
+    FROM public.users u
+    WHERE u.id = uid;
+    RETURN claims;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- ========= Setup Row Level Security (RLS) Policies =========
+-- Function to update a user's JWT claims
+CREATE OR REPLACE FUNCTION public.update_user_claims()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+        PERFORM auth.update_user_by_id(NEW.id, '{"claims": ' || get_user_claims(NEW.id)::text || '}');
+        RETURN NEW;
+    END IF;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
 
--- USERS TABLE
-CREATE POLICY "Allow system admin to manage all users" ON public.users FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام' );
-CREATE POLICY "Allow users to view their own data" ON public.users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Allow manager to view their team" ON public.users FOR SELECT USING (managedBy = auth.uid());
-CREATE POLICY "Allow team members to view their manager" ON public.users FOR SELECT USING (id = (SELECT managedBy FROM public.users WHERE id = auth.uid()));
-CREATE POLICY "Allow users to update their own data" ON public.users FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Allow managers to update their subordinates" ON public.users FOR UPDATE USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('مدير المكتب', 'مساعد مدير المكتب') AND users.managedBy = auth.uid()));
-
--- INVESTORS TABLE
-CREATE POLICY "Allow system admin to manage all investors" ON public.investors FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow team to manage their submitted investors" ON public.investors FOR ALL USING (EXISTS (SELECT 1 FROM users u WHERE u.id = investors.submittedBy AND (u.id = auth.uid() OR u.managedBy = auth.uid())));
-CREATE POLICY "Allow investors to view their own profile" ON public.investors FOR SELECT USING (auth.uid() = id);
-
--- BORROWERS TABLE
-CREATE POLICY "Allow system admin to manage all borrowers" ON public.borrowers FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow team to manage their submitted borrowers" ON public.borrowers FOR ALL USING (EXISTS (SELECT 1 FROM users u WHERE u.id = borrowers.submittedBy AND (u.id = auth.uid() OR u.managedBy = auth.uid())));
-CREATE POLICY "Allow investors to see loans they funded" ON public.borrowers FOR SELECT USING (CAST(fundedBy AS TEXT) LIKE '%' || auth.uid()::text || '%');
+-- Trigger to update claims when user data changes
+DROP TRIGGER IF EXISTS on_user_data_change ON public.users;
+CREATE TRIGGER on_user_data_change
+  AFTER INSERT OR UPDATE OF role, status, managed_by ON public.users
+  FOR EACH ROW EXECUTE FUNCTION public.update_user_claims();
 
 
--- TRANSACTIONS TABLE
-CREATE POLICY "Allow system admin to see all transactions" ON public.transactions FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow investors to see their own transactions" ON public.transactions FOR SELECT USING (auth.uid() = investor_id);
-CREATE POLICY "Allow managers to see their investors' transactions" ON public.transactions FOR SELECT USING (EXISTS (SELECT 1 FROM public.users u WHERE u.id = transactions.investor_id AND u.managedBy = auth.uid()));
+-- Create Tables
+CREATE TABLE IF NOT EXISTS public.users (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  office_name TEXT,
+  email TEXT UNIQUE NOT NULL,
+  phone TEXT UNIQUE,
+  role TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'معلق',
+  managed_by UUID REFERENCES public.users(id),
+  permissions JSONB,
+  investorLimit INTEGER DEFAULT 10,
+  employeeLimit INTEGER DEFAULT 5,
+  assistantLimit INTEGER DEFAULT 2,
+  branchLimit INTEGER DEFAULT 3,
+  allowEmployeeSubmissions BOOLEAN DEFAULT TRUE,
+  hideEmployeeInvestorFunds BOOLEAN DEFAULT FALSE,
+  allowEmployeeLoanEdits BOOLEAN DEFAULT FALSE,
+  registrationDate TIMESTAMPTZ DEFAULT NOW(),
+  trialEndsAt TIMESTAMPTZ,
+  lastStatusChange TIMESTAMPTZ
+);
 
--- NOTIFICATIONS TABLE
-CREATE POLICY "Allow users to manage their own notifications" ON public.notifications FOR ALL USING (auth.uid() = recipientId);
-CREATE POLICY "Allow server-side code to insert notifications" on public.notifications FOR INSERT WITH CHECK (true);
+CREATE TABLE IF NOT EXISTS public.branches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    manager_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    city TEXT NOT NULL
+);
 
--- SUPPORT TICKETS TABLE
-CREATE POLICY "Allow users to create support tickets" ON public.support_tickets FOR INSERT WITH CHECK (auth.uid() = fromUserId);
-CREATE POLICY "Allow system admin to manage all tickets" ON public.support_tickets FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE TABLE IF NOT EXISTS public.investors (
+  id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status TEXT NOT NULL DEFAULT 'معلق',
+  submittedBy UUID REFERENCES public.users(id),
+  rejectionReason TEXT,
+  isNotified BOOLEAN DEFAULT FALSE,
+  installmentProfitShare REAL,
+  gracePeriodProfitShare REAL
+);
 
--- APP CONFIG TABLE
-CREATE POLICY "Allow authenticated users to read config" ON public.app_config FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow only System Admin to modify config" ON public.app_config FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE TABLE IF NOT EXISTS public.borrowers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  nationalId TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  amount REAL NOT NULL,
+  rate REAL,
+  term REAL,
+  date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  loanType TEXT NOT NULL,
+  status TEXT NOT NULL,
+  dueDate TEXT NOT NULL,
+  discount REAL,
+  submittedBy UUID REFERENCES public.users(id),
+  rejectionReason TEXT,
+  fundedBy JSONB,
+  paymentStatus TEXT,
+  installments JSONB,
+  isNotified BOOLEAN DEFAULT FALSE,
+  lastStatusChange TIMESTAMPTZ,
+  paidOffDate TIMESTAMPTZ,
+  partial_payment_paid_amount REAL,
+  partial_payment_remaining_loan_id TEXT,
+  originalLoanId TEXT
+);
 
--- BRANCHES TABLE
-CREATE POLICY "Allow manager to manage their own branches" ON public.branches FOR ALL USING (auth.uid() = manager_id);
-CREATE POLICY "Allow subordinates to view their office branches" ON public.branches FOR SELECT USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND managedBy = manager_id));
+CREATE TABLE IF NOT EXISTS public.transactions (
+  id TEXT PRIMARY KEY,
+  investor_id UUID REFERENCES public.investors(id) ON DELETE CASCADE,
+  date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  type TEXT NOT NULL,
+  amount REAL NOT NULL,
+  description TEXT NOT NULL,
+  withdrawalMethod TEXT,
+  capitalSource TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.support_tickets (
+    id TEXT PRIMARY KEY,
+    date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    fromUserId UUID NOT NULL,
+    fromUserName TEXT NOT NULL,
+    fromUserEmail TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    message TEXT NOT NULL,
+    isRead BOOLEAN DEFAULT FALSE,
+    isReplied BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id TEXT PRIMARY KEY,
+    date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    recipientId UUID NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    isRead BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS public.app_config (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL,
+    description TEXT
+);
+
+-- Seed app_config table with default values
+INSERT INTO public.app_config (key, value, description) VALUES
+  ('baseInterestRate', '{"value": 15}', 'نسبة الربح السنوية الأساسية لقروض الأقساط'),
+  ('investorSharePercentage', '{"value": 70}', 'حصة المستثمر من أرباح قروض الأقساط'),
+  ('graceTotalProfitPercentage', '{"value": 50}', 'إجمالي نسبة الربح من أصل القرض لقروض المهلة'),
+  ('graceInvestorSharePercentage', '{"value": 33.3}', 'حصة المستثمر من إجمالي الربح لقروض المهلة'),
+  ('salaryRepaymentPercentage', '{"value": 65}', 'نسبة السداد القصوى من الراتب الشهري لتمويل المهلة'),
+  ('supportEmail', '{"value": "qzmpty678@gmail.com"}', 'البريد الإلكتروني لخدمة العملاء'),
+  ('supportPhone', '{"value": "0598360380"}', 'رقم الهاتف لخدمة العملاء'),
+  ('defaultTrialPeriodDays', '{"value": 14}', 'المدة الافتراضية للفترة التجريبية لحسابات مدراء المكاتب')
+ON CONFLICT (key) DO NOTHING;
