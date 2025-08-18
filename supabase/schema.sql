@@ -179,8 +179,8 @@ ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
 
 -- Policies for 'users' table
-CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow authenticated users to read all user data" ON "public"."users" FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to read data of their team members" ON "public"."users" FOR SELECT TO authenticated USING ( "managedBy" = (SELECT "managedBy" from public.users where id = auth.uid()) OR id = (SELECT "managedBy" from public.users where id = auth.uid()) OR "managedBy" = auth.uid() OR id = auth.uid() );
 CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Policies for 'investors' table
@@ -282,5 +282,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-
-    
