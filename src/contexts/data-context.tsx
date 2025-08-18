@@ -339,7 +339,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const visibleUsers = useMemo(() => {
     if (!currentUser) return [];
-    return data.users.filter(u => u.status !== 'محذوف');
+    
+    if (currentUser.role === 'مدير النظام') {
+        return data.users.filter(u => u.status !== 'محذوف');
+    }
+    
+    const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
+    
+    return data.users.filter(u => 
+        (u.managedBy === managerId || u.id === managerId) && u.status !== 'محذوف'
+    );
   }, [currentUser, data.users]);
 
   const signIn = useCallback(async (email: string, password?: string): Promise<SignInResult> => {
@@ -719,7 +728,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return { success: false, message: 'يجب أن تكون مسجلاً للدخول.' };
       }
       
-      const manager = data.users.find(u => u.id === currentUser.managedBy);
+      const manager = data.users.find(u => u.id === (currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy));
+      if (!manager) {
+          return { success: false, message: 'لم يتم العثور على مدير المكتب المسؤول.'};
+      }
+      
       if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !manager?.allowEmployeeSubmissions) {
           toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك الصلاحية لإضافة قروض.' });
           return { success: false, message: 'غير مصرح به' };
@@ -729,20 +742,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const existingActiveLoan = data.borrowers.find(b => b.nationalId === borrower.nationalId && b.status !== 'مرفوض' && b.paymentStatus !== 'تم السداد');
         if (existingActiveLoan) {
             const loanManager = data.users.find(u => u.id === existingActiveLoan.managedBy);
-            const loggedInManagerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-            if (loanManager && loanManager.id !== loggedInManagerId) {
+            if (loanManager && loanManager.id !== manager.id) {
                 return { success: false, message: 'عميل مكرر', isDuplicate: true, duplicateInfo: { borrowerName: existingActiveLoan.name, managerName: loanManager.name, managerPhone: loanManager.phone || 'غير متوفر'}};
             }
         }
       }
 
-      const newId = `bor_${Date.now()}_${crypto.randomUUID()}`;
       const newEntry: Omit<Borrower, 'id'> = {
           ...borrower,
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
+          managedBy: manager.id,
           isNotified: false,
-          managedBy: currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy,
           fundedBy: [],
           installments: borrower.loanType === 'اقساط' && borrower.term && borrower.term > 0
             ? Array.from({ length: borrower.term * 12 }, (_, i) => ({ month: i + 1, status: 'لم يسدد بعد' }))
@@ -811,7 +822,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
     
     if (insertError) {
-      // Attempt to revert the original borrower's status if the new loan creation fails.
       await supabase.from('borrowers').update({ status: originalBorrower.status, paymentStatus: originalBorrower.paymentStatus, paidOffDate: null, partial_payment_paid_amount: null, partial_payment_remaining_loan_id: null }).eq('id', borrowerId);
       toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء قرض بالمبلغ المتبقي.' });
       return;
