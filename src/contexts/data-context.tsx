@@ -347,16 +347,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     // An investor only sees themself and their manager
     if (currentUser.role === 'مستثمر') {
-        return data.users.filter(u => u.id === currentUser.id || u.id === currentUser.managedBy);
+        return data.users.filter(u => u.status !== 'محذوف' && (u.id === currentUser.id || u.id === currentUser.managedBy));
     }
 
     // A team member (manager, assistant, employee) sees their whole team.
-    // The manager is the one whose 'managedBy' is null OR their ID is the managedBy key for others.
     const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    
-    return data.users.filter(u => 
-        (u.managedBy === managerId || u.id === managerId) && u.status !== 'محذوف'
-    );
+    if (!managerId) return data.users.filter(u => u.id === currentUser.id); // Should not happen if data is consistent
+
+    return data.users.filter(u => u.status !== 'محذوف' && (u.managedBy === managerId || u.id === managerId));
   }, [currentUser, data.users]);
 
   const signIn = useCallback(async (email: string, password?: string): Promise<SignInResult> => {
