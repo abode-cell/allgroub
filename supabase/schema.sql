@@ -200,7 +200,7 @@ CREATE POLICY "Allow investors to see their transactions" ON "public"."transacti
 CREATE POLICY "Allow team to see their manager's investors transactions" ON "public"."transactions" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب') AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
 CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
 CREATE POLICY "Allow team to read their manager's branches" ON "public"."branches" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') );
-CREATE POLICY "Allow admin to read all branches" ON "public"."branches" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام' );
+CREATE POLICY "Allow admin to read all branches" ON "public"."branches" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') = 'مدير النظام' );
 
 
 -- ========= Database Functions and Triggers =========
