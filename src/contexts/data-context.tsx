@@ -1107,15 +1107,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addInvestor = useCallback(
     async (investorPayload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        const { data: { session }} = await supabase.auth.getSession();
+        if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
+        
+        const {data: { session }} = await supabase.auth.getSession();
         if (!session) return { success: false, message: "No active session" };
 
+        if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !currentUser.permissions?.manageInvestors) {
+           toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك الصلاحية لإضافة مستثمرين.' });
+           return { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
+        }
+      
+        const manager = data.users.find(u => u.id === (currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy));
+        if (manager) {
+            const investorsAddedByManager = data.investors.filter(i => {
+                const investorUser = data.users.find(u => u.id === i.id);
+                return investorUser?.managedBy === manager.id;
+            }).length;
+            if (investorsAddedByManager >= (manager.investorLimit ?? 0)) {
+                const message = `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).`;
+                toast({ variant: 'destructive', title: 'خطأ', description: message });
+                return { success: false, message: message };
+            }
+        }
+        
         try {
             const { error } = await supabase.functions.invoke('create-investor', { 
                 body: investorPayload,
-                headers: {
-                    Authorization: `Bearer ${session.access_token}`
-                }
             });
             if (error) throw new Error(error.message);
             
@@ -1131,21 +1148,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: false, message: errorMessage };
         }
     },
-    [fetchData, toast]
+    [currentUser, data.users, data.investors, fetchData, toast]
   );
   
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        const { data: { session }} = await supabase.auth.getSession();
-        if (!session) return { success: false, message: "No active session" };
-
+        if (!currentUser || currentUser.role !== 'مدير المكتب') {
+            const message = 'ليس لديك الصلاحية لإضافة مستخدمين.';
+            toast({ variant: 'destructive', title: 'خطأ', description: message });
+            return { success: false, message };
+        }
+        
         try {
             const { error } = await supabase.functions.invoke('create-subordinate', { 
               body: { ...payload, role },
-              headers: {
-                Authorization: `Bearer ${session.access_token}`
-              }
             });
             if (error) throw new Error(error.message);
 
@@ -1161,7 +1178,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: false, message: errorMessage };
         }
     },
-    [fetchData, toast]
+    [currentUser, fetchData, toast]
   );
   
   const updateUserIdentity = useCallback(
@@ -1198,15 +1215,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updates: { email?: string; password?: string, officeName?: string }
   ): Promise<{ success: boolean, message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    const { data: { session }} = await supabase.auth.getSession();
-    if (!session) return { success: false, message: "No active session" };
-
+    if (!currentUser) return { success: false, message: "غير مصرح به." };
+    
     try {
         const { error } = await supabase.functions.invoke('update-user-credentials', { 
             body: { userId, updates },
-             headers: {
-                Authorization: `Bearer ${session.access_token}`
-            }
         });
         if (error) throw new Error(error.message);
         
@@ -1222,7 +1235,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
         return { success: false, message: errorMessage };
     }
-  }, [toast, fetchData]);
+  }, [currentUser, toast, fetchData]);
 
 
   const addInvestorTransaction = useCallback(
