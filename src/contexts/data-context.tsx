@@ -194,31 +194,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
 
-        // Stage 1: Fetch the current user's profile from 'users' table. This is the most crucial step.
-        const { data: currentUserProfile, error: profileError } = await supabaseClient
-            .from('users')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
-
-        if (profileError || !currentUserProfile) {
-            await supabaseClient.auth.signOut();
-            throw new Error(`فشل في جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود. قد تكون الصلاحيات غير صحيحة.'}`);
-        }
-
-        // Stage 2: Check user status. If not active, sign out and stop.
-        if (currentUserProfile.status !== 'نشط') {
-            let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
-            if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
-            if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
-            
-            await supabaseClient.auth.signOut();
-            toast({ variant: "destructive", title: "تم تسجيل الخروج", description: message });
-            setDataLoading(false);
-            return;
-        }
-
-        // Stage 3: Now that we have a valid, active user, fetch all other data.
+        // Stage 1: Fetch all data concurrently using Promise.all
         const [
           { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
@@ -239,11 +215,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabaseClient.from('branches').select('*')
         ]);
         
-        if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
-          console.error({usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
-          throw new Error('فشل في جلب بعض البيانات. قد تكون صلاحيات RLS غير صحيحة.');
+        // Stage 2: Check for any errors during the fetch
+        const errors = { usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError };
+        for (const [key, error] of Object.entries(errors)) {
+            if (error) {
+                console.error(`Error fetching ${key}:`, error);
+                throw new Error(`فشل في جلب بيانات ${key}. قد تكون صلاحيات RLS غير صحيحة.`);
+            }
         }
         
+        // Stage 3: Find the current user profile from the fetched data
+        const currentUserProfile = (all_users_data || []).find(u => u.id === authUser.id);
+        
+        if (!currentUserProfile) {
+            await supabaseClient.auth.signOut();
+            throw new Error(`ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.`);
+        }
+        
+        // Stage 4: Check user status. If not active, sign out and stop.
+        if (currentUserProfile.status !== 'نشط') {
+            let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
+            if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
+            if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
+            
+            await supabaseClient.auth.signOut();
+            toast({ variant: "destructive", title: "تم تسجيل الخروج", description: message });
+            setDataLoading(false);
+            return;
+        }
+
+        // Stage 5: Process and set the data state
         const configData = app_config_data.reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
             return acc;
@@ -281,11 +282,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
 
     } catch (error: any) {
-        console.error("Error fetching data:", error);
+        console.error("Error in fetchData:", error);
         toast({
             variant: "destructive",
             title: "فشل في جلب البيانات",
-            description: "لم نتمكن من تحميل بيانات التطبيق. يرجى تحديث الصفحة والمحاولة مرة أخرى.",
+            description: error.message || "لم نتمكن من تحميل بيانات التطبيق. يرجى تحديث الصفحة والمحاولة مرة أخرى.",
         });
     } finally {
       setDataLoading(false);
