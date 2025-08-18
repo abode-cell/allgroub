@@ -340,10 +340,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const visibleUsers = useMemo(() => {
     if (!currentUser) return [];
     
+    // System admin sees everyone who is not deleted
     if (currentUser.role === 'مدير النظام') {
         return data.users.filter(u => u.status !== 'محذوف');
     }
     
+    // An investor only sees themself and their manager
+    if (currentUser.role === 'مستثمر') {
+        return data.users.filter(u => u.id === currentUser.id || u.id === currentUser.managedBy);
+    }
+
+    // A team member (manager, assistant, employee) sees their whole team.
+    // The manager is the one whose 'managedBy' is null OR their ID is the managedBy key for others.
     const managerId = currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
     
     return data.users.filter(u => 
