@@ -98,6 +98,7 @@ export type Borrower = {
   dueDate: string;
   discount?: number;
   submittedBy?: string;
+  managedBy?: string | null;
   rejectionReason?: string;
   fundedBy: { investorId: string; amount: number }[];
   paymentStatus?: BorrowerPaymentStatus;
@@ -141,6 +142,7 @@ export type Investor = {
   name: string;
   date: string;
   status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض' | 'محذوف';
+  managedBy?: string | null;
   submittedBy?: string;
   rejectionReason?: string;
   isNotified?: boolean;

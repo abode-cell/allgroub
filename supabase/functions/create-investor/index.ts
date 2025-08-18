@@ -1,4 +1,3 @@
-
 // supabase/functions/create-investor/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -79,6 +78,7 @@ serve(async (req) => {
     if(payload.installmentCapital > 0) {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
+        id: `tx_inst_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.installmentCapital,
         description: 'إيداع رأس مال تأسيسي (أقساط)',
@@ -89,6 +89,7 @@ serve(async (req) => {
      if(payload.graceCapital > 0) {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
+        id: `tx_grace_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.graceCapital,
         description: 'إيداع رأس مال تأسيسي (مهلة)',
@@ -111,5 +112,3 @@ serve(async (req) => {
     });
   }
 });
-
-    

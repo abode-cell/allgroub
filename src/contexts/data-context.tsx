@@ -220,7 +220,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         for (const [key, error] of Object.entries(errors)) {
             if (error) {
                 console.error(`Error fetching ${key}:`, error);
-                throw new Error(`فشل في جلب بيانات ${key}. قد تكون صلاحيات RLS غير صحيحة.`);
+                throw new Error(`فشل في جلب البيانات: ${key}. قد تكون صلاحيات RLS غير صحيحة.`);
             }
         }
         
