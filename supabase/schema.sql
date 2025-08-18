@@ -1,6 +1,8 @@
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.get_related_users() CASCADE;
+
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
@@ -176,9 +178,12 @@ ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
 -- Policies for 'users' table
-CREATE POLICY "Allow users to read their own data" ON "public"."users" FOR SELECT TO authenticated USING (auth.uid() = id);
-CREATE POLICY "Allow team members to read their manager and colleagues" ON "public"."users" FOR SELECT TO authenticated USING ( "managedBy" = (SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid()) OR id = (SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid()) );
-CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((select rolname from pg_roles where oid = auth.role() limit 1) = 'supabase_admin' OR (auth.jwt() ->> 'user_role') = 'مدير النظام') WITH CHECK ((select rolname from pg_roles where oid = auth.role() limit 1) = 'supabase_admin' OR (auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow team access to related users" ON "public"."users" FOR SELECT TO authenticated USING (
+    id = auth.uid() OR
+    id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR
+    "managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid())
+);
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام') WITH CHECK ((auth.jwt() ->> 'user_role') = 'مدير النظام');
 CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Policies for 'investors' table
@@ -251,7 +256,7 @@ BEGIN
         VALUES (
             new.id,
             new.raw_user_meta_data->>'full_name',
-            'نشط', -- Investors created by managers are active by default now
+            'نشط'::public.investor_status,
             user_submitted_by
         );
     END IF;
@@ -264,6 +269,19 @@ $$;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- RPC function to get users based on role
+CREATE OR REPLACE FUNCTION public.get_related_users()
+RETURNS SETOF public.users
+LANGUAGE sql
+SECURITY DEFINER SET search_path = public
+AS $$
+    SELECT * FROM public.users
+    WHERE
+        id = auth.uid() OR
+        id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR
+        "managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid());
+$$;
 
 
 -- ========= Initial Data Inserts =========

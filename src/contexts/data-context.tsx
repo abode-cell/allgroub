@@ -195,7 +195,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
 
-        // Step 1: Fetch the current user's profile from 'users' table. This is the most crucial step.
         const { data: currentUserProfile, error: profileError } = await supabaseClient
             .from('users')
             .select('*')
@@ -206,7 +205,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             throw new Error(`فشل في جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
         }
 
-        // Step 2: Check user status. If not active, sign out and stop.
         if (currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
             if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
@@ -218,9 +216,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Step 3: Now that we have a valid, active user, fetch all other data.
+        // Fetch users based on role
+        let usersResponse;
+        if (currentUserProfile.role === 'مدير النظام') {
+            usersResponse = await supabaseClient.from('users').select('*');
+        } else {
+            usersResponse = await supabaseClient.rpc('get_related_users');
+        }
+
         const [
-          { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
           { data: borrowers_data, error: borrowersError },
           { data: transactions_data, error: transactionsError },
@@ -229,7 +233,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           { data: app_config_data, error: appConfigError },
           { data: branches_data, error: branchesError }
         ] = await Promise.all([
-          supabaseClient.from('users').select('*'),
           supabaseClient.from('investors').select('*'),
           supabaseClient.from('borrowers').select('*'),
           supabaseClient.from('transactions').select('*'),
@@ -239,8 +242,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabaseClient.from('branches').select('*')
         ]);
         
-        if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
-          console.error({usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
+        if (usersResponse.error || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
+          console.error({usersError: usersResponse.error, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
           throw new Error('فشل في جلب أحد الموارد الثانوية.');
         }
 
@@ -259,7 +262,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithBranches = (all_users_data || []).map((u: User) => ({
+        const usersWithBranches = (usersResponse.data || []).map((u: User) => ({
             ...u,
             branches: (branches_data || []).filter((b: Branch) => b.manager_id === u.id)
         }))
@@ -370,7 +373,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   },[router]);
 
-  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+ const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     
     if (!payload.password) {
