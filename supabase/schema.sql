@@ -178,7 +178,7 @@ ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 -- Policies for 'users' table
 CREATE POLICY "Allow users to read their own data" ON "public"."users" FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "Allow team members to read their manager and colleagues" ON "public"."users" FOR SELECT TO authenticated USING ( "managedBy" = (SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid()) OR id = (SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid()) );
-CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام') WITH CHECK ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((select rolname from pg_roles where oid = auth.role() limit 1) = 'supabase_admin' OR (auth.jwt() ->> 'user_role') = 'مدير النظام') WITH CHECK ((select rolname from pg_roles where oid = auth.role() limit 1) = 'supabase_admin' OR (auth.jwt() ->> 'user_role') = 'مدير النظام');
 CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Policies for 'investors' table
