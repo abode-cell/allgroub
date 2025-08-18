@@ -200,8 +200,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             .eq('id', authUser.id)
             .single();
 
-        if (profileError) throw new Error(`فشل في جلب ملف المستخدم: ${profileError.message}`);
-        if (!currentUserProfile) throw new Error('لم يتم العثور على ملف المستخدم.');
+        if (profileError || !currentUserProfile) {
+            throw new Error(`فشل في جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
+        }
 
         if (currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا.';
@@ -213,19 +214,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setDataLoading(false);
             return;
         }
-
-        let allUsersData: any[] = [currentUserProfile];
-        if (currentUserProfile.role === 'مدير النظام') {
-            const { data: adminUsers, error: adminUsersError } = await supabaseClient.from('users').select('*');
-            if (adminUsersError) throw adminUsersError;
-            allUsersData = adminUsers;
-        } else if (currentUserProfile.role === 'مدير المكتب' || currentUserProfile.role === 'مساعد مدير المكتب' || currentUserProfile.role === 'موظف') {
-             const { data: teamUsers, error: teamUsersError } = await supabaseClient.rpc('get_related_users');
-             if(teamUsersError) throw teamUsersError;
-             allUsersData = teamUsers;
+        
+        let allUsersData: any[] = [];
+        if(currentUserProfile.role === 'مدير النظام') {
+             const { data: adminUsers, error: adminUsersError } = await supabaseClient.from('users').select('*');
+             if (adminUsersError) throw adminUsersError;
+             allUsersData = adminUsers;
+        } else {
+            // For all other roles, we fetch just their own profile initially.
+            // Other related users will be filtered from the full list fetched later if needed.
+            allUsersData = [currentUserProfile];
         }
 
         const [
+          { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
           { data: borrowers_data, error: borrowersError },
           { data: transactions_data, error: transactionsError },
@@ -234,6 +236,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           { data: app_config_data, error: appConfigError },
           { data: branches_data, error: branchesError }
         ] = await Promise.all([
+          supabaseClient.from('users').select('*'), // Fetch all users for admin/filtering
           supabaseClient.from('investors').select('*'),
           supabaseClient.from('borrowers').select('*'),
           supabaseClient.from('transactions').select('*'),
@@ -243,8 +246,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabaseClient.from('branches').select('*')
         ]);
         
-        if (investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
-          console.error({investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
+        if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
+          console.error({usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
           throw new Error('فشل في جلب أحد الموارد الثانوية.');
         }
 
@@ -263,7 +266,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithBranches = (allUsersData || []).map((u: User) => ({
+        const usersWithBranches = (all_users_data || []).map((u: User) => ({
             ...u,
             branches: (branches_data || []).filter((b: Branch) => b.manager_id === u.id)
         }));
@@ -1112,29 +1115,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addInvestor = useCallback(
     async (investorPayload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
-        
-        if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !currentUser.permissions?.manageInvestors) {
-           toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك الصلاحية لإضافة مستثمرين.' });
-           return { success: false, message: 'ليس لديك الصلاحية لإضافة مستثمرين.' };
-        }
-      
-        const manager = data.users.find(u => u.id === (currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy));
-        if (manager) {
-            const investorsAddedByManager = data.investors.filter(i => {
-                const investorUser = data.users.find(u => u.id === i.id);
-                return investorUser?.managedBy === manager.id;
-            }).length;
-            if (investorsAddedByManager >= (manager.investorLimit ?? 0)) {
-                const message = `لقد وصل مدير المكتب للحد الأقصى للمستثمرين (${manager.investorLimit}).`;
-                toast({ variant: 'destructive', title: 'خطأ', description: message });
-                return { success: false, message: message };
-            }
-        }
-        
+        const { data: { session }} = await supabase.auth.getSession();
+        if (!session) return { success: false, message: "No active session" };
+
         try {
             const { error } = await supabase.functions.invoke('create-investor', { 
-                body: investorPayload,
+                body: investorPayload
             });
             if (error) throw new Error(error.message);
             
@@ -1142,7 +1128,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
-             console.error("Create Investor Error:", error);
+            console.error("Create Investor Error:", error);
             const errorMessage = error.message.includes('already registered')
                 ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
                 : (error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.');
@@ -1150,21 +1136,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: false, message: errorMessage };
         }
     },
-    [currentUser, data.users, data.investors, fetchData, toast]
+    [fetchData, toast]
   );
   
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        if (!currentUser || currentUser.role !== 'مدير المكتب') {
-            const message = 'ليس لديك الصلاحية لإضافة مستخدمين.';
-            toast({ variant: 'destructive', title: 'خطأ', description: message });
-            return { success: false, message };
-        }
-        
+        const { data: { session }} = await supabase.auth.getSession();
+        if (!session) return { success: false, message: "No active session" };
+
         try {
             const { error } = await supabase.functions.invoke('create-subordinate', { 
-              body: { ...payload, role },
+              body: { ...payload, role }
             });
             if (error) throw new Error(error.message);
 
@@ -1180,7 +1163,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: false, message: errorMessage };
         }
     },
-    [currentUser, fetchData, toast]
+    [fetchData, toast]
   );
   
   const updateUserIdentity = useCallback(
@@ -1217,11 +1200,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updates: { email?: string; password?: string, officeName?: string }
   ): Promise<{ success: boolean, message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    if (!currentUser) return { success: false, message: "غير مصرح به." };
-    
+    const { data: { session }} = await supabase.auth.getSession();
+    if (!session) return { success: false, message: "No active session" };
+
     try {
         const { error } = await supabase.functions.invoke('update-user-credentials', { 
-            body: { userId, updates },
+            body: { userId, updates }
         });
         if (error) throw new Error(error.message);
         
@@ -1237,7 +1221,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
         return { success: false, message: errorMessage };
     }
-  }, [currentUser, toast, fetchData]);
+  }, [toast, fetchData]);
 
 
   const addInvestorTransaction = useCallback(
@@ -1721,5 +1705,3 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
-
-    
