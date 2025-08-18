@@ -162,9 +162,9 @@ type InitialDataState = Pick<DataContextValue,
 >;
 
 const initialDataState: InitialDataState = {
+  users: [],
   borrowers: [],
   investors: [],
-  users: [],
   transactions: [],
   supportTickets: [],
   notifications: [],
