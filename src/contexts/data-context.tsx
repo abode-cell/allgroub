@@ -185,7 +185,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const router = useRouter();
   
- const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
+  const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
     setDataLoading(true);
     try {
         const { data: { user: authUser } } = await supabaseClient.auth.getUser();
@@ -201,6 +201,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             .single();
 
         if (profileError || !currentUserProfile) {
+            await supabaseClient.auth.signOut();
             throw new Error(`فشل في جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
         }
 
@@ -215,17 +216,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
         
-        let allUsersData: any[] = [];
-        if(currentUserProfile.role === 'مدير النظام') {
-             const { data: adminUsers, error: adminUsersError } = await supabaseClient.from('users').select('*');
-             if (adminUsersError) throw adminUsersError;
-             allUsersData = adminUsers;
-        } else {
-            // For all other roles, we fetch just their own profile initially.
-            // Other related users will be filtered from the full list fetched later if needed.
-            allUsersData = [currentUserProfile];
-        }
-
         const [
           { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
@@ -1120,7 +1110,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         try {
             const { error } = await supabase.functions.invoke('create-investor', { 
-                body: investorPayload
+                body: investorPayload,
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`
+                }
             });
             if (error) throw new Error(error.message);
             
@@ -1128,7 +1121,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
-            console.error("Create Investor Error:", error);
+             console.error("Create Investor Error:", error);
             const errorMessage = error.message.includes('already registered')
                 ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
                 : (error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.');
@@ -1147,7 +1140,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         try {
             const { error } = await supabase.functions.invoke('create-subordinate', { 
-              body: { ...payload, role }
+              body: { ...payload, role },
+              headers: {
+                Authorization: `Bearer ${session.access_token}`
+              }
             });
             if (error) throw new Error(error.message);
 
@@ -1205,7 +1201,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     try {
         const { error } = await supabase.functions.invoke('update-user-credentials', { 
-            body: { userId, updates }
+            body: { userId, updates },
+             headers: {
+                Authorization: `Bearer ${session.access_token}`
+            }
         });
         if (error) throw new Error(error.message);
         
