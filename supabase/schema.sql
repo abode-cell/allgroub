@@ -1,5 +1,4 @@
--- Drop existing objects for a clean slate
-DROP FUNCTION IF EXISTS public.get_my_team_user_ids() CASCADE;
+-- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
@@ -21,7 +20,7 @@ DROP TYPE IF EXISTS "public"."transaction_type" CASCADE;
 DROP TYPE IF EXISTS "public"."withdrawal_method" CASCADE;
 DROP TYPE IF EXISTS "public"."installment_status" CASCADE;
 
--- Create Custom Types (ENUMs)
+-- ========= Creating Custom Types (ENUMs) for Data Integrity =========
 CREATE TYPE "public"."user_role" AS ENUM ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف', 'مستثمر');
 CREATE TYPE "public"."investor_status" AS ENUM ('نشط', 'غير نشط', 'معلق', 'مرفوض', 'محذوف');
 CREATE TYPE "public"."borrower_status" AS ENUM ('منتظم', 'متأخر', 'مسدد بالكامل', 'متعثر', 'معلق', 'مرفوض');
@@ -31,13 +30,18 @@ CREATE TYPE "public"."withdrawal_method" AS ENUM ('نقدي', 'بنكي');
 CREATE TYPE "public"."installment_status" AS ENUM ('لم يسدد بعد', 'تم السداد', 'متأخر');
 CREATE TYPE "public"."borrower_payment_status" AS ENUM ('منتظم', 'متأخر بقسط', 'متأخر بقسطين', 'متعثر', 'تم اتخاذ الاجراءات القانونيه', 'مسدد جزئي', 'تم الإمهال', 'تم السداد');
 
--- Create Tables
+
+-- ========= Creating Tables =========
+
+-- Application Configuration Table
 CREATE TABLE public.app_config (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL
 );
 COMMENT ON TABLE public.app_config IS 'Stores global application settings.';
 
+
+-- Users Table
 CREATE TABLE public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -61,6 +65,7 @@ CREATE TABLE public.users (
 );
 COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users.';
 
+-- Branches Table
 CREATE TABLE public.branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     manager_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -69,6 +74,7 @@ CREATE TABLE public.branches (
 );
 COMMENT ON TABLE public.branches IS 'Stores office branches for an office manager.';
 
+-- Investors Table
 CREATE TABLE public.investors (
     id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -83,6 +89,7 @@ CREATE TABLE public.investors (
 );
 COMMENT ON TABLE public.investors IS 'Stores investor-specific data.';
 
+-- Borrowers Table
 CREATE TABLE public.borrowers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -111,6 +118,7 @@ CREATE TABLE public.borrowers (
 );
 COMMENT ON TABLE public.borrowers IS 'Stores loan and borrower information.';
 
+-- Transactions Table
 CREATE TABLE public.transactions (
     id TEXT PRIMARY KEY,
     investor_id UUID NOT NULL REFERENCES public.investors(id) ON DELETE CASCADE,
@@ -123,6 +131,7 @@ CREATE TABLE public.transactions (
 );
 COMMENT ON TABLE public.transactions IS 'Records financial transactions for investors.';
 
+-- Support Tickets Table
 CREATE TABLE public.support_tickets (
     id TEXT PRIMARY KEY,
     date TIMESTAMPTZ DEFAULT NOW(),
@@ -136,6 +145,7 @@ CREATE TABLE public.support_tickets (
 );
 COMMENT ON TABLE public.support_tickets IS 'Stores support requests from users.';
 
+-- Notifications Table
 CREATE TABLE public.notifications (
     id TEXT PRIMARY KEY,
     date TIMESTAMPTZ DEFAULT NOW(),
@@ -146,7 +156,7 @@ CREATE TABLE public.notifications (
 );
 COMMENT ON TABLE public.notifications IS 'Stores notifications for users.';
 
--- Indexes for Performance
+-- ========= Indexes for Performance =========
 CREATE INDEX ON public.users ("managedBy");
 CREATE INDEX ON public.borrowers ("submittedBy");
 CREATE INDEX ON public.borrowers ("managedBy");
@@ -156,28 +166,8 @@ CREATE INDEX ON public.transactions (investor_id);
 CREATE INDEX ON public.notifications ("recipientId");
 CREATE INDEX ON public.borrowers ("nationalId");
 
--- RLS Helper Function
-CREATE OR REPLACE FUNCTION public.get_my_team_user_ids()
-RETURNS TABLE(id UUID)
-LANGUAGE sql
-SECURITY DEFINER SET search_path = public
-AS $$
-    WITH current_user_info AS (
-        SELECT "managedBy", role, id as user_id FROM public.users WHERE id = auth.uid()
-    )
-    SELECT u.id FROM public.users u, current_user_info
-    WHERE 
-        -- System admin can see everyone
-        current_user_info.role = 'مدير النظام' OR
-        -- Users can see their own data
-        u.id = current_user_info.user_id OR
-        -- Users can see their direct manager
-        u.id = current_user_info."managedBy" OR
-        -- Managers can see their direct subordinates
-        u."managedBy" = current_user_info.user_id OR
-        -- Subordinates can see their colleagues (users with the same manager)
-        (u."managedBy" IS NOT NULL AND u."managedBy" = current_user_info."managedBy")
-$$;
+
+-- ========= Row Level Security (RLS) Policies =========
 
 -- Enable RLS for all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
@@ -189,26 +179,39 @@ ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
--- Policies
-CREATE POLICY "Allow users to see their team members" ON public.users FOR SELECT USING (id IN (SELECT get_my_team_user_ids.id FROM get_my_team_user_ids()));
-CREATE POLICY "Allow users to update their own data" ON public.users FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Allow System Admin to manage all users" ON public.users FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 
-CREATE POLICY "Allow team members to manage their team's investors" ON public.investors FOR ALL USING ("managedBy" IN (SELECT get_my_team_user_ids.id FROM get_my_team_user_ids()) OR id IN (SELECT get_my_team_user_ids.id FROM get_my_team_user_ids()));
-
-CREATE POLICY "Allow team members to manage their team's borrowers" ON public.borrowers FOR ALL USING ("managedBy" IN (SELECT get_my_team_user_ids.id FROM get_my_team_user_ids()));
-CREATE POLICY "Allow investors to see loans they funded" ON public.borrowers FOR SELECT USING (EXISTS (SELECT 1 FROM jsonb_array_elements("fundedBy") AS elem WHERE (elem->>'investorId')::UUID = auth.uid()));
-
-CREATE POLICY "Allow authenticated to read app_config" ON public.app_config FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow admin to manage all support tickets" ON public.support_tickets FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow users to manage their own tickets" ON public.support_tickets FOR ALL USING (auth.uid() = "fromUserId");
-CREATE POLICY "Allow team members to see transactions of their team's investors" ON public.transactions FOR SELECT USING (investor_id IN (SELECT id FROM public.investors WHERE "managedBy" IN (SELECT get_my_team_user_ids.id FROM get_my_team_user_ids())));
-CREATE POLICY "Allow admin to manage all transactions" ON public.transactions FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow users to manage their own notifications" ON public.notifications FOR ALL USING (auth.uid() = "recipientId");
-CREATE POLICY "Allow managers to manage their own branches" ON public.branches FOR ALL USING (manager_id IN (SELECT get_my_team_user_ids.id FROM get_my_team_user_ids()));
+-- Policies for 'users' table
+CREATE POLICY "Allow authenticated users to read all user data" ON "public"."users" FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 
 
--- Database Functions and Triggers
+-- Policies for 'investors' table
+CREATE POLICY "Allow admin to manage all investors" ON "public"."investors" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow managers and their team to manage their investors" ON "public"."investors" FOR ALL TO authenticated USING ("managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR "managedBy" = auth.uid());
+CREATE POLICY "Allow investors to see their own profile" ON "public"."investors" FOR SELECT TO authenticated USING (id = auth.uid());
+
+
+-- Policies for 'borrowers' table
+CREATE POLICY "Allow admin to manage all borrowers" ON "public"."borrowers" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow team members to manage their team's borrowers" ON "public"."borrowers" FOR ALL TO authenticated USING ("managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR "managedBy" = auth.uid());
+CREATE POLICY "Allow investors to see loans they funded" ON "public"."borrowers" FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM jsonb_array_elements("fundedBy") AS elem WHERE (elem->>'investorId')::UUID = auth.uid()));
+
+
+-- Policies for other tables
+CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin to manage all support tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to manage their own submitted tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
+CREATE POLICY "Allow team members to see transactions of their team's investors" ON "public"."transactions" FOR SELECT TO authenticated USING (investor_id IN (SELECT id FROM public.investors WHERE "managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR "managedBy" = auth.uid()));
+CREATE POLICY "Allow investors to see their own transactions" ON "public"."transactions" FOR SELECT TO authenticated USING (investor_id = auth.uid());
+CREATE POLICY "Allow admin to manage all transactions" ON "public"."transactions" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to manage their own notifications" ON "public"."notifications" FOR ALL TO authenticated USING (auth.uid() = "recipientId");
+CREATE POLICY "Allow office managers to manage their own branches" ON "public"."branches" FOR ALL TO authenticated USING (manager_id = auth.uid());
+CREATE POLICY "Allow team members to read branch data" ON "public"."branches" FOR SELECT TO authenticated USING (manager_id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()));
+
+-- ========= Database Functions and Triggers =========
+
+-- This function is called by a trigger when a new user signs up in Supabase Auth.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -264,12 +267,13 @@ BEGIN
 END;
 $$;
 
+-- Trigger to call the function when a new user signs up
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 
--- Initial Data Inserts
+-- ========= Initial Data Inserts =========
 INSERT INTO public.app_config (key, value) VALUES
 ('baseInterestRate', '{"value": 15}'),
 ('investorSharePercentage', '{"value": 70}'),
