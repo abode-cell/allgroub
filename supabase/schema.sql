@@ -179,7 +179,7 @@ ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 -- Policies for 'users' table
 CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "Allow users to read their own data" ON "public"."users" FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "Allow users to read their own and related users data" ON "public"."users" FOR SELECT TO authenticated USING (id IN (SELECT get_related_users.id FROM get_related_users()));
 
 -- Policies for 'investors' table
 CREATE POLICY "Allow investors to read their own data" ON "public"."investors" FOR SELECT TO authenticated USING (auth.uid() = id);
