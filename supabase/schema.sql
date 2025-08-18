@@ -1,4 +1,5 @@
--- ========= Dropping existing objects (optional, for a clean slate) =========
+
+-- Drop existing objects in the correct order to avoid dependency errors
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
@@ -11,7 +12,27 @@ DROP TABLE IF EXISTS public.branches CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
 DROP TABLE IF EXISTS public.app_config CASCADE;
 
--- ========= Creating Tables =========
+DROP TYPE IF EXISTS public.user_role CASCADE;
+DROP TYPE IF EXISTS public.investor_status CASCADE;
+DROP TYPE IF EXISTS public.borrower_status CASCADE;
+DROP TYPE IF EXISTS public.borrower_payment_status CASCADE;
+DROP TYPE IF EXISTS public.loan_type CASCADE;
+DROP TYPE IF EXISTS public.transaction_type CASCADE;
+DROP TYPE IF EXISTS public.withdrawal_method CASCADE;
+DROP TYPE IF EXISTS public.installment_status CASCADE;
+
+-- ========= Create Custom ENUM Types =========
+CREATE TYPE public.user_role AS ENUM ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف', 'مستثمر');
+CREATE TYPE public.investor_status AS ENUM ('نشط', 'غير نشط', 'معلق', 'مرفوض', 'محذوف');
+CREATE TYPE public.borrower_status AS ENUM ('منتظم', 'متأخر', 'مسدد بالكامل', 'متعثر', 'معلق', 'مرفوض');
+CREATE TYPE public.borrower_payment_status AS ENUM ('منتظم', 'متأخر بقسط', 'متأخر بقسطين', 'متعثر', 'تم اتخاذ الاجراءات القانونيه', 'مسدد جزئي', 'تم الإمهال', 'تم السداد');
+CREATE TYPE public.loan_type AS ENUM ('اقساط', 'مهلة');
+CREATE TYPE public.transaction_type AS ENUM ('إيداع رأس المال', 'سحب من رأس المال');
+CREATE TYPE public.withdrawal_method AS ENUM ('نقدي', 'بنكي');
+CREATE TYPE public.installment_status AS ENUM ('لم يسدد بعد', 'تم السداد', 'متأخر');
+
+
+-- ========= Create Tables =========
 
 -- Application Configuration Table
 CREATE TABLE public.app_config (
@@ -28,26 +49,22 @@ CREATE TABLE public.users (
     office_name TEXT,
     email TEXT UNIQUE NOT NULL,
     phone TEXT,
-    role TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'معلق',
+    role public.user_role NOT NULL,
+    status public.investor_status NOT NULL DEFAULT 'معلق',
     "managedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
     permissions JSONB DEFAULT '{}'::jsonb,
     "registrationDate" TIMESTAMPTZ DEFAULT NOW(),
-    -- Limits for Office Managers
     "investorLimit" INT DEFAULT 10,
     "employeeLimit" INT DEFAULT 5,
     "assistantLimit" INT DEFAULT 2,
     "branchLimit" INT DEFAULT 3,
-    -- Settings for Office Managers
     "allowEmployeeSubmissions" BOOLEAN DEFAULT TRUE,
     "hideEmployeeInvestorFunds" BOOLEAN DEFAULT FALSE,
     "allowEmployeeLoanEdits" BOOLEAN DEFAULT FALSE,
-    -- Trial Period for Office Managers
     "trialEndsAt" TIMESTAMPTZ,
-    "defaultTrialPeriodDays" INT -- Only for System Admin
+    "defaultTrialPeriodDays" INT
 );
 COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users.';
-COMMENT ON COLUMN public.users."managedBy" IS 'Link to the Office Manager who manages this user.';
 
 -- Branches Table
 CREATE TABLE public.branches (
@@ -63,7 +80,7 @@ CREATE TABLE public.investors (
     id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     date TIMESTAMPTZ DEFAULT NOW(),
-    status TEXT NOT NULL DEFAULT 'معلق',
+    status public.investor_status NOT NULL DEFAULT 'معلق',
     "submittedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
     "rejectionReason" TEXT,
     "isNotified" BOOLEAN DEFAULT FALSE,
@@ -82,14 +99,14 @@ CREATE TABLE public.borrowers (
     rate NUMERIC,
     term NUMERIC,
     date TIMESTAMPTZ DEFAULT NOW(),
-    "loanType" TEXT NOT NULL,
-    status TEXT NOT NULL,
+    "loanType" public.loan_type NOT NULL,
+    status public.borrower_status NOT NULL,
     "dueDate" DATE NOT NULL,
     discount NUMERIC DEFAULT 0,
     "submittedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
     "rejectionReason" TEXT,
     "fundedBy" JSONB,
-    "paymentStatus" TEXT,
+    "paymentStatus" public.borrower_payment_status,
     installments JSONB,
     "isNotified" BOOLEAN DEFAULT FALSE,
     "lastStatusChange" TIMESTAMPTZ,
@@ -105,10 +122,10 @@ CREATE TABLE public.transactions (
     id TEXT PRIMARY KEY,
     investor_id UUID NOT NULL REFERENCES public.investors(id) ON DELETE CASCADE,
     date TIMESTAMPTZ DEFAULT NOW(),
-    type TEXT NOT NULL,
+    type public.transaction_type NOT NULL,
     amount NUMERIC NOT NULL,
     description TEXT,
-    "withdrawalMethod" TEXT,
+    "withdrawalMethod" public.withdrawal_method,
     "capitalSource" TEXT NOT NULL
 );
 COMMENT ON TABLE public.transactions IS 'Records financial transactions for investors.';
@@ -163,29 +180,29 @@ ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow users to read their own data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "Allow managers to read their team data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (id IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = auth.uid() ));
 CREATE POLICY "Allow team members to read their manager data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (id IN ( SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid() ));
-CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام') WITH CHECK ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام')) WITH CHECK (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
 CREATE POLICY "Allow users to update their own data" ON "public"."users" AS PERMISSIVE FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Policies for 'investors' table
 CREATE POLICY "Allow investors to read their own data" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = id);
-CREATE POLICY "Allow managers to read their investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) );
-CREATE POLICY "Allow admin to read all investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow managers to read their investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')) AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) );
+CREATE POLICY "Allow admin to read all investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
 
 -- Policies for 'borrowers' table
-CREATE POLICY "Allow managers to read team borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) OR u.id = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT auth.uid() ) );
-CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role') = 'مستثمر') AND ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text))) );
-CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow managers to read team borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')) AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) OR u.id = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT auth.uid() ) );
+CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( (((auth.jwt() ->> 'user_role')::public.user_role = 'مستثمر')) AND ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text))) );
+CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
 
 -- Other table policies
 CREATE POLICY "Allow auth users to read all app_config" ON "public"."app_config" AS PERMISSIVE FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow users to see their own notifications" ON "public"."notifications" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = "recipientId");
-CREATE POLICY "Allow admin to see all support tickets" ON "public"."support_tickets" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow admin to see all support tickets" ON "public"."support_tickets" AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
 CREATE POLICY "Allow users to see their own submitted tickets" ON "public"."support_tickets" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = "fromUserId");
 CREATE POLICY "Allow investors to see their transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = investor_id);
-CREATE POLICY "Allow managers to see their investors transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب') AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
-CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
-CREATE POLICY "Allow managers to read branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') );
-CREATE POLICY "Allow admin to read all branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') = 'مدير النظام' );
+CREATE POLICY "Allow managers to see their investors transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role IN ('مدير المكتب', 'مساعد مدير المكتب')) AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
+CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
+CREATE POLICY "Allow managers to read branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')) );
+CREATE POLICY "Allow admin to read all branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام') );
 
 
 -- ========= Database Functions and Triggers =========
@@ -225,7 +242,7 @@ BEGIN
         new.raw_user_meta_data->>'office_name',
         new.email,
         new.raw_user_meta_data->>'raw_phone_number',
-        user_role_text,
+        user_role_text::public.user_role,
         user_managed_by,
         trial_end_date
     );
