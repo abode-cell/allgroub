@@ -1,5 +1,3 @@
-
-
 // supabase/functions/update-user-credentials/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -71,15 +69,8 @@ serve(async (req) => {
 
     // 4. Update Auth User
     const authUpdates: any = {};
-    const metadataUpdates: any = {};
-
     if (updates.email) authUpdates.email = updates.email;
     if (updates.password) authUpdates.password = updates.password;
-     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
-      metadataUpdates.office_name = updates.officeName;
-    }
-
-    authUpdates.data = metadataUpdates;
 
     if (Object.keys(authUpdates).length > 0) {
         const { data: { user: updatedAuthUser }, error: adminAuthError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -94,7 +85,7 @@ serve(async (req) => {
         }
     }
 
-    // 5. Update public.users table - this will be handled by the trigger now
+    // 5. Update public.users table 
     const dbUpdates: any = {};
     if (updates.email) dbUpdates.email = updates.email;
     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {

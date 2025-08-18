@@ -1,4 +1,3 @@
-
 // supabase/functions/create-investor/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -45,7 +44,7 @@ serve(async (req) => {
       user_metadata: {
         full_name: payload.name,
         raw_phone_number: payload.phone,
-        user_role: 'مستثمر', // Correctly set the role here
+        user_role: 'مستثمر',
         managedBy: manager.id,
         submittedBy: manager.id,
       },
