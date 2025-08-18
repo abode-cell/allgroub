@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -195,23 +194,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Step 1: Fetch the current user's profile from 'users' table. This is the most crucial step.
         const { data: currentUserProfile, error: profileError } = await supabaseClient
             .from('users')
             .select('*')
             .eq('id', authUser.id)
             .single();
 
-        if (profileError) {
-            throw new Error(`فشل في جلب ملف المستخدم: ${profileError.message}`);
-        }
-        if (!currentUserProfile) {
-            throw new Error('لم يتم العثور على ملف المستخدم. قد يكون حسابك قيد الإنشاء.');
-        }
+        if (profileError) throw new Error(`فشل في جلب ملف المستخدم: ${profileError.message}`);
+        if (!currentUserProfile) throw new Error('لم يتم العثور على ملف المستخدم.');
 
-        // Step 2: Check user status. If not active, sign out and stop.
         if (currentUserProfile.status !== 'نشط') {
-            let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
+            let message = 'حسابك غير نشط حاليًا.';
             if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
             if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
             
@@ -221,18 +214,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Step 3: Now that we have a valid, active user, fetch all other data based on their role.
-        let users_data: any[] | null = null;
+        let allUsersData: any[] = [currentUserProfile];
         if (currentUserProfile.role === 'مدير النظام') {
-             const { data, error } = await supabaseClient.from('users').select('*');
-             if(error) throw error;
-             users_data = data;
-        } else {
-             const { data, error } = await supabaseClient.rpc('get_related_users');
-             if(error) throw error;
-             users_data = data;
+            const { data: adminUsers, error: adminUsersError } = await supabaseClient.from('users').select('*');
+            if (adminUsersError) throw adminUsersError;
+            allUsersData = adminUsers;
+        } else if (currentUserProfile.role === 'مدير المكتب' || currentUserProfile.role === 'مساعد مدير المكتب' || currentUserProfile.role === 'موظف') {
+             const { data: teamUsers, error: teamUsersError } = await supabaseClient.rpc('get_related_users');
+             if(teamUsersError) throw teamUsersError;
+             allUsersData = teamUsers;
         }
-        
+
         const [
           { data: investors_data, error: investorsError },
           { data: borrowers_data, error: borrowersError },
@@ -271,7 +263,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithBranches = (users_data || []).map((u: User) => ({
+        const usersWithBranches = (allUsersData || []).map((u: User) => ({
             ...u,
             branches: (branches_data || []).filter((b: Branch) => b.manager_id === u.id)
         }));
@@ -1729,3 +1721,5 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
+
+    
