@@ -1,4 +1,3 @@
-
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -82,6 +81,7 @@ CREATE TABLE public.investors (
     date TIMESTAMPTZ DEFAULT NOW(),
     status public.investor_status NOT NULL DEFAULT 'معلق',
     "submittedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    "managedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL, -- Added this crucial column
     "rejectionReason" TEXT,
     "isNotified" BOOLEAN DEFAULT FALSE,
     "installmentProfitShare" NUMERIC,
@@ -159,6 +159,7 @@ COMMENT ON TABLE public.notifications IS 'Stores notifications for users.';
 CREATE INDEX ON public.users ("managedBy");
 CREATE INDEX ON public.borrowers ("submittedBy");
 CREATE INDEX ON public.investors ("submittedBy");
+CREATE INDEX ON public.investors ("managedBy"); -- Index on the new column
 CREATE INDEX ON public.transactions (investor_id);
 CREATE INDEX ON public.notifications ("recipientId");
 CREATE INDEX ON public.borrowers ("nationalId");
@@ -176,32 +177,51 @@ ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
+-- Policies for 'app_config' table
+CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin to manage app_config" ON "public"."app_config" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 
 -- Policies for 'users' table
-CREATE POLICY "Allow authenticated users to read all user data" ON "public"."users" FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to see themselves" ON "public"."users" FOR SELECT USING (id = auth.uid());
+CREATE POLICY "Allow managers to see their subordinates" ON "public"."users" FOR SELECT USING ("managedBy" = auth.uid());
+CREATE POLICY "Allow subordinates to see their manager" ON "public"."users" FOR SELECT USING (id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()));
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to update their own profiles" ON "public"."users" FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
 -- Policies for 'investors' table
-CREATE POLICY "Allow all authenticated users to read investors" ON public.investors FOR SELECT USING (true);
-CREATE POLICY "Allow office managers to manage investors" ON public.investors FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب');
-CREATE POLICY "Allow permitted assistants/employees to manage investors" ON public.investors FOR ALL USING ((SELECT permissions->>'manageInvestors' FROM public.users WHERE id = auth.uid())::boolean);
+CREATE POLICY "Allow investors to see their own profile" ON public.investors FOR SELECT USING (id = auth.uid());
+CREATE POLICY "Allow office managers to see their investors" ON public.investors FOR SELECT USING ("managedBy" = auth.uid());
+CREATE POLICY "Allow team members to see their office's investors" ON public.investors FOR SELECT USING ("managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()));
+CREATE POLICY "Allow admin to see all investors" ON public.investors FOR SELECT USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow managers and permitted assistants to manage investors" ON public.investors FOR ALL USING (
+    (SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب' OR
+    ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مساعد مدير المكتب' AND (SELECT permissions->>'manageInvestors' FROM public.users WHERE id = auth.uid())::boolean)
+);
 
 -- Policies for 'borrowers' table
-CREATE POLICY "Allow all authenticated users to read borrowers" ON public.borrowers FOR SELECT USING (true);
-CREATE POLICY "Allow office managers to manage borrowers" ON public.borrowers FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب');
-CREATE POLICY "Allow permitted assistants/employees to manage borrowers" ON public.borrowers FOR ALL USING ((SELECT permissions->>'manageBorrowers' FROM public.users WHERE id = auth.uid())::boolean);
-CREATE POLICY "Allow employees with loan edit permissions to update" ON public.borrowers FOR UPDATE USING ( (SELECT "allowEmployeeLoanEdits" FROM public.users WHERE id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid())) = true );
+CREATE POLICY "Allow team to read their submitted borrowers" ON "public"."borrowers" FOR SELECT USING ( "submittedBy" = auth.uid() );
+CREATE POLICY "Allow managers to read their team's borrowers" ON "public"."borrowers" FOR SELECT USING ( "submittedBy" IN (SELECT id FROM public.users WHERE "managedBy" = auth.uid()) );
+CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrowers" FOR SELECT USING ( "fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text)) );
+CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" FOR SELECT USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow office managers and permitted staff to manage borrowers" ON public.borrowers FOR ALL USING (
+    (SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب' OR
+    ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مساعد مدير المكتب' AND (SELECT permissions->>'manageBorrowers' FROM public.users WHERE id = auth.uid())::boolean) OR
+    ((SELECT role FROM public.users WHERE id = auth.uid()) = 'موظف' AND (SELECT "allowEmployeeLoanEdits" FROM public.users WHERE id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid())) = true)
+);
 
--- Other table policies
-CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" FOR SELECT TO authenticated USING (true);
+-- Policies for 'transactions' table
+CREATE POLICY "Allow investors to see their own transactions" ON public.transactions FOR SELECT USING (investor_id = auth.uid());
+CREATE POLICY "Allow managers to see transactions of their investors" ON public.transactions FOR SELECT USING (investor_id IN (SELECT id FROM public.investors WHERE "managedBy" = auth.uid()));
+CREATE POLICY "Allow admin to see all transactions" ON public.transactions FOR SELECT USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow managers to add transactions for their investors" ON public.transactions FOR INSERT WITH CHECK (investor_id IN (SELECT id FROM public.investors WHERE "managedBy" = auth.uid()));
+
+
+-- Policies for other tables
 CREATE POLICY "Allow users to see their own notifications" ON "public"."notifications" FOR ALL TO authenticated USING (auth.uid() = "recipientId");
 CREATE POLICY "Allow admin to manage all support tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 CREATE POLICY "Allow users to manage their own submitted tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
-CREATE POLICY "Allow authenticated to read transactions" ON "public"."transactions" FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated to read branches" ON "public"."branches" FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow office managers to add branches" ON "public"."branches" FOR INSERT TO authenticated WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب');
-CREATE POLICY "Allow office managers to delete their own branches" ON "public"."branches" FOR DELETE TO authenticated USING (manager_id = auth.uid());
+CREATE POLICY "Allow admin to manage branches" ON "public"."branches" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام' );
+CREATE POLICY "Allow managers to manage their own branches" ON "public"."branches" FOR ALL TO authenticated USING (manager_id = auth.uid());
 
 
 -- ========= Database Functions and Triggers =========
@@ -248,12 +268,13 @@ BEGIN
 
     -- **IMPORTANT**: Only create an investor profile if the role is 'مستثمر'
     IF user_role_text = 'مستثمر' THEN
-        INSERT INTO public.investors (id, name, status, "submittedBy")
+        INSERT INTO public.investors (id, name, status, "submittedBy", "managedBy")
         VALUES (
             new.id,
             new.raw_user_meta_data->>'full_name',
             'نشط'::public.investor_status,
-            user_submitted_by
+            user_submitted_by,
+            user_managed_by -- Crucial: Set the manager for the investor
         );
     END IF;
 
