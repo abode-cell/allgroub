@@ -195,7 +195,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
 
-        // Step 1: Fetch ONLY the current user's profile first.
+        // Step 1: Fetch ONLY the current user's profile first. This is the most crucial step.
         const { data: currentUserProfile, error: profileError } = await supabaseClient
             .from('users')
             .select('*')
@@ -217,6 +217,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setDataLoading(false);
             return;
         }
+        
+        let usersResponse;
+        if (currentUserProfile.role === 'مدير النظام') {
+            usersResponse = await supabaseClient.from('users').select('*');
+        } else {
+            // For other roles, we now safely have the manager's ID if needed.
+            usersResponse = await supabaseClient.rpc('get_related_users');
+        }
+
+        if (usersResponse.error) {
+          throw new Error(`فشل في جلب المستخدمين المرتبطين: ${usersResponse.error.message}`);
+        }
+
 
         // Step 3: Fetch all other data concurrently.
         const [
@@ -241,19 +254,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if(errors.length > 0) {
             console.error("Data fetching errors:", errors);
             throw new Error(`فشل في جلب بعض البيانات: ${errors.map(e => e.message).join(', ')}`);
-        }
-
-        // Step 4: Fetch related users based on the role of the already-fetched currentUserProfile.
-        let usersResponse;
-        if (currentUserProfile.role === 'مدير النظام') {
-            usersResponse = await supabaseClient.from('users').select('*');
-        } else {
-            // For other roles, we now safely have the manager's ID if needed.
-            usersResponse = await supabaseClient.rpc('get_related_users');
-        }
-        
-        if (usersResponse.error) {
-            throw new Error(`فشل في جلب المستخدمين المرتبطين: ${usersResponse.error.message}`);
         }
         
         // Step 5: Process and set all data.
