@@ -86,7 +86,7 @@ export default function BorrowersPage() {
 
     const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
     relevantUserIds.add(currentUser.id);
-    return allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
+    return allBorrowers.filter(b => b.managedBy && (b.managedBy === managerId));
   }, [currentUser, allBorrowers, users, role]);
 
   const investors = useMemo(() => {
