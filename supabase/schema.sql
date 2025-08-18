@@ -1,3 +1,4 @@
+
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -193,15 +194,15 @@ CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" FOR SE
 
 -- Other table policies
 CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow users to see their own notifications" ON "public"."notifications" FOR SELECT TO authenticated USING (auth.uid() = "recipientId");
-CREATE POLICY "Allow admin to see all support tickets" ON "public"."support_tickets" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
-CREATE POLICY "Allow users to see their own submitted tickets" ON "public"."support_tickets" FOR SELECT TO authenticated USING (auth.uid() = "fromUserId");
+CREATE POLICY "Allow users to see their own notifications" ON "public"."notifications" FOR ALL TO authenticated USING (auth.uid() = "recipientId");
+CREATE POLICY "Allow admin to manage all support tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow users to manage their own submitted tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
 CREATE POLICY "Allow investors to see their transactions" ON "public"."transactions" FOR SELECT TO authenticated USING (auth.uid() = investor_id);
 CREATE POLICY "Allow team to see their manager's investors transactions" ON "public"."transactions" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب') AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
 CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
 CREATE POLICY "Allow team to read their manager's branches" ON "public"."branches" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') );
-CREATE POLICY "Allow admin to read all branches" ON "public"."branches" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام' );
-CREATE POLICY "Allow office managers to add branches" ON "public"."branches" FOR INSERT TO authenticated WITH CHECK ((auth.jwt() ->> 'user_role') = 'مدير المكتب');
+CREATE POLICY "Allow admin to read all branches" ON "public"."branches" FOR ALL TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام' );
+CREATE POLICY "Allow office managers to add branches" ON "public"."branches" FOR INSERT TO authenticated WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب');
 
 
 -- ========= Database Functions and Triggers =========
