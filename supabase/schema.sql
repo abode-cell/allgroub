@@ -1,10 +1,8 @@
-
--- Dropping existing objects for a clean slate
+-- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.get_my_team_user_ids() CASCADE;
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
--- Drop tables in reverse order of dependency
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
 DROP TABLE IF EXISTS public.transactions CASCADE;
@@ -14,7 +12,6 @@ DROP TABLE IF EXISTS public.branches CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
 DROP TABLE IF EXISTS public.app_config CASCADE;
 
--- Drop types
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
 DROP TYPE IF EXISTS "public"."borrower_status" CASCADE;
 DROP TYPE IF EXISTS "public"."borrower_payment_status" CASCADE;
@@ -181,15 +178,13 @@ DECLARE
     current_user_role public.user_role;
     current_user_manager_id UUID;
 BEGIN
-    SELECT role, "managedBy" INTO current_user_role, current_user_manager_id
-    FROM public.users
-    WHERE id = auth.uid();
+    SELECT role, "managedBy" INTO current_user_role, current_user_manager_id FROM public.users WHERE id = auth.uid();
 
     IF current_user_role = 'مدير النظام' THEN
         RETURN QUERY SELECT id FROM public.users;
     ELSIF current_user_role = 'مدير المكتب' THEN
         RETURN QUERY SELECT id FROM public.users WHERE "managedBy" = auth.uid() OR id = auth.uid();
-    ELSE -- For 'مساعد مدير المكتب', 'موظف', 'مستثمر'
+    ELSIF current_user_role IN ('مساعد مدير المكتب', 'موظف', 'مستثمر') THEN
         RETURN QUERY SELECT id FROM public.users WHERE "managedBy" = current_user_manager_id OR id = current_user_manager_id;
     END IF;
 END;
@@ -208,34 +203,29 @@ ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
-
 -- Policies for 'users' table
-CREATE POLICY "Allow users to see their team members" ON "public"."users" FOR SELECT TO authenticated USING (id = ANY(SELECT user_id FROM get_my_team_user_ids()));
+CREATE POLICY "Allow users to read data of their team members" ON "public"."users" FOR SELECT TO authenticated USING (id IN (SELECT user_id FROM get_my_team_user_ids()));
 CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 
-
 -- Policies for 'investors' table
-CREATE POLICY "Allow team members to see their team's investors" ON "public"."investors" FOR SELECT TO authenticated USING ("managedBy" = ANY(SELECT user_id FROM get_my_team_user_ids()) OR id = ANY(SELECT user_id FROM get_my_team_user_ids()));
-CREATE POLICY "Allow authorized team members to manage investors" ON "public"."investors" FOR ALL TO authenticated USING ("managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR "managedBy" = auth.uid());
-CREATE POLICY "Allow admin to manage all investors" ON "public"."investors" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow team members to manage their investors" ON "public"."investors" FOR ALL TO authenticated USING ("managedBy" IN (SELECT user_id FROM get_my_team_user_ids()));
+CREATE POLICY "Allow investors to see their own profile" ON "public"."investors" FOR SELECT TO authenticated USING (id = auth.uid());
 
 -- Policies for 'borrowers' table
-CREATE POLICY "Allow team members to manage their team's borrowers" ON "public"."borrowers" FOR ALL TO authenticated USING ("managedBy" = ANY(SELECT user_id FROM get_my_team_user_ids()));
+CREATE POLICY "Allow team members to manage their borrowers" ON "public"."borrowers" FOR ALL TO authenticated USING ("managedBy" IN (SELECT user_id FROM get_my_team_user_ids()));
 CREATE POLICY "Allow investors to see loans they funded" ON "public"."borrowers" FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM jsonb_array_elements("fundedBy") AS elem WHERE (elem->>'investorId')::UUID = auth.uid()));
-CREATE POLICY "Allow admin to manage all borrowers" ON "public"."borrowers" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 
+-- Policies for 'transactions' table
+CREATE POLICY "Allow team members to view transactions of their investors" ON "public"."transactions" FOR SELECT TO authenticated USING (investor_id IN (SELECT id FROM public.investors WHERE "managedBy" IN (SELECT user_id FROM get_my_team_user_ids())));
 
 -- Policies for other tables
 CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow users to manage their own notifications" ON "public"."notifications" FOR ALL TO authenticated USING (auth.uid() = "recipientId");
-CREATE POLICY "Allow users to manage their own support tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
 CREATE POLICY "Allow admin to manage all support tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow team members to see transactions" ON "public"."transactions" FOR SELECT TO authenticated USING (investor_id = ANY(SELECT user_id FROM get_my_team_user_ids()));
-CREATE POLICY "Allow authorized users to add transactions" ON "public"."transactions" FOR INSERT TO authenticated WITH CHECK (investor_id = ANY(SELECT user_id FROM get_my_team_user_ids()));
-CREATE POLICY "Allow admin to manage all transactions" ON "public"."transactions" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to manage their own submitted tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
+CREATE POLICY "Allow users to manage their own notifications" ON "public"."notifications" FOR ALL TO authenticated USING (auth.uid() = "recipientId");
 CREATE POLICY "Allow office managers to manage their own branches" ON "public"."branches" FOR ALL TO authenticated USING (manager_id = auth.uid());
-CREATE POLICY "Allow team members to read branch data" ON "public"."branches" FOR SELECT TO authenticated USING (manager_id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()));
+CREATE POLICY "Allow team members to read their team's branch data" ON "public"."branches" FOR SELECT TO authenticated USING (manager_id IN (SELECT user_id FROM get_my_team_user_ids()));
 
 
 -- ========= Database Functions and Triggers =========
@@ -313,3 +303,4 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+
