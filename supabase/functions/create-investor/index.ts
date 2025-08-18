@@ -1,3 +1,4 @@
+
 // supabase/functions/create-investor/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -60,14 +61,14 @@ serve(async (req) => {
 
     newAuthUserId = newAuthUser.id;
 
-    // The handle_new_user trigger will create the user in public.users and the investor profile.
+    // The handle_new_user trigger will create the user in public.users and the basic investor profile.
     
-    // Update the investor profile with profit shares
+    // Now, update the newly created investor profile with the profit shares
     const { error: investorUpdateError } = await supabaseAdmin
       .from("investors")
       .update({
-        installmentProfitShare: payload.installmentProfitShare,
-        gracePeriodProfitShare: payload.gracePeriodProfitShare,
+        "installmentProfitShare": payload.installmentProfitShare,
+        "gracePeriodProfitShare": payload.gracePeriodProfitShare,
       })
       .eq('id', newAuthUser.id);
       
