@@ -192,9 +192,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!authUser) {
             setDataLoading(false);
             return;
+        };
+
+        // Step 1: Fetch the current user's profile from 'users' table. This is the most crucial step.
+        const { data: currentUserProfile, error: profileError } = await supabaseClient
+            .from('users')
+            .select('*')
+            .eq('id', authUser.id)
+            .single();
+
+        if (profileError || !currentUserProfile) {
+            await supabaseClient.auth.signOut();
+            throw new Error(`فشل في جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
         }
 
-        // Fetch all data concurrently. RLS will handle security.
+        // Step 2: Check user status. If not active, sign out and stop.
+        if (currentUserProfile.status !== 'نشط') {
+            let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
+            if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
+            if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
+            
+            await supabaseClient.auth.signOut();
+            toast({ variant: "destructive", title: "تم تسجيل الخروج", description: message });
+            setDataLoading(false);
+            return;
+        }
+
+        // Step 3: Now that we have a valid, active user, fetch all other data.
         const [
           { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
@@ -215,30 +239,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabaseClient.from('branches').select('*')
         ]);
         
-        // A single error in fetching primary data (users) is critical.
-        if (usersError || !all_users_data) {
-             await supabaseClient.auth.signOut();
-             throw new Error(`فشل في جلب ملف المستخدم: ${usersError?.message || 'المستخدم غير موجود'}`);
-        }
-
-        const currentUserProfile = all_users_data.find(u => u.id === authUser.id);
-        if(!currentUserProfile) {
-            await supabaseClient.auth.signOut();
-            throw new Error('لم يتم العثور على ملف تعريف المستخدم الحالي في قاعدة البيانات.');
-        }
-
-        if (currentUserProfile.status !== 'نشط') {
-            let message = 'حسابك غير نشط حاليًا.';
-            if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
-            if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
-            
-            await supabaseClient.auth.signOut();
-            toast({ variant: "destructive", title: "تم تسجيل الخروج", description: message });
-            setDataLoading(false);
-            return;
-        }
-
-        if (investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
+        if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
           console.error({usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
           throw new Error('فشل في جلب بعض البيانات الثانوية. قد تكون الصلاحيات غير صحيحة.');
         }
@@ -261,7 +262,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const usersWithBranches = (all_users_data || []).map((u: User) => ({
             ...u,
             branches: (branches_data || []).filter((b: Branch) => b.manager_id === u.id)
-        }));
+        }))
         
         setData({
             users: usersWithBranches,
