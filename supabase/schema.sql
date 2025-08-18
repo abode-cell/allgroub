@@ -1,10 +1,7 @@
 
--- Drop existing objects in a safe order
+-- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
--- DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users; -- Dropped by function drop
--- Drop policies before tables they depend on
--- Note: Dropping policies individually can be tedious. A full teardown is often easier.
--- For now, we will rely on dropping the tables which also drops the policies on them.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
@@ -188,11 +185,11 @@ CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPD
 CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 
 -- Policies for 'investors' table
-CREATE POLICY "Allow authenticated users to read all investors data" ON public.investors FOR SELECT USING (true);
+CREATE POLICY "Allow all authenticated users to read investors" ON public.investors FOR SELECT USING (true);
 CREATE POLICY "Allow office managers to manage investors" ON public.investors FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب');
 
 -- Policies for 'borrowers' table
-CREATE POLICY "Allow authenticated users to read all borrowers" ON public.borrowers FOR SELECT USING (true);
+CREATE POLICY "Allow all authenticated users to read borrowers" ON public.borrowers FOR SELECT USING (true);
 CREATE POLICY "Allow office managers to manage borrowers" ON public.borrowers FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب');
 CREATE POLICY "Allow permitted assistants to manage borrowers" ON public.borrowers FOR ALL USING ((SELECT permissions->>'manageBorrowers' FROM public.users WHERE id = auth.uid())::boolean);
 CREATE POLICY "Allow permitted employees to manage borrowers" ON public.borrowers FOR ALL USING ((SELECT "allowEmployeeLoanEdits" FROM public.users WHERE id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid())) = true);
@@ -202,7 +199,9 @@ CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" 
 CREATE POLICY "Allow users to see their own notifications" ON "public"."notifications" FOR ALL TO authenticated USING (auth.uid() = "recipientId");
 CREATE POLICY "Allow admin to manage all support tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 CREATE POLICY "Allow users to manage their own submitted tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
-CREATE POLICY "Allow authenticated to read all transactions" ON "public"."transactions" FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow investors to see their transactions" ON "public"."transactions" FOR SELECT TO authenticated USING (auth.uid() = investor_id);
+CREATE POLICY "Allow team to see their manager's investors transactions" ON "public"."transactions" FOR SELECT TO authenticated USING ( (SELECT role FROM public.users WHERE id = auth.uid()) IN ('مدير المكتب', 'مساعد مدير المكتب') AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
+CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" FOR SELECT TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 CREATE POLICY "Allow authenticated to read branches" ON "public"."branches" FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow office managers to add branches" ON "public"."branches" FOR INSERT TO authenticated WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير المكتب');
 CREATE POLICY "Allow office managers to delete their own branches" ON "public"."branches" FOR DELETE TO authenticated USING (manager_id = auth.uid());
@@ -283,5 +282,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-
-    
