@@ -195,6 +195,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
 
+        // Step 1: Fetch ONLY the current user's profile first.
         const { data: currentUserProfile, error: profileError } = await supabaseClient
             .from('users')
             .select('*')
@@ -205,6 +206,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             throw new Error(`فشل في جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
         }
 
+        // Step 2: Check user status.
         if (currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
             if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
@@ -216,22 +218,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Fetch users based on role
-        let usersResponse;
-        if (currentUserProfile.role === 'مدير النظام') {
-            usersResponse = await supabaseClient.from('users').select('*');
-        } else {
-            usersResponse = await supabaseClient.rpc('get_related_users');
-        }
-
+        // Step 3: Fetch all other data concurrently.
         const [
-          { data: investors_data, error: investorsError },
-          { data: borrowers_data, error: borrowersError },
-          { data: transactions_data, error: transactionsError },
-          { data: notifications_data, error: notificationsError },
-          { data: support_tickets_data, error: supportTicketsError },
-          { data: app_config_data, error: appConfigError },
-          { data: branches_data, error: branchesError }
+          investorsResponse,
+          borrowersResponse,
+          transactionsResponse,
+          notificationsResponse,
+          supportTicketsResponse,
+          appConfigResponse,
+          branchesResponse
         ] = await Promise.all([
           supabaseClient.from('investors').select('*'),
           supabaseClient.from('borrowers').select('*'),
@@ -242,17 +237,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabaseClient.from('branches').select('*')
         ]);
         
-        if (usersResponse.error || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
-          console.error({usersError: usersResponse.error, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
-          throw new Error('فشل في جلب أحد الموارد الثانوية.');
+        const errors = [investorsResponse.error, borrowersResponse.error, transactionsResponse.error, notificationsResponse.error, supportTicketsResponse.error, appConfigResponse.error, branchesResponse.error].filter(Boolean);
+        if(errors.length > 0) {
+            console.error("Data fetching errors:", errors);
+            throw new Error(`فشل في جلب بعض البيانات: ${errors.map(e => e.message).join(', ')}`);
         }
 
-        const configData = app_config_data.reduce((acc: any, row: any) => {
+        // Step 4: Fetch related users based on the role of the already-fetched currentUserProfile.
+        let usersResponse;
+        if (currentUserProfile.role === 'مدير النظام') {
+            usersResponse = await supabaseClient.from('users').select('*');
+        } else {
+            // For other roles, we now safely have the manager's ID if needed.
+            usersResponse = await supabaseClient.rpc('get_related_users');
+        }
+        
+        if (usersResponse.error) {
+            throw new Error(`فشل في جلب المستخدمين المرتبطين: ${usersResponse.error.message}`);
+        }
+        
+        // Step 5: Process and set all data.
+        const configData = appConfigResponse.data.reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
             return acc;
         }, {} as any);
         
-        const borrowersWithData: Borrower[] = (borrowers_data || []).map((borrower: any) => ({
+        const borrowersWithData: Borrower[] = (borrowersResponse.data || []).map((borrower: any) => ({
             ...borrower,
             fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investor_id, amount: f.amount })),
             installments: (borrower.installments || []).map((i: any) => ({ month: i.month, status: i.status as InstallmentStatus })),
@@ -264,16 +274,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         const usersWithBranches = (usersResponse.data || []).map((u: User) => ({
             ...u,
-            branches: (branches_data || []).filter((b: Branch) => b.manager_id === u.id)
-        }))
+            branches: (branchesResponse.data || []).filter((b: Branch) => b.manager_id === u.id)
+        }));
         
         setData({
             users: usersWithBranches,
-            investors: investors_data || [],
+            investors: investorsResponse.data || [],
             borrowers: borrowersWithData,
-            transactions: transactions_data || [],
-            notifications: notifications_data || [],
-            supportTickets: support_tickets_data || [],
+            transactions: transactionsResponse.data || [],
+            notifications: notificationsResponse.data || [],
+            supportTickets: supportTicketsResponse.data || [],
             salaryRepaymentPercentage: configData.salaryRepaymentPercentage ?? 0,
             baseInterestRate: configData.baseInterestRate ?? 0,
             investorSharePercentage: configData.investorSharePercentage ?? 0,
