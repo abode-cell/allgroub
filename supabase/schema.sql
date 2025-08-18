@@ -1,5 +1,4 @@
-
--- Drop existing objects in the correct order to avoid dependency errors
+-- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
@@ -12,27 +11,27 @@ DROP TABLE IF EXISTS public.branches CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
 DROP TABLE IF EXISTS public.app_config CASCADE;
 
-DROP TYPE IF EXISTS public.user_role CASCADE;
-DROP TYPE IF EXISTS public.investor_status CASCADE;
-DROP TYPE IF EXISTS public.borrower_status CASCADE;
-DROP TYPE IF EXISTS public.borrower_payment_status CASCADE;
-DROP TYPE IF EXISTS public.loan_type CASCADE;
-DROP TYPE IF EXISTS public.transaction_type CASCADE;
-DROP TYPE IF EXISTS public.withdrawal_method CASCADE;
-DROP TYPE IF EXISTS public.installment_status CASCADE;
+DROP TYPE IF EXISTS "public"."user_role" CASCADE;
+DROP TYPE IF EXISTS "public"."borrower_status" CASCADE;
+DROP TYPE IF EXISTS "public"."borrower_payment_status" CASCADE;
+DROP TYPE IF EXISTS "public"."investor_status" CASCADE;
+DROP TYPE IF EXISTS "public"."loan_type" CASCADE;
+DROP TYPE IF EXISTS "public"."transaction_type" CASCADE;
+DROP TYPE IF EXISTS "public"."withdrawal_method" CASCADE;
+DROP TYPE IF EXISTS "public"."installment_status" CASCADE;
 
--- ========= Create Custom ENUM Types =========
-CREATE TYPE public.user_role AS ENUM ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف', 'مستثمر');
-CREATE TYPE public.investor_status AS ENUM ('نشط', 'غير نشط', 'معلق', 'مرفوض', 'محذوف');
-CREATE TYPE public.borrower_status AS ENUM ('منتظم', 'متأخر', 'مسدد بالكامل', 'متعثر', 'معلق', 'مرفوض');
-CREATE TYPE public.borrower_payment_status AS ENUM ('منتظم', 'متأخر بقسط', 'متأخر بقسطين', 'متعثر', 'تم اتخاذ الاجراءات القانونيه', 'مسدد جزئي', 'تم الإمهال', 'تم السداد');
-CREATE TYPE public.loan_type AS ENUM ('اقساط', 'مهلة');
-CREATE TYPE public.transaction_type AS ENUM ('إيداع رأس المال', 'سحب من رأس المال');
-CREATE TYPE public.withdrawal_method AS ENUM ('نقدي', 'بنكي');
-CREATE TYPE public.installment_status AS ENUM ('لم يسدد بعد', 'تم السداد', 'متأخر');
+-- ========= Creating Custom Types (ENUMs) for Data Integrity =========
+CREATE TYPE "public"."user_role" AS ENUM ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف', 'مستثمر');
+CREATE TYPE "public"."investor_status" AS ENUM ('نشط', 'غير نشط', 'معلق', 'مرفوض', 'محذوف');
+CREATE TYPE "public"."borrower_status" AS ENUM ('منتظم', 'متأخر', 'مسدد بالكامل', 'متعثر', 'معلق', 'مرفوض');
+CREATE TYPE "public"."loan_type" AS ENUM ('اقساط', 'مهلة');
+CREATE TYPE "public"."transaction_type" AS ENUM ('إيداع رأس المال', 'سحب من رأس المال');
+CREATE TYPE "public"."withdrawal_method" AS ENUM ('نقدي', 'بنكي');
+CREATE TYPE "public"."installment_status" AS ENUM ('لم يسدد بعد', 'تم السداد', 'متأخر');
+CREATE TYPE "public"."borrower_payment_status" AS ENUM ('منتظم', 'متأخر بقسط', 'متأخر بقسطين', 'متعثر', 'تم اتخاذ الاجراءات القانونيه', 'مسدد جزئي', 'تم الإمهال', 'تم السداد');
 
 
--- ========= Create Tables =========
+-- ========= Creating Tables =========
 
 -- Application Configuration Table
 CREATE TABLE public.app_config (
@@ -177,32 +176,31 @@ ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
 -- Policies for 'users' table
-CREATE POLICY "Allow users to read their own data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = id);
-CREATE POLICY "Allow managers to read their team data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (id IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = auth.uid() ));
-CREATE POLICY "Allow team members to read their manager data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (id IN ( SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid() ));
-CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام')) WITH CHECK (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
-CREATE POLICY "Allow users to update their own data" ON "public"."users" AS PERMISSIVE FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+CREATE POLICY "Allow users to read their own data" ON "public"."users" FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "Allow team members to read their manager and colleagues" ON "public"."users" FOR SELECT TO authenticated USING ( "managedBy" = (SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid()) OR id = (SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid()) );
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام') WITH CHECK ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Policies for 'investors' table
-CREATE POLICY "Allow investors to read their own data" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = id);
-CREATE POLICY "Allow managers to read their investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')) AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) );
-CREATE POLICY "Allow admin to read all investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
+CREATE POLICY "Allow investors to read their own data" ON "public"."investors" FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "Allow team to read their manager's investors" ON "public"."investors" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) );
+CREATE POLICY "Allow admin to read all investors" ON "public"."investors" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
 
 -- Policies for 'borrowers' table
-CREATE POLICY "Allow managers to read team borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')) AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) OR u.id = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT auth.uid() ) );
-CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( (((auth.jwt() ->> 'user_role')::public.user_role = 'مستثمر')) AND ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text))) );
-CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
+CREATE POLICY "Allow team to read their manager's borrowers" ON "public"."borrowers" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) OR u.id = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT auth.uid() ) );
+CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrowers" FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role') = 'مستثمر') AND ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text))) );
+CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
 
 -- Other table policies
-CREATE POLICY "Allow auth users to read all app_config" ON "public"."app_config" AS PERMISSIVE FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow users to see their own notifications" ON "public"."notifications" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = "recipientId");
-CREATE POLICY "Allow admin to see all support tickets" ON "public"."support_tickets" AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
-CREATE POLICY "Allow users to see their own submitted tickets" ON "public"."support_tickets" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = "fromUserId");
-CREATE POLICY "Allow investors to see their transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = investor_id);
-CREATE POLICY "Allow managers to see their investors transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role IN ('مدير المكتب', 'مساعد مدير المكتب')) AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
-CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام'));
-CREATE POLICY "Allow managers to read branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف')) );
-CREATE POLICY "Allow admin to read all branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role')::public.user_role = 'مدير النظام') );
+CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow users to see their own notifications" ON "public"."notifications" FOR SELECT TO authenticated USING (auth.uid() = "recipientId");
+CREATE POLICY "Allow admin to see all support tickets" ON "public"."support_tickets" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow users to see their own submitted tickets" ON "public"."support_tickets" FOR SELECT TO authenticated USING (auth.uid() = "fromUserId");
+CREATE POLICY "Allow investors to see their transactions" ON "public"."transactions" FOR SELECT TO authenticated USING (auth.uid() = investor_id);
+CREATE POLICY "Allow team to see their manager's investors transactions" ON "public"."transactions" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب') AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
+CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow team to read their manager's branches" ON "public"."branches" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') );
+CREATE POLICY "Allow admin to read all branches" ON "public"."branches" FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') = 'مدير النظام' );
 
 
 -- ========= Database Functions and Triggers =========
@@ -277,4 +275,5 @@ INSERT INTO public.app_config (key, value) VALUES
 ('graceInvestorSharePercentage', '{"value": 33.3}'),
 ('supportEmail', '{"value": "qzmpty678@gmail.com"}'),
 ('supportPhone', '{"value": "0598360380"}'),
-('defaultTrialPeriodDays', '{"value": 14}');
+('defaultTrialPeriodDays', '{"value": 14}')
+ON CONFLICT (key) DO NOTHING;
