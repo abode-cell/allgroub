@@ -179,7 +179,9 @@ ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 -- Policies for 'users' table
 CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "Allow users to read their own and related users data" ON "public"."users" FOR SELECT TO authenticated USING (id IN (SELECT get_related_users.id FROM get_related_users()));
+CREATE POLICY "Allow users to read their own data" ON "public"."users" FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "Allow team members to read each other's data" ON "public"."users" FOR SELECT to authenticated USING (id IN (SELECT get_related_users.id FROM get_related_users()));
+
 
 -- Policies for 'investors' table
 CREATE POLICY "Allow investors to read their own data" ON "public"."investors" FOR SELECT TO authenticated USING (auth.uid() = id);
@@ -190,6 +192,8 @@ CREATE POLICY "Allow admin to read all investors" ON "public"."investors" FOR SE
 CREATE POLICY "Allow team to read their manager's borrowers" ON "public"."borrowers" FOR SELECT TO authenticated USING ( (SELECT role FROM public.users WHERE id = auth.uid()) IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) OR u.id = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT auth.uid() ) );
 CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrowers" FOR SELECT TO authenticated USING ( ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مستثمر') AND ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text))) );
 CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" FOR SELECT TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow authenticated to delete pending/rejected borrowers" ON public.borrowers FOR DELETE USING (status IN ('معلق', 'مرفوض'));
+
 
 -- Other table policies
 CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" FOR SELECT TO authenticated USING (true);
