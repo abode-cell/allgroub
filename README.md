@@ -170,29 +170,29 @@ ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow users to read their own data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "Allow managers to read their team data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (id IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = auth.uid() ));
 CREATE POLICY "Allow team members to read their manager data" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING (id IN ( SELECT u."managedBy" FROM public.users u WHERE u.id = auth.uid() ));
-CREATE POLICY "Allow admin to read all users" ON "public"."users" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام') WITH CHECK ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
 CREATE POLICY "Allow users to update their own data" ON "public"."users" AS PERMISSIVE FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Policies for 'investors' table
 CREATE POLICY "Allow investors to read their own data" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = id);
-CREATE POLICY "Allow managers to read their investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() -> 'user_metadata' ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub. "managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) );
-CREATE POLICY "Allow admin to read all investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow managers to read their investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) );
+CREATE POLICY "Allow admin to read all investors" ON "public"."investors" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
 
 -- Policies for 'borrowers' table
-CREATE POLICY "Allow managers to read team borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() -> 'user_metadata' ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) OR u.id = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT auth.uid() ) );
-CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مستثمر') AND ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text))) );
-CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow managers to read team borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') AND "submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) OR u.id = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT auth.uid() ) );
+CREATE POLICY "Allow investors to read their funded loans" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ( ((auth.jwt() ->> 'user_role') = 'مستثمر') AND ("fundedBy" @> jsonb_build_array(jsonb_build_object('investorId', auth.uid()::text))) );
+CREATE POLICY "Allow admin to read all borrowers" ON "public"."borrowers" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
 
 -- Other table policies
 CREATE POLICY "Allow auth users to read all app_config" ON "public"."app_config" AS PERMISSIVE FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow users to see their own notifications" ON "public"."notifications" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = "recipientId");
-CREATE POLICY "Allow admin to see all support tickets" ON "public"."support_tickets" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow admin to see all support tickets" ON "public"."support_tickets" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
 CREATE POLICY "Allow users to see their own submitted tickets" ON "public"."support_tickets" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = "fromUserId");
 CREATE POLICY "Allow investors to see their transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING (auth.uid() = investor_id);
-CREATE POLICY "Allow managers to see their investors transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() -> 'user_metadata' ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب') AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
-CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام');
-CREATE POLICY "Allow managers to read branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() -> 'user_metadata' ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') );
-CREATE POLICY "Allow admin to read all branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() -> 'user_metadata' ->> 'user_role') = 'مدير النظام' );
+CREATE POLICY "Allow managers to see their investors transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب') AND investor_id IN ( SELECT i.id FROM public.investors i WHERE i."submittedBy" IN ( SELECT u.id FROM public.users u WHERE u."managedBy" = (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) UNION SELECT (SELECT sub."managedBy" FROM public.users sub WHERE sub.id = auth.uid()) ) ) );
+CREATE POLICY "Allow admin to read all transactions" ON "public"."transactions" AS PERMISSIVE FOR SELECT TO authenticated USING ((auth.jwt() ->> 'user_role') = 'مدير النظام');
+CREATE POLICY "Allow managers to read branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') IN ('مدير المكتب', 'مساعد مدير المكتب', 'موظف') );
+CREATE POLICY "Allow admin to read all branches" ON "public"."branches" AS PERMISSIVE FOR SELECT TO authenticated USING ( (auth.jwt() ->> 'user_role') = 'مدير النظام' );
 
 
 -- ========= Database Functions and Triggers =========
@@ -269,4 +269,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}');
 ```
-
