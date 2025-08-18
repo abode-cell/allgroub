@@ -194,15 +194,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        const { data: currentUserProfile, error: profileError } = await supabaseClient
-            .from('users')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
+        // Fetch all data concurrently. RLS will handle security.
+        const [
+          { data: all_users_data, error: usersError },
+          { data: investors_data, error: investorsError },
+          { data: borrowers_data, error: borrowersError },
+          { data: transactions_data, error: transactionsError },
+          { data: notifications_data, error: notificationsError },
+          { data: support_tickets_data, error: supportTicketsError },
+          { data: app_config_data, error: appConfigError },
+          { data: branches_data, error: branchesError }
+        ] = await Promise.all([
+          supabaseClient.from('users').select('*'),
+          supabaseClient.from('investors').select('*'),
+          supabaseClient.from('borrowers').select('*'),
+          supabaseClient.from('transactions').select('*'),
+          supabaseClient.from('notifications').select('*'),
+          supabaseClient.from('support_tickets').select('*'),
+          supabaseClient.from('app_config').select('*'),
+          supabaseClient.from('branches').select('*')
+        ]);
+        
+        // A single error in fetching primary data (users) is critical.
+        if (usersError || !all_users_data) {
+             await supabaseClient.auth.signOut();
+             throw new Error(`فشل في جلب ملف المستخدم: ${usersError?.message || 'المستخدم غير موجود'}`);
+        }
 
-        if (profileError || !currentUserProfile) {
+        const currentUserProfile = all_users_data.find(u => u.id === authUser.id);
+        if(!currentUserProfile) {
             await supabaseClient.auth.signOut();
-            throw new Error(`فشل في جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
+            throw new Error('لم يتم العثور على ملف تعريف المستخدم الحالي في قاعدة البيانات.');
         }
 
         if (currentUserProfile.status !== 'نشط') {
@@ -215,30 +237,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setDataLoading(false);
             return;
         }
-        
-        const [
-          { data: all_users_data, error: usersError },
-          { data: investors_data, error: investorsError },
-          { data: borrowers_data, error: borrowersError },
-          { data: transactions_data, error: transactionsError },
-          { data: notifications_data, error: notificationsError },
-          { data: support_tickets_data, error: supportTicketsError },
-          { data: app_config_data, error: appConfigError },
-          { data: branches_data, error: branchesError }
-        ] = await Promise.all([
-          supabaseClient.from('users').select('*'), // Fetch all users for admin/filtering
-          supabaseClient.from('investors').select('*'),
-          supabaseClient.from('borrowers').select('*'),
-          supabaseClient.from('transactions').select('*'),
-          supabaseClient.from('notifications').select('*'),
-          supabaseClient.from('support_tickets').select('*'),
-          supabaseClient.from('app_config').select('*'),
-          supabaseClient.from('branches').select('*')
-        ]);
-        
-        if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
+
+        if (investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
           console.error({usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
-          throw new Error('فشل في جلب أحد الموارد الثانوية.');
+          throw new Error('فشل في جلب بعض البيانات الثانوية. قد تكون الصلاحيات غير صحيحة.');
         }
 
         const configData = app_config_data.reduce((acc: any, row: any) => {
