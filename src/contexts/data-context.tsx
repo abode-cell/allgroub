@@ -194,7 +194,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
 
-        // Step 1: Fetch all data concurrently using Promise.all
+        // Stage 1: Fetch all data concurrently using Promise.all
         const [
           { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
@@ -215,20 +215,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabaseClient.from('branches').select('*')
         ]);
         
-        if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
-          console.error({usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
-          throw new Error('فشل في جلب بعض البيانات. قد تكون صلاحيات RLS غير صحيحة.');
-        }
-
-        // Step 2: Find the current user's profile from the fetched data.
-        const currentUserProfile = all_users_data.find(u => u.id === authUser.id);
+        // Find the current user's profile from the fetched data.
+        const currentUserProfile = all_users_data?.find(u => u.id === authUser.id);
 
         if (!currentUserProfile) {
             await supabaseClient.auth.signOut();
-            throw new Error(`ملف المستخدم الخاص بك غير موجود في قاعدة البيانات.`);
+            throw new Error(`ملف المستخدم الخاص بك غير موجود في قاعدة البيانات. قد يكون السبب مشكلة في الصلاحيات.`);
         }
 
-        // Step 3: Check user status.
+        // Check user status.
         if (currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
             if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
@@ -240,7 +235,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Step 4: Process and set all data into state
+        if (usersError || investorsError || borrowersError || transactionsError || notificationsError || supportTicketsError || appConfigError || branchesError) {
+          console.error({usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError});
+          throw new Error('فشل في جلب بعض البيانات. قد تكون صلاحيات RLS غير صحيحة.');
+        }
+
+        // Stage 2: Process and set all data into state
         const configData = app_config_data.reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
             return acc;
@@ -1717,3 +1717,5 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
+
+    
