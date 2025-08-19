@@ -61,7 +61,7 @@ type DataContextValue = {
   signIn: (email: string, password?: string) => Promise<SignInResult>;
   signOutUser: () => void;
   registerNewOfficeManager: (payload: NewManagerPayload) => Promise<{ success: boolean; message: string }>;
-  addBranch: (branch: Omit<Branch, 'id' | 'office_id'>) => Promise<{success: boolean, message: string}>;
+  addBranch: (branch: Omit<Branch, 'id' | 'manager_id'>) => Promise<{success: boolean, message: string}>;
   deleteBranch: (branchId: string) => void;
   updateSupportInfo: (info: { email?: string; phone?: string }) => void;
   updateBaseInterestRate: (rate: number) => void;
@@ -217,19 +217,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
           { data: notifications_data, error: notificationsError },
           { data: support_tickets_data, error: supportTicketsError },
           { data: app_config_data, error: appConfigError },
-          { data: branches_data, error: branchesError }
         ] = await Promise.all([
-          supabaseClient.from('users').select('*'),
+          supabaseClient.from('users').select('*, branches(*)'),
           supabaseClient.from('investors').select('*'),
           supabaseClient.from('borrowers').select('*'),
           supabaseClient.from('transactions').select('*'),
           supabaseClient.from('notifications').select('*'),
           supabaseClient.from('support_tickets').select('*'),
           supabaseClient.from('app_config').select('*'),
-          supabaseClient.from('branches').select('*')
         ]);
         
-        const errors = { usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError };
+        const errors = { usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError };
         for (const [key, error] of Object.entries(errors)) {
             if (error) {
                 console.error(`Error fetching ${key}:`, error);
@@ -252,13 +250,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithBranches = (all_users_data || []).map((u: User) => ({
-            ...u,
-            branches: (branches_data || []).filter((b: Branch) => b.office_id === u.id)
-        }));
-        
         setData({
-            users: usersWithBranches,
+            users: all_users_data || [],
             investors: investors_data || [],
             borrowers: borrowersWithData,
             transactions: transactions_data || [],
@@ -857,7 +850,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
         const supabase = getSupabaseBrowserClient();
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'غير مصرح به' };
-
+        
         const { data: { user }, error: signUpError } = await supabase.auth.signUp({
           email: payload.email,
           password: payload.password!,
@@ -964,6 +957,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
+        const { data: userToUpdate } = await supabase.from('users').select('role').eq('id', userId).single();
+        if (!userToUpdate) throw new Error("لم يتم العثور على المستخدم.");
+
         const { error } = await supabase.functions.invoke('update-user-credentials', { body: { userId, updates } });
         if (error) throw new Error(error.message);
         
@@ -1125,7 +1121,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
        toast({ title: 'تم إرسال الرسالة بنجاح (محاكاة)' });
   }, [toast, fetchData]);
   
-  const addBranch = useCallback(async (branch: Omit<Branch, 'id' | 'office_id'>): Promise<{success: boolean, message: string}> => {
+  const addBranch = useCallback(async (branch: Omit<Branch, 'id' | 'manager_id'>): Promise<{success: boolean, message: string}> => {
     const supabase = getSupabaseBrowserClient();
     if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) {
         toast({variant: 'destructive', title: 'خطأ', description: 'غير مصرح به.'});
@@ -1137,7 +1133,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
     }
 
-    const { error } = await supabase.from('branches').insert({ ...branch, office_id: currentUser.id });
+    const { error } = await supabase.from('branches').insert({ ...branch, manager_id: currentUser.id });
 
     if (error) {
         console.error("Error adding branch:", error);
@@ -1243,3 +1239,5 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
+
+    

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useDataState, useDataActions } from '@/contexts/data-context';
@@ -259,6 +258,7 @@ export default function UsersPage() {
     phone: '',
     password: '',
     confirmPassword: '',
+    branch_id: null as string | null,
   });
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
@@ -270,7 +270,7 @@ export default function UsersPage() {
   
   const [isEditCredsDialogOpen, setIsEditCredsDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const [editCredsForm, setEditCredsForm] = useState({ email: '', password: '', officeName: '' });
+  const [editCredsForm, setEditCredsForm] = useState({ email: '', password: '', officeName: '', branch_id: null as string | null });
   const [isCredsSubmitting, setIsCredsSubmitting] = useState(false);
   
   const role = currentUser?.role;
@@ -320,7 +320,7 @@ export default function UsersPage() {
   
   const handleEditCredsClick = (user: User) => {
     setUserToEdit(user);
-    setEditCredsForm({ email: user.email, password: '', officeName: user.office_name || '' });
+    setEditCredsForm({ email: user.email, password: '', officeName: user.office_name || '', branch_id: user.branch_id || null });
     setIsEditCredsDialogOpen(true);
   };
 
@@ -334,7 +334,7 @@ export default function UsersPage() {
     if (!userToEdit) return;
     setIsCredsSubmitting(true);
     
-    const updates: { email?: string; password?: string, officeName?: string } = {};
+    const updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null } = {};
     if (editCredsForm.email !== userToEdit.email) {
       updates.email = editCredsForm.email;
     }
@@ -343,6 +343,9 @@ export default function UsersPage() {
     }
      if (userToEdit.role === 'مدير المكتب' && editCredsForm.officeName !== (userToEdit.office_name || '')) {
       updates.officeName = editCredsForm.officeName;
+    }
+     if (userToEdit.role !== 'مدير المكتب' && editCredsForm.branch_id !== (userToEdit.branch_id || null)) {
+      updates.branch_id = editCredsForm.branch_id;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -426,8 +429,8 @@ export default function UsersPage() {
     }
     
     setIsSubmittingNewUser(true);
-    const { name, email, phone, password } = addUserForm;
-    const result = await addNewSubordinateUser({ name, email, phone, password }, addUserForm.role);
+    const { name, email, phone, password, branch_id } = addUserForm;
+    const result = await addNewSubordinateUser({ name, email, phone, password, branch_id }, addUserForm.role);
     if (result.success) {
         setIsAddUserDialogOpen(false);
     }
@@ -487,10 +490,10 @@ export default function UsersPage() {
               onValueChange={handleAccordionChange}
             >
               {officeManagers.map((manager) => {
-                const teamUsers = users.filter(u => u.office_id === manager.office_id);
+                const teamUsers = users.filter(u => u.office_id === manager.id);
                 const employees = teamUsers.filter(u => u.role === 'موظف');
                 const assistants = teamUsers.filter(u => u.role === 'مساعد مدير المكتب');
-                const managerInvestors = investors.filter(i => i.office_id === manager.office_id);
+                const managerInvestors = investors.filter(i => i.office_id === manager.id);
                 const officeName = manager.office_name || manager.name;
 
                 return (
@@ -700,7 +703,7 @@ export default function UsersPage() {
                           </SelectItem>
                           <SelectItem value="مدير المكتب">
                             مدير المكتب
-                          </SelectItem>
+                          SelectItem>
                           <SelectItem value="مساعد مدير المكتب">
                             مساعد مدير المكتب
                           </SelectItem>
@@ -1146,6 +1149,25 @@ export default function UsersPage() {
                 <Label htmlFor="confirmPassword">تأكيد كلمة المرور</Label>
                 <Input id="confirmPassword" type="password" value={addUserForm.confirmPassword} onChange={handleInputChange} required />
               </div>
+               {myBranches.length > 0 && (
+                <div className="space-y-2">
+                    <Label htmlFor="branch_id">الفرع (اختياري)</Label>
+                    <Select
+                        value={addUserForm.branch_id || ''}
+                        onValueChange={(value) => setAddUserForm(prev => ({ ...prev, branch_id: value || null }))}
+                    >
+                        <SelectTrigger id="branch_id">
+                            <SelectValue placeholder="اختر فرعًا..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">بلا فرع</SelectItem>
+                            {myBranches.map(branch => (
+                                <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <DialogClose asChild>
@@ -1208,6 +1230,25 @@ export default function UsersPage() {
                   placeholder="اتركه فارغًا لعدم التغيير"
                 />
               </div>
+              {userToEdit?.role !== 'مدير المكتب' && myBranches.length > 0 && (
+                 <div className="space-y-2">
+                    <Label htmlFor="branch_id_edit">الفرع</Label>
+                    <Select
+                        value={editCredsForm.branch_id || ''}
+                        onValueChange={(value) => setEditCredsForm(prev => ({ ...prev, branch_id: value || null }))}
+                    >
+                        <SelectTrigger id="branch_id_edit">
+                            <SelectValue placeholder="اختر فرعًا..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">بلا فرع</SelectItem>
+                            {myBranches.map(branch => (
+                                <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <DialogClose asChild>
@@ -1263,3 +1304,5 @@ export default function UsersPage() {
     </>
   );
 }
+
+    

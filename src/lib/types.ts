@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف' | 'مستثمر';
 
 export type PermissionKey = 
@@ -47,7 +46,7 @@ export type NewManagerPayload = {
 
 export type Branch = {
   id: string;
-  office_id: string;
+  manager_id: string;
   name: string;
   city: string;
 };
@@ -133,7 +132,6 @@ export type WithdrawalMethod = 'نقدي' | 'بنكي';
 export type Transaction = {
   id: string;
   office_id: string;
-  branch_id: string | null;
   investor_id: string;
   date: string;
   type: TransactionType;

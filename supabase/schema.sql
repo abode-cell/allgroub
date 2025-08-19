@@ -1,5 +1,3 @@
--- supabase/schema.sql
-
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -15,8 +13,8 @@ DROP TABLE IF EXISTS public.support_tickets CASCADE;
 DROP TABLE IF EXISTS public.transactions CASCADE;
 DROP TABLE IF EXISTS public.borrowers CASCADE;
 DROP TABLE IF EXISTS public.investors CASCADE;
-DROP TABLE IF EXISTS public.users CASCADE;
 DROP TABLE IF EXISTS public.branches CASCADE;
+DROP TABLE IF EXISTS public.users CASCADE;
 DROP TABLE IF EXISTS public.app_config CASCADE;
 
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
@@ -53,7 +51,7 @@ COMMENT ON TABLE public.app_config IS 'Stores global application settings.';
 CREATE TABLE public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     office_id UUID,
-    branch_id UUID,
+    branch_id UUID, -- This will be a foreign key later
     name TEXT NOT NULL,
     office_name TEXT,
     email TEXT UNIQUE NOT NULL,
@@ -78,7 +76,7 @@ COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users.';
 -- Branches Table
 CREATE TABLE public.branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    office_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    manager_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     city TEXT NOT NULL
 );
@@ -188,7 +186,7 @@ CREATE INDEX ON public.transactions (investor_id);
 CREATE INDEX ON public.transactions ("office_id");
 CREATE INDEX ON public.notifications ("recipientId");
 CREATE INDEX ON public.borrowers ("nationalId");
-CREATE INDEX ON public.branches ("office_id");
+CREATE INDEX ON public.branches ("manager_id");
 
 
 -- ========= Helper Functions for RLS Policies =========
@@ -277,8 +275,8 @@ CREATE POLICY "Allow office members to manage their transactions" ON public.tran
 DROP POLICY IF EXISTS "Allow office managers to manage their own branches" ON public.branches;
 DROP POLICY IF EXISTS "Allow office members to read branch data" ON public.branches;
 
-CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (office_id = auth.uid() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
-CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (office_id = get_current_office_id());
+CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (manager_id = get_current_office_id() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
+CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (manager_id = get_current_office_id());
 
 
 -- POLICIES FOR: support_tickets AND notifications
@@ -334,40 +332,31 @@ BEGIN
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
     user_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
 
-    -- If the role is 'مدير المكتب', this is a new signup. The office_id is the user's own id.
+    -- For Office Managers, their office_id is their own user_id. This is a crucial link.
     IF user_role_text = 'مدير المكتب' THEN
         -- Fetch the default trial period from app_config
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
         trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
-
-        -- Insert the new office manager into the public.users table
-        INSERT INTO public.users (id, name, office_name, email, phone, role, office_id, "trialEndsAt")
-        VALUES (
-            new.id,
-            new.raw_user_meta_data->>'full_name',
-            new.raw_user_meta_data->>'office_name',
-            new.email,
-            new.raw_user_meta_data->>'raw_phone_number',
-            user_role_text::public.user_role,
-            new.id, -- The office_id is the manager's own id
-            trial_end_date
-        );
+        user_office_id := new.id; -- The manager's ID becomes their office ID.
     ELSE
-        -- For other roles (employee, assistant, investor), they are created by a manager.
-        INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id, status)
-        VALUES (
-            new.id,
-            new.raw_user_meta_data->>'full_name',
-            new.email,
-            new.raw_user_meta_data->>'raw_phone_number',
-            user_role_text::public.user_role,
-            user_managed_by,
-            user_office_id,
-            user_branch_id,
-            'نشط' -- Subordinates are activated immediately
-        );
+        trial_end_date := NULL;
     END IF;
+
+    -- Insert the new user into the public.users table
+    INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, branch_id, "trialEndsAt")
+    VALUES (
+        new.id,
+        new.raw_user_meta_data->>'full_name',
+        new.raw_user_meta_data->>'office_name',
+        new.email,
+        new.raw_user_meta_data->>'raw_phone_number',
+        user_role_text::public.user_role,
+        user_managed_by,
+        user_office_id,
+        user_branch_id,
+        trial_end_date
+    );
 
     RETURN new;
 END;
@@ -455,4 +444,5 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-```
+
+    
