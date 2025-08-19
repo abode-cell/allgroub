@@ -13,6 +13,7 @@ interface InvestorPayload {
   graceCapital: number;
   installmentProfitShare: number;
   gracePeriodProfitShare: number;
+  branch_id?: string; // Branch is now optional
 }
 
 serve(async (req) => {
@@ -49,6 +50,7 @@ serve(async (req) => {
         raw_phone_number: payload.phone,
         user_role: 'مستثمر',
         managedBy: managerAuth.id,
+        branch_id: payload.branch_id
       },
     });
 
@@ -64,12 +66,13 @@ serve(async (req) => {
     
     // The handle_new_user trigger creates the user & investor record.
 
-    // Update the investor record with profit shares
+    // Update the investor record with profit shares and branch_id
     const { error: investorUpdateError } = await supabaseAdmin
       .from("investors")
       .update({
         installmentProfitShare: payload.installmentProfitShare,
         gracePeriodProfitShare: payload.gracePeriodProfitShare,
+        branch_id: payload.branch_id,
       }).eq('id', newAuthUser.id);
     if(investorUpdateError) throw new Error(`Investor update error: ${investorUpdateError.message}`);
 
@@ -79,6 +82,7 @@ serve(async (req) => {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
         office_id: managerProfile.office_id,
+        branch_id: payload.branch_id,
         id: `tx_inst_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.installmentCapital,
@@ -91,6 +95,7 @@ serve(async (req) => {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
         office_id: managerProfile.office_id,
+        branch_id: payload.branch_id,
         id: `tx_grace_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.graceCapital,

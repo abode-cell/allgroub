@@ -34,6 +34,7 @@ export type NewUserPayload = {
   phone: string;
   password?: string;
   confirmPassword?: string;
+  branch_id?: string;
 };
 
 export type NewManagerPayload = {
@@ -55,6 +56,7 @@ export type Branch = {
 export type User = {
   id: string;
   office_id: string | null;
+  branch_id: string | null;
   name: string;
   office_name?: string;
   email: string;
@@ -87,6 +89,7 @@ export type InstallmentStatus = 'لم يسدد بعد' | 'تم السداد' | '
 export type Borrower = {
   id: string;
   office_id: string;
+  branch_id: string | null;
   name: string;
   nationalId: string;
   phone: string;
@@ -130,6 +133,7 @@ export type WithdrawalMethod = 'نقدي' | 'بنكي';
 export type Transaction = {
   id: string;
   office_id: string;
+  branch_id: string | null;
   investor_id: string;
   date: string;
   type: TransactionType;
@@ -142,6 +146,7 @@ export type Transaction = {
 export type Investor = {
   id:string;
   office_id: string;
+  branch_id: string | null;
   name: string;
   date: string;
   status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض' | 'محذوف';
@@ -160,6 +165,7 @@ export type UpdatableInvestor = Pick<
   | 'status'
   | 'installmentProfitShare'
   | 'gracePeriodProfitShare'
+  | 'branch_id'
 >;
 
 export type NewInvestorPayload = {
@@ -171,6 +177,7 @@ export type NewInvestorPayload = {
     password?: string;
     installmentProfitShare: number;
     gracePeriodProfitShare: number;
+    branch_id?: string;
 };
 
 export type SupportTicket = {

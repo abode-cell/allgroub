@@ -4,12 +4,10 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Phone, Rocket, TrendingUp, Handshake, ShieldCheck } from 'lucide-react';
+import { Mail, Phone, Rocket, TrendingUp, Handshake, ShieldCheck, GitBranch, Users, MonitorSmartphone } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 export default function LandingPage() {
-    // These values can be fetched from a global config or context if they need to be dynamic.
-    // For a simple landing page, hardcoding is fine.
     const supportEmail = 'qzmpty678@gmail.com';
     const supportPhone = '0598360380';
 
@@ -43,14 +41,14 @@ export default function LandingPage() {
                     <div className="container mx-auto px-4 md:px-6 text-center">
                         <div className="flex flex-col items-center space-y-6">
                             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
-                                حوّل تعقيدات التمويل إلى عمليات بسيطة ومؤتمتة
+                                من مكتب واحد إلى شبكة فروع متكاملة
                             </h1>
                             <p className="max-w-[700px] text-muted-foreground md:text-xl">
-                                منصة عال تزيل عنك عبء الحسابات اليدوية وتقسيم الأرباح. أدر عملياتك التمويلية بدقة، ووفّر وقتك الثمين للتركيز على نمو أعمالك.
+                                منصة عال تتطور معك. أدر عملياتك التمويلية عبر عدة فروع بدقة وسهولة، وعيّن الموارد لكل فرع، وراقب الأداء من لوحة تحكم مركزية وذكية.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Button asChild size="lg">
-                                    <Link href="/signup">ابدأ الآن: أنشئ حساب مكتبك</Link>
+                                    <Link href="/signup">ابدأ الآن: أنشئ حساب مكتبك الرئيسي</Link>
                                 </Button>
                             </div>
                         </div>
@@ -64,35 +62,35 @@ export default function LandingPage() {
                             <div className="inline-block rounded-lg bg-secondary px-3 py-1 text-sm">آلية العمل</div>
                             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">منصة واحدة لإدارة دورتك المالية بالكامل</h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-lg/relaxed lg:text-base/relaxed xl:text-lg/relaxed">
-                                نحن لا نربطك بمستثمرين جدد، بل نمنحك الأداة لإدارة علاقتك مع مستثمريك الحاليين بكفاءة وشفافية.
+                                نحن لا نربطك بمستثمرين جدد، بل نمنحك الأداة لإدارة علاقتك مع مستثمريك الحاليين بكفاءة وشفافية عبر جميع فروعك.
                             </p>
                         </div>
                         <div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-3 md:gap-12">
-                            <div className="grid gap-2 text-center">
+                             <div className="grid gap-2 text-center">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <Rocket className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">1. أنشئ حسابك</h3>
+                                <h3 className="text-xl font-bold">1. أنشئ مكتبك الرئيسي</h3>
                                 <p className="text-muted-foreground">
-                                    يقوم مدير المكتب بإنشاء حساب وتحديد إعدادات المكتب الأساسية.
+                                    سجّل حسابك كمدير مكتب لتأسيس مركز عملياتك.
                                 </p>
                             </div>
                              <div className="grid gap-2 text-center">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
-                                    <Handshake className="h-8 w-8" />
+                                    <GitBranch className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">2. أضف بياناتك</h3>
+                                <h3 className="text-xl font-bold">2. أضف فروعك ومواردك</h3>
                                 <p className="text-muted-foreground">
-                                    أضف المستثمرين الخاصين بك وعمليات القروض التي تديرها.
+                                    عرّف فروعك المختلفة، ثم قم بإضافة وتعيين المستثمرين والموظفين لكل فرع.
                                 </p>
                             </div>
                             <div className="grid gap-2 text-center">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <TrendingUp className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">3. أدر وتابع</h3>
+                                <h3 className="text-xl font-bold">3. أدر وتابع الأداء</h3>
                                 <p className="text-muted-foreground">
-                                    استخدم لوحة التحكم لمتابعة كل شيء: من الأرصدة المتاحة إلى الأرباح المحققة والتقارير المفصلة.
+                                    استخدم لوحة التحكم المركزية لمتابعة أداء كل فرع على حدة أو عرض نظرة شاملة لشبكتك بالكامل.
                                 </p>
                             </div>
                         </div>
@@ -103,47 +101,47 @@ export default function LandingPage() {
                 <section id="for-managers" className="w-full min-h-screen flex items-center justify-center bg-muted/50">
                     <div className="container px-4 md:px-6">
                         <div className="flex flex-col items-center justify-center space-y-4 text-center">
-                            <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">للمكتب: تحكم كامل وراحة بال</div>
-                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">إدارة مالية ذكية تمنحك التحكم والراحة</h2>
+                            <div className="inline-block rounded-lg bg-primary px-3 py-1 text-sm text-primary-foreground">للمدراء: إدارة شبكة متكاملة</div>
+                            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">حوّل تعقيدات الفروع إلى فرص للنمو</h2>
                             <p className="max-w-[900px] text-muted-foreground md:text-lg/relaxed">
-                                صُممت منصة عال لتكون مساعدك المالي الذكي. ودّع جداول الإكسل المعقدة، والمتابعة اليدوية المرهقة، وأخطاء الحسابات. نحن نمنحك الأدوات اللازمة لإدارة دورتك المالية بدقة وسهولة، مما يتيح لك بناء علاقات أقوى مع مستثمريك وتنمية أعمالك بثقة.
+                                تم تصميم منصة "عال" لتمكينك من إدارة شبكة أعمالك المالية بالكامل من مكان واحد. لا مزيد من العناء في متابعة كل فرع على حدة. نحن نمنحك رؤية شاملة وتحكمًا دقيقًا لتنمية أعمالك بثقة.
                             </p>
                         </div>
                         <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 mt-12">
                             <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">إدارة مركزية للقروض</h3>
+                                <h3 className="text-lg font-bold flex items-center gap-2"><GitBranch className="w-5 h-5 text-primary"/>إدارة مركزية للفروع</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    أضف جميع المستثمرين والقروض في مكان واحد. تتبع كل عملية تمويل، وحدد حالة كل قرض، وتابع الأرصدة المتاحة بسهولة.
-                                </p>
-                            </div>
-                            <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">حسابات أرباح دقيقة وتلقائية</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    تقوم المنصة تلقائيًا بحساب حصص الأرباح لكل من المكتب والمستثمرين من كل قرض، مهما بلغت درجة تعقيد التمويل. لا مزيد من الأخطاء البشرية أو الساعات الضائعة.
-                                </p>
-                            </div>
-                            <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">تقارير شاملة لاتخاذ القرارات</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    احصل على تقارير مفصلة عن أداء القروض، وحالة المستثمرين، والأموال المتعثرة لاتخاذ قرارات مدروسة ومبنية على بيانات دقيقة.
-                                </p>
-                            </div>
-                            <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">إدارة فريق العمل بصلاحيات</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    أضف موظفيك ومساعديك، وتحكم في صلاحياتهم بدقة. يمكنك منحهم صلاحيات محددة مثل إضافة القروض أو إدارة المستثمرين، مما يضمن سير العمل بكفاءة وأمان.
+                                    أضف فروعك بسهولة، وراقب أداء كل فرع من لوحة تحكم واحدة. قارن بين الفروع واتخذ قرارات استراتيجية مبنية على بيانات دقيقة.
                                 </p>
                             </div>
                              <div className="grid gap-2">
-                                <h3 className="text-lg font-bold text-primary flex items-center gap-2"><ShieldCheck className="w-5 h-5" /> نظام ذكي لمنع تكرار العملاء</h3>
+                                <h3 className="text-lg font-bold flex items-center gap-2"><Users className="w-5 h-5 text-primary"/>تعيين الموارد لكل فرع</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    عند محاولة إضافة عميل مسجل بقرض نشط في مكتب آخر، يقوم النظام بتنبيهك وعرض بيانات مدير المكتب الآخر، مع منحك خيار المتابعة لاتخاذ القرار المناسب.
+                                    خصص الموظفين والمستثمرين لكل فرع على حدة. كل فريق يرى البيانات الخاصة بفرعه فقط، مما يضمن التركيز والأمان.
                                 </p>
                             </div>
                             <div className="grid gap-2">
-                                <h3 className="text-lg font-bold">شفافية لبناء الثقة</h3>
+                                <h3 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="w-5 h-5 text-primary"/>تقارير أداء تفصيلية</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    عندما تدعو مستثمرك للمنصة، فإنك تبني جسرًا من الثقة من خلال الشفافية المطلقة في عرض تفاصيل الاستثمارات والأرباح المحققة.
+                                    احصل على تقارير مالية لكل فرع، أو تقرير شامل لشبكتك بالكامل. تتبع الأرباح، الديون، والقروض المتعثرة بسهولة.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-primary"/>صلاحيات مخصصة وآمنة</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    أضف مساعدين وموظفين لكل فرع مع تحديد صلاحياتهم بدقة. أنت المتحكم الكامل فيمن يرى ماذا، ومن يفعل ماذا.
+                                </p>
+                            </div>
+                            <div className="grid gap-2">
+                                <h3 className="text-lg font-bold flex items-center gap-2"><MonitorSmartphone className="w-5 h-5 text-primary"/>متابعة من أي مكان</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    سواء كنت في المكتب الرئيسي أو في زيارة لأحد الفروع، يمكنك متابعة جميع عملياتك من خلال أي جهاز.
+                                </p>
+                            </div>
+                             <div className="grid gap-2">
+                                <h3 className="text-lg font-bold flex items-center gap-2"><Handshake className="w-5 h-5 text-primary"/>شفافية لبناء الثقة</h3>
+                                <p className="text-sm text-muted-foreground">
+                                   عندما تدعو مستثمرك للمنصة، فإنك تبني جسرًا من الثقة من خلال الشفافية المطلقة في عرض تفاصيل الاستثمارات والأرباح.
                                 </p>
                             </div>
                         </div>

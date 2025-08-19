@@ -10,6 +10,7 @@ interface SubordinatePayload {
   phone: string;
   password?: string;
   role: 'موظف' | 'مساعد مدير المكتب';
+  branch_id?: string; // Branch is now optional
 }
 
 serve(async (req) => {
@@ -48,6 +49,7 @@ serve(async (req) => {
         user_role: payload.role,
         managedBy: managerAuth.id,
         office_id: managerProfile.office_id, // Pass the manager's office_id
+        branch_id: payload.branch_id
       },
     });
 

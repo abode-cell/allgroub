@@ -60,6 +60,7 @@ serve(async (req) => {
     const { error: insertError } = await supabaseAdmin.from("borrowers").insert({
         id: newLoanId,
         office_id: originalBorrower.office_id,
+        branch_id: originalBorrower.branch_id, // Carry over the branch_id
         name: `${originalBorrower.name}`,
         nationalId: originalBorrower.nationalId,
         phone: originalBorrower.phone,

@@ -10,6 +10,7 @@ interface UpdatePayload {
     email?: string;
     password?: string;
     officeName?: string;
+    branch_id?: string;
   };
 }
 
@@ -88,9 +89,9 @@ serve(async (req) => {
     // 5. Update public.users table 
     const dbUpdates: any = {};
     if (updates.email) dbUpdates.email = updates.email;
+    if (updates.branch_id) dbUpdates.branch_id = updates.branch_id;
     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
-      const { error: officeUpdateError } = await supabaseAdmin.from('offices').update({ name: updates.officeName }).eq('id', userToUpdate.office_id);
-      if(officeUpdateError) throw new Error(`Office name update error: ${officeUpdateError.message}`);
+      dbUpdates.office_name = updates.officeName;
     }
 
     if (Object.keys(dbUpdates).length > 0) {
