@@ -4,7 +4,7 @@
 
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, forwardRef } from 'react';
 import {
   Card,
   CardContent,
@@ -141,101 +141,94 @@ const employeePermissionsConfig: {
   { key: 'useCalculator', label: 'استخدام الحاسبة', description: 'السماح باستخدام حاسبة القروض والأرباح.' },
 ];
 
-const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDeleteClick: (user: User) => void, onEditClick: (user: User) => void }) => {
-  const { updateUserStatus } = useDataActions();
-  const { currentUser } = useDataState();
-  const [isLoading, setIsLoading] = useState(false);
 
-  const { canEditCredentials, canDeleteUser, canUpdateUserStatus } = useMemo(() => {
-    if (!currentUser || user.id === currentUser.id) {
-        return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
-    }
-    
-    if (user.role === 'مدير النظام') {
-        return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User; onDeleteClick: (user: User) => void; onEditClick: (user: User) => void }) => {
+    const { updateUserStatus } = useDataActions();
+    const { currentUser } = useDataState();
+    const [isLoading, setIsLoading] = useState(false);
+
+    const { canEditCredentials, canDeleteUser, canUpdateUserStatus } = useMemo(() => {
+        if (!currentUser || user.id === currentUser.id) {
+            return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+        }
+        if (user.role === 'مدير النظام') {
+            return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+        }
+        if (user.status === 'محذوف') {
+            return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+        }
+
+        const isSystemAdmin = currentUser.role === 'مدير النظام';
+        const isOfficeManager = currentUser.role === 'مدير المكتب';
+        const isMySubordinate = isOfficeManager && user.office_id === currentUser.office_id;
+        const canEdit = isSystemAdmin || isMySubordinate;
+        const canDelete = isSystemAdmin || isMySubordinate;
+
+        const isAssistant = currentUser.role === 'مساعد مدير المكتب';
+        const canAssistantUpdateStatus = isAssistant && currentUser.permissions?.manageEmployeePermissions && user.role === 'موظف' && user.office_id === currentUser.office_id;
+        const canUpdateStatus = isSystemAdmin || isMySubordinate || canAssistantUpdateStatus;
+        
+        return { canEditCredentials: canEdit, canDeleteUser: canDelete, canUpdateUserStatus: canUpdateStatus };
+    }, [currentUser, user]);
+
+    const handleStatusChange = async (newStatus: 'نشط' | 'معلق') => {
+        setIsLoading(true);
+        await updateUserStatus(user.id, newStatus);
+        setIsLoading(false);
     }
 
     if (user.status === 'محذوف') {
-        return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+        return <Badge variant="outline"><ShieldX className="ml-1 h-3 w-3" />محذوف</Badge>;
+    }
+    
+    if (!canEditCredentials && !canDeleteUser && !canUpdateUserStatus) {
+        return null;
     }
 
-    const isSystemAdmin = currentUser.role === 'مدير النظام';
-    const isOfficeManager = currentUser.role === 'مدير المكتب';
-    
-    // An office manager can edit their subordinates (same office_id)
-    const isMySubordinate = isOfficeManager && user.office_id === currentUser.office_id;
-
-    const canEdit = isSystemAdmin || isMySubordinate;
-    const canDelete = isSystemAdmin || isMySubordinate;
-    
-    const isAssistant = currentUser.role === 'مساعد مدير المكتب';
-    
-    // An assistant with permission can manage employees in the same office.
-    const canAssistantUpdateStatus = isAssistant && currentUser.permissions?.manageEmployeePermissions && user.role === 'موظف' && user.office_id === currentUser.office_id;
-
-    const canUpdateStatus = isSystemAdmin || isMySubordinate || canAssistantUpdateStatus;
-    
-    return { canEditCredentials: canEdit, canDeleteUser: canDelete, canUpdateUserStatus: canUpdateStatus };
-  }, [currentUser, user]);
-
-  const handleStatusChange = async (newStatus: 'نشط' | 'معلق') => {
-    setIsLoading(true);
-    await updateUserStatus(user.id, newStatus);
-    setIsLoading(false);
-  }
-
-  if (user.status === 'محذوف') {
-    return <Badge variant="outline"><ShieldX className="ml-1 h-3 w-3" />محذوف</Badge>;
-  }
-
-  if (!canEditCredentials && !canDeleteUser && !canUpdateUserStatus) {
-    return null;
-  }
-  
-  return (
-    <div className="flex items-center gap-2 justify-start">
-        {canUpdateUserStatus && (
-          user.status === 'معلق' ? (
-            <Button size="sm" variant="outline" onClick={() => handleStatusChange('نشط')} disabled={isLoading}>
-              {isLoading ? <Loader2 className="ml-1 h-4 w-4 animate-spin" /> : <Check className="ml-1 h-4 w-4" />}
-              تفعيل
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => handleStatusChange('معلق')} disabled={isLoading}>
-               {isLoading ? <Loader2 className="ml-1 h-4 w-4 animate-spin" /> : <X className="ml-1 h-4 w-4" />}
-              تعليق
-            </Button>
-          )
-        )}
-        {(canEditCredentials || canDeleteUser) && (
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">فتح قائمة الإجراءات</span>
+    return (
+        <div className="flex items-center gap-2 justify-start">
+            {canUpdateUserStatus && (
+                user.status === 'معلق' ? (
+                    <Button size="sm" variant="outline" onClick={() => handleStatusChange('نشط')} disabled={isLoading}>
+                        {isLoading ? <Loader2 className="ml-1 h-4 w-4 animate-spin" /> : <Check className="ml-1 h-4 w-4" />}
+                        تفعيل
                     </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                     {canEditCredentials && (
-                        <DropdownMenuItem onSelect={() => onEditClick(user)}>
-                            <Edit className="ml-2 h-4 w-4" />
-                            <span>تعديل بيانات الدخول</span>
-                        </DropdownMenuItem>
-                     )}
-                     {canDeleteUser && (
-                        <DropdownMenuItem
-                            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                            onClick={() => onDeleteClick(user)}
-                        >
-                            <Trash2 className="ml-2 h-4 w-4" />
-                            <span>حذف الحساب</span>
-                        </DropdownMenuItem>
-                     )}
-                </DropdownMenuContent>
-            </DropdownMenu>
-        )}
-    </div>
-  );
+                ) : (
+                    <Button size="sm" variant="outline" onClick={() => handleStatusChange('معلق')} disabled={isLoading}>
+                        {isLoading ? <Loader2 className="ml-1 h-4 w-4 animate-spin" /> : <X className="ml-1 h-4 w-4" />}
+                        تعليق
+                    </Button>
+                )
+            )}
+            {(canEditCredentials || canDeleteUser) && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">فتح قائمة الإجراءات</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        {canEditCredentials && (
+                            <DropdownMenuItem onSelect={() => onEditClick(user)}>
+                                <Edit className="ml-2 h-4 w-4" />
+                                <span>تعديل بيانات الدخول</span>
+                            </DropdownMenuItem>
+                        )}
+                        {canDeleteUser && (
+                            <DropdownMenuItem
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                onClick={() => onDeleteClick(user)}
+                            >
+                                <Trash2 className="ml-2 h-4 w-4" />
+                                <span>حذف الحساب</span>
+                            </DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
+        </div>
+    );
 };
 
 
@@ -249,7 +242,7 @@ export default function UsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [editableLimits, setEditableLimits] = useState<
-    Record<string, { investorLimit: string; employeeLimit: string; assistantLimit: string, branchLimit: string }>
+    Record<string, { investorLimit: string; employeeLimit: string; assistantLimit: string; branchLimit: string }>
   >({});
   
   const getInitialAddUserFormState = () => ({
@@ -506,10 +499,10 @@ export default function UsersPage() {
               onValueChange={handleAccordionChange}
             >
               {officeManagers.map((manager) => {
-                const teamUsers = users.filter(u => u.office_id === manager.id);
+                const teamUsers = users.filter(u => u.office_id === manager.office_id);
                 const employees = teamUsers.filter(u => u.role === 'موظف');
                 const assistants = teamUsers.filter(u => u.role === 'مساعد مدير المكتب');
-                const managerInvestors = investors.filter(i => i.office_id === manager.id);
+                const managerInvestors = investors.filter(i => i.office_id === manager.office_id);
                 const officeName = manager.office_name || manager.name;
 
                 return (
