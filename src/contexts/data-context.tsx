@@ -856,41 +856,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addInvestor = useCallback(
     async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
-        const supabase = getSupabaseBrowserClient();
-        if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
-        
-        const { error } = await supabase.auth.signUp({
-          email: payload.email,
-          password: payload.password,
-          options: {
-            data: {
-              full_name: payload.name,
-              raw_phone_number: payload.phone,
-              user_role: 'مستثمر',
-              managedBy: currentUser.id,
-              branch_id: payload.branch_id
-            }
+      const supabase = getSupabaseBrowserClient();
+      if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
+
+      const { error } = await supabase.auth.signUp({
+        email: payload.email,
+        password: payload.password!,
+        options: {
+          data: {
+            full_name: payload.name,
+            raw_phone_number: payload.phone,
+            user_role: 'مستثمر',
+            managedBy: currentUser.id,
+            branch_id: payload.branch_id,
+            // These will be used by the trigger to create initial transactions
+            initial_installment_capital: payload.installmentCapital,
+            initial_grace_capital: payload.graceCapital,
+            investor_installment_profit_share: payload.installmentProfitShare,
+            investor_grace_period_profit_share: payload.gracePeriodProfitShare,
           }
-        });
+        }
+      });
 
-        if (error) {
-            const errorMessage = error.message.includes('already registered') ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' : (error.message || 'فشل إنشاء حساب المستثمر.');
-            toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
-            return { success: false, message: errorMessage };
-        }
-        
-        // This is a workaround because the user object is not immediately available after signUp
-        // We will manually add the transactions and update the profit shares after a delay or upon next fetch
-        if (payload.installmentCapital > 0) {
-          // This part needs to be handled differently, perhaps via an edge function triggered by insert on investors, or manually by admin
-        }
-        if (payload.graceCapital > 0) {
-          // Same as above
-        }
+      if (error) {
+        const errorMessage = error.message.includes('already registered')
+          ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+          : (error.message || 'فشل إنشاء حساب المستثمر.');
+        toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
+        return { success: false, message: errorMessage };
+      }
 
-        await fetchData(supabase);
-        toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
-        return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
+      await fetchData(supabase);
+      toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
+      return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
     },
     [currentUser, fetchData, toast]
   );
@@ -904,7 +902,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         const { error } = await supabase.auth.signUp({
           email: payload.email,
-          password: payload.password,
+          password: payload.password!,
           options: {
             data: {
               full_name: payload.name,
@@ -1228,5 +1226,3 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
-
-    
