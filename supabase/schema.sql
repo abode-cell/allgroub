@@ -1,8 +1,8 @@
 -- supabase/schema.sql
 
 -- ========= Dropping existing objects (optional, for a clean slate) =========
-DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
@@ -189,79 +189,6 @@ AS $$
   WHERE id = auth.uid();
 $$;
 
--- ========= Database Functions and Triggers =========
-
--- This function is called by a trigger when a new user signs up in Supabase Auth.
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE
-    user_role_text TEXT;
-    user_managed_by UUID;
-    user_submitted_by UUID;
-    manager_office_id UUID;
-    new_office_id UUID;
-    trial_period_days INT;
-    trial_end_date TIMESTAMPTZ;
-BEGIN
-    -- Extract role and other metadata
-    user_role_text := new.raw_user_meta_data->>'user_role';
-    user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
-    user_submitted_by := (new.raw_user_meta_data->>'submittedBy')::UUID;
-
-    -- If the role is 'مدير المكتب', create a new office_id and set their trial period
-    IF user_role_text = 'مدير المكتب' THEN
-        new_office_id := gen_random_uuid();
-
-        SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
-        trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days if not set
-        trial_end_date := NOW() + (trial_period_days || ' days')::interval;
-    -- For any other role, inherit the office_id from the manager who created them
-    ELSE
-        SELECT office_id INTO manager_office_id FROM public.users WHERE id = user_managed_by;
-        IF manager_office_id IS NULL THEN
-            RAISE EXCEPTION 'Cannot create subordinate user: Manager not found or manager has no office_id.';
-        END IF;
-        new_office_id := manager_office_id;
-        trial_end_date := NULL;
-    END IF;
-    
-    UPDATE auth.users SET raw_user_meta_data = raw_user_meta_data || jsonb_build_object('office_id', new_office_id) WHERE id = new.id;
-
-
-    -- Insert into public.users. It's crucial this happens for ALL user roles.
-    INSERT INTO public.users (id, office_id, name, office_name, email, phone, role, "managedBy", "trialEndsAt")
-    VALUES (
-        new.id,
-        new_office_id,
-        new.raw_user_meta_data->>'full_name',
-        new.raw_user_meta_data->>'office_name',
-        new.email,
-        new.raw_user_meta_data->>'raw_phone_number',
-        user_role_text::public.user_role,
-        user_managed_by,
-        trial_end_date
-    );
-
-    -- **IMPORTANT**: Only create an investor profile if the role is 'مستثمر'
-    IF user_role_text = 'مستثمر' THEN
-        INSERT INTO public.investors (id, office_id, name, status, "submittedBy", "managedBy")
-        VALUES (
-            new.id,
-            new_office_id,
-            new.raw_user_meta_data->>'full_name',
-            'نشط'::public.investor_status,
-            user_submitted_by,
-            user_managed_by
-        );
-    END IF;
-
-    RETURN new;
-END;
-$$;
-
 
 -- ========= Row Level Security (RLS) Policies =========
 
@@ -274,7 +201,6 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 
-
 -- POLICIES FOR: app_config
 DROP POLICY IF EXISTS "Allow authenticated to read app_config" ON public.app_config;
 CREATE POLICY "Allow authenticated to read app_config" ON public.app_config FOR SELECT TO authenticated USING (true);
@@ -282,10 +208,12 @@ CREATE POLICY "Allow authenticated to read app_config" ON public.app_config FOR 
 
 -- POLICIES FOR: users
 DROP POLICY IF EXISTS "Allow admin to manage all users" ON public.users;
+DROP POLICY IF EXISTS "Allow users to view their own data" ON public.users;
 DROP POLICY IF EXISTS "Allow users to view their office members" ON public.users;
 DROP POLICY IF EXISTS "Allow users to update their own data" ON public.users;
 
-CREATE POLICY "Allow admin to manage all users" ON public.users FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow admin to manage all users" ON public.users FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام')) WITH CHECK (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow users to view their own data" ON public.users FOR SELECT TO authenticated USING (id = auth.uid());
 CREATE POLICY "Allow users to view their office members" ON public.users FOR SELECT TO authenticated USING (office_id = get_current_office_id());
 CREATE POLICY "Allow users to update their own data" ON public.users FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
@@ -337,6 +265,68 @@ CREATE POLICY "Allow admin to manage all support tickets" ON public.support_tick
 CREATE POLICY "Allow users to manage their own submitted tickets" ON public.support_tickets FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
 CREATE POLICY "Allow users to manage their own notifications" ON public.notifications FOR ALL TO authenticated USING (auth.uid() = "recipientId");
 
+
+-- ========= Database Functions and Triggers =========
+
+-- This function is called by a trigger when a new user signs up in Supabase Auth.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    user_role_text TEXT;
+    user_managed_by UUID;
+    user_office_id UUID;
+    trial_period_days INT;
+    trial_end_date TIMESTAMPTZ;
+BEGIN
+    -- Extract role and other metadata
+    user_role_text := new.raw_user_meta_data->>'user_role';
+    user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
+    user_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+
+    -- If the role is 'مدير المكتب', create a new office and set their trial period
+    IF user_role_text = 'مدير المكتب' THEN
+        user_office_id := gen_random_uuid();
+
+        SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
+        trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days if not set
+        trial_end_date := NOW() + (trial_period_days || ' days')::interval;
+    ELSE
+        trial_end_date := NULL;
+    END IF;
+
+    -- Insert into public.users. It's crucial this happens for ALL user roles.
+    INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, "trialEndsAt")
+    VALUES (
+        new.id,
+        new.raw_user_meta_data->>'full_name',
+        new.raw_user_meta_data->>'office_name',
+        new.email,
+        new.raw_user_meta_data->>'raw_phone_number',
+        user_role_text::public.user_role,
+        user_managed_by,
+        user_office_id,
+        trial_end_date
+    );
+
+    -- **IMPORTANT**: Only create an investor profile if the role is 'مستثمر'
+    IF user_role_text = 'مستثمر' THEN
+        INSERT INTO public.investors (id, office_id, name, status, "submittedBy", "managedBy")
+        VALUES (
+            new.id,
+            user_office_id,
+            new.raw_user_meta_data->>'full_name',
+            'نشط'::public.investor_status,
+            user_managed_by,
+            user_managed_by
+        );
+    END IF;
+
+    RETURN new;
+END;
+$$;
 
 -- Trigger to call the function when a new user signs up
 CREATE TRIGGER on_auth_user_created

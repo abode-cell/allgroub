@@ -30,7 +30,8 @@ serve(async (req) => {
     );
     if (!managerAuth) throw new Error("Manager not found");
 
-    if (managerAuth.user_metadata?.role !== 'مدير المكتب') throw new Error("Only office managers can create subordinates.");
+    const { data: managerProfile } = await supabaseAdmin.from('users').select('office_id').eq('id', managerAuth.id).single();
+    if (!managerProfile || !managerProfile.office_id) throw new Error("Manager profile or office_id not found.");
     
     // TODO: Check if the manager has exceeded their employee/assistant limit.
 
@@ -46,7 +47,7 @@ serve(async (req) => {
         raw_phone_number: payload.phone,
         user_role: payload.role,
         managedBy: managerAuth.id,
-        submittedBy: managerAuth.id,
+        office_id: managerProfile.office_id, // Pass the manager's office_id
       },
     });
 

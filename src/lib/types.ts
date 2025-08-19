@@ -44,12 +44,6 @@ export type NewManagerPayload = {
     officeName: string;
 };
 
-export type Office = {
-  id: string;
-  name: string;
-  created_at: string;
-};
-
 export type Branch = {
   id: string;
   office_id: string;
@@ -59,8 +53,8 @@ export type Branch = {
 
 
 export type User = {
-  id: UUID;
-  office_id: UUID | null;
+  id: string;
+  office_id: string | null;
   name: string;
   office_name?: string;
   email: string;

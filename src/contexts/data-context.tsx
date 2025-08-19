@@ -79,7 +79,7 @@ type DataContextValue = {
   addBorrower: (
     borrower: Omit<
       Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus' | 'fundedBy' | 'office_id'
+      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus' | 'fundedBy' | 'office_id' | 'managedBy'
     >,
     investorIds: string[],
     force?: boolean
@@ -709,7 +709,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addBorrower = useCallback(
     async (
-      borrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus' | 'fundedBy' | 'office_id'>,
+      borrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus' | 'fundedBy' | 'office_id' | 'managedBy'>,
       investorIds: string[],
       force: boolean = false
     ): Promise<AddBorrowerResult> => {
@@ -814,7 +814,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     const { error: insertError } = await supabase.from('borrowers').insert({
-        id: newLoanId, name: `${originalBorrower.name}`, nationalId: originalBorrower.nationalId, phone: originalBorrower.phone, amount: remainingAmount, date: new Date().toISOString(), loanType: 'مهلة', status: 'منتظم', dueDate: new Date().toISOString().split('T')[0], submittedBy: originalBorrower.submittedBy, originalLoanId: originalBorrower.id, office_id: currentUser.office_id
+        id: newLoanId, name: `${originalBorrower.name}`, nationalId: originalBorrower.nationalId, phone: originalBorrower.phone, amount: remainingAmount, date: new Date().toISOString(), loanType: 'مهلة', status: 'منتظم', dueDate: new Date().toISOString().split('T')[0], submittedBy: originalBorrower.submittedBy, originalLoanId: originalBorrower.id, office_id: currentUser.office_id, managedBy: originalBorrower.managedBy,
     });
     
     if (insertError) {

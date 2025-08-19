@@ -33,6 +33,9 @@ serve(async (req) => {
     );
     if (!managerAuth) throw new Error("Manager not found");
 
+    const { data: managerProfile } = await supabaseAdmin.from('users').select('office_id').eq('id', managerAuth.id).single();
+    if (!managerProfile || !managerProfile.office_id) throw new Error("Manager profile or office_id not found.");
+
     const payload: InvestorPayload = await req.json();
 
     // Create the user in auth.users
@@ -46,7 +49,7 @@ serve(async (req) => {
         raw_phone_number: payload.phone,
         user_role: 'مستثمر',
         managedBy: managerAuth.id,
-        submittedBy: managerAuth.id,
+        office_id: managerProfile.office_id, // Pass the manager's office_id
       },
     });
 
@@ -60,9 +63,7 @@ serve(async (req) => {
 
     newAuthUserId = newAuthUser.id;
     
-    // The handle_new_user trigger creates the user & investor record. Now we just need to get the generated office_id.
-    const { data: newUserProfile, error: profileError } = await supabaseAdmin.from('users').select('office_id').eq('id', newAuthUser.id).single();
-    if(profileError || !newUserProfile) throw new Error("Failed to retrieve new user profile after creation.");
+    // The handle_new_user trigger creates the user & investor record.
 
     // Update the investor record with profit shares
     const { error: investorUpdateError } = await supabaseAdmin
@@ -78,7 +79,7 @@ serve(async (req) => {
     if(payload.installmentCapital > 0) {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
-        office_id: newUserProfile.office_id,
+        office_id: managerProfile.office_id,
         id: `tx_inst_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.installmentCapital,
@@ -90,7 +91,7 @@ serve(async (req) => {
      if(payload.graceCapital > 0) {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
-        office_id: newUserProfile.office_id,
+        office_id: managerProfile.office_id,
         id: `tx_grace_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.graceCapital,
