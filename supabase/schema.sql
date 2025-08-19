@@ -6,7 +6,7 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
-DROP FUNCTION IF EXISTS public.check_duplicate_borrower(text, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID) CASCADE;
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
@@ -201,7 +201,7 @@ CREATE OR REPLACE FUNCTION get_current_office_id()
 RETURNS UUID
 LANGUAGE sql STABLE
 AS $$
-  SELECT (get_my_claim('office_id'))::uuid
+  SELECT (get_my_claim('office_id') ->> 0)::uuid
 $$;
 
 
@@ -284,9 +284,11 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 -- ========= Database Functions and Triggers =========
 
-CREATE OR REPLACE FUNCTION check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
-RETURNS TABLE (name TEXT, office_name TEXT, phone TEXT)
+-- Function to check for duplicate borrowers in other offices
+CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
+RETURNS TABLE(name TEXT, office_name TEXT, phone TEXT)
 LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
     RETURN QUERY
@@ -295,7 +297,7 @@ BEGIN
     JOIN public.users u ON b."managedBy" = u.id
     WHERE b."nationalId" = p_national_id
       AND b.office_id != p_office_id
-      AND b.status IN ('منتظم', 'متأخر');
+      AND b.status NOT IN ('مرفوض', 'مسدد بالكامل');
 END;
 $$;
 
@@ -317,7 +319,7 @@ BEGIN
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
 
-    -- If the role is 'مدير المكتب', create a new office_id and set their trial period
+    -- If the role is 'مدير المكتب', create a new office and set their trial period
     IF user_role_text = 'مدير المكتب' THEN
         user_office_id := gen_random_uuid();
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
@@ -328,15 +330,6 @@ BEGIN
         SELECT office_id INTO user_office_id FROM public.users WHERE id = user_managed_by;
         trial_end_date := NULL;
     END IF;
-
-    -- Update the new user's app_metadata in auth.users
-    -- This makes the office_id and user_role available in the JWT for RLS
-    PERFORM auth.admin_update_user_by_id(
-      new.id,
-      jsonb_build_object(
-        'app_metadata', new.raw_app_meta_data || jsonb_build_object('office_id', user_office_id, 'user_role', user_role_text)
-      )
-    );
 
     -- Insert into public.users. It's crucial this happens for ALL user roles.
     INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, "trialEndsAt")
