@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -742,6 +741,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       const newEntry: Omit<Borrower, 'id'> = {
           ...borrower,
+          id: `bor_${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
           fundedBy: [], // This will be set on approval
@@ -856,39 +856,57 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addInvestor = useCallback(
     async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
-      const supabase = getSupabaseBrowserClient();
-      if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
+        const supabase = getSupabaseBrowserClient();
+        if (!currentUser || !currentUser.office_id) return { success: false, message: 'غير مصرح به' };
 
-      const { error } = await supabase.auth.signUp({
-        email: payload.email,
-        password: payload.password!,
-        options: {
-          data: {
-            full_name: payload.name,
-            raw_phone_number: payload.phone,
-            user_role: 'مستثمر',
-            managedBy: currentUser.id,
-            branch_id: payload.branch_id,
-            // These will be used by the trigger to create initial transactions
-            initial_installment_capital: payload.installmentCapital,
-            initial_grace_capital: payload.graceCapital,
-            investor_installment_profit_share: payload.installmentProfitShare,
-            investor_grace_period_profit_share: payload.gracePeriodProfitShare,
+        const { data: { user }, error: signUpError } = await supabase.auth.signUp({
+          email: payload.email,
+          password: payload.password!,
+          options: {
+            data: {
+              user_role: 'مستثمر',
+              full_name: payload.name,
+              raw_phone_number: payload.phone,
+              managedBy: currentUser.id,
+              office_id: currentUser.office_id,
+              branch_id: payload.branch_id || null,
+            }
           }
+        });
+
+        if (signUpError) {
+          const errorMessage = signUpError.message.includes('already registered') ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' : (signUpError.message || `فشل إنشاء حساب مستثمر.`);
+          toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
+          return { success: false, message: errorMessage };
         }
-      });
+        if (!user) {
+          return { success: false, message: "فشل إنشاء المستخدم في نظام المصادقة."};
+        }
 
-      if (error) {
-        const errorMessage = error.message.includes('already registered')
-          ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
-          : (error.message || 'فشل إنشاء حساب المستثمر.');
-        toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
-        return { success: false, message: errorMessage };
-      }
+        const { error: profileError } = await supabase.rpc('create_investor_profile', {
+          p_user_id: user.id,
+          p_name: payload.name,
+          p_office_id: currentUser.office_id,
+          p_branch_id: payload.branch_id || null,
+          p_managed_by: currentUser.id,
+          p_submitted_by: currentUser.id,
+          p_installment_profit_share: payload.installmentProfitShare,
+          p_grace_period_profit_share: payload.gracePeriodProfitShare,
+          p_initial_installment_capital: payload.installmentCapital,
+          p_initial_grace_capital: payload.graceCapital
+        });
+        
+        if (profileError) {
+          console.error("Error creating investor profile:", profileError);
+          // Attempt to clean up the auth user if profile creation fails
+          await supabase.auth.admin.deleteUser(user.id);
+          toast({ variant: 'destructive', title: 'خطأ فادح', description: `فشل إنشاء ملف المستثمر: ${profileError.message}` });
+          return { success: false, message: profileError.message };
+        }
 
-      await fetchData(supabase);
-      toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
-      return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
+        await fetchData(supabase);
+        toast({ title: 'تمت إضافة المستثمر بنجاح.' });
+        return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
     },
     [currentUser, fetchData, toast]
   );
@@ -909,7 +927,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
               raw_phone_number: payload.phone,
               user_role: role,
               managedBy: currentUser.id,
-              branch_id: payload.branch_id
+              office_id: currentUser.office_id,
+              branch_id: payload.branch_id || null
             }
           }
         });
@@ -1226,3 +1245,5 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
+
+    

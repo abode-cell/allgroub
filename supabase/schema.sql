@@ -1,7 +1,9 @@
+
 -- supabase/schema.sql
 
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS public.create_investor_profile(UUID,TEXT,UUID,UUID,UUID,UUID,NUMERIC,NUMERIC,NUMERIC,NUMERIC) CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
@@ -51,6 +53,7 @@ COMMENT ON TABLE public.app_config IS 'Stores global application settings.';
 CREATE TABLE public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     office_id UUID,
+    branch_id UUID,
     name TEXT NOT NULL,
     office_name TEXT,
     email TEXT UNIQUE NOT NULL,
@@ -60,7 +63,7 @@ CREATE TABLE public.users (
     "managedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
     permissions JSONB DEFAULT '{}'::jsonb,
     "registrationDate" TIMESTAMPTZ DEFAULT NOW(),
-    "investorLimit" INT DEFAULT 10,
+    "investorLimit" INT DEFAULT 50,
     "employeeLimit" INT DEFAULT 5,
     "assistantLimit" INT DEFAULT 2,
     "branchLimit" INT DEFAULT 3,
@@ -85,6 +88,7 @@ COMMENT ON TABLE public.branches IS 'Stores office branches for an office manage
 CREATE TABLE public.investors (
     id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     office_id UUID NOT NULL,
+    branch_id UUID,
     name TEXT NOT NULL,
     date TIMESTAMPTZ DEFAULT NOW(),
     status public.investor_status NOT NULL DEFAULT 'معلق',
@@ -101,6 +105,7 @@ COMMENT ON TABLE public.investors IS 'Stores investor-specific data.';
 CREATE TABLE public.borrowers (
     id TEXT PRIMARY KEY,
     office_id UUID NOT NULL,
+    branch_id UUID,
     name TEXT NOT NULL,
     "nationalId" TEXT NOT NULL,
     phone TEXT NOT NULL,
@@ -312,27 +317,25 @@ DECLARE
     user_role_text TEXT;
     user_managed_by UUID;
     user_office_id UUID;
+    user_branch_id UUID;
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
-    -- Extract role and other metadata
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
+    user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
 
-    -- If the role is 'مدير المكتب', create a new office and set their trial period
     IF user_role_text = 'مدير المكتب' THEN
         user_office_id := gen_random_uuid();
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
-        trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days if not set
+        trial_period_days := COALESCE(trial_period_days, 14);
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
-        -- For other roles, get the office_id from their manager
-        SELECT office_id INTO user_office_id FROM public.users WHERE id = user_managed_by;
+        user_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
         trial_end_date := NULL;
     END IF;
 
-    -- Insert into public.users. It's crucial this happens for ALL user roles.
-    INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, "trialEndsAt")
+    INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, branch_id, "trialEndsAt")
     VALUES (
         new.id,
         new.raw_user_meta_data->>'full_name',
@@ -342,21 +345,9 @@ BEGIN
         user_role_text::public.user_role,
         user_managed_by,
         user_office_id,
+        user_branch_id,
         trial_end_date
     );
-
-    -- **IMPORTANT**: Only create an investor profile if the role is 'مستثمر'
-    IF user_role_text = 'مستثمر' THEN
-        INSERT INTO public.investors (id, office_id, name, status, "submittedBy", "managedBy")
-        VALUES (
-            new.id,
-            user_office_id,
-            new.raw_user_meta_data->>'full_name',
-            'نشط'::public.investor_status,
-            user_managed_by,
-            user_managed_by
-        );
-    END IF;
 
     RETURN new;
 END;
@@ -366,6 +357,65 @@ $$;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- RPC to create an investor profile and initial transactions
+CREATE OR REPLACE FUNCTION public.create_investor_profile(
+    p_user_id UUID,
+    p_name TEXT,
+    p_office_id UUID,
+    p_branch_id UUID,
+    p_managed_by UUID,
+    p_submitted_by UUID,
+    p_installment_profit_share NUMERIC,
+    p_grace_period_profit_share NUMERIC,
+    p_initial_installment_capital NUMERIC,
+    p_initial_grace_capital NUMERIC
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+    INSERT INTO public.investors (id, office_id, branch_id, name, status, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare")
+    VALUES (
+        p_user_id,
+        p_office_id,
+        p_branch_id,
+        p_name,
+        'نشط'::public.investor_status,
+        p_managed_by,
+        p_submitted_by,
+        p_installment_profit_share,
+        p_grace_period_profit_share
+    );
+
+    IF p_initial_installment_capital > 0 THEN
+        INSERT INTO public.transactions(id, office_id, investor_id, type, amount, description, "capitalSource")
+        VALUES(
+            'tx_' || gen_random_uuid(),
+            p_office_id,
+            p_user_id,
+            'إيداع رأس المال',
+            p_initial_installment_capital,
+            'رأس مال تأسيسي - محفظة الأقساط',
+            'installment'
+        );
+    END IF;
+
+    IF p_initial_grace_capital > 0 THEN
+        INSERT INTO public.transactions(id, office_id, investor_id, type, amount, description, "capitalSource")
+        VALUES(
+            'tx_' || gen_random_uuid(),
+            p_office_id,
+            p_user_id,
+            'إيداع رأس المال',
+            p_initial_grace_capital,
+            'رأس مال تأسيسي - محفظة المهلة',
+            'grace'
+        );
+    END IF;
+END;
+$$;
 
 
 -- ========= Initial Data Inserts =========
@@ -379,3 +429,6 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+
+
+    
