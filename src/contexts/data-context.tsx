@@ -109,7 +109,7 @@ type DataContextValue = {
   ) => Promise<{ success: boolean; message: string }>;
   updateUserCredentials: (
     userId: string,
-    updates: { email?: string; password?: string, officeName?: string; }
+    updates: { email?: string; password?: string, officeName?: string; branch_id?: string | null }
   ) => Promise<{ success: boolean; message: string }>;
   updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => void;
@@ -195,7 +195,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
-        // This is the first and most critical query. If it fails, the user cannot proceed.
         const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
         if (profileError || !currentUserProfile) {
             throw new Error(profileError?.message || "ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.");
@@ -212,7 +211,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Now that we have a valid user, fetch all other data scoped by their office_id or role.
         const [
           { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
@@ -917,7 +915,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [currentUser, fetchData]
   );
   
-  const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string }): Promise<{ success: boolean, message: string }> => {
+  const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
         const { error } = await supabase.functions.invoke('update-user-credentials', { body: { userId, updates } });
@@ -951,7 +949,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
       }
       
-      const { error } = await supabase.from('transactions').insert({ ...transaction, investor_id: investorId, office_id: currentUser.office_id });
+      const { error } = await supabase.from('transactions').insert({ ...transaction, investor_id: investorId, office_id: currentUser.office_id, branch_id: investor.branch_id });
       if (error) {
         toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إضافة العملية المالية.' });
       } else {

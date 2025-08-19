@@ -104,6 +104,7 @@ export default function BorrowersPage() {
     status: 'منتظم' as Borrower['status'],
     dueDate: '',
     discount: '',
+    branch_id: null as string | null,
   };
   
   const [newBorrower, setNewBorrower] = useState(initialBorrowerState);
@@ -122,7 +123,7 @@ export default function BorrowersPage() {
   
   const canAddLoan = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || (isEmployee && manager?.allowEmployeeSubmissions);
 
-  const isPendingRequest = (isEmployee || isAssistant) && !manager?.allowEmployeeSubmissions;
+  const isPendingRequest = isEmployee || isAssistant;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -147,10 +148,10 @@ export default function BorrowersPage() {
     addBorrower({
       ...newBorrower,
       amount: Number(newBorrower.amount),
-      rate: (isEmployee || isAssistant) && isInstallments ? baseInterestRate : Number(newBorrower.rate),
-      term: Number(newBorrower.term) || 0,
+      rate: isInstallments ? (isEmployee || isAssistant ? baseInterestRate : Number(newBorrower.rate)) : undefined,
+      term: isInstallments ? Number(newBorrower.term) : undefined,
       status: finalStatus,
-      discount: Number(newBorrower.discount) || 0,
+      discount: Number(newBorrower.discount) || undefined,
       nationalId: newBorrower.nationalId,
     }, finalStatus === 'معلق' ? [] : selectedInvestors, force).then(result => {
         if(result.success) {
@@ -540,7 +541,7 @@ export default function BorrowersPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
-                <AlertDialogAction onClick={() => proceedToAddBorrower(true)}>
+                <AlertDialogAction onClick={() => proceedToApproveBorrower(true)}>
                   المتابعة على أي حال
                 </AlertDialogAction>
             </AlertDialogFooter>
@@ -574,7 +575,5 @@ export default function BorrowersPage() {
     </div>
   );
 }
-
-    
 
     
