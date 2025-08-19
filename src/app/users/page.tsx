@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useDataState, useDataActions } from '@/contexts/data-context';
@@ -263,6 +264,8 @@ export default function UsersPage() {
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [isAddBranchDialogOpen, setIsAddBranchDialogOpen] = useState(false);
+  const [isDeleteBranchDialogOpen, setIsDeleteBranchDialogOpen] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
   const [addUserForm, setAddUserForm] = useState(getInitialAddUserFormState());
   const [newBranch, setNewBranch] = useState({ name: '', city: '' });
   const [isSubmittingNewUser, setIsSubmittingNewUser] = useState(false);
@@ -316,6 +319,19 @@ export default function UsersPage() {
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
     setIsDeleteDialogOpen(true);
+  };
+  
+  const handleDeleteBranchClick = (branch: Branch) => {
+    setBranchToDelete(branch);
+    setIsDeleteBranchDialogOpen(true);
+  };
+
+  const handleConfirmDeleteBranch = () => {
+    if (branchToDelete) {
+      deleteBranch(branchToDelete.id);
+      setIsDeleteBranchDialogOpen(false);
+      setBranchToDelete(null);
+    }
   };
   
   const handleEditCredsClick = (user: User) => {
@@ -703,7 +719,7 @@ export default function UsersPage() {
                           </SelectItem>
                           <SelectItem value="مدير المكتب">
                             مدير المكتب
-                          SelectItem>
+                          </SelectItem>
                           <SelectItem value="مساعد مدير المكتب">
                             مساعد مدير المكتب
                           </SelectItem>
@@ -812,7 +828,7 @@ export default function UsersPage() {
                             <TableCell className="font-medium">{branch.name}</TableCell>
                             <TableCell>{branch.city}</TableCell>
                             <TableCell className="text-left">
-                                <Button variant="destructive" size="sm" onClick={() => deleteBranch(branch.id)}>
+                                <Button variant="destructive" size="sm" onClick={() => handleDeleteBranchClick(branch)}>
                                     <Trash2 className="ml-2 h-4 w-4" />
                                     حذف
                                 </Button>
@@ -1113,6 +1129,31 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <AlertDialog
+        open={isDeleteBranchDialogOpen}
+        onOpenChange={setIsDeleteBranchDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد حذف الفرع</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد أنك تريد حذف فرع "{branchToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBranchToDelete(null)}>
+              إلغاء
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteBranch}
+              className={buttonVariants({ variant: 'destructive' })}
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
        <Dialog open={isAddUserDialogOpen} onOpenChange={(open) => {
           if(!open) {
@@ -1304,5 +1345,3 @@ export default function UsersPage() {
     </>
   );
 }
-
-    
