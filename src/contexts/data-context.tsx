@@ -194,21 +194,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
 
-        // Stage 1: Fetch the current user's profile from 'users' table. This is the most crucial step.
-        const { data: currentUserProfile, error: profileError } = await supabaseClient
-            .from('users')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
-
-        if (profileError || !currentUserProfile) {
-            await supabaseClient.auth.signOut();
-            throw new Error(`ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.`);
-        }
+        const { data: all_users_data, error: usersError } = await supabaseClient.from('users').select('*');
+        if (usersError) throw new Error(`فشل في جلب البيانات: ${usersError.message}. قد تكون صلاحيات RLS غير صحيحة`);
         
-        // Stage 2: Check user status. If not active, sign out and stop.
+        const currentUserProfile = all_users_data.find(u => u.id === authUser.id);
+        if (!currentUserProfile) throw new Error("ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.");
+
+
         if (currentUserProfile.status !== 'نشط') {
-            let message = 'حسابك غير نشط حاليًا. يرجى التواصل مع الدعم الفني.';
+            let message = 'حسابك غير نشط حاليًا.';
             if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
             if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
             
@@ -217,10 +211,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setDataLoading(false);
             return;
         }
-        
-        // Stage 3: Now that we have a valid, active user, fetch all other data.
+
         const [
-          { data: all_users_data, error: usersError },
           { data: investors_data, error: investorsError },
           { data: borrowers_data, error: borrowersError },
           { data: transactions_data, error: transactionsError },
@@ -229,7 +221,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           { data: app_config_data, error: appConfigError },
           { data: branches_data, error: branchesError }
         ] = await Promise.all([
-          supabaseClient.from('users').select('*'),
           supabaseClient.from('investors').select('*'),
           supabaseClient.from('borrowers').select('*'),
           supabaseClient.from('transactions').select('*'),
@@ -239,8 +230,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabaseClient.from('branches').select('*')
         ]);
         
-        // Stage 4: Check for any errors during the fetch
-        const errors = { usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError };
+        const errors = { investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError };
         for (const [key, error] of Object.entries(errors)) {
             if (error) {
                 console.error(`Error fetching ${key}:`, error);
@@ -248,7 +238,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
         
-        // Stage 5: Process and set the data state
         const configData = app_config_data.reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
             return acc;
@@ -256,7 +245,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         const borrowersWithData: Borrower[] = (borrowers_data || []).map((borrower: any) => ({
             ...borrower,
-            fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investor_id, amount: f.amount })),
+            fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investorId, amount: f.amount })),
             installments: (borrower.installments || []).map((i: any) => ({ month: i.month, status: i.status as InstallmentStatus })),
             partialPayment: borrower.partial_payment_paid_amount ? {
                 paidAmount: borrower.partial_payment_paid_amount,
@@ -665,7 +654,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       let totalFundedAmount = 0;
       let remainingAmountToFund = loanToApprove.amount;
-      const fundedByDetails: { investor_id: string; amount: number }[] = [];
+      const fundedByDetails: { investorId: string; amount: number }[] = [];
       
       for (const invId of investorIds) {
           if (remainingAmountToFund <= 0) break;
@@ -679,7 +668,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           if (contribution > 0) {
               remainingAmountToFund -= contribution;
               totalFundedAmount += contribution;
-              fundedByDetails.push({ investor_id: invId, amount: contribution });
+              fundedByDetails.push({ investorId: invId, amount: contribution });
           }
       }
       
@@ -1191,8 +1180,9 @@ export function useDataActions() {
       updateBorrowerPaymentStatus, approveBorrower, rejectBorrower, deleteBorrower, updateInstallmentStatus,
       handlePartialPayment, addInvestor, addNewSubordinateUser, updateInvestor, approveInvestor, rejectInvestor,
       addInvestorTransaction, updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
-      updateUserLimits, updateManagerSettings, updateAssistantPermission, updateEmployeePermission,
-      requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead,
+      updateUserLimits, updateManagerSettings, updateAssistantPermission,
+      updateEmployeePermission, requestCapitalIncrease, deleteUser,
+      clearUserNotifications, markUserNotificationsAsRead,
       markBorrowerAsNotified, markInvestorAsNotified,
     } = context;
     
