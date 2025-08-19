@@ -70,10 +70,8 @@ export default function MyRequestsPage() {
   }
   
   const getInvestorInitialCapital = (investorId: string): number => {
-    const capitalDeposit = transactions.find(
-      (tx) => tx.investor_id === investorId && tx.description.includes('تأسيسي')
-    );
-    return capitalDeposit?.amount || 0;
+    const capitalDeposits = transactions.filter(tx => tx.investor_id === investorId && tx.description.includes('تأسيسي'));
+    return capitalDeposits.reduce((sum, tx) => sum + tx.amount, 0);
   };
 
 

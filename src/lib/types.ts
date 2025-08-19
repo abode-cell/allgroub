@@ -44,16 +44,23 @@ export type NewManagerPayload = {
     officeName: string;
 };
 
+export type Office = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
 export type Branch = {
   id: string;
-  manager_id: string;
+  office_id: string;
   name: string;
   city: string;
 };
 
 
 export type User = {
-  id: string;
+  id: UUID;
+  office_id: UUID | null;
   name: string;
   office_name?: string;
   email: string;
@@ -61,9 +68,8 @@ export type User = {
   role: UserRole;
   status: 'نشط' | 'معلق' | 'مرفوض' | 'محذوف';
   phone?: string;
-  managedBy?: string | null;
+  permissions?: Permissions;
   registrationDate?: string;
-  password?: string;
   
   // Trial Period Fields
   trialEndsAt?: string; // For Office Managers on trial
@@ -78,7 +84,6 @@ export type User = {
   allowEmployeeSubmissions?: boolean;
   hideEmployeeInvestorFunds?: boolean;
   allowEmployeeLoanEdits?: boolean;
-  permissions?: Permissions;
   lastStatusChange?: string;
 };
 
@@ -86,6 +91,7 @@ export type InstallmentStatus = 'لم يسدد بعد' | 'تم السداد' | '
 
 export type Borrower = {
   id: string;
+  office_id: string;
   name: string;
   nationalId: string;
   phone: string;
@@ -98,7 +104,6 @@ export type Borrower = {
   dueDate: string;
   discount?: number;
   submittedBy?: string;
-  managedBy?: string | null;
   rejectionReason?: string;
   fundedBy: { investorId: string; amount: number }[];
   paymentStatus?: BorrowerPaymentStatus;
@@ -128,6 +133,7 @@ export type WithdrawalMethod = 'نقدي' | 'بنكي';
 
 export type Transaction = {
   id: string;
+  office_id: string;
   investor_id: string;
   date: string;
   type: TransactionType;
@@ -139,10 +145,10 @@ export type Transaction = {
 
 export type Investor = {
   id:string;
+  office_id: string;
   name: string;
   date: string;
   status: 'نشط' | 'غير نشط' | 'معلق' | 'مرفوض' | 'محذوف';
-  managedBy?: string | null;
   submittedBy?: string;
   rejectionReason?: string;
   isNotified?: boolean;

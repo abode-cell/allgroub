@@ -44,19 +44,18 @@ const PageSkeleton = () => (
 );
 
 export default function InvestorsPage() {
-  const { addInvestor, investors: allInvestors, borrowers: allBorrowers, visibleUsers: users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
+  const { addInvestor, investors: allInvestors, borrowers: allBorrowers, users, currentUser, investorSharePercentage, graceInvestorSharePercentage } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
   
   const role = currentUser?.role;
   const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageInvestors) || (role === 'موظف');
-  const isSubordinate = role === 'موظف' || role === 'مساعد مدير المكتب';
 
   useEffect(() => {
-    if (currentUser && (!hasAccess || (isSubordinate && !currentUser.managedBy))) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, isSubordinate, router]);
+  }, [currentUser, hasAccess, router]);
 
   const { investors, borrowers } = useMemo(() => {
     if (!currentUser || !allInvestors || !allBorrowers) return { investors: [], borrowers: [] };
@@ -68,23 +67,11 @@ export default function InvestorsPage() {
       };
     }
     
-    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    if (!managerId) {
-        return { investors: [], borrowers: [] };
-    }
-
-    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
-    relevantUserIds.add(currentUser.id);
-    
-    const filteredInvestors = allInvestors.filter(i => {
-      const investorUser = users.find(u => u.id === i.id);
-      return investorUser?.managedBy === managerId;
-    });
-
-    const filteredBorrowers = allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
-
-    return { investors: filteredInvestors, borrowers: filteredBorrowers };
-  }, [currentUser, allInvestors, allBorrowers, users, role]);
+    return { 
+        investors: allInvestors.filter(i => i.office_id === currentUser.office_id),
+        borrowers: allBorrowers.filter(b => b.office_id === currentUser.office_id) 
+    };
+  }, [currentUser, allInvestors, allBorrowers, role]);
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -117,15 +104,12 @@ export default function InvestorsPage() {
   const isOfficeManager = role === 'مدير المكتب';
   const isAssistant = role === 'مساعد مدير المكتب';
 
-  const manager = isOfficeManager ? currentUser : users.find(u => u.id === currentUser?.managedBy);
+  const manager = isOfficeManager ? currentUser : users.find(u => u.office_id === currentUser?.office_id && u.role === 'مدير المكتب');
   
   const investorsAddedByManager = useMemo(() => {
     if (!manager) return 0;
-    return allInvestors.filter(i => {
-      const investorUser = users.find(u => u.id === i.id);
-      return investorUser?.managedBy === manager.id;
-    }).length;
-  }, [allInvestors, users, manager]);
+    return allInvestors.filter(i => i.office_id === manager.office_id).length;
+  }, [allInvestors, manager]);
 
   const canAddMoreInvestors = manager ? investorsAddedByManager < (manager.investorLimit ?? 0) : false;
 
@@ -182,11 +166,11 @@ export default function InvestorsPage() {
   const showAddButton = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageInvestors) || (isEmployee && manager?.allowEmployeeSubmissions);
   const isAddButtonDisabled = showAddButton && !canAddMoreInvestors;
       
-  if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
   
-  const managerForSettings = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
+  const managerForSettings = users.find((u) => u.office_id === currentUser?.office_id && u.role === 'مدير المكتب');
   const hideFunds = (isEmployee || isAssistant) ? managerForSettings?.hideEmployeeInvestorFunds ?? false : false;
 
   const getDialogTitle = () => {

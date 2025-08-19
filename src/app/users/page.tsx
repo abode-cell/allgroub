@@ -162,17 +162,18 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User, onDelet
     const isSystemAdmin = currentUser.role === 'مدير النظام';
     const isOfficeManager = currentUser.role === 'مدير المكتب';
     
-    if(user.id === currentUser.managedBy) return { canEditCredentials: false, canDeleteUser: false, canUpdateUserStatus: false };
+    // An office manager can edit their subordinates (same office_id)
+    const isMySubordinate = isOfficeManager && user.office_id === currentUser.office_id;
 
-    const canEdit = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
-
-    const canDelete = isSystemAdmin || (isOfficeManager && user.managedBy === currentUser.id);
+    const canEdit = isSystemAdmin || isMySubordinate;
+    const canDelete = isSystemAdmin || isMySubordinate;
     
     const isAssistant = currentUser.role === 'مساعد مدير المكتب';
     
-    const canUpdateStatus = isSystemAdmin || 
-                            (isOfficeManager && user.managedBy === currentUser.id && user.role !== 'مدير المكتب') || 
-                            (isAssistant && currentUser.permissions?.manageEmployeePermissions && user.role === 'موظف' && user.managedBy === currentUser.managedBy);
+    // An assistant with permission can manage employees in the same office.
+    const canAssistantUpdateStatus = isAssistant && currentUser.permissions?.manageEmployeePermissions && user.role === 'موظف' && user.office_id === currentUser.office_id;
+
+    const canUpdateStatus = isSystemAdmin || isMySubordinate || canAssistantUpdateStatus;
     
     return { canEditCredentials: canEdit, canDeleteUser: canDelete, canUpdateUserStatus: canUpdateStatus };
   }, [currentUser, user]);
@@ -282,9 +283,7 @@ export default function UsersPage() {
   }, [currentUser, canViewPage, router]);
 
   const officeManagers = useMemo(() => users.filter((u) => u.role === 'مدير المكتب'), [users]);
-  const otherUsers = useMemo(() => users.filter(
-    (u) => u.role === 'مدير النظام'
-  ), [users]);
+  const otherUsers = useMemo(() => users.filter((u) => u.role === 'مدير النظام'), [users]);
 
   // Sync editableLimits state when the underlying user data changes
   useEffect(() => {
@@ -439,7 +438,7 @@ export default function UsersPage() {
     e.preventDefault();
     if (!newBranch.name || !newBranch.city || !currentUser) return;
     setIsSubmittingNewBranch(true);
-    const result = await addBranch({ ...newBranch, manager_id: currentUser.id });
+    const result = await addBranch({ ...newBranch });
     if (result.success) {
       setIsAddBranchDialogOpen(false);
     }
@@ -448,14 +447,13 @@ export default function UsersPage() {
 
 
   const myEmployees = useMemo(() => {
-    if (!currentUser) return [];
-    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    return users.filter((u) => u.managedBy === managerId && u.role === 'موظف');
-  }, [users, role, currentUser]);
+    if (!currentUser || !currentUser.office_id) return [];
+    return users.filter((u) => u.office_id === currentUser.office_id && u.role === 'موظف');
+  }, [users, currentUser]);
   
   const myAssistants = useMemo(() => {
-    if (!currentUser || role !== 'مدير المكتب') return [];
-    return users.filter((u) => u.managedBy === currentUser.id && u.role === 'مساعد مدير المكتب');
+    if (!currentUser || role !== 'مدير المكتب' || !currentUser.office_id) return [];
+    return users.filter((u) => u.office_id === currentUser.office_id && u.role === 'مساعد مدير المكتب');
   }, [users, currentUser, role]);
 
   const myBranches = useMemo(() => {
@@ -489,18 +487,11 @@ export default function UsersPage() {
               onValueChange={handleAccordionChange}
             >
               {officeManagers.map((manager) => {
-                const employees = users.filter(
-                  (u) => u.managedBy === manager.id && u.role === 'موظف'
-                );
-                const assistants = users.filter(
-                  (u) => u.managedBy === manager.id && u.role === 'مساعد مدير المكتب'
-                );
-                const managerInvestors = investors.filter(
-                  (i) => {
-                    const user = users.find(u => u.id === i.id);
-                    return user?.managedBy === manager.id
-                  }
-                );
+                const teamUsers = users.filter(u => u.office_id === manager.office_id);
+                const employees = teamUsers.filter(u => u.role === 'موظف');
+                const assistants = teamUsers.filter(u => u.role === 'مساعد مدير المكتب');
+                const managerInvestors = investors.filter(i => i.office_id === manager.office_id);
+                const officeName = manager.office_name || manager.name;
 
                 return (
                   <AccordionItem value={manager.id} key={manager.id} className={cn(manager.status === 'معلق' && 'opacity-70 bg-muted/20')}>
@@ -509,7 +500,7 @@ export default function UsersPage() {
                           <div className="flex flex-1 items-center justify-between">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                               <div className="font-bold text-base">
-                                {manager.office_name || manager.name}
+                                {officeName}
                               </div>
                               <div className="text-xs text-muted-foreground sm:text-sm">
                                 {manager.email}
@@ -748,8 +739,7 @@ export default function UsersPage() {
   );
 
   const renderOfficeManagerView = () => {
-    const managerIdForSettings = role === 'مدير المكتب' ? currentUser?.id : currentUser?.managedBy;
-    const managerForSettings = users.find(u => u.id === managerIdForSettings);
+    const managerForSettings = users.find(u => u.office_id === currentUser?.office_id && u.role === 'مدير المكتب');
     
     const canAddAssistant = role === 'مدير المكتب' && myAssistants.length < (currentUser.assistantLimit ?? 0);
     const canAddEmployee = role === 'مدير المكتب' && myEmployees.length < (currentUser.employeeLimit ?? 0);
@@ -982,8 +972,8 @@ export default function UsersPage() {
                                 checked={managerForSettings?.allowEmployeeSubmissions ?? false}
                                 disabled={role !== 'مدير المكتب'}
                                 onCheckedChange={(checked) => {
-                                    if (managerIdForSettings) {
-                                    updateManagerSettings(managerIdForSettings, { allowEmployeeSubmissions: checked });
+                                    if (managerForSettings) {
+                                    updateManagerSettings(managerForSettings.id, { allowEmployeeSubmissions: checked });
                                     }
                                 }}
                             />
@@ -1002,8 +992,8 @@ export default function UsersPage() {
                                 checked={managerForSettings?.hideEmployeeInvestorFunds ?? false}
                                 disabled={role !== 'مدير المكتب'}
                                 onCheckedChange={(checked) => {
-                                    if (managerIdForSettings) {
-                                        updateManagerSettings(managerIdForSettings, { hideEmployeeInvestorFunds: checked });
+                                    if (managerForSettings) {
+                                        updateManagerSettings(managerForSettings.id, { hideEmployeeInvestorFunds: checked });
                                     }
                                 }}
                             />
@@ -1022,8 +1012,8 @@ export default function UsersPage() {
                                 checked={managerForSettings?.allowEmployeeLoanEdits ?? false}
                                 disabled={role !== 'مدير المكتب' && !(currentUser.permissions?.manageEmployeePermissions)}
                                 onCheckedChange={(checked) => {
-                                    if (managerIdForSettings) {
-                                        updateManagerSettings(managerIdForSettings, { allowEmployeeLoanEdits: checked });
+                                    if (managerForSettings) {
+                                        updateManagerSettings(managerForSettings.id, { allowEmployeeLoanEdits: checked });
                                     }
                                 }}
                             />

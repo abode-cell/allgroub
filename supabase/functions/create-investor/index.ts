@@ -28,10 +28,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization")!;
-    const { data: { user: manager } } = await supabaseAdmin.auth.getUser(
+    const { data: { user: managerAuth } } = await supabaseAdmin.auth.getUser(
       authHeader.replace("Bearer ", "")
     );
-    if (!manager) throw new Error("Manager not found");
+    if (!managerAuth) throw new Error("Manager not found");
+    
+    const { data: managerProfile, error: managerProfileError } = await supabaseAdmin.from('users').select('office_id').eq('id', managerAuth.id).single();
+    if(managerProfileError || !managerProfile) throw new Error("Manager profile not found");
+    if(!managerProfile.office_id) throw new Error("Manager is not associated with an office.");
+
 
     const payload: InvestorPayload = await req.json();
 
@@ -45,8 +50,8 @@ serve(async (req) => {
         full_name: payload.name,
         raw_phone_number: payload.phone,
         user_role: 'مستثمر',
-        managedBy: manager.id,
-        submittedBy: manager.id,
+        office_id: managerProfile.office_id,
+        submittedBy: managerAuth.id,
       },
     });
 
@@ -60,24 +65,26 @@ serve(async (req) => {
 
     newAuthUserId = newAuthUser.id;
 
-    // The handle_new_user trigger will create the user in public.users and the basic investor profile.
-    
-    // Now, update the newly created investor profile with the profit shares
-    const { error: investorUpdateError } = await supabaseAdmin
+    // The handle_new_user trigger will create the user in public.users. Now, create the investor profile.
+    const { error: investorError } = await supabaseAdmin
       .from("investors")
-      .update({
-        "installmentProfitShare": payload.installmentProfitShare,
-        "gracePeriodProfitShare": payload.gracePeriodProfitShare,
-      })
-      .eq('id', newAuthUser.id);
-      
-    if(investorUpdateError) console.error("Could not update profit shares for investor:", investorUpdateError.message);
+      .insert({
+        id: newAuthUser.id,
+        name: payload.name,
+        status: "نشط",
+        submittedBy: managerAuth.id,
+        office_id: managerProfile.office_id,
+        installmentProfitShare: payload.installmentProfitShare,
+        gracePeriodProfitShare: payload.gracePeriodProfitShare,
+      });
 
+    if (investorError) throw new Error(`Investor DB Error: ${investorError.message}`);
 
     // Create initial capital deposit transactions if provided
     if(payload.installmentCapital > 0) {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
+        office_id: managerProfile.office_id,
         id: `tx_inst_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.installmentCapital,
@@ -89,6 +96,7 @@ serve(async (req) => {
      if(payload.graceCapital > 0) {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
+        office_id: managerProfile.office_id,
         id: `tx_grace_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.graceCapital,

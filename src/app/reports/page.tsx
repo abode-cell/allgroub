@@ -109,7 +109,7 @@ const ReportTable = ({ loans, getInvestorInfoForLoan }: { loans: Borrower[], get
 
 
 export default function ReportsPage() {
-  const { borrowers: allBorrowers, investors: allInvestors, currentUser, visibleUsers: users, transactions } = useDataState();
+  const { borrowers: allBorrowers, investors: allInvestors, currentUser, transactions } = useDataState();
   const router = useRouter();
 
   const role = currentUser?.role;
@@ -126,20 +126,11 @@ export default function ReportsPage() {
     if (!currentUser) return { borrowers: [], investors: [] };
     if (role === 'مدير النظام') return { borrowers: allBorrowers, investors: allInvestors };
     
-    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    if (!managerId) return { borrowers: [], investors: [] };
-
-    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
-    relevantUserIds.add(currentUser.id);
-
-    const filteredBorrowers = allBorrowers.filter(b => b.submittedBy && relevantUserIds.has(b.submittedBy));
-    const filteredInvestors = allInvestors.filter(i => {
-        const investorUser = users.find(u => u.id === i.id);
-        return investorUser?.managedBy === managerId;
-    });
-
-    return { borrowers: filteredBorrowers, investors: filteredInvestors };
-  }, [currentUser, allBorrowers, allInvestors, users, role]);
+    return { 
+        borrowers: allBorrowers.filter(b => b.office_id === currentUser.office_id),
+        investors: allInvestors.filter(i => i.office_id === currentUser.office_id)
+    };
+  }, [currentUser, allBorrowers, allInvestors, role]);
 
 
   const getInvestorInfoForLoan = (loan: Borrower): React.ReactNode => {
@@ -566,5 +557,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    

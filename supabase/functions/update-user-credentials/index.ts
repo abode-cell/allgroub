@@ -34,14 +34,14 @@ serve(async (req) => {
     // 2. Get the payload
     const { userId, updates }: UpdatePayload = await req.json();
     
-    const { data: invokerProfile } = await supabaseAdmin.from('users').select('role').eq('id', invoker.id).single();
+    const { data: invokerProfile } = await supabaseAdmin.from('users').select('role, office_id').eq('id', invoker.id).single();
     if (!invokerProfile) throw new Error("Could not find invoker profile.");
 
 
     // 3. Authorization Check: Ensure only authorized users can perform this action
     const { data: userToUpdate, error: userFetchError } = await supabaseAdmin
         .from('users')
-        .select('role, managedBy')
+        .select('role, office_id')
         .eq('id', userId)
         .single();
     
@@ -57,8 +57,8 @@ serve(async (req) => {
             isAuthorized = true;
         }
     } else if (isOfficeManager) {
-        // Office manager can update their subordinates
-        if (userToUpdate.managedBy === invoker.id) {
+        // Office manager can update their subordinates (users in the same office)
+        if (userToUpdate.office_id === invokerProfile.office_id) {
             isAuthorized = true;
         }
     }
@@ -89,7 +89,8 @@ serve(async (req) => {
     const dbUpdates: any = {};
     if (updates.email) dbUpdates.email = updates.email;
     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
-      dbUpdates.office_name = updates.officeName;
+      const { error: officeUpdateError } = await supabaseAdmin.from('offices').update({ name: updates.officeName }).eq('id', userToUpdate.office_id);
+      if(officeUpdateError) throw new Error(`Office name update error: ${officeUpdateError.message}`);
     }
 
     if (Object.keys(dbUpdates).length > 0) {

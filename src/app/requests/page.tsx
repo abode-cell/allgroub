@@ -79,7 +79,6 @@ export default function RequestsPage() {
   const { 
     borrowers, 
     investors: allInvestors, 
-    users,
     currentUser,
     transactions,
   } = useDataState();
@@ -111,18 +110,10 @@ export default function RequestsPage() {
   const [isInsufficientFundsDialogOpen, setIsInsufficientFundsDialogOpen] = useState(false);
   const [availableFunds, setAvailableFunds] = useState(0);
 
-  const manager = useMemo(() => {
-    if (!currentUser) return null;
-    return role === 'مدير المكتب' ? currentUser : users.find(u => u.id === currentUser.managedBy);
-  }, [currentUser, users, role]);
-  
   const investors = useMemo(() => {
-    if (!manager) return [];
-    return allInvestors.filter(i => {
-        const investorUser = users.find(u => u.id === i.id);
-        return investorUser?.managedBy === manager.id;
-    });
-  }, [manager, allInvestors, users]);
+    if (!currentUser) return [];
+    return allInvestors.filter(i => i.office_id === currentUser.office_id);
+  }, [currentUser, allInvestors]);
 
   const handleRejectClick = (id: string, type: 'borrower' | 'investor') => {
     setItemToReject({ id, type });
@@ -233,22 +224,13 @@ export default function RequestsPage() {
   };
   
   const requestsToDisplay = useMemo(() => {
-    const allBorrowerRequests = borrowers.filter(b => b.submittedBy && b.status === 'معلق');
-    const allInvestorRequests = investors.filter(i => i.submittedBy && i.status === 'معلق');
+    if (!currentUser || !currentUser.office_id) return { borrowerRequests: [], investorRequests: [] };
 
-    if (!currentUser) return { borrowerRequests: [], investorRequests: [] };
+    const borrowerRequests = borrowers.filter(b => b.office_id === currentUser.office_id && b.status === 'معلق');
+    const investorRequests = allInvestors.filter(i => i.office_id === currentUser.office_id && i.status === 'معلق');
 
-    if (role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageRequests)) {
-      const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-      const employeeIds = users.filter(u => u.managedBy === managerId).map(u => u.id);
-      
-      return {
-        borrowerRequests: allBorrowerRequests.filter(b => b.submittedBy && employeeIds.includes(b.submittedBy)),
-        investorRequests: allInvestorRequests.filter(i => i.submittedBy && employeeIds.includes(i.submittedBy))
-      };
-    }
-    return { borrowerRequests: [], investorRequests: [] };
-  }, [borrowers, investors, users, currentUser, role]);
+    return { borrowerRequests, investorRequests };
+  }, [borrowers, allInvestors, currentUser]);
 
   if (!currentUser || !hasAccess) {
     return <PageSkeleton />;

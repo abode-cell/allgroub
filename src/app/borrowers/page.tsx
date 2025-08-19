@@ -61,48 +61,32 @@ const PageSkeleton = () => (
 
 
 export default function BorrowersPage() {
-  const { addBorrower, borrowers: allBorrowers, investors: allInvestors, visibleUsers: users, baseInterestRate, currentUser, transactions } = useDataState();
+  const { addBorrower, borrowers: allBorrowers, investors: allInvestors, users, baseInterestRate, currentUser, transactions } = useDataState();
   const { toast } = useToast();
   const router = useRouter();
 
   const role = currentUser?.role;
   const hasAccess = role === 'مدير المكتب' || (role === 'مساعد مدير المكتب' && currentUser?.permissions?.manageBorrowers) || role === 'موظف';
-  const isSubordinate = role === 'موظف' || role === 'مساعد مدير المكتب';
 
   useEffect(() => {
-    if (currentUser && (!hasAccess || (isSubordinate && !currentUser.managedBy))) {
+    if (currentUser && !hasAccess) {
       router.replace('/');
     }
-  }, [currentUser, hasAccess, isSubordinate, router]);
+  }, [currentUser, hasAccess, router]);
 
   const borrowers = useMemo(() => {
     if (!currentUser || !allBorrowers) return [];
-    if (role === 'مدير النظام') return [];
+    if (role === 'مدير النظام' || role === 'مستثمر') return [];
 
-    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    if (!managerId) {
-        return []; 
-    }
-
-    const relevantUserIds = new Set(users.filter(u => u.managedBy === managerId || u.id === managerId).map(u => u.id));
-    relevantUserIds.add(currentUser.id);
-    return allBorrowers.filter(b => b.managedBy && (b.managedBy === managerId));
-  }, [currentUser, allBorrowers, users, role]);
+    return allBorrowers.filter(b => b.office_id === currentUser.office_id);
+  }, [currentUser, allBorrowers, role]);
 
   const investors = useMemo(() => {
     if (!currentUser || !allInvestors) return [];
-    if (role === 'مدير النظام') return [];
+    if (role === 'مدير النظام' || role === 'مستثمر') return [];
     
-    const managerId = role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy;
-    if (!managerId) {
-        return [];
-    }
-    
-    return allInvestors.filter(i => {
-        const investorUser = users.find(u => u.id === i.id);
-        return investorUser?.managedBy === managerId;
-    });
-  }, [currentUser, allInvestors, users, role]);
+    return allInvestors.filter(i => i.office_id === currentUser.office_id);
+  }, [currentUser, allInvestors, role]);
 
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -134,7 +118,7 @@ export default function BorrowersPage() {
   const isEmployee = role === 'موظف';
   const isAssistant = role === 'مساعد مدير المكتب';
 
-  const manager = (isEmployee || isAssistant) ? users.find((u) => u.id === currentUser?.managedBy) : null;
+  const manager = users.find((u) => u.office_id === currentUser?.office_id && u.role === 'مدير المكتب');
   
   const canAddLoan = role === 'مدير المكتب' || (isAssistant && currentUser?.permissions?.manageBorrowers) || (isEmployee && manager?.allowEmployeeSubmissions);
 
@@ -232,7 +216,7 @@ export default function BorrowersPage() {
     proceedToAddBorrower(true);
   };
   
-  if (!currentUser || !hasAccess || (isSubordinate && !currentUser.managedBy)) {
+  if (!currentUser || !hasAccess) {
     return <PageSkeleton />;
   }
 
