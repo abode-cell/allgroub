@@ -949,7 +949,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
       }
       
-      const { error } = await supabase.from('transactions').insert({ ...transaction, investor_id: investorId });
+      const { error } = await supabase.from('transactions').insert({ ...transaction, investor_id: investorId, office_id: currentUser.office_id });
       if (error) {
         toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إضافة العملية المالية.' });
       } else {
@@ -1081,11 +1081,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const addBranch = useCallback(async (branch: Omit<Branch, 'id' | 'office_id'>): Promise<{success: boolean, message: string}> => {
     const supabase = getSupabaseBrowserClient();
-    if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) return {success: false, message: 'غير مصرح به.'};
-    if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) return {success: false, message: 'لقد وصلت إلى الحد الأقصى.'};
+    if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) {
+        toast({variant: 'destructive', title: 'خطأ', description: 'غير مصرح به.'});
+        return {success: false, message: 'غير مصرح به.'};
+    }
 
-    const { error } = await supabase.from('branches').insert({ ...branch });
-    if (error) return {success: false, message: 'فشل في إضافة الفرع.'};
+    if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
+        toast({variant: 'destructive', title: 'خطأ', description: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'});
+        return {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
+    }
+
+    const { error } = await supabase.from('branches').insert({ ...branch, office_id: currentUser.office_id });
+
+    if (error) {
+        console.error("Error adding branch:", error);
+        toast({variant: 'destructive', title: 'خطأ', description: 'فشل في إضافة الفرع.'});
+        return {success: false, message: 'فشل في إضافة الفرع.'};
+    }
     
     await fetchData(supabase);
     toast({title: 'تمت إضافة الفرع بنجاح.'});
@@ -1094,14 +1106,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const deleteBranch = useCallback(async (branchId: string) => {
       const supabase = getSupabaseBrowserClient();
+      if (!currentUser || currentUser.role !== 'مدير المكتب') return;
+      
       const { error } = await supabase.from('branches').delete().eq('id', branchId);
       if (error) {
-        toast({variant: 'destructive', title: 'خطأ', description: 'فشل في حذف الفرع.'});
-      } else {
-        await fetchData(supabase);
-        toast({title: 'تم حذف الفرع بنجاح.'});
+          console.error("Error deleting branch:", error);
+          toast({variant: 'destructive', title: 'خطأ', description: 'فشل في حذف الفرع.'});
+          return;
       }
-  }, [toast, fetchData]);
+      
+      await fetchData(supabase);
+      toast({title: 'تم حذف الفرع بنجاح.'});
+  }, [currentUser, toast, fetchData]);
   
   const value = useMemo(() => ({
       currentUser, session, authLoading, dataLoading, ...data, visibleUsers,
