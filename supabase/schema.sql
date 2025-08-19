@@ -3,8 +3,8 @@
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
-DROP FUNCTION IF EXISTS public.get_my_claim(claim TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
@@ -182,20 +182,11 @@ CREATE INDEX ON public.branches ("office_id");
 
 
 -- ========= Helper Functions for RLS Policies =========
-CREATE OR REPLACE FUNCTION get_current_office_id()
-RETURNS UUID
-LANGUAGE sql STABLE
-AS $$
-  SELECT office_id
-  FROM public.users
-  WHERE id = auth.uid();
-$$;
-
 CREATE OR REPLACE FUNCTION get_my_claim(claim TEXT)
 RETURNS JSONB
 LANGUAGE sql STABLE
 AS $$
-  SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb->claim
+  SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb->'user_metadata'->claim
 $$;
 
 CREATE OR REPLACE FUNCTION is_admin()
@@ -203,6 +194,13 @@ RETURNS BOOLEAN
 LANGUAGE sql STABLE
 AS $$
   SELECT (get_my_claim('user_role'))::jsonb ? 'مدير النظام'
+$$;
+
+CREATE OR REPLACE FUNCTION get_current_office_id()
+RETURNS UUID
+LANGUAGE sql STABLE
+AS $$
+    SELECT (get_my_claim('office_id')->>0)::UUID
 $$;
 
 
@@ -298,23 +296,31 @@ DECLARE
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
-    -- Extract role and other metadata
+    -- Extract role and other metadata from the new auth.users record
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
 
-    -- If the role is 'مدير المكتب', create a new office and set their trial period
+    -- If the role is 'مدير المكتب', they create a new office.
+    -- Their office_id is a new UUID, and they get a trial period.
     IF user_role_text = 'مدير المكتب' THEN
         user_office_id := gen_random_uuid();
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
         trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days if not set
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
-        -- For other roles, get the office_id from their manager
+        -- For all other roles, they belong to their manager's office.
+        -- We fetch the office_id from the manager's record in public.users.
         SELECT office_id INTO user_office_id FROM public.users WHERE id = user_managed_by;
         trial_end_date := NULL;
     END IF;
 
-    -- Insert into public.users. It's crucial this happens for ALL user roles.
+    -- Now that we have the correct office_id, update the user's metadata in auth.users
+    -- This is crucial for making office_id available in the JWT claims.
+    UPDATE auth.users
+    SET raw_user_meta_data = new.raw_user_meta_data || jsonb_build_object('office_id', user_office_id)
+    WHERE id = new.id;
+
+    -- Insert the complete profile into public.users.
     INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, "trialEndsAt")
     VALUES (
         new.id,
@@ -328,14 +334,15 @@ BEGIN
         trial_end_date
     );
 
-    -- **IMPORTANT**: Only create an investor profile if the role is 'مستثمر'
+    -- If the new user is an investor, also create a record in the public.investors table.
     IF user_role_text = 'مستثمر' THEN
-        INSERT INTO public.investors (id, office_id, name, status, "managedBy")
+        INSERT INTO public.investors (id, office_id, name, status, "submittedBy", "managedBy")
         VALUES (
             new.id,
             user_office_id,
             new.raw_user_meta_data->>'full_name',
             'نشط'::public.investor_status,
+            user_managed_by,
             user_managed_by
         );
     END IF;
@@ -361,4 +368,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-
