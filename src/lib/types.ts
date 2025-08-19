@@ -212,5 +212,3 @@ export type AddBorrowerResult = {
 
 // Add UUID type for better type safety
 import { type UUID } from 'crypto';
-
-    

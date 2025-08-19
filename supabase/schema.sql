@@ -275,8 +275,8 @@ CREATE POLICY "Allow office members to manage their transactions" ON public.tran
 DROP POLICY IF EXISTS "Allow office managers to manage their own branches" ON public.branches;
 DROP POLICY IF EXISTS "Allow office members to read branch data" ON public.branches;
 
-CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (manager_id = get_current_office_id() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
-CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (manager_id = get_current_office_id());
+CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (manager_id = auth.uid() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
+CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (office_id = get_current_office_id());
 
 
 -- POLICIES FOR: support_tickets AND notifications
@@ -332,13 +332,12 @@ BEGIN
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
     user_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
 
-    -- For Office Managers, their office_id is their own user_id. This is a crucial link.
+    -- Determine office_id and trial period for Office Managers
     IF user_role_text = 'مدير المكتب' THEN
         -- Fetch the default trial period from app_config
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
         trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
-        user_office_id := new.id; -- The manager's ID becomes their office ID.
     ELSE
         trial_end_date := NULL;
     END IF;
@@ -444,5 +443,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-
-    

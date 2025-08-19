@@ -193,7 +193,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
-        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*, branches(*)').eq('id', authUser.id).single();
+        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
         if (profileError || !currentUserProfile) {
             throw new Error(profileError?.message || "ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.");
         }
@@ -217,17 +217,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
           { data: notifications_data, error: notificationsError },
           { data: support_tickets_data, error: supportTicketsError },
           { data: app_config_data, error: appConfigError },
+          { data: branches_data, error: branchesError }
         ] = await Promise.all([
-          supabaseClient.from('users').select('*, branches(*)'),
+          supabaseClient.from('users').select('*'),
           supabaseClient.from('investors').select('*'),
           supabaseClient.from('borrowers').select('*'),
           supabaseClient.from('transactions').select('*'),
           supabaseClient.from('notifications').select('*'),
           supabaseClient.from('support_tickets').select('*'),
           supabaseClient.from('app_config').select('*'),
+          supabaseClient.from('branches').select('*')
         ]);
         
-        const errors = { usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError };
+        const errors = { usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError };
         for (const [key, error] of Object.entries(errors)) {
             if (error) {
                 console.error(`Error fetching ${key}:`, error);
@@ -250,8 +252,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
+        const usersWithBranches: User[] = (all_users_data || []).map(user => ({
+            ...user,
+            branches: (branches_data || []).filter(branch => branch.manager_id === user.id)
+        }));
+
         setData({
-            users: all_users_data || [],
+            users: usersWithBranches,
             investors: investors_data || [],
             borrowers: borrowersWithData,
             transactions: transactions_data || [],
@@ -376,6 +383,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           full_name: payload.name,
           office_name: payload.officeName,
           raw_phone_number: payload.phone,
+          office_id: crypto.randomUUID() // Assign a new office_id right away
         }
       }
     });
@@ -1239,5 +1247,3 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
-
-    
