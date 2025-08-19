@@ -10,7 +10,7 @@ interface UpdatePayload {
     email?: string;
     password?: string;
     officeName?: string;
-    branch_id?: string;
+    branch_id?: string | null;
   };
 }
 
@@ -89,7 +89,7 @@ serve(async (req) => {
     // 5. Update public.users table 
     const dbUpdates: any = {};
     if (updates.email) dbUpdates.email = updates.email;
-    if (updates.branch_id) dbUpdates.branch_id = updates.branch_id;
+    if (updates.branch_id !== undefined) dbUpdates.branch_id = updates.branch_id;
     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
       dbUpdates.office_name = updates.officeName;
     }

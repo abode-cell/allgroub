@@ -34,7 +34,7 @@ export type NewUserPayload = {
   phone: string;
   password?: string;
   confirmPassword?: string;
-  branch_id?: string;
+  branch_id?: string | null;
 };
 
 export type NewManagerPayload = {
@@ -54,9 +54,9 @@ export type Branch = {
 
 
 export type User = {
-  id: string;
-  office_id: string | null;
-  branch_id: string | null;
+  id: UUID;
+  office_id: UUID | null;
+  branch_id: UUID | null;
   name: string;
   office_name?: string;
   email: string;
@@ -177,7 +177,7 @@ export type NewInvestorPayload = {
     password?: string;
     installmentProfitShare: number;
     gracePeriodProfitShare: number;
-    branch_id?: string;
+    branch_id?: string | null;
 };
 
 export type SupportTicket = {
@@ -211,3 +211,6 @@ export type AddBorrowerResult = {
         managerPhone: string;
     }
 }
+
+// Add UUID type for better type safety
+import { type UUID } from 'crypto';

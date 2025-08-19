@@ -10,7 +10,7 @@ interface SubordinatePayload {
   phone: string;
   password?: string;
   role: 'موظف' | 'مساعد مدير المكتب';
-  branch_id?: string; // Branch is now optional
+  branch_id?: string | null; 
 }
 
 serve(async (req) => {

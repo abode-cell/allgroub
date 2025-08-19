@@ -13,7 +13,7 @@ interface InvestorPayload {
   graceCapital: number;
   installmentProfitShare: number;
   gracePeriodProfitShare: number;
-  branch_id?: string; // Branch is now optional
+  branch_id?: string | null; 
 }
 
 serve(async (req) => {
