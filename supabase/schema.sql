@@ -174,23 +174,31 @@ CREATE INDEX ON public.borrowers ("nationalId");
 -- ========= Helper Function for RLS =========
 CREATE OR REPLACE FUNCTION get_my_team_user_ids()
 RETURNS TABLE(user_id UUID)
-LANGUAGE sql
+LANGUAGE plpgsql
+STABLE -- Important for performance
 SECURITY DEFINER SET search_path = public
 AS $$
-    WITH RECURSIVE team_members AS (
-        -- Base case: the current user
-        SELECT id, "managedBy"
-        FROM public.users
-        WHERE id = auth.uid()
-        
-        UNION
-        
-        -- Recursive step: find subordinates
-        SELECT u.id, u."managedBy"
-        FROM public.users u
-        JOIN team_members tm ON u."managedBy" = tm.id
-    )
-    SELECT id FROM team_members;
+DECLARE
+    current_user_id UUID := auth.uid();
+    my_manager_id UUID;
+    my_role TEXT;
+BEGIN
+    -- Get the role and manager ID for the current user.
+    SELECT role, "managedBy" INTO my_role, my_manager_id FROM public.users WHERE id = current_user_id;
+
+    -- Return a table of user IDs belonging to the same team.
+    RETURN QUERY
+    SELECT id FROM public.users
+    WHERE
+        -- System admin can see everyone
+        my_role = 'مدير النظام'
+        -- Users can always see themselves
+        OR id = current_user_id
+        -- Team members (manager, assistant, employee) see their entire team
+        OR "managedBy" = (CASE WHEN my_role = 'مدير المكتب' THEN current_user_id ELSE my_manager_id END)
+        -- A manager can also see their manager (if any)
+        OR id = (CASE WHEN my_role = 'مدير المكتب' THEN current_user_id ELSE my_manager_id END);
+END;
 $$;
 
 
@@ -208,14 +216,16 @@ ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
 
 -- Policies for 'users' table
-CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow users to read their own and team data" ON "public"."users" FOR SELECT TO authenticated USING (id = auth.uid() OR id IN (SELECT user_id FROM get_my_team_user_ids()));
+CREATE POLICY "Allow users to read their team data" ON "public"."users" FOR SELECT TO authenticated USING (id IN (SELECT user_id FROM get_my_team_user_ids()));
 CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+
 
 -- Policies for 'investors' table
 CREATE POLICY "Allow admin to manage all investors" ON "public"."investors" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
 CREATE POLICY "Allow managers and their team to manage their investors" ON "public"."investors" FOR ALL TO authenticated USING ("managedBy" IN (SELECT user_id FROM get_my_team_user_ids()));
 CREATE POLICY "Allow investors to see their own profile" ON "public"."investors" FOR SELECT TO authenticated USING (id = auth.uid());
+
 
 -- Policies for 'borrowers' table
 CREATE POLICY "Allow admin to manage all borrowers" ON "public"."borrowers" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
