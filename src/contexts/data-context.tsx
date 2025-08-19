@@ -1204,8 +1204,9 @@ export function useDataActions() {
       updateBorrowerPaymentStatus, approveBorrower, rejectBorrower, deleteBorrower, updateInstallmentStatus,
       handlePartialPayment, addInvestor, addNewSubordinateUser, updateInvestor, approveInvestor, rejectInvestor,
       addInvestorTransaction, updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
-      updateUserLimits, updateManagerSettings, updateAssistantPermission, updateEmployeePermission,
-      requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead,
+      updateUserLimits, updateManagerSettings, updateAssistantPermission,
+      updateEmployeePermission, requestCapitalIncrease, deleteUser,
+      clearUserNotifications, markUserNotificationsAsRead,
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
