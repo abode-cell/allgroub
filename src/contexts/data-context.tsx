@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -194,7 +193,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
-        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
+        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*, branches(*)').eq('id', authUser.id).single();
         if (profileError || !currentUserProfile) {
             throw new Error(profileError?.message || "ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.");
         }
@@ -255,7 +254,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         const usersWithBranches = (all_users_data || []).map((u: User) => ({
             ...u,
-            branches: (branches_data || []).filter((b: Branch) => b.office_id === u.office_id)
+            branches: (branches_data || []).filter((b: Branch) => b.office_id === u.id)
         }));
         
         setData({
@@ -380,10 +379,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       password: payload.password,
       options: {
         data: {
+          user_role: 'مدير المكتب',
           full_name: payload.name,
           office_name: payload.officeName,
           raw_phone_number: payload.phone,
-          user_role: 'مدير المكتب',
         }
       }
     });
@@ -898,7 +897,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         if (profileError) {
           console.error("Error creating investor profile:", profileError);
-          // Attempt to clean up the auth user if profile creation fails
           await supabase.auth.admin.deleteUser(user.id);
           toast({ variant: 'destructive', title: 'خطأ فادح', description: `فشل إنشاء ملف المستثمر: ${profileError.message}` });
           return { success: false, message: profileError.message };
@@ -914,7 +912,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        if (!currentUser || currentUser.role !== 'مدير المكتب') {
+        if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) {
             return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
         }
         
@@ -923,9 +921,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           password: payload.password!,
           options: {
             data: {
+              user_role: role,
               full_name: payload.name,
               raw_phone_number: payload.phone,
-              user_role: role,
               managedBy: currentUser.id,
               office_id: currentUser.office_id,
               branch_id: payload.branch_id || null
@@ -1139,7 +1137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
     }
 
-    const { error } = await supabase.from('branches').insert({ ...branch, office_id: currentUser.office_id });
+    const { error } = await supabase.from('branches').insert({ ...branch, office_id: currentUser.id });
 
     if (error) {
         console.error("Error adding branch:", error);
@@ -1245,5 +1243,3 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
-
-    

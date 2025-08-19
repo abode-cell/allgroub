@@ -1,22 +1,22 @@
-
 -- supabase/schema.sql
 
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
-DROP FUNCTION IF EXISTS public.create_investor_profile(UUID,TEXT,UUID,UUID,UUID,UUID,NUMERIC,NUMERIC,NUMERIC,NUMERIC) CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
 DROP FUNCTION IF EXISTS public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id UUID, p_name TEXT, p_office_id UUID, p_branch_id UUID, p_managed_by UUID, p_submitted_by UUID, p_installment_profit_share NUMERIC, p_grace_period_profit_share NUMERIC, p_initial_installment_capital NUMERIC, p_initial_grace_capital NUMERIC) CASCADE;
+
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
 DROP TABLE IF EXISTS public.transactions CASCADE;
 DROP TABLE IF EXISTS public.borrowers CASCADE;
 DROP TABLE IF EXISTS public.investors CASCADE;
-DROP TABLE IF EXISTS public.branches CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
+DROP TABLE IF EXISTS public.branches CASCADE;
 DROP TABLE IF EXISTS public.app_config CASCADE;
 
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
@@ -78,17 +78,18 @@ COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users.';
 -- Branches Table
 CREATE TABLE public.branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    office_id UUID NOT NULL,
+    office_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     city TEXT NOT NULL
 );
 COMMENT ON TABLE public.branches IS 'Stores office branches for an office manager.';
+ALTER TABLE public.users ADD FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
 
 -- Investors Table
 CREATE TABLE public.investors (
     id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     office_id UUID NOT NULL,
-    branch_id UUID,
+    branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     date TIMESTAMPTZ DEFAULT NOW(),
     status public.investor_status NOT NULL DEFAULT 'معلق',
@@ -105,7 +106,7 @@ COMMENT ON TABLE public.investors IS 'Stores investor-specific data.';
 CREATE TABLE public.borrowers (
     id TEXT PRIMARY KEY,
     office_id UUID NOT NULL,
-    branch_id UUID,
+    branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     "nationalId" TEXT NOT NULL,
     phone TEXT NOT NULL,
@@ -174,12 +175,15 @@ COMMENT ON TABLE public.notifications IS 'Stores notifications for users.';
 -- ========= Indexes for Performance =========
 CREATE INDEX ON public.users ("managedBy");
 CREATE INDEX ON public.users ("office_id");
+CREATE INDEX ON public.users ("branch_id");
 CREATE INDEX ON public.borrowers ("submittedBy");
 CREATE INDEX ON public.borrowers ("managedBy");
 CREATE INDEX ON public.borrowers ("office_id");
+CREATE INDEX ON public.borrowers ("branch_id");
 CREATE INDEX ON public.investors ("submittedBy");
 CREATE INDEX ON public.investors ("managedBy");
 CREATE INDEX ON public.investors ("office_id");
+CREATE INDEX ON public.investors ("branch_id");
 CREATE INDEX ON public.transactions (investor_id);
 CREATE INDEX ON public.transactions ("office_id");
 CREATE INDEX ON public.notifications ("recipientId");
@@ -273,7 +277,7 @@ CREATE POLICY "Allow office members to manage their transactions" ON public.tran
 DROP POLICY IF EXISTS "Allow office managers to manage their own branches" ON public.branches;
 DROP POLICY IF EXISTS "Allow office members to read branch data" ON public.branches;
 
-CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (office_id = get_current_office_id() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
+CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (office_id = auth.uid() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
 CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (office_id = get_current_office_id());
 
 
@@ -298,11 +302,14 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT u.name, u.office_name, u.phone
-    FROM public.borrowers b
-    JOIN public.users u ON b."managedBy" = u.id
-    WHERE b."nationalId" = p_national_id
-      AND b.office_id != p_office_id
-      AND b.status NOT IN ('مرفوض', 'مسدد بالكامل');
+    FROM public.users u
+    WHERE u.id IN (
+        SELECT b."submittedBy"
+        FROM public.borrowers b
+        WHERE b."nationalId" = p_national_id
+          AND b.office_id != p_office_id
+          AND b.status NOT IN ('مرفوض', 'مسدد بالكامل')
+    );
 END;
 $$;
 
@@ -321,44 +328,53 @@ DECLARE
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
+    -- Extract role and other metadata from the new user's metadata
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
+    user_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
 
+    -- If the role is 'مدير المكتب', this is a new signup. The office_id is the user's own id.
     IF user_role_text = 'مدير المكتب' THEN
-        user_office_id := gen_random_uuid();
+        -- Fetch the default trial period from app_config
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
-        trial_period_days := COALESCE(trial_period_days, 14);
+        trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
-    ELSE
-        user_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
-        trial_end_date := NULL;
-    END IF;
 
-    INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, branch_id, "trialEndsAt")
-    VALUES (
-        new.id,
-        new.raw_user_meta_data->>'full_name',
-        new.raw_user_meta_data->>'office_name',
-        new.email,
-        new.raw_user_meta_data->>'raw_phone_number',
-        user_role_text::public.user_role,
-        user_managed_by,
-        user_office_id,
-        user_branch_id,
-        trial_end_date
-    );
+        -- Insert the new office manager into the public.users table
+        INSERT INTO public.users (id, name, office_name, email, phone, role, office_id, "trialEndsAt")
+        VALUES (
+            new.id,
+            new.raw_user_meta_data->>'full_name',
+            new.raw_user_meta_data->>'office_name',
+            new.email,
+            new.raw_user_meta_data->>'raw_phone_number',
+            user_role_text::public.user_role,
+            new.id, -- The office_id is the manager's own id
+            trial_end_date
+        );
+    ELSE
+        -- For other roles (employee, assistant, investor), they are created by a manager.
+        INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id, status)
+        VALUES (
+            new.id,
+            new.raw_user_meta_data->>'full_name',
+            new.email,
+            new.raw_user_meta_data->>'raw_phone_number',
+            user_role_text::public.user_role,
+            user_managed_by,
+            user_office_id,
+            user_branch_id,
+            'نشط' -- Subordinates are activated immediately
+        );
+    END IF;
 
     RETURN new;
 END;
 $$;
 
--- Trigger to call the function when a new user signs up
-CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- RPC to create an investor profile and initial transactions
+-- Function to create an investor profile and initial capital transactions.
 CREATE OR REPLACE FUNCTION public.create_investor_profile(
     p_user_id UUID,
     p_name TEXT,
@@ -376,46 +392,56 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-    INSERT INTO public.investors (id, office_id, branch_id, name, status, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare")
+    -- Insert into the investors table
+    INSERT INTO public.investors (id, name, office_id, branch_id, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare", status)
     VALUES (
         p_user_id,
+        p_name,
         p_office_id,
         p_branch_id,
-        p_name,
-        'نشط'::public.investor_status,
         p_managed_by,
         p_submitted_by,
         p_installment_profit_share,
-        p_grace_period_profit_share
+        p_grace_period_profit_share,
+        'نشط'
     );
 
+    -- Insert initial capital for installments if provided
     IF p_initial_installment_capital > 0 THEN
-        INSERT INTO public.transactions(id, office_id, investor_id, type, amount, description, "capitalSource")
-        VALUES(
+        INSERT INTO public.transactions (id, office_id, investor_id, type, amount, description, "capitalSource")
+        VALUES (
             'tx_' || gen_random_uuid(),
             p_office_id,
             p_user_id,
             'إيداع رأس المال',
             p_initial_installment_capital,
-            'رأس مال تأسيسي - محفظة الأقساط',
+            'إيداع رأس مال تأسيسي - أقساط',
             'installment'
         );
     END IF;
 
+    -- Insert initial capital for grace period if provided
     IF p_initial_grace_capital > 0 THEN
-        INSERT INTO public.transactions(id, office_id, investor_id, type, amount, description, "capitalSource")
-        VALUES(
+        INSERT INTO public.transactions (id, office_id, investor_id, type, amount, description, "capitalSource")
+        VALUES (
             'tx_' || gen_random_uuid(),
             p_office_id,
             p_user_id,
             'إيداع رأس المال',
             p_initial_grace_capital,
-            'رأس مال تأسيسي - محفظة المهلة',
+            'إيداع رأس مال تأسيسي - مهلة',
             'grace'
         );
     END IF;
 END;
 $$;
+
+
+
+-- Trigger to call the function when a new user signs up
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 
 -- ========= Initial Data Inserts =========
@@ -429,6 +455,4 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-
-
-    
+```
