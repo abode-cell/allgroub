@@ -41,10 +41,10 @@ export default function LandingPage() {
                     <div className="container mx-auto px-4 md:px-6 text-center">
                         <div className="flex flex-col items-center space-y-6">
                             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
-                                من مكتب واحد إلى شبكة فروع متكاملة
+                                الإدارة المالية المثلى بين يديك
                             </h1>
                             <p className="max-w-[700px] text-muted-foreground md:text-xl">
-                                منصة عال تتطور معك. أدر عملياتك التمويلية عبر عدة فروع بدقة وسهولة، وعيّن الموارد لكل فرع، وراقب الأداء من لوحة تحكم مركزية وذكية.
+                                منصة "عال" تمكّنك من إدارة استثماراتك، تمويلاتك، وعملائك بكفاءة وأمان، مع توفير الشفافية الكاملة لشركائك في النجاح.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Button asChild size="lg">
@@ -65,32 +65,41 @@ export default function LandingPage() {
                                 نحن لا نربطك بمستثمرين جدد، بل نمنحك الأداة لإدارة علاقتك مع مستثمريك الحاليين بكفاءة وشفافية عبر جميع فروعك.
                             </p>
                         </div>
-                        <div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-3 md:gap-12">
+                        <div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 md:gap-12 lg:grid-cols-4">
                              <div className="grid gap-2 text-center">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <Rocket className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">1. أنشئ مكتبك الرئيسي</h3>
+                                <h3 className="text-xl font-bold">1. أنشئ مكتبك</h3>
                                 <p className="text-muted-foreground">
                                     سجّل حسابك كمدير مكتب لتأسيس مركز عملياتك.
                                 </p>
                             </div>
-                             <div className="grid gap-2 text-center">
+                            <div className="grid gap-2 text-center">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <GitBranch className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">2. أضف فروعك ومواردك</h3>
+                                <h3 className="text-xl font-bold">2. أضف فروعك</h3>
                                 <p className="text-muted-foreground">
-                                    عرّف فروعك المختلفة، ثم قم بإضافة وتعيين المستثمرين والموظفين لكل فرع.
+                                    عرّف فروعك المختلفة، ثم قم بإضافة وتعيين الموارد البشرية والمالية لكل فرع.
+                                </p>
+                            </div>
+                            <div className="grid gap-2 text-center">
+                                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
+                                    <Users className="h-8 w-8" />
+                                </div>
+                                <h3 className="text-xl font-bold">3. أضف مستثمريك</h3>
+                                <p className="text-muted-foreground">
+                                    أضف المستثمرين الذين تتعامل معهم وأرصدتهم لكل فرع.
                                 </p>
                             </div>
                             <div className="grid gap-2 text-center">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                                     <TrendingUp className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-xl font-bold">3. أدر وتابع الأداء</h3>
+                                <h3 className="text-xl font-bold">4. أدر وتابع الأداء</h3>
                                 <p className="text-muted-foreground">
-                                    استخدم لوحة التحكم المركزية لمتابعة أداء كل فرع على حدة أو عرض نظرة شاملة لشبكتك بالكامل.
+                                    استخدم لوحة التحكم لمتابعة أداء كل فرع أو عرض نظرة شاملة لشبكتك بالكامل.
                                 </p>
                             </div>
                         </div>

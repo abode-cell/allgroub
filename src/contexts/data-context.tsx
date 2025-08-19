@@ -855,12 +855,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addInvestor = useCallback(
-    async (investorPayload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
+    async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
         const supabase = getSupabaseBrowserClient();
         if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
-            const { error } = await supabase.functions.invoke('create-investor', { body: investorPayload });
+            const { error } = await supabase.functions.invoke('create-investor', { body: payload });
             if (error) throw new Error(error.message);
             
             await fetchData(supabase);
@@ -883,7 +883,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         try {
-            const { error } = await supabase.functions.invoke('create-subordinate', { body: { ...payload, role } });
+            const { error } = await supabase.functions.invoke('create-subordinate', { body: { role, ...payload } });
             if (error) throw new Error(error.message);
 
             await fetchData(supabase);
@@ -949,7 +949,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
       }
       
-      const { error } = await supabase.from('transactions').insert({ ...transaction, investor_id: investorId, office_id: currentUser.office_id, branch_id: investor.branch_id });
+      const { error } = await supabase.from('transactions').insert({ ...transaction, investor_id: investorId, office_id: currentUser.office_id });
       if (error) {
         toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إضافة العملية المالية.' });
       } else {
@@ -1197,5 +1197,3 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
-
-    

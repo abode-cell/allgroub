@@ -82,7 +82,6 @@ serve(async (req) => {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
         office_id: managerProfile.office_id,
-        branch_id: payload.branch_id,
         id: `tx_inst_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.installmentCapital,
@@ -95,7 +94,6 @@ serve(async (req) => {
       const { error: txError } = await supabaseAdmin.from('transactions').insert({
         investor_id: newAuthUser.id,
         office_id: managerProfile.office_id,
-        branch_id: payload.branch_id,
         id: `tx_grace_${crypto.randomUUID()}`,
         type: 'إيداع رأس المال',
         amount: payload.graceCapital,
@@ -119,5 +117,3 @@ serve(async (req) => {
     });
   }
 });
-
-    
