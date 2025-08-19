@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -746,7 +747,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
           fundedBy: [], // This will be set on approval
-          // The rest are handled by the database insert/triggers.
+          office_id: currentUser.office_id,
+          managedBy: currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy,
       };
 
       const { error } = await supabase.from('borrowers').insert(newEntry);
@@ -1197,3 +1199,5 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
+
+    

@@ -257,18 +257,7 @@ export default function BorrowersPage() {
       );
   }, [investors, allBorrowers, newBorrower.loanType, transactions]);
   
-  const hasAvailableInvestorsForType = (type: 'اقساط' | 'مهلة') => {
-    return investors.some(i => {
-        if (i.status !== 'نشط') return false;
-        const financials = calculateInvestorFinancials(i, allBorrowers, transactions);
-        const capital = type === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
-        return typeof capital !== 'undefined' && capital > 0;
-    });
-  };
-  
-  const canAddInstallmentLoan = hasAvailableInvestorsForType('اقساط');
-  const canAddGraceLoan = hasAvailableInvestorsForType('مهلة');
-  const canAddAnyLoan = canAddInstallmentLoan || canAddGraceLoan;
+  const canAddAnyLoan = isPendingRequest || investors.some(i => i.status === 'نشط');
   
   const hideInvestorFunds = (isEmployee || isAssistant) ? manager?.hideEmployeeInvestorFunds ?? false : false;
 
@@ -288,16 +277,16 @@ export default function BorrowersPage() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                      <span tabIndex={isPendingRequest || canAddAnyLoan ? undefined : 0}>
-                        <Button disabled={!isPendingRequest && !canAddAnyLoan}>
+                      <span tabIndex={canAddAnyLoan ? undefined : 0}>
+                        <Button disabled={!canAddAnyLoan}>
                             <PlusCircle className="ml-2 h-4 w-4" />
                             {isPendingRequest ? 'رفع طلب إضافة قرض' : 'إضافة قرض'}
                         </Button>
                       </span>
                   </TooltipTrigger>
-                  {(!isPendingRequest && !canAddAnyLoan) && (
+                  {!canAddAnyLoan && (
                     <TooltipContent>
-                        <p>لا يوجد مستثمرون نشطون لديهم رأس مال متاح لإضافة قرض جديد.</p>
+                        <p>لا يوجد مستثمرون نشطون لإضافة قرض جديد.</p>
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -374,11 +363,11 @@ export default function BorrowersPage() {
                       className="col-span-3 flex gap-4 rtl:space-x-reverse"
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="اقساط" id="r1" disabled={!isPendingRequest && !canAddInstallmentLoan} />
+                        <RadioGroupItem value="اقساط" id="r1" />
                         <Label htmlFor="r1">أقساط</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="مهلة" id="r2" disabled={!isPendingRequest && !canAddGraceLoan}/>
+                        <RadioGroupItem value="مهلة" id="r2" />
                         <Label htmlFor="r2">مهلة</Label>
                       </div>
                     </RadioGroup>
@@ -585,5 +574,7 @@ export default function BorrowersPage() {
     </div>
   );
 }
+
+    
 
     
