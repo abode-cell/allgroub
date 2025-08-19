@@ -1136,7 +1136,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return {success: false, message: 'غير مصرح به.'};
     }
 
-    if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
+    if((data.users.find(u => u.id === currentUser.id)?.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
         toast({variant: 'destructive', title: 'خطأ', description: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'});
         return {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
     }
@@ -1152,7 +1152,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await fetchData(supabase);
     toast({title: 'تمت إضافة الفرع بنجاح.'});
     return {success: true, message: 'تمت إضافة الفرع بنجاح.'};
-  }, [currentUser, toast, fetchData]);
+  }, [currentUser, data.users, toast, fetchData]);
   
   const deleteBranch = useCallback(async (branchId: string) => {
       const supabase = getSupabaseBrowserClient();

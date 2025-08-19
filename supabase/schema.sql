@@ -246,7 +246,7 @@ DROP POLICY IF EXISTS "Allow admin to manage all investors" ON public.investors;
 DROP POLICY IF EXISTS "Allow office members to manage their investors" ON public.investors;
 DROP POLICY IF EXISTS "Allow investors to see their own profile" ON public.investors;
 
-CREATE POLICY "Allow admin to manage all investors" ON public.investors FOR ALL TO authenticated USING (is_admin());
+CREATE POLICY "Allow admin to manage all investors" ON public.investors FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 CREATE POLICY "Allow office members to manage their investors" ON public.investors FOR ALL TO authenticated USING (office_id = get_current_office_id());
 CREATE POLICY "Allow investors to see their own profile" ON public.investors FOR SELECT TO authenticated USING (id = auth.uid());
 
@@ -256,7 +256,7 @@ DROP POLICY IF EXISTS "Allow admin to manage all borrowers" ON public.borrowers;
 DROP POLICY IF EXISTS "Allow office members to manage their borrowers" ON public.borrowers;
 DROP POLICY IF EXISTS "Allow investors to see loans they funded" ON public.borrowers;
 
-CREATE POLICY "Allow admin to manage all borrowers" ON public.borrowers FOR ALL TO authenticated USING (is_admin());
+CREATE POLICY "Allow admin to manage all borrowers" ON public.borrowers FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 CREATE POLICY "Allow office members to manage their borrowers" ON public.borrowers FOR ALL TO authenticated USING (office_id = get_current_office_id());
 CREATE POLICY "Allow investors to see loans they funded" ON public.borrowers FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM jsonb_array_elements("fundedBy") AS elem WHERE (elem->>'investorId')::UUID = auth.uid()));
 
@@ -266,7 +266,7 @@ DROP POLICY IF EXISTS "Allow office members to manage their transactions" ON pub
 DROP POLICY IF EXISTS "Allow investors to see their own transactions" ON public.transactions;
 DROP POLICY IF EXISTS "Allow admin to manage all transactions" ON public.transactions;
 
-CREATE POLICY "Allow admin to manage all transactions" ON public.transactions FOR ALL TO authenticated USING (is_admin());
+CREATE POLICY "Allow admin to manage all transactions" ON public.transactions FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 CREATE POLICY "Allow investors to see their own transactions" ON public.transactions FOR SELECT TO authenticated USING (investor_id = auth.uid());
 CREATE POLICY "Allow office members to manage their transactions" ON public.transactions FOR ALL TO authenticated USING (office_id = get_current_office_id());
 
@@ -276,7 +276,7 @@ DROP POLICY IF EXISTS "Allow office managers to manage their own branches" ON pu
 DROP POLICY IF EXISTS "Allow office members to read branch data" ON public.branches;
 
 CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (manager_id = auth.uid() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
-CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM users WHERE users.office_id = get_current_office_id() AND users.id = branches.manager_id));
+CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.users u WHERE u.office_id = get_current_office_id() AND u.id = branches.manager_id));
 
 
 -- POLICIES FOR: support_tickets AND notifications
@@ -443,3 +443,4 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+```
