@@ -276,7 +276,7 @@ DROP POLICY IF EXISTS "Allow office managers to manage their own branches" ON pu
 DROP POLICY IF EXISTS "Allow office members to read branch data" ON public.branches;
 
 CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (manager_id = auth.uid() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
-CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (office_id = get_current_office_id());
+CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM users WHERE users.office_id = get_current_office_id() AND users.id = branches.manager_id));
 
 
 -- POLICIES FOR: support_tickets AND notifications
