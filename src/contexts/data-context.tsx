@@ -743,8 +743,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       const newEntry: Omit<Borrower, 'id'> = {
           ...borrower,
+          id: `bor_${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
+          managedBy: currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy,
           office_id: currentUser.office_id,
           isNotified: false,
           fundedBy: [],
@@ -1197,5 +1199,3 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
-
-    

@@ -85,6 +85,7 @@ export type User = {
   hideEmployeeInvestorFunds?: boolean;
   allowEmployeeLoanEdits?: boolean;
   lastStatusChange?: string;
+  managedBy?: string;
 };
 
 export type InstallmentStatus = 'لم يسدد بعد' | 'تم السداد' | 'متأخر';
@@ -118,6 +119,7 @@ export type Borrower = {
   originalLoanId?: string;
   partial_payment_paid_amount?: number;
   partial_payment_remaining_loan_id?: string;
+  managedBy?: string;
 };
 
 export type Payment = {
@@ -154,6 +156,7 @@ export type Investor = {
   isNotified?: boolean;
   installmentProfitShare?: number;
   gracePeriodProfitShare?: number;
+  managedBy?: string;
 };
 
 export type UpdatableInvestor = Pick<
