@@ -15,6 +15,7 @@ DROP TABLE IF EXISTS public.borrowers CASCADE;
 DROP TABLE IF EXISTS public.investors CASCADE;
 DROP TABLE IF EXISTS public.branches CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
+DROP TABLE IF EXISTS public.offices CASCADE;
 DROP TABLE IF EXISTS public.app_config CASCADE;
 
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
@@ -46,14 +47,21 @@ CREATE TABLE public.app_config (
 );
 COMMENT ON TABLE public.app_config IS 'Stores global application settings.';
 
+-- Offices Table (The new central entity)
+CREATE TABLE public.offices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    manager_id UUID UNIQUE NOT NULL -- REFERENCES users(id) will be added after users table is created
+);
+COMMENT ON TABLE public.offices IS 'Stores the central office entity for each business.';
+
 
 -- Users Table
 CREATE TABLE public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    office_id UUID,
+    office_id UUID REFERENCES public.offices(id) ON DELETE SET NULL,
     branch_id UUID, -- This will be a foreign key later
     name TEXT NOT NULL,
-    office_name TEXT,
     email TEXT UNIQUE NOT NULL,
     phone TEXT,
     role public.user_role NOT NULL,
@@ -72,21 +80,23 @@ CREATE TABLE public.users (
     "defaultTrialPeriodDays" INT
 );
 COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users.';
+ALTER TABLE public.offices ADD FOREIGN KEY (manager_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
 
 -- Branches Table
 CREATE TABLE public.branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    manager_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     city TEXT NOT NULL
 );
-COMMENT ON TABLE public.branches IS 'Stores office branches for an office manager.';
+COMMENT ON TABLE public.branches IS 'Stores office branches for an office.';
 ALTER TABLE public.users ADD FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
 
 -- Investors Table
 CREATE TABLE public.investors (
     id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
-    office_id UUID NOT NULL,
+    office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
     branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     date TIMESTAMPTZ DEFAULT NOW(),
@@ -103,7 +113,7 @@ COMMENT ON TABLE public.investors IS 'Stores investor-specific data.';
 -- Borrowers Table
 CREATE TABLE public.borrowers (
     id TEXT PRIMARY KEY,
-    office_id UUID NOT NULL,
+    office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
     branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     "nationalId" TEXT NOT NULL,
@@ -134,7 +144,7 @@ COMMENT ON TABLE public.borrowers IS 'Stores loan and borrower information.';
 -- Transactions Table
 CREATE TABLE public.transactions (
     id TEXT PRIMARY KEY,
-    office_id UUID NOT NULL,
+    office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
     investor_id UUID NOT NULL REFERENCES public.investors(id) ON DELETE CASCADE,
     date TIMESTAMPTZ DEFAULT NOW(),
     type public.transaction_type NOT NULL,
@@ -186,7 +196,7 @@ CREATE INDEX ON public.transactions (investor_id);
 CREATE INDEX ON public.transactions ("office_id");
 CREATE INDEX ON public.notifications ("recipientId");
 CREATE INDEX ON public.borrowers ("nationalId");
-CREATE INDEX ON public.branches ("manager_id");
+CREATE INDEX ON public.branches ("office_id");
 
 
 -- ========= Helper Functions for RLS Policies =========
@@ -215,6 +225,7 @@ $$;
 -- ========= Row Level Security (RLS) Policies =========
 
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.investors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
@@ -227,6 +238,13 @@ ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 -- POLICIES FOR: app_config
 DROP POLICY IF EXISTS "Allow authenticated to read app_config" ON public.app_config;
 CREATE POLICY "Allow authenticated to read app_config" ON public.app_config FOR SELECT TO authenticated USING (true);
+
+
+-- POLICIES FOR: offices
+DROP POLICY IF EXISTS "Allow admin to manage all offices" ON public.offices;
+DROP POLICY IF EXISTS "Allow office members to view their office" ON public.offices;
+CREATE POLICY "Allow admin to manage all offices" ON public.offices FOR ALL TO authenticated USING (is_admin());
+CREATE POLICY "Allow office members to view their office" ON public.offices FOR SELECT TO authenticated USING (id = get_current_office_id());
 
 
 -- POLICIES FOR: users
@@ -246,7 +264,7 @@ DROP POLICY IF EXISTS "Allow admin to manage all investors" ON public.investors;
 DROP POLICY IF EXISTS "Allow office members to manage their investors" ON public.investors;
 DROP POLICY IF EXISTS "Allow investors to see their own profile" ON public.investors;
 
-CREATE POLICY "Allow admin to manage all investors" ON public.investors FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+CREATE POLICY "Allow admin to manage all investors" ON public.investors FOR ALL TO authenticated USING (is_admin());
 CREATE POLICY "Allow office members to manage their investors" ON public.investors FOR ALL TO authenticated USING (office_id = get_current_office_id());
 CREATE POLICY "Allow investors to see their own profile" ON public.investors FOR SELECT TO authenticated USING (id = auth.uid());
 
@@ -256,7 +274,7 @@ DROP POLICY IF EXISTS "Allow admin to manage all borrowers" ON public.borrowers;
 DROP POLICY IF EXISTS "Allow office members to manage their borrowers" ON public.borrowers;
 DROP POLICY IF EXISTS "Allow investors to see loans they funded" ON public.borrowers;
 
-CREATE POLICY "Allow admin to manage all borrowers" ON public.borrowers FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+CREATE POLICY "Allow admin to manage all borrowers" ON public.borrowers FOR ALL TO authenticated USING (is_admin());
 CREATE POLICY "Allow office members to manage their borrowers" ON public.borrowers FOR ALL TO authenticated USING (office_id = get_current_office_id());
 CREATE POLICY "Allow investors to see loans they funded" ON public.borrowers FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM jsonb_array_elements("fundedBy") AS elem WHERE (elem->>'investorId')::UUID = auth.uid()));
 
@@ -266,7 +284,7 @@ DROP POLICY IF EXISTS "Allow office members to manage their transactions" ON pub
 DROP POLICY IF EXISTS "Allow investors to see their own transactions" ON public.transactions;
 DROP POLICY IF EXISTS "Allow admin to manage all transactions" ON public.transactions;
 
-CREATE POLICY "Allow admin to manage all transactions" ON public.transactions FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+CREATE POLICY "Allow admin to manage all transactions" ON public.transactions FOR ALL TO authenticated USING (is_admin());
 CREATE POLICY "Allow investors to see their own transactions" ON public.transactions FOR SELECT TO authenticated USING (investor_id = auth.uid());
 CREATE POLICY "Allow office members to manage their transactions" ON public.transactions FOR ALL TO authenticated USING (office_id = get_current_office_id());
 
@@ -275,8 +293,8 @@ CREATE POLICY "Allow office members to manage their transactions" ON public.tran
 DROP POLICY IF EXISTS "Allow office managers to manage their own branches" ON public.branches;
 DROP POLICY IF EXISTS "Allow office members to read branch data" ON public.branches;
 
-CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (manager_id = auth.uid() AND (get_my_claim('user_role'))::jsonb ? 'مدير المكتب');
-CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.users u WHERE u.office_id = get_current_office_id() AND u.id = branches.manager_id));
+CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.office_id = branches.office_id AND u.role = 'مدير المكتب'));
+CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (office_id = get_current_office_id());
 
 
 -- POLICIES FOR: support_tickets AND notifications
@@ -299,8 +317,9 @@ SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT u.name, u.office_name, u.phone
+    SELECT u.name, o.name, u.phone
     FROM public.users u
+    JOIN public.offices o ON u.office_id = o.id
     WHERE u.id IN (
         SELECT b."submittedBy"
         FROM public.borrowers b
@@ -323,6 +342,7 @@ DECLARE
     user_managed_by UUID;
     user_office_id UUID;
     user_branch_id UUID;
+    office_name_text TEXT;
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
@@ -330,24 +350,30 @@ BEGIN
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
-    user_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+    office_name_text := new.raw_user_meta_data->>'office_name';
 
     -- Determine office_id and trial period for Office Managers
     IF user_role_text = 'مدير المكتب' THEN
+        -- Create a new office for the manager
+        INSERT INTO public.offices (name, manager_id)
+        VALUES (office_name_text, new.id)
+        RETURNING id INTO user_office_id;
+        
         -- Fetch the default trial period from app_config
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
         trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
+        -- For other roles, inherit the office_id from their manager
+        SELECT office_id INTO user_office_id FROM public.users WHERE id = user_managed_by;
         trial_end_date := NULL;
     END IF;
 
     -- Insert the new user into the public.users table
-    INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, branch_id, "trialEndsAt")
+    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id, "trialEndsAt")
     VALUES (
         new.id,
         new.raw_user_meta_data->>'full_name',
-        new.raw_user_meta_data->>'office_name',
         new.email,
         new.raw_user_meta_data->>'raw_phone_number',
         user_role_text::public.user_role,
