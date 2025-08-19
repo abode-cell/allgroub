@@ -6,6 +6,7 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
+DROP FUNCTION IF EXISTS public.check_duplicate_borrower(text, uuid) CASCADE;
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
@@ -186,7 +187,7 @@ CREATE OR REPLACE FUNCTION get_my_claim(claim TEXT)
 RETURNS JSONB
 LANGUAGE sql STABLE
 AS $$
-  SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb->'user_metadata'->claim
+  SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb->claim
 $$;
 
 CREATE OR REPLACE FUNCTION is_admin()
@@ -200,7 +201,7 @@ CREATE OR REPLACE FUNCTION get_current_office_id()
 RETURNS UUID
 LANGUAGE sql STABLE
 AS $$
-    SELECT (get_my_claim('office_id')->>0)::UUID
+  SELECT (get_my_claim('office_id'))::uuid
 $$;
 
 
@@ -283,6 +284,22 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 -- ========= Database Functions and Triggers =========
 
+CREATE OR REPLACE FUNCTION check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
+RETURNS TABLE (name TEXT, office_name TEXT, phone TEXT)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT u.name, u.office_name, u.phone
+    FROM public.borrowers b
+    JOIN public.users u ON b."managedBy" = u.id
+    WHERE b."nationalId" = p_national_id
+      AND b.office_id != p_office_id
+      AND b.status IN ('منتظم', 'متأخر');
+END;
+$$;
+
+
 -- This function is called by a trigger when a new user signs up in Supabase Auth.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -296,31 +313,32 @@ DECLARE
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
-    -- Extract role and other metadata from the new auth.users record
+    -- Extract role and other metadata
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
 
-    -- If the role is 'مدير المكتب', they create a new office.
-    -- Their office_id is a new UUID, and they get a trial period.
+    -- If the role is 'مدير المكتب', create a new office_id and set their trial period
     IF user_role_text = 'مدير المكتب' THEN
         user_office_id := gen_random_uuid();
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
         trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days if not set
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
-        -- For all other roles, they belong to their manager's office.
-        -- We fetch the office_id from the manager's record in public.users.
+        -- For other roles, get the office_id from their manager
         SELECT office_id INTO user_office_id FROM public.users WHERE id = user_managed_by;
         trial_end_date := NULL;
     END IF;
 
-    -- Now that we have the correct office_id, update the user's metadata in auth.users
-    -- This is crucial for making office_id available in the JWT claims.
-    UPDATE auth.users
-    SET raw_user_meta_data = new.raw_user_meta_data || jsonb_build_object('office_id', user_office_id)
-    WHERE id = new.id;
+    -- Update the new user's app_metadata in auth.users
+    -- This makes the office_id and user_role available in the JWT for RLS
+    PERFORM auth.admin_update_user_by_id(
+      new.id,
+      jsonb_build_object(
+        'app_metadata', new.raw_app_meta_data || jsonb_build_object('office_id', user_office_id, 'user_role', user_role_text)
+      )
+    );
 
-    -- Insert the complete profile into public.users.
+    -- Insert into public.users. It's crucial this happens for ALL user roles.
     INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", office_id, "trialEndsAt")
     VALUES (
         new.id,
@@ -334,7 +352,7 @@ BEGIN
         trial_end_date
     );
 
-    -- If the new user is an investor, also create a record in the public.investors table.
+    -- **IMPORTANT**: Only create an investor profile if the role is 'مستثمر'
     IF user_role_text = 'مستثمر' THEN
         INSERT INTO public.investors (id, office_id, name, status, "submittedBy", "managedBy")
         VALUES (

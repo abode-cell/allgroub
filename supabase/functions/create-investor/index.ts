@@ -49,7 +49,6 @@ serve(async (req) => {
         raw_phone_number: payload.phone,
         user_role: 'مستثمر',
         managedBy: managerAuth.id,
-        office_id: managerProfile.office_id, // Pass the manager's office_id
       },
     });
 

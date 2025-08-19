@@ -1,4 +1,3 @@
-
 # supabase/config.toml
 
 project_id = "fsgabmgomgblwihchaso"
@@ -11,4 +10,7 @@ secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 
 [functions.update-user-credentials]
+secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
+
+[functions.handle-partial-payment]
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]

@@ -743,16 +743,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       const newEntry: Omit<Borrower, 'id'> = {
           ...borrower,
-          id: `bor_${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
-          managedBy: currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy,
-          office_id: currentUser.office_id,
-          isNotified: false,
-          fundedBy: [],
-          installments: borrower.loanType === 'اقساط' && borrower.term && borrower.term > 0
-            ? Array.from({ length: borrower.term * 12 }, (_, i) => ({ month: i + 1, status: 'لم يسدد بعد' }))
-            : undefined,
+          fundedBy: [], // This will be set on approval
+          // The rest are handled by the database insert/triggers.
       };
 
       const { error } = await supabase.from('borrowers').insert(newEntry);
@@ -803,23 +797,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
     }
 
-    const remainingAmount = originalBorrower.amount - paidAmount;
-    const newLoanId = `bor_rem_${Date.now()}`;
-    
-    const { error: updateError } = await supabase.from('borrowers').update({ status: 'مسدد بالكامل', paymentStatus: 'تم السداد', paidOffDate: new Date().toISOString(), partial_payment_paid_amount: paidAmount, partial_payment_remaining_loan_id: newLoanId }).eq('id', borrowerId);
-    
-    if (updateError) {
-      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل تحديث القرض الأصلي.' });
-      return;
-    }
-
-    const { error: insertError } = await supabase.from('borrowers').insert({
-        id: newLoanId, name: `${originalBorrower.name}`, nationalId: originalBorrower.nationalId, phone: originalBorrower.phone, amount: remainingAmount, date: new Date().toISOString(), loanType: 'مهلة', status: 'منتظم', dueDate: new Date().toISOString().split('T')[0], submittedBy: originalBorrower.submittedBy, originalLoanId: originalBorrower.id, office_id: currentUser.office_id, managedBy: originalBorrower.managedBy,
+    const { error } = await supabase.functions.invoke('handle-partial-payment', { 
+        body: { borrowerId, paidAmount },
     });
-    
-    if (insertError) {
-      await supabase.from('borrowers').update({ status: originalBorrower.status, paymentStatus: originalBorrower.paymentStatus, paidOffDate: null, partial_payment_paid_amount: null, partial_payment_remaining_loan_id: null }).eq('id', borrowerId);
-      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء قرض بالمبلغ المتبقي.' });
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'خطأ', description: error.message || 'فشل معالجة السداد الجزئي.' });
       return;
     }
     
@@ -966,8 +949,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
       }
       
-      const newTransaction: Omit<Transaction, 'id'> = { ...transaction, investor_id: investorId, office_id: currentUser.office_id };
-      const { error } = await supabase.from('transactions').insert(newTransaction);
+      const { error } = await supabase.from('transactions').insert({ ...transaction, investor_id: investorId });
       if (error) {
         toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إضافة العملية المالية.' });
       } else {
@@ -1102,7 +1084,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) return {success: false, message: 'غير مصرح به.'};
     if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) return {success: false, message: 'لقد وصلت إلى الحد الأقصى.'};
 
-    const { error } = await supabase.from('branches').insert({ ...branch, office_id: currentUser.office_id });
+    const { error } = await supabase.from('branches').insert({ ...branch });
     if (error) return {success: false, message: 'فشل في إضافة الفرع.'};
     
     await fetchData(supabase);
