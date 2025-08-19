@@ -3,8 +3,6 @@
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
-
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
@@ -14,8 +12,6 @@ DROP TABLE IF EXISTS public.investors CASCADE;
 DROP TABLE IF EXISTS public.branches CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
 DROP TABLE IF EXISTS public.app_config CASCADE;
-DROP TABLE IF EXISTS public.offices CASCADE;
-
 
 DROP TYPE IF EXISTS "public"."user_role" CASCADE;
 DROP TYPE IF EXISTS "public"."borrower_status" CASCADE;
@@ -46,20 +42,10 @@ CREATE TABLE public.app_config (
 );
 COMMENT ON TABLE public.app_config IS 'Stores global application settings.';
 
--- Offices Table (The core of multi-tenancy)
-CREATE TABLE public.offices (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    owner_id UUID NOT NULL REFERENCES auth.users(id)
-);
-COMMENT ON TABLE public.offices IS 'Represents a single tenant (an office).';
-
 
 -- Users Table
 CREATE TABLE public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    office_id UUID REFERENCES public.offices(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     office_name TEXT,
     email TEXT UNIQUE NOT NULL,
@@ -79,36 +65,35 @@ CREATE TABLE public.users (
     "trialEndsAt" TIMESTAMPTZ,
     "defaultTrialPeriodDays" INT
 );
-COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users and linked to an office.';
+COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users.';
 
 -- Branches Table
 CREATE TABLE public.branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
+    manager_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     city TEXT NOT NULL
 );
-COMMENT ON TABLE public.branches IS 'Stores office branches for an office.';
+COMMENT ON TABLE public.branches IS 'Stores office branches for an office manager.';
 
 -- Investors Table
 CREATE TABLE public.investors (
     id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
-    office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     date TIMESTAMPTZ DEFAULT NOW(),
     status public.investor_status NOT NULL DEFAULT 'معلق',
+    "managedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
     "submittedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
     "rejectionReason" TEXT,
     "isNotified" BOOLEAN DEFAULT FALSE,
     "installmentProfitShare" NUMERIC,
     "gracePeriodProfitShare" NUMERIC
 );
-COMMENT ON TABLE public.investors IS 'Stores investor-specific data, linked to an office.';
+COMMENT ON TABLE public.investors IS 'Stores investor-specific data.';
 
 -- Borrowers Table
 CREATE TABLE public.borrowers (
     id TEXT PRIMARY KEY,
-    office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     "nationalId" TEXT NOT NULL,
     phone TEXT NOT NULL,
@@ -121,6 +106,7 @@ CREATE TABLE public.borrowers (
     "dueDate" DATE NOT NULL,
     discount NUMERIC DEFAULT 0,
     "submittedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    "managedBy" UUID REFERENCES public.users(id) ON DELETE SET NULL,
     "rejectionReason" TEXT,
     "fundedBy" JSONB,
     "paymentStatus" public.borrower_payment_status,
@@ -132,12 +118,11 @@ CREATE TABLE public.borrowers (
     partial_payment_remaining_loan_id TEXT,
     "originalLoanId" TEXT
 );
-COMMENT ON TABLE public.borrowers IS 'Stores loan and borrower information, linked to an office.';
+COMMENT ON TABLE public.borrowers IS 'Stores loan and borrower information.';
 
 -- Transactions Table
 CREATE TABLE public.transactions (
     id TEXT PRIMARY KEY,
-    office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
     investor_id UUID NOT NULL REFERENCES public.investors(id) ON DELETE CASCADE,
     date TIMESTAMPTZ DEFAULT NOW(),
     type public.transaction_type NOT NULL,
@@ -146,7 +131,7 @@ CREATE TABLE public.transactions (
     "withdrawalMethod" public.withdrawal_method,
     "capitalSource" TEXT NOT NULL
 );
-COMMENT ON TABLE public.transactions IS 'Records financial transactions for investors, linked to an office.';
+COMMENT ON TABLE public.transactions IS 'Records financial transactions for investors.';
 
 -- Support Tickets Table
 CREATE TABLE public.support_tickets (
@@ -174,29 +159,14 @@ CREATE TABLE public.notifications (
 COMMENT ON TABLE public.notifications IS 'Stores notifications for users.';
 
 -- ========= Indexes for Performance =========
-CREATE INDEX ON public.users ("office_id");
-CREATE INDEX ON public.borrowers ("office_id");
-CREATE INDEX ON public.investors ("office_id");
-CREATE INDEX ON public.transactions ("office_id");
-CREATE INDEX ON public.branches ("office_id");
+CREATE INDEX ON public.users ("managedBy");
+CREATE INDEX ON public.borrowers ("submittedBy");
+CREATE INDEX ON public.borrowers ("managedBy");
+CREATE INDEX ON public.investors ("submittedBy");
+CREATE INDEX ON public.investors ("managedBy");
 CREATE INDEX ON public.transactions (investor_id);
 CREATE INDEX ON public.notifications ("recipientId");
 CREATE INDEX ON public.borrowers ("nationalId");
-
-
--- ========= Helper Function for RLS =========
-CREATE OR REPLACE FUNCTION public.get_current_office_id()
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE
-    office_uuid UUID;
-BEGIN
-    SELECT office_id INTO office_uuid FROM public.users WHERE id = auth.uid();
-    RETURN office_uuid;
-END;
-$$;
 
 
 -- ========= Row Level Security (RLS) Policies =========
@@ -218,47 +188,72 @@ CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" 
 
 -- POLICIES FOR: users
 DROP POLICY IF EXISTS "Allow admin to manage all users" ON public.users;
-DROP POLICY IF EXISTS "Allow users to manage their own data" ON public.users;
-DROP POLICY IF EXISTS "Allow users to view their office colleagues" ON public.users;
+DROP POLICY IF EXISTS "Allow users to read their own and team data" ON public.users;
+DROP POLICY IF EXISTS "Allow users to read their team members data" ON public.users;
+DROP POLICY IF EXISTS "Allow users to read their own data" ON public.users;
+DROP POLICY IF EXISTS "Allow users to update their own data" ON public.users;
 
-CREATE POLICY "Allow admin to manage all users" ON public.users FOR ALL USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
-CREATE POLICY "Allow users to manage their own data" ON public.users FOR ALL USING (id = auth.uid());
-CREATE POLICY "Allow users to view their office colleagues" ON public.users FOR SELECT USING (office_id = get_current_office_id());
+CREATE POLICY "Allow admin to manage all users" ON "public"."users" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to read their own and team data" ON "public"."users" FOR SELECT TO authenticated USING (
+  id = auth.uid() OR
+  "managedBy" = auth.uid() OR
+  id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR
+  "managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid())
+);
+CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 
 -- POLICIES FOR: investors
 DROP POLICY IF EXISTS "Allow admin to manage all investors" ON public.investors;
-DROP POLICY IF EXISTS "Allow office members to manage their investors" ON public.investors;
+DROP POLICY IF EXISTS "Allow managers and their team to manage their investors" ON public.investors;
 DROP POLICY IF EXISTS "Allow investors to see their own profile" ON public.investors;
 
-CREATE POLICY "Allow admin to manage all investors" ON public.investors FOR ALL USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
-CREATE POLICY "Allow office members to manage their investors" ON public.investors FOR ALL USING (office_id = get_current_office_id());
-CREATE POLICY "Allow investors to see their own profile" ON public.investors FOR SELECT USING (id = auth.uid());
+CREATE POLICY "Allow admin to manage all investors" ON "public"."investors" FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow team members to manage their investors" ON public.investors FOR ALL TO authenticated USING (
+    "managedBy" IN (
+        SELECT u.id FROM public.users u WHERE u.id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR u."managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR u.id = auth.uid()
+    )
+);
+CREATE POLICY "Allow investors to see their own profile" ON "public"."investors" FOR SELECT TO authenticated USING (id = auth.uid());
 
 
 -- POLICIES FOR: borrowers
 DROP POLICY IF EXISTS "Allow admin to manage all borrowers" ON public.borrowers;
-DROP POLICY IF EXISTS "Allow office members to manage their borrowers" ON public.borrowers;
+DROP POLICY IF EXISTS "Allow team members to manage their team's borrowers" ON public.borrowers;
 DROP POLICY IF EXISTS "Allow investors to see loans they funded" ON public.borrowers;
 
-CREATE POLICY "Allow admin to manage all borrowers" ON public.borrowers FOR ALL USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
-CREATE POLICY "Allow office members to manage their borrowers" ON public.borrowers FOR ALL USING (office_id = get_current_office_id());
-CREATE POLICY "Allow investors to see loans they funded" ON public.borrowers FOR SELECT USING (EXISTS (SELECT 1 FROM jsonb_array_elements("fundedBy") AS elem WHERE (elem->>'investorId')::UUID = auth.uid()));
+CREATE POLICY "Allow admin to manage all borrowers" ON "public"."borrowers" FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow team members to manage their team's borrowers" ON public.borrowers FOR ALL TO authenticated USING (
+    "managedBy" IN (
+        SELECT u.id FROM public.users u WHERE u.id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR u."managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR u.id = auth.uid()
+    )
+);
+CREATE POLICY "Allow investors to see loans they funded" ON "public"."borrowers" FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM jsonb_array_elements("fundedBy") AS elem WHERE (elem->>'investorId')::UUID = auth.uid()));
 
 
 -- POLICIES FOR: transactions
-DROP POLICY IF EXISTS "Allow office members to manage transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Allow team members to see transactions of their team's investors" ON public.transactions;
 DROP POLICY IF EXISTS "Allow investors to see their own transactions" ON public.transactions;
 DROP POLICY IF EXISTS "Allow admin to manage all transactions" ON public.transactions;
 
-CREATE POLICY "Allow admin to manage all transactions" ON public.transactions FOR ALL USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
-CREATE POLICY "Allow office members to manage transactions" ON public.transactions FOR ALL USING (office_id = get_current_office_id());
-CREATE POLICY "Allow investors to see their own transactions" ON public.transactions FOR SELECT USING (investor_id = auth.uid());
-
+CREATE POLICY "Allow admin to manage all transactions" ON "public"."transactions" FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow investors to see their own transactions" ON "public"."transactions" FOR SELECT TO authenticated USING (investor_id = auth.uid());
+CREATE POLICY "Allow team members to see team investors transactions" ON public.transactions FOR SELECT TO authenticated USING (
+    investor_id IN (SELECT id FROM public.investors WHERE "managedBy" IN (
+        SELECT u.id FROM public.users u WHERE u.id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR u."managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR u.id = auth.uid()
+    ))
+);
 
 -- POLICIES FOR: branches
-DROP POLICY IF EXISTS "Allow office members to manage their branches" ON public.branches;
-CREATE POLICY "Allow office members to manage their branches" ON public.branches FOR ALL USING (office_id = get_current_office_id());
+DROP POLICY IF EXISTS "Allow office managers to manage their own branches" ON public.branches;
+DROP POLICY IF EXISTS "Allow team members to read branch data" ON public.branches;
+
+CREATE POLICY "Allow office managers to manage their own branches" ON "public"."branches" FOR ALL TO authenticated USING (manager_id = auth.uid());
+CREATE POLICY "Allow team members to read branch data" ON public.branches FOR SELECT TO authenticated USING (
+    manager_id IN (
+        SELECT u.id FROM public.users u WHERE u.id = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR u."managedBy" = (SELECT "managedBy" FROM public.users WHERE id = auth.uid()) OR u.id = auth.uid()
+    )
+);
 
 
 -- POLICIES FOR: support_tickets AND notifications
@@ -266,9 +261,9 @@ DROP POLICY IF EXISTS "Allow admin to manage all support tickets" ON public.supp
 DROP POLICY IF EXISTS "Allow users to manage their own submitted tickets" ON public.support_tickets;
 DROP POLICY IF EXISTS "Allow users to manage their own notifications" ON public.notifications;
 
-CREATE POLICY "Allow admin to manage all support tickets" ON public.support_tickets FOR ALL USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow users to manage their own submitted tickets" ON public.support_tickets FOR ALL USING (auth.uid() = "fromUserId");
-CREATE POLICY "Allow users to manage their own notifications" ON public.notifications FOR ALL USING (auth.uid() = "recipientId");
+CREATE POLICY "Allow admin to manage all support tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow users to manage their own submitted tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
+CREATE POLICY "Allow users to manage their own notifications" ON "public"."notifications" FOR ALL TO authenticated USING (auth.uid() = "recipientId");
 
 
 -- ========= Database Functions and Triggers =========
@@ -283,42 +278,29 @@ DECLARE
     user_role_text TEXT;
     user_managed_by UUID;
     user_submitted_by UUID;
-    v_office_id UUID;
-    v_office_name TEXT;
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
-    -- Extract role and other metadata
+    -- Extract role, managedBy, and submittedBy from metadata
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
     user_submitted_by := (new.raw_user_meta_data->>'submittedBy')::UUID;
-    v_office_name := new.raw_user_meta_data->>'office_name';
 
-    -- Logic for Office Manager: Create a new office and link it
+    -- If the role is 'مدير المكتب', set their trial period
     IF user_role_text = 'مدير المكتب' THEN
-        INSERT INTO public.offices (name, owner_id) VALUES (v_office_name, new.id) RETURNING id INTO v_office_id;
-        
-        -- Set trial period
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
-        trial_period_days := COALESCE(trial_period_days, 14);
+        trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days if not set
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
-
-    -- Logic for Subordinates (Employee, Assistant) or Investors
     ELSE
-        -- Fetch the office_id from their manager
-        SELECT office_id INTO v_office_id FROM public.users WHERE id = user_managed_by;
-        IF v_office_id IS NULL THEN
-            RAISE EXCEPTION 'Cannot create user: Manager or office not found.';
-        END IF;
+        trial_end_date := NULL;
     END IF;
 
-    -- Insert into public.users with the correct office_id
-    INSERT INTO public.users (id, name, office_name, office_id, email, phone, role, "managedBy", "trialEndsAt")
+    -- Insert into public.users. It's crucial this happens for ALL user roles.
+    INSERT INTO public.users (id, name, office_name, email, phone, role, "managedBy", "trialEndsAt")
     VALUES (
         new.id,
         new.raw_user_meta_data->>'full_name',
-        v_office_name,
-        v_office_id,
+        new.raw_user_meta_data->>'office_name',
         new.email,
         new.raw_user_meta_data->>'raw_phone_number',
         user_role_text::public.user_role,
@@ -326,15 +308,15 @@ BEGIN
         trial_end_date
     );
 
-    -- Create an investor profile if the role is 'مستثمر'
+    -- **IMPORTANT**: Only create an investor profile if the role is 'مستثمر'
     IF user_role_text = 'مستثمر' THEN
-        INSERT INTO public.investors (id, name, status, "submittedBy", office_id)
+        INSERT INTO public.investors (id, name, status, "submittedBy", "managedBy")
         VALUES (
             new.id,
             new.raw_user_meta_data->>'full_name',
             'نشط'::public.investor_status,
             user_submitted_by,
-            v_office_id
+            user_managed_by
         );
     END IF;
 
@@ -359,4 +341,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-
