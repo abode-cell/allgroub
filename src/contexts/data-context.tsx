@@ -1128,8 +1128,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateBorrowerPaymentStatus, approveBorrower, rejectBorrower, deleteBorrower, updateInstallmentStatus,
       handlePartialPayment, addInvestor, addNewSubordinateUser, updateInvestor, approveInvestor, rejectInvestor,
       addInvestorTransaction, updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
-      updateUserLimits, updateManagerSettings, updateAssistantPermission, updateEmployeePermission,
-      requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead,
+      updateUserLimits, updateManagerSettings, updateAssistantPermission,
+      updateEmployeePermission, requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead,
       markBorrowerAsNotified, markInvestorAsNotified,
     }), [
       currentUser, session, authLoading, dataLoading, data, visibleUsers,
@@ -1144,8 +1144,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
       updateUserLimits, updateManagerSettings, updateAssistantPermission,
       updateEmployeePermission, requestCapitalIncrease, deleteUser,
-      clearUserNotifications, markUserNotificationsAsRead, markBorrowerAsNotified,
-      markInvestorAsNotified,
+      clearUserNotifications, markUserNotificationsAsRead,
+      markBorrowerAsNotified, markInvestorAsNotified,
     ]);
   
   return (
@@ -1197,3 +1197,5 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
+
+    

@@ -1,8 +1,11 @@
+
 -- supabase/schema.sql
 
 -- ========= Dropping existing objects (optional, for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
+
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
@@ -47,15 +50,17 @@ COMMENT ON TABLE public.app_config IS 'Stores global application settings.';
 CREATE TABLE public.offices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    owner_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE
 );
-COMMENT ON TABLE public.offices IS 'Stores the central office/tenant entity.';
+COMMENT ON TABLE public.offices IS 'Stores individual office information, serving as a tenant.';
 
 -- Users Table
 CREATE TABLE public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    office_id UUID REFERENCES public.offices(id) ON DELETE SET NULL,
+    office_id UUID REFERENCES public.offices(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    office_name TEXT,
     email TEXT UNIQUE NOT NULL,
     phone TEXT,
     role public.user_role NOT NULL,
@@ -72,7 +77,7 @@ CREATE TABLE public.users (
     "trialEndsAt" TIMESTAMPTZ,
     "defaultTrialPeriodDays" INT
 );
-COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users and linked to an office.';
+COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users and linking them to an office.';
 
 -- Branches Table
 CREATE TABLE public.branches (
@@ -168,16 +173,26 @@ COMMENT ON TABLE public.notifications IS 'Stores notifications for users.';
 
 -- ========= Indexes for Performance =========
 CREATE INDEX ON public.users (office_id);
+CREATE INDEX ON public.borrowers ("submittedBy");
 CREATE INDEX ON public.borrowers (office_id);
+CREATE INDEX ON public.investors ("submittedBy");
 CREATE INDEX ON public.investors (office_id);
+CREATE INDEX ON public.transactions (investor_id);
 CREATE INDEX ON public.transactions (office_id);
 CREATE INDEX ON public.notifications ("recipientId");
 CREATE INDEX ON public.borrowers ("nationalId");
 
+
+-- ========= Helper Function for RLS =========
+CREATE OR REPLACE FUNCTION public.get_current_office_id()
+RETURNS UUID
+LANGUAGE sql STABLE
+AS $$
+  SELECT office_id FROM public.users WHERE id = auth.uid();
+$$;
+
 -- ========= Row Level Security (RLS) Policies =========
 
-ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.offices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.investors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.borrowers ENABLE ROW LEVEL SECURITY;
@@ -185,30 +200,44 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offices ENABLE ROW LEVEL SECURITY;
 
--- POLICIES FOR: app_config & offices
-CREATE POLICY "Allow authenticated to read app_config" ON "public"."app_config" FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow users to see their own office" ON "public"."offices" FOR SELECT TO authenticated USING (id = (SELECT office_id FROM public.users WHERE id = auth.uid()));
+
+-- POLICIES FOR: offices
+CREATE POLICY "Allow system admin full access" ON public.offices FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام') WITH CHECK ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+CREATE POLICY "Allow office owner to read their office" ON public.offices FOR SELECT TO authenticated USING (owner_id = auth.uid());
 
 -- POLICIES FOR: users
-CREATE POLICY "Allow users to read their own office members" ON "public"."users" FOR SELECT TO authenticated USING (office_id = (SELECT office_id FROM public.users WHERE id = auth.uid()));
-CREATE POLICY "Allow admin to read all users" ON "public"."users" FOR SELECT TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
-CREATE POLICY "Allow users to update their own data" ON "public"."users" FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+CREATE POLICY "Allow admin full access" ON public.users FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام')) WITH CHECK (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow users to see their own office members" ON public.users FOR SELECT TO authenticated USING (office_id = get_current_office_id());
+CREATE POLICY "Allow users to update own profile" ON public.users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
--- POLICIES FOR: investors, borrowers, transactions, branches
-CREATE POLICY "Allow office members to manage their office data" ON "public"."investors" FOR ALL TO authenticated USING (office_id = (SELECT office_id FROM public.users WHERE id = auth.uid()));
-CREATE POLICY "Allow office members to manage their office data" ON "public"."borrowers" FOR ALL TO authenticated USING (office_id = (SELECT office_id FROM public.users WHERE id = auth.uid()));
-CREATE POLICY "Allow office members to manage their office data" ON "public"."transactions" FOR ALL TO authenticated USING (office_id = (SELECT office_id FROM public.users WHERE id = auth.uid()));
-CREATE POLICY "Allow office members to manage their office data" ON "public"."branches" FOR ALL TO authenticated USING (office_id = (SELECT office_id FROM public.users WHERE id = auth.uid()));
+-- POLICIES FOR: investors
+CREATE POLICY "Allow admin full access" ON public.investors FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow office users to access their office investors" ON public.investors FOR ALL TO authenticated USING (office_id = get_current_office_id());
 
--- POLICIES FOR: notifications & support_tickets
-CREATE POLICY "Allow users to manage their own notifications" ON "public"."notifications" FOR ALL TO authenticated USING (auth.uid() = "recipientId");
-CREATE POLICY "Allow users to manage their own submitted tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING (auth.uid() = "fromUserId");
-CREATE POLICY "Allow admin to manage all support tickets" ON "public"."support_tickets" FOR ALL TO authenticated USING ((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام');
+-- POLICIES FOR: borrowers
+CREATE POLICY "Allow admin full access" ON public.borrowers FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow office users to access their office borrowers" ON public.borrowers FOR ALL TO authenticated USING (office_id = get_current_office_id());
+CREATE POLICY "Allow investors to see loans they funded" ON public.borrowers FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM jsonb_array_elements("fundedBy") AS elem WHERE (elem->>'investorId')::UUID = auth.uid()));
+
+-- POLICIES FOR: transactions
+CREATE POLICY "Allow admin full access" ON public.transactions FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow office users to access their office transactions" ON public.transactions FOR ALL TO authenticated USING (office_id = get_current_office_id());
+
+-- POLICIES FOR: branches
+CREATE POLICY "Allow admin full access" ON public.branches FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow office users to access their office branches" ON public.branches FOR ALL TO authenticated USING (office_id = get_current_office_id());
+
+-- POLICIES FOR: support_tickets & notifications
+CREATE POLICY "Allow admin full access" ON public.support_tickets FOR ALL TO authenticated USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'مدير النظام'));
+CREATE POLICY "Allow user to manage own tickets" ON public.support_tickets FOR ALL TO authenticated USING (("fromUserId" = auth.uid()));
+CREATE POLICY "Allow user to manage own notifications" ON public.notifications FOR ALL TO authenticated USING (("recipientId" = auth.uid()));
+CREATE POLICY "Allow all authenticated to read config" ON public.app_config FOR SELECT TO authenticated USING (true);
 
 
 -- ========= Database Functions and Triggers =========
-
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -216,48 +245,52 @@ SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
     user_role_text TEXT;
-    new_office_id UUID;
-    user_submitted_by UUID;
+    office_id_val UUID;
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
     user_role_text := new.raw_user_meta_data->>'user_role';
-    user_submitted_by := (new.raw_user_meta_data->>'submittedBy')::UUID;
 
-    -- Handle office creation or assignment
+    -- Handle Office Manager Signup
     IF user_role_text = 'مدير المكتب' THEN
-        INSERT INTO public.offices (name) VALUES (new.raw_user_meta_data->>'office_name') RETURNING id INTO new_office_id;
-        
-        -- Set trial period for the new manager
+        -- Create a new office for the manager
+        INSERT INTO public.offices (name, owner_id)
+        VALUES (new.raw_user_meta_data->>'office_name', new.id)
+        RETURNING id INTO office_id_val;
+
+        -- Set their trial period
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
         trial_period_days := COALESCE(trial_period_days, 14);
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
+
+    -- Handle other roles (Investor, Assistant, Employee)
     ELSE
-        -- For other roles, get office_id from metadata (should be set by the creating function)
-        new_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+        office_id_val := (new.raw_user_meta_data->>'office_id')::UUID;
         trial_end_date := NULL;
     END IF;
 
-    -- Insert into public.users with the correct office_id
-    INSERT INTO public.users (id, office_id, name, email, phone, role, "trialEndsAt")
+    -- Insert into public.users
+    INSERT INTO public.users (id, office_id, name, office_name, email, phone, role, "trialEndsAt")
     VALUES (
         new.id,
-        new_office_id,
+        office_id_val,
         new.raw_user_meta_data->>'full_name',
+        new.raw_user_meta_data->>'office_name',
         new.email,
         new.raw_user_meta_data->>'raw_phone_number',
         user_role_text::public.user_role,
         trial_end_date
     );
 
+    -- Create an investor profile if the role is 'مستثمر'
     IF user_role_text = 'مستثمر' THEN
         INSERT INTO public.investors (id, office_id, name, status, "submittedBy")
         VALUES (
             new.id,
-            new_office_id,
+            office_id_val,
             new.raw_user_meta_data->>'full_name',
             'نشط'::public.investor_status,
-            user_submitted_by
+            (new.raw_user_meta_data->>'submittedBy')::UUID
         );
     END IF;
 
@@ -269,21 +302,6 @@ $$;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- Function to check for duplicate borrowers across different offices
-CREATE OR REPLACE FUNCTION check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
-RETURNS TABLE (name TEXT, office_name TEXT, phone TEXT) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT u.name, o.name as office_name, u.phone
-    FROM public.borrowers b
-    JOIN public.users u ON b."submittedBy" = u.id
-    JOIN public.offices o ON u.office_id = o.id
-    WHERE b."nationalId" = p_national_id
-      AND b.office_id != p_office_id
-      AND b.status IN ('منتظم', 'متأخر');
-END;
-$$ LANGUAGE plpgsql;
 
 
 -- ========= Initial Data Inserts =========
@@ -297,3 +315,5 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+
+    
