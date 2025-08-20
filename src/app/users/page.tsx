@@ -1,3 +1,5 @@
+
+
 'use client';
 
 import { useDataState, useDataActions } from '@/contexts/data-context';
@@ -48,7 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { User, UserRole, PermissionKey, NewUserPayload, Branch } from '@/lib/types';
+import type { User, UserRole, PermissionKey, NewUserPayload, Branch, Office } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -248,7 +250,7 @@ export default function UsersPage() {
     phone: '',
     password: '',
     confirmPassword: '',
-    branch_id: null as string | null,
+    branch_id: currentUser?.branch_id || null,
   });
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
@@ -324,7 +326,7 @@ export default function UsersPage() {
   };
   
   const handleEditCredsClick = (user: User) => {
-    const office = offices.find(o => o.manager_id === user.id);
+    const office = offices.find(o => o.id === user.office_id);
     setUserToEdit(user);
     setEditCredsForm({ email: user.email, password: '', officeName: office?.name || '', branch_id: user.branch_id || null });
     setIsEditCredsDialogOpen(true);
@@ -347,7 +349,8 @@ export default function UsersPage() {
     if (editCredsForm.password) {
       updates.password = editCredsForm.password;
     }
-     if (userToEdit.role === 'مدير المكتب' && editCredsForm.officeName !== (userToEdit.office_name || '')) {
+     const office = offices.find(o => o.id === userToEdit.office_id);
+     if (userToEdit.role === 'مدير المكتب' && office && editCredsForm.officeName !== (office?.name || '')) {
       updates.officeName = editCredsForm.officeName;
     }
      if (userToEdit.role !== 'مدير المكتب' && editCredsForm.branch_id !== (userToEdit.branch_id || null)) {
@@ -466,9 +469,10 @@ export default function UsersPage() {
   }, [users, currentUser, role]);
 
   const myBranches = useMemo(() => {
-    if (!currentUser || role !== 'مدير المكتب') return [];
-    return currentUser.branches || [];
-  }, [currentUser]);
+      if (!currentUser || !currentUser.office_id) return [];
+      const office = offices.find(o => o.id === currentUser.office_id);
+      return office?.branches || [];
+  }, [offices, currentUser]);
 
 
   if (!currentUser || !canViewPage) {
@@ -509,7 +513,7 @@ export default function UsersPage() {
                           <div className="flex flex-1 items-center justify-between">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                               <div className="font-bold text-base">
-                                {office?.name || manager.name}
+                                {office?.name || 'مكتب غير مسمى'}
                               </div>
                               <div className="text-xs text-muted-foreground sm:text-sm">
                                 {manager.email}
@@ -610,10 +614,10 @@ export default function UsersPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                      <div className="rounded-md border bg-background p-2">
-                                        <h5 className="font-medium text-sm p-2 flex items-center gap-2"><Home className="h-4 w-4 text-muted-foreground" /> الفروع ({manager.branches?.length ?? 0})</h5>
-                                        {manager.branches && manager.branches.length > 0 ? (
+                                        <h5 className="font-medium text-sm p-2 flex items-center gap-2"><Home className="h-4 w-4 text-muted-foreground" /> الفروع ({office?.branches?.length ?? 0})</h5>
+                                        {office?.branches && office.branches.length > 0 ? (
                                             <ul className="text-xs text-muted-foreground px-4 list-disc space-y-1">
-                                            {manager.branches.map(b => <li key={b.id}>{b.name} - {b.city}</li>)}
+                                            {office.branches.map(b => <li key={b.id}>{b.name} - {b.city}</li>)}
                                             </ul>
                                         ) : (
                                             <p className="text-xs text-center text-muted-foreground py-2">لا توجد فروع مرتبطة.</p>
@@ -1335,3 +1339,4 @@ export default function UsersPage() {
     </>
   );
 }
+

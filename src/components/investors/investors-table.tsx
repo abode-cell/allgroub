@@ -87,7 +87,7 @@ export function InvestorsTable({
   borrowers,
   hideFunds = false,
 }: InvestorsTableProps) {
-  const { currentUser, users, visibleUsers, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage, transactions, updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified, deleteUser } = useDataState();
+  const { currentUser, users, offices, graceTotalProfitPercentage, graceInvestorSharePercentage, investorSharePercentage, transactions, updateInvestor, addInvestorTransaction, approveInvestor, requestCapitalIncrease, markInvestorAsNotified, deleteUser } = useDataState();
   const { toast } = useToast();
   const role = currentUser?.role;
 
@@ -218,7 +218,8 @@ export function InvestorsTable({
       name: selectedInvestor.name,
       status: selectedInvestor.status,
       installmentProfitShare: selectedInvestor.installmentProfitShare,
-      gracePeriodProfitShare: selectedInvestor.gracePeriodProfitShare
+      gracePeriodProfitShare: selectedInvestor.gracePeriodProfitShare,
+      branch_id: selectedInvestor.branch_id
     };
     
     updateInvestor(updatableInvestor);
@@ -512,7 +513,8 @@ export function InvestorsTable({
           {selectedInvestor && (() => {
             const investorTransactions = transactions.filter(t => t.investor_id === selectedInvestor.id);
             const financials = calculateInvestorFinancials(selectedInvestor, borrowers, investorTransactions);
-            const userDetails = visibleUsers.find(u => u.id === selectedInvestor.id);
+            const userDetails = users.find(u => u.id === selectedInvestor.id);
+            const officeDetails = offices.find(o => o.id === selectedInvestor.office_id);
 
             return (
               <div className="grid gap-6 pt-4 text-sm">
@@ -549,6 +551,11 @@ export function InvestorsTable({
                                 <Phone className='h-4 w-4 text-muted-foreground'/>
                                 <span className='text-muted-foreground'>الجوال:</span>
                                 <span className='font-bold float-left'>{userDetails.phone}</span>
+                            </div>
+                            <div className='flex items-center gap-2'>
+                                <Briefcase className='h-4 w-4 text-muted-foreground'/>
+                                <span className='text-muted-foreground'>المكتب:</span>
+                                <span className='font-bold float-left'>{officeDetails?.name || 'غير محدد'}</span>
                             </div>
                         </div>
                     </div>
