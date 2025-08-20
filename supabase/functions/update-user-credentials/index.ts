@@ -86,20 +86,28 @@ serve(async (req) => {
         }
     }
 
-    // 5. Update public.users table 
-    const dbUpdates: any = {};
-    if (updates.email) dbUpdates.email = updates.email;
-    if (updates.branch_id !== undefined) dbUpdates.branch_id = updates.branch_id;
-    if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
-      dbUpdates.office_name = updates.officeName;
-    }
-
-    if (Object.keys(dbUpdates).length > 0) {
+    // 5. Update public.users and public.offices tables
+    const userDbUpdates: any = {};
+    if (updates.email) userDbUpdates.email = updates.email;
+    if (updates.branch_id !== undefined) userDbUpdates.branch_id = updates.branch_id;
+    
+    if (Object.keys(userDbUpdates).length > 0) {
         const { error: dbError } = await supabaseAdmin
             .from("users")
-            .update(dbUpdates)
+            .update(userDbUpdates)
             .eq("id", userId);
-        if (dbError) throw new Error(`DB update error: ${dbError.message}`);
+        if (dbError) throw new Error(`User DB update error: ${dbError.message}`);
+    }
+
+    if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
+      const { data: office, error: officeFetchError } = await supabaseAdmin.from('offices').select('id').eq('manager_id', userId).single();
+      if (officeFetchError) throw new Error(`Could not find office for manager: ${officeFetchError.message}`);
+      
+      const { error: officeUpdateError } = await supabaseAdmin
+        .from('offices')
+        .update({ name: updates.officeName })
+        .eq('id', office.id);
+      if (officeUpdateError) throw new Error(`Office name update error: ${officeUpdateError.message}`);
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -107,9 +115,4 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    return new Response(JSON.stringify({ message: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
-  }
-});
+    return new Response(JSON.stringify({ message:

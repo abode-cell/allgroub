@@ -202,14 +202,14 @@ CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql STABLE
 AS $$
-  SELECT (get_my_claim('user_role'))::jsonb ? 'مدير النظام'
+  SELECT get_my_claim('user_role') @> '"مدير النظام"'::jsonb;
 $$;
 
 CREATE OR REPLACE FUNCTION get_current_office_id()
 RETURNS UUID
 LANGUAGE sql STABLE
 AS $$
-  SELECT (get_my_claim('office_id') ->> 0)::uuid
+    SELECT (get_my_claim('office_id'))::text::uuid;
 $$;
 
 
@@ -309,9 +309,8 @@ AS $$
 DECLARE
     user_role_text TEXT;
     user_managed_by UUID;
-    user_office_id UUID;
-    user_branch_id UUID;
     v_office_id UUID;
+    user_branch_id UUID;
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
@@ -326,8 +325,6 @@ BEGIN
         INSERT INTO public.offices (name, manager_id)
         VALUES (new.raw_user_meta_data->>'office_name', new.id)
         RETURNING id INTO v_office_id;
-
-        user_office_id := v_office_id;
         
         -- Set trial period for the new manager
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
@@ -335,7 +332,7 @@ BEGIN
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
         -- For other roles, get the office_id from their manager
-        SELECT office_id INTO user_office_id FROM public.users WHERE id = user_managed_by;
+        SELECT office_id INTO v_office_id FROM public.users WHERE id = user_managed_by;
         trial_end_date := NULL;
     END IF;
 
@@ -348,7 +345,7 @@ BEGIN
         new.raw_user_meta_data->>'raw_phone_number',
         user_role_text::public.user_role,
         user_managed_by,
-        user_office_id,
+        v_office_id,
         user_branch_id,
         trial_end_date
     );
@@ -377,7 +374,22 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-    -- Insert into the investors table
+    -- This part creates the user profile
+    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id, status)
+    SELECT
+        u.id,
+        u.raw_user_meta_data->>'full_name',
+        u.email,
+        u.raw_user_meta_data->>'raw_phone_number',
+        'مستثمر'::public.user_role,
+        p_managed_by,
+        p_office_id,
+        p_branch_id,
+        'نشط'::public.investor_status
+    FROM auth.users u
+    WHERE u.id = p_user_id;
+
+    -- This part creates the investor-specific data
     INSERT INTO public.investors (id, name, office_id, branch_id, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare", status)
     VALUES (
         p_user_id,
@@ -440,4 +452,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-```

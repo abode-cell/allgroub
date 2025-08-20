@@ -53,14 +53,14 @@ serve(async (req) => {
       .eq("id", borrowerId);
 
     if (updateError) {
-      throw new Error("فشل تحديث القرض الأصلي.");
+      throw new Error(`فشل تحديث القرض الأصلي: ${updateError.message}`);
     }
 
     // 3. Create the new remaining loan
     const { error: insertError } = await supabaseAdmin.from("borrowers").insert({
         id: newLoanId,
         office_id: originalBorrower.office_id,
-        branch_id: originalBorrower.branch_id, // Carry over the branch_id
+        branch_id: originalBorrower.branch_id,
         name: `${originalBorrower.name}`,
         nationalId: originalBorrower.nationalId,
         phone: originalBorrower.phone,
@@ -85,7 +85,7 @@ serve(async (req) => {
           partial_payment_remaining_loan_id: null,
       }).eq("id", borrowerId);
       
-      throw new Error("فشل إنشاء قرض جديد بالمبلغ المتبقي.");
+      throw new Error(`فشل إنشاء قرض جديد بالمبلغ المتبقي: ${insertError.message}`);
     }
     
     return new Response(JSON.stringify({ success: true, newLoanId }), {
@@ -95,8 +95,4 @@ serve(async (req) => {
 
   } catch (error) {
     return new Response(JSON.stringify({ message: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
-  }
-});
+      headers: { ...corsHeaders, "Content-Type": "
