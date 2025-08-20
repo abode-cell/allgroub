@@ -42,15 +42,16 @@ serve(async (req) => {
     if (profileError || !invokerProfile) throw new Error("Could not find invoker profile or user is not authorized.");
     if (invokerProfile.role !== 'مدير المكتب') throw new Error("Only office managers can create new investors.");
     
-    const { data: investorsCount } = await supabaseAdmin
+    const { data: investors, error: countError } = await supabaseAdmin
       .from('investors')
       .select('id', { count: 'exact' })
       .eq('office_id', invokerProfile.office_id);
 
-    if (investorsCount && investorsCount.length >= (invokerProfile.investorLimit || 0)) {
+    if (countError) throw new Error(`Could not count investors: ${countError.message}`);
+    
+    if (investors && investors.length >= (invokerProfile.investorLimit || 0)) {
         throw new Error(`لقد وصلت للحد الأقصى للمستثمرين (${invokerProfile.investorLimit}).`);
     }
-
 
     // 3. Get the payload to create the new investor
     const payload: NewInvestorPayload = await req.json();
@@ -63,8 +64,12 @@ serve(async (req) => {
         phone: payload.phone,
         email_confirm: true,
         user_metadata: {
+            user_role: 'مستثمر',
             full_name: payload.name,
-            role: 'مستثمر',
+            raw_phone_number: payload.phone,
+            managedBy: invoker.id,
+            office_id: invokerProfile.office_id,
+            branch_id: payload.branch_id || null
         }
     });
 
@@ -74,7 +79,7 @@ serve(async (req) => {
     }
     if (!newUser) throw new Error("User creation did not return a user object.");
 
-    // 5. Create the public user profile and investor profile using the RPC function
+    // 5. Create the public investor profile and initial transactions using RPC
     const { error: rpcError } = await supabaseAdmin.rpc('create_investor_profile', {
         p_user_id: newUser.id,
         p_name: payload.name,

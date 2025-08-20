@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'مدير النظام' | 'مدير المكتب' | 'مساعد مدير المكتب' | 'موظف' | 'مستثمر';
 
 export type PermissionKey = 
@@ -44,9 +45,16 @@ export type NewManagerPayload = {
     officeName: string;
 };
 
+export type Office = {
+  id: string;
+  name: string;
+  manager_id: string | null;
+  created_at: string;
+};
+
 export type Branch = {
   id: string;
-  manager_id: string;
+  office_id: string;
   name: string;
   city: string;
 };

@@ -27,6 +27,7 @@ import type {
   AddBorrowerResult,
   Branch,
   NewManagerPayload,
+  Office
 } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
@@ -48,6 +49,7 @@ type DataContextValue = {
   borrowers: Borrower[];
   investors: Investor[];
   users: User[];
+  offices: Office[];
   transactions: Transaction[];
   visibleUsers: User[];
   supportTickets: SupportTicket[];
@@ -62,7 +64,7 @@ type DataContextValue = {
   signIn: (email: string, password?: string) => Promise<SignInResult>;
   signOutUser: () => void;
   registerNewOfficeManager: (payload: NewManagerPayload) => Promise<{ success: boolean; message: string }>;
-  addBranch: (branch: Omit<Branch, 'id' | 'manager_id'>) => Promise<{success: boolean, message: string}>;
+  addBranch: (branch: Omit<Branch, 'id' | 'office_id'>) => Promise<{success: boolean, message: string}>;
   deleteBranch: (branchId: string) => void;
   updateSupportInfo: (info: { email?: string; phone?: string }) => void;
   updateBaseInterestRate: (rate: number) => void;
@@ -148,7 +150,8 @@ const DataContext = createContext<DataContextValue | undefined>(undefined);
 type InitialDataState = Pick<DataContextValue, 
   | 'borrowers' 
   | 'investors' 
-  | 'users' 
+  | 'users'
+  | 'offices' 
   | 'transactions' 
   | 'supportTickets' 
   | 'notifications' 
@@ -163,6 +166,7 @@ type InitialDataState = Pick<DataContextValue,
 
 const initialDataState: InitialDataState = {
   users: [],
+  offices: [],
   borrowers: [],
   investors: [],
   transactions: [],
@@ -212,6 +216,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const [
           { data: all_users_data, error: usersError },
+          { data: offices_data, error: officesError },
           { data: investors_data, error: investorsError },
           { data: borrowers_data, error: borrowersError },
           { data: transactions_data, error: transactionsError },
@@ -221,6 +226,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           { data: branches_data, error: branchesError }
         ] = await Promise.all([
           supabaseClient.from('users').select('*'),
+          supabaseClient.from('offices').select('*'),
           supabaseClient.from('investors').select('*'),
           supabaseClient.from('borrowers').select('*'),
           supabaseClient.from('transactions').select('*'),
@@ -230,7 +236,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabaseClient.from('branches').select('*')
         ]);
         
-        const errors = { usersError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError };
+        const errors = { usersError, officesError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError };
         for (const [key, error] of Object.entries(errors)) {
             if (error) {
                 console.error(`Error fetching ${key}:`, error);
@@ -253,13 +259,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithBranches: User[] = (all_users_data || []).map(user => ({
+        const usersWithFullData: User[] = (all_users_data || []).map(user => {
+          const office = (offices_data || []).find(o => o.id === user.office_id);
+          return {
             ...user,
-            branches: (branches_data || []).filter(branch => branch.manager_id === user.id)
-        }));
+            office_name: office?.name,
+            branches: (branches_data || []).filter(branch => branch.office_id === user.office_id)
+          }
+        });
 
         setData({
-            users: usersWithBranches,
+            users: usersWithFullData,
+            offices: offices_data || [],
             investors: investors_data || [],
             borrowers: borrowersWithData,
             transactions: transactions_data || [],
@@ -383,8 +394,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           user_role: 'مدير المكتب',
           full_name: payload.name,
           office_name: payload.officeName,
-          raw_phone_number: payload.phone,
-          office_id: crypto.randomUUID() // Assign a new office_id right away
+          raw_phone_number: payload.phone
         }
       }
     });
@@ -717,7 +727,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return { success: false, message: 'يجب أن تكون مسجلاً للدخول ومرتبطًا بمكتب.' };
       }
       
-      const manager = data.users.find(u => u.office_id === currentUser.office_id && u.role === 'مدير المكتب');
+      const manager = data.users.find(u => u.id === currentUser.id && u.role === 'مدير المكتب') || data.users.find(u => u.id === currentUser.managedBy);
       if (!manager) {
           return { success: false, message: 'لم يتم العثور على مدير المكتب المسؤول.'};
       }
@@ -736,18 +746,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         if (existingActiveLoans && existingActiveLoans.length > 0) {
             const duplicate = existingActiveLoans[0];
-            return { success: false, message: 'عميل مكرر', isDuplicate: true, duplicateInfo: { borrowerName: duplicate.name, managerName: duplicate.office_name, managerPhone: duplicate.phone || 'غير متوفر'}};
+            const office = data.offices.find(o => o.manager_id === duplicate.manager_id);
+            return { success: false, message: 'عميل مكرر', isDuplicate: true, duplicateInfo: { borrowerName: duplicate.borrower_name, managerName: office?.name || 'مكتب غير معروف', managerPhone: duplicate.manager_phone || 'غير متوفر'}};
         }
       }
 
       const newEntry: Omit<Borrower, 'id'> = {
           ...borrower,
-          id: `bor_${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
           fundedBy: [], // This will be set on approval
           office_id: currentUser.office_id,
-          managedBy: currentUser.role === 'مدير المكتب' ? currentUser.id : currentUser.managedBy,
+          managedBy: manager.id,
       };
 
       const { error } = await supabase.from('borrowers').insert(newEntry);
@@ -760,7 +770,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toast({ title: 'تمت إضافة القرض بنجاح.' });
       return { success: true, message: 'تمت إضافة القرض بنجاح.' };
     },
-    [currentUser, data.users, toast, fetchData]
+    [currentUser, data.users, data.offices, toast, fetchData]
   );
   
   const updateInstallmentStatus = useCallback(async (borrowerId: string, month: number, status: InstallmentStatus) => {
@@ -858,55 +868,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addInvestor = useCallback(
     async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        if (!currentUser || !currentUser.office_id) return { success: false, message: 'غير مصرح به' };
+        if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
-        const { data: { user }, error: signUpError } = await supabase.auth.signUp({
-          email: payload.email,
-          password: payload.password!,
-          options: {
-            data: {
-              user_role: 'مستثمر',
-              full_name: payload.name,
-              raw_phone_number: payload.phone,
-              managedBy: currentUser.id,
-              office_id: currentUser.office_id,
-              branch_id: payload.branch_id || null,
-            }
-          }
-        });
-
-        if (signUpError) {
-          const errorMessage = signUpError.message.includes('already registered') ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' : (signUpError.message || `فشل إنشاء حساب مستثمر.`);
-          toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
-          return { success: false, message: errorMessage };
+        try {
+            const { error } = await supabase.functions.invoke('create-investor', { 
+                body: payload,
+            });
+            if (error) throw new Error(error.message);
+            
+            await fetchData(supabase);
+            toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
+            return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
+        } catch (error: any) {
+             console.error("Create Investor Error:", error);
+            const errorMessage = error.message.includes('already registered')
+                ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+                : (error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.');
+            toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
+            return { success: false, message: errorMessage };
         }
-        if (!user) {
-          return { success: false, message: "فشل إنشاء المستخدم في نظام المصادقة."};
-        }
-
-        const { error: profileError } = await supabase.rpc('create_investor_profile', {
-          p_user_id: user.id,
-          p_name: payload.name,
-          p_office_id: currentUser.office_id,
-          p_branch_id: payload.branch_id || null,
-          p_managed_by: currentUser.id,
-          p_submitted_by: currentUser.id,
-          p_installment_profit_share: payload.installmentProfitShare,
-          p_grace_period_profit_share: payload.gracePeriodProfitShare,
-          p_initial_installment_capital: payload.installmentCapital,
-          p_initial_grace_capital: payload.graceCapital
-        });
-        
-        if (profileError) {
-          console.error("Error creating investor profile:", profileError);
-          await supabase.auth.admin.deleteUser(user.id);
-          toast({ variant: 'destructive', title: 'خطأ فادح', description: `فشل إنشاء ملف المستثمر: ${profileError.message}` });
-          return { success: false, message: profileError.message };
-        }
-
-        await fetchData(supabase);
-        toast({ title: 'تمت إضافة المستثمر بنجاح.' });
-        return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
     },
     [currentUser, fetchData, toast]
   );
@@ -966,9 +946,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
-        const { data: userToUpdate } = await supabase.from('users').select('role').eq('id', userId).single();
-        if (!userToUpdate) throw new Error("لم يتم العثور على المستخدم.");
-
         const { error } = await supabase.functions.invoke('update-user-credentials', { body: { userId, updates } });
         if (error) throw new Error(error.message);
         
@@ -1130,7 +1107,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
        toast({ title: 'تم إرسال الرسالة بنجاح (محاكاة)' });
   }, [toast, fetchData]);
   
-  const addBranch = useCallback(async (branch: Omit<Branch, 'id' | 'manager_id'>): Promise<{success: boolean, message: string}> => {
+  const addBranch = useCallback(async (branch: Omit<Branch, 'id' | 'office_id'>): Promise<{success: boolean, message: string}> => {
     const supabase = getSupabaseBrowserClient();
     if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) {
         toast({variant: 'destructive', title: 'خطأ', description: 'غير مصرح به.'});
@@ -1142,7 +1119,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
     }
 
-    const { error } = await supabase.from('branches').insert({ ...branch, manager_id: currentUser.id });
+    const { error } = await supabase.from('branches').insert({ ...branch, office_id: currentUser.office_id });
 
     if (error) {
         console.error("Error adding branch:", error);

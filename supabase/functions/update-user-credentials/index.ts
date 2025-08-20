@@ -1,3 +1,4 @@
+
 // supabase/functions/update-user-credentials/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -100,14 +101,11 @@ serve(async (req) => {
     }
 
     if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
-      const { data: office, error: officeFetchError } = await supabaseAdmin.from('offices').select('id').eq('manager_id', userId).single();
-      if (officeFetchError) throw new Error(`Could not find office for manager: ${officeFetchError.message}`);
-      
-      const { error: officeUpdateError } = await supabaseAdmin
-        .from('offices')
-        .update({ name: updates.officeName })
-        .eq('id', office.id);
-      if (officeUpdateError) throw new Error(`Office name update error: ${officeUpdateError.message}`);
+        const { error: officeUpdateError } = await supabaseAdmin
+            .from('offices')
+            .update({ name: updates.officeName })
+            .eq('manager_id', userId);
+        if (officeUpdateError) throw new Error(`Office name update error: ${officeUpdateError.message}`);
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -115,4 +113,8 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    return new Response(JSON.stringify({ message:
+    return new Response(JSON.stringify({ message: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
+  }

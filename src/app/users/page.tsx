@@ -1,10 +1,8 @@
-
-
 'use client';
 
 import { useDataState, useDataActions } from '@/contexts/data-context';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo, forwardRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -141,7 +139,6 @@ const employeePermissionsConfig: {
   { key: 'useCalculator', label: 'استخدام الحاسبة', description: 'السماح باستخدام حاسبة القروض والأرباح.' },
 ];
 
-
 const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User; onDeleteClick: (user: User) => void; onEditClick: (user: User) => void }) => {
     const { updateUserStatus } = useDataActions();
     const { currentUser } = useDataState();
@@ -231,9 +228,8 @@ const UserActions = ({ user, onDeleteClick, onEditClick }: { user: User; onDelet
     );
 };
 
-
 export default function UsersPage() {
-  const { currentUser, users, investors } = useDataState();
+  const { currentUser, users, offices, investors } = useDataState();
   const { updateUserRole, deleteUser, updateUserLimits, updateManagerSettings, updateAssistantPermission, updateEmployeePermission, addNewSubordinateUser, updateUserCredentials, addBranch, deleteBranch } =
     useDataActions();
   const router = useRouter();
@@ -328,8 +324,9 @@ export default function UsersPage() {
   };
   
   const handleEditCredsClick = (user: User) => {
+    const office = offices.find(o => o.manager_id === user.id);
     setUserToEdit(user);
-    setEditCredsForm({ email: user.email, password: '', officeName: user.office_name || '', branch_id: user.branch_id || null });
+    setEditCredsForm({ email: user.email, password: '', officeName: office?.name || '', branch_id: user.branch_id || null });
     setIsEditCredsDialogOpen(true);
   };
 
@@ -503,7 +500,7 @@ export default function UsersPage() {
                 const employees = teamUsers.filter(u => u.role === 'موظف');
                 const assistants = teamUsers.filter(u => u.role === 'مساعد مدير المكتب');
                 const managerInvestors = investors.filter(i => i.office_id === manager.office_id);
-                const officeName = manager.office_name || manager.name;
+                const office = offices.find(o => o.id === manager.office_id);
 
                 return (
                   <AccordionItem value={manager.id} key={manager.id} className={cn(manager.status === 'معلق' && 'opacity-70 bg-muted/20')}>
@@ -512,7 +509,7 @@ export default function UsersPage() {
                           <div className="flex flex-1 items-center justify-between">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                               <div className="font-bold text-base">
-                                {officeName}
+                                {office?.name || manager.name}
                               </div>
                               <div className="text-xs text-muted-foreground sm:text-sm">
                                 {manager.email}

@@ -1,3 +1,4 @@
+
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -202,14 +203,14 @@ CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql STABLE
 AS $$
-  SELECT get_my_claim('user_role') @> '"مدير النظام"'::jsonb;
+  SELECT get_my_claim('user_role') @> '"مدير النظام"'::jsonb
 $$;
 
 CREATE OR REPLACE FUNCTION get_current_office_id()
 RETURNS UUID
 LANGUAGE sql STABLE
 AS $$
-    SELECT (get_my_claim('office_id'))::text::uuid;
+  SELECT (get_my_claim('office_id'))::text::uuid
 $$;
 
 
@@ -332,7 +333,7 @@ BEGIN
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
         -- For other roles, get the office_id from their manager
-        SELECT office_id INTO v_office_id FROM public.users WHERE id = user_managed_by;
+        v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
         trial_end_date := NULL;
     END IF;
 
@@ -374,22 +375,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-    -- This part creates the user profile
-    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id, status)
-    SELECT
-        u.id,
-        u.raw_user_meta_data->>'full_name',
-        u.email,
-        u.raw_user_meta_data->>'raw_phone_number',
-        'مستثمر'::public.user_role,
-        p_managed_by,
-        p_office_id,
-        p_branch_id,
-        'نشط'::public.investor_status
-    FROM auth.users u
-    WHERE u.id = p_user_id;
-
-    -- This part creates the investor-specific data
+    -- Insert into the investors table
     INSERT INTO public.investors (id, name, office_id, branch_id, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare", status)
     VALUES (
         p_user_id,
@@ -452,3 +438,4 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+```
