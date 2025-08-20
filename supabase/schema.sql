@@ -1,4 +1,4 @@
--- ========= Dropping existing objects (optional, for a clean slate) =========
+-- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
@@ -27,7 +27,7 @@ DROP TYPE IF EXISTS "public"."transaction_type" CASCADE;
 DROP TYPE IF EXISTS "public"."withdrawal_method" CASCADE;
 DROP TYPE IF EXISTS "public"."installment_status" CASCADE;
 
--- ========= Creating Custom Types (ENUMs) for Data Integrity =========
+-- ========= Creating Custom Types (ENUMs) =========
 CREATE TYPE "public"."user_role" AS ENUM ('مدير النظام', 'مدير المكتب', 'مساعد مدير المكتب', 'موظف', 'مستثمر');
 CREATE TYPE "public"."investor_status" AS ENUM ('نشط', 'غير نشط', 'معلق', 'مرفوض', 'محذوف');
 CREATE TYPE "public"."borrower_status" AS ENUM ('منتظم', 'متأخر', 'مسدد بالكامل', 'متعثر', 'معلق', 'مرفوض');
@@ -47,14 +47,14 @@ CREATE TABLE public.app_config (
 );
 COMMENT ON TABLE public.app_config IS 'Stores global application settings.';
 
--- Offices Table (The new central entity)
+-- Offices Table (NEW)
 CREATE TABLE public.offices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    manager_id UUID UNIQUE NOT NULL -- REFERENCES users(id) will be added after users table is created
+    manager_id UUID UNIQUE, -- Can be null initially, to be updated by trigger
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
-COMMENT ON TABLE public.offices IS 'Stores the central office entity for each business.';
-
+COMMENT ON TABLE public.offices IS 'Stores independent office entities.';
 
 -- Users Table
 CREATE TABLE public.users (
@@ -80,7 +80,7 @@ CREATE TABLE public.users (
     "defaultTrialPeriodDays" INT
 );
 COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users.';
-ALTER TABLE public.offices ADD FOREIGN KEY (manager_id) REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE public.offices ADD FOREIGN KEY (manager_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 -- Branches Table
@@ -90,7 +90,7 @@ CREATE TABLE public.branches (
     name TEXT NOT NULL,
     city TEXT NOT NULL
 );
-COMMENT ON TABLE public.branches IS 'Stores office branches for an office.';
+COMMENT ON TABLE public.branches IS 'Stores office branches linked to an office.';
 ALTER TABLE public.users ADD FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
 
 -- Investors Table
@@ -181,23 +181,14 @@ CREATE TABLE public.notifications (
 COMMENT ON TABLE public.notifications IS 'Stores notifications for users.';
 
 -- ========= Indexes for Performance =========
-CREATE INDEX ON public.users ("managedBy");
 CREATE INDEX ON public.users ("office_id");
 CREATE INDEX ON public.users ("branch_id");
-CREATE INDEX ON public.borrowers ("submittedBy");
-CREATE INDEX ON public.borrowers ("managedBy");
 CREATE INDEX ON public.borrowers ("office_id");
 CREATE INDEX ON public.borrowers ("branch_id");
-CREATE INDEX ON public.investors ("submittedBy");
-CREATE INDEX ON public.investors ("managedBy");
 CREATE INDEX ON public.investors ("office_id");
 CREATE INDEX ON public.investors ("branch_id");
-CREATE INDEX ON public.transactions (investor_id);
 CREATE INDEX ON public.transactions ("office_id");
-CREATE INDEX ON public.notifications ("recipientId");
-CREATE INDEX ON public.borrowers ("nationalId");
 CREATE INDEX ON public.branches ("office_id");
-
 
 -- ========= Helper Functions for RLS Policies =========
 CREATE OR REPLACE FUNCTION get_my_claim(claim TEXT)
@@ -242,20 +233,20 @@ CREATE POLICY "Allow authenticated to read app_config" ON public.app_config FOR 
 
 -- POLICIES FOR: offices
 DROP POLICY IF EXISTS "Allow admin to manage all offices" ON public.offices;
-DROP POLICY IF EXISTS "Allow office members to view their office" ON public.offices;
+DROP POLICY IF EXISTS "Allow office members to see their office" ON public.offices;
 CREATE POLICY "Allow admin to manage all offices" ON public.offices FOR ALL TO authenticated USING (is_admin());
-CREATE POLICY "Allow office members to view their office" ON public.offices FOR SELECT TO authenticated USING (id = get_current_office_id());
+CREATE POLICY "Allow office members to see their office" ON public.offices FOR SELECT TO authenticated USING (id = get_current_office_id());
 
 
 -- POLICIES FOR: users
 DROP POLICY IF EXISTS "Allow admin to manage all users" ON public.users;
 DROP POLICY IF EXISTS "Allow users to view their own data" ON public.users;
-DROP POLICY IF EXISTS "Allow users to view their office members" ON public.users;
+DROP POLICY IF EXISTS "Allow office members to see each other" ON public.users;
 DROP POLICY IF EXISTS "Allow users to update their own data" ON public.users;
 
 CREATE POLICY "Allow admin to manage all users" ON public.users FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 CREATE POLICY "Allow users to view their own data" ON public.users FOR SELECT TO authenticated USING (id = auth.uid());
-CREATE POLICY "Allow users to view their office members" ON public.users FOR SELECT TO authenticated USING (office_id = get_current_office_id());
+CREATE POLICY "Allow office members to see each other" ON public.users FOR SELECT TO authenticated USING (office_id = get_current_office_id());
 CREATE POLICY "Allow users to update their own data" ON public.users FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 
@@ -280,9 +271,9 @@ CREATE POLICY "Allow investors to see loans they funded" ON public.borrowers FOR
 
 
 -- POLICIES FOR: transactions
+DROP POLICY IF EXISTS "Allow admin to manage all transactions" ON public.transactions;
 DROP POLICY IF EXISTS "Allow office members to manage their transactions" ON public.transactions;
 DROP POLICY IF EXISTS "Allow investors to see their own transactions" ON public.transactions;
-DROP POLICY IF EXISTS "Allow admin to manage all transactions" ON public.transactions;
 
 CREATE POLICY "Allow admin to manage all transactions" ON public.transactions FOR ALL TO authenticated USING (is_admin());
 CREATE POLICY "Allow investors to see their own transactions" ON public.transactions FOR SELECT TO authenticated USING (investor_id = auth.uid());
@@ -290,11 +281,11 @@ CREATE POLICY "Allow office members to manage their transactions" ON public.tran
 
 
 -- POLICIES FOR: branches
-DROP POLICY IF EXISTS "Allow office managers to manage their own branches" ON public.branches;
-DROP POLICY IF EXISTS "Allow office members to read branch data" ON public.branches;
+DROP POLICY IF EXISTS "Allow admin to manage all branches" ON public.branches;
+DROP POLICY IF EXISTS "Allow office members to manage their branches" ON public.branches;
 
-CREATE POLICY "Allow office managers to manage their own branches" ON public.branches FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.office_id = branches.office_id AND u.role = 'مدير المكتب'));
-CREATE POLICY "Allow office members to read branch data" ON public.branches FOR SELECT TO authenticated USING (office_id = get_current_office_id());
+CREATE POLICY "Allow admin to manage all branches" ON public.branches FOR ALL TO authenticated USING (is_admin());
+CREATE POLICY "Allow office members to manage their branches" ON public.branches FOR ALL TO authenticated USING (office_id = get_current_office_id());
 
 
 -- POLICIES FOR: support_tickets AND notifications
@@ -309,28 +300,6 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 -- ========= Database Functions and Triggers =========
 
--- Function to check for duplicate borrowers in other offices
-CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
-RETURNS TABLE(name TEXT, office_name TEXT, phone TEXT)
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT u.name, o.name, u.phone
-    FROM public.users u
-    JOIN public.offices o ON u.office_id = o.id
-    WHERE u.id IN (
-        SELECT b."submittedBy"
-        FROM public.borrowers b
-        WHERE b."nationalId" = p_national_id
-          AND b.office_id != p_office_id
-          AND b.status NOT IN ('مرفوض', 'مسدد بالكامل')
-    );
-END;
-$$;
-
-
 -- This function is called by a trigger when a new user signs up in Supabase Auth.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -342,7 +311,7 @@ DECLARE
     user_managed_by UUID;
     user_office_id UUID;
     user_branch_id UUID;
-    office_name_text TEXT;
+    v_office_id UUID;
     trial_period_days INT;
     trial_end_date TIMESTAMPTZ;
 BEGIN
@@ -350,21 +319,22 @@ BEGIN
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
-    office_name_text := new.raw_user_meta_data->>'office_name';
 
-    -- Determine office_id and trial period for Office Managers
+    -- Handle office creation for 'مدير المكتب'
     IF user_role_text = 'مدير المكتب' THEN
-        -- Create a new office for the manager
+        -- Insert a new office and get its ID
         INSERT INTO public.offices (name, manager_id)
-        VALUES (office_name_text, new.id)
-        RETURNING id INTO user_office_id;
+        VALUES (new.raw_user_meta_data->>'office_name', new.id)
+        RETURNING id INTO v_office_id;
+
+        user_office_id := v_office_id;
         
-        -- Fetch the default trial period from app_config
+        -- Set trial period for the new manager
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
-        trial_period_days := COALESCE(trial_period_days, 14); -- Fallback to 14 days
+        trial_period_days := COALESCE(trial_period_days, 14);
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
-        -- For other roles, inherit the office_id from their manager
+        -- For other roles, get the office_id from their manager
         SELECT office_id INTO user_office_id FROM public.users WHERE id = user_managed_by;
         trial_end_date := NULL;
     END IF;
@@ -389,6 +359,7 @@ $$;
 
 
 -- Function to create an investor profile and initial capital transactions.
+-- This function is now called from the frontend/edge function after user creation.
 CREATE OR REPLACE FUNCTION public.create_investor_profile(
     p_user_id UUID,
     p_name TEXT,
