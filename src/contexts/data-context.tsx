@@ -395,7 +395,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       options: {
         data: {
           full_name: payload.name,
-          raw_phone_number: payload.phone
+          raw_phone_number: payload.phone,
+          office_name: payload.officeName,
         }
       }
     });
@@ -405,31 +406,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: signUpError.message };
     }
     
-    if (!signUpData.session) {
-      return { success: false, message: 'فشل إنشاء جلسة للمستخدم الجديد. الرجاء التحقق من البريد للتفعيل.' };
-    }
-
-    try {
-      const { error: functionError } = await supabase.functions.invoke('create-office-manager', {
-        headers: {
-          'Authorization': `Bearer ${signUpData.session.access_token}`
-        },
-        body: { officeName: payload.officeName },
-      });
-
-      if (functionError) throw functionError;
-
-      await supabase.auth.signOut();
+    // This is the expected flow when email confirmation is enabled.
+    // The user exists, but there is no session.
+    if (signUpData.user && !signUpData.session) {
       return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
-    } catch (error: any) {
-      console.error("Create Manager Function Error:", error);
-      // Clean up the user if the function fails
-      if (signUpData.user) {
-        const { error: deleteError } = await supabase.auth.admin.deleteUser(signUpData.user.id);
-        if(deleteError) console.error("Failed to delete user after function error:", deleteError);
-      }
-      return { success: false, message: error.message || 'فشل إكمال عملية إنشاء المكتب.' };
     }
+    
+    // If for some reason a session is created (e.g., email confirmation is disabled),
+    // proceed to call the edge function.
+    if(signUpData.session){
+      try {
+        const { error: functionError } = await supabase.functions.invoke('create-office-manager');
+        if (functionError) throw functionError;
+        return { success: true, message: 'تم إنشاء حسابك بنجاح.' };
+      } catch (error: any) {
+        console.error("Create Manager Function Error:", error);
+        return { success: false, message: error.message || 'فشل إكمال عملية إنشاء المكتب.' };
+      }
+    }
+    
+    return { success: false, message: 'حدث خطأ غير متوقع أثناء التسجيل.' };
   }, []);
   
   const addNotification = useCallback(
