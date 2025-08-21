@@ -299,10 +299,10 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 
 -- ========= Database Functions and Triggers =========
-
+-- (No longer using handle_new_user trigger)
 
 -- Function to create an investor profile and initial capital transactions.
--- This function is now called from the frontend/edge function after user creation.
+-- This is called from the create-investor edge function
 CREATE OR REPLACE FUNCTION public.create_investor_profile(
     p_user_id UUID,
     p_name TEXT,
@@ -364,6 +364,23 @@ BEGIN
 END;
 $$;
 
+
+-- Function to check for duplicate borrowers in other offices
+CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
+RETURNS TABLE(borrower_name TEXT, manager_name TEXT, manager_phone TEXT, manager_id UUID)
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT b.name, u.name, u.phone, u.id
+    FROM public.borrowers b
+    JOIN public.users u ON b."managedBy" = u.id
+    WHERE b."nationalId" = p_national_id
+      AND b.office_id != p_office_id
+      AND (b.status <> 'مرفوض' AND b."paymentStatus" <> 'تم السداد');
+END;
+$$;
 
 
 -- ========= Initial Data Inserts =========
