@@ -1,4 +1,3 @@
-
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -301,44 +300,28 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 -- ========= Database Functions and Triggers =========
 
--- This function is called by a trigger when a new user signs up in Supabase Auth.
--- It is NO LONGER USED for 'مدير المكتب' role, which is now handled by an Edge Function.
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
+-- This function creates the user profile in public.users.
+-- It is called from the frontend after a successful signup.
+-- It no longer handles office creation, which is now done in a separate Edge Function.
+CREATE OR REPLACE FUNCTION public.create_user_profile()
+RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
-DECLARE
-    user_role_text TEXT;
-    user_managed_by UUID;
-    v_office_id UUID;
-    user_branch_id UUID;
 BEGIN
-    -- Extract role and other metadata from the new user's metadata
-    user_role_text := new.raw_user_meta_data->>'user_role';
-    user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
-    user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
-    v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
-
-    -- Insert the new user into the public.users table
-    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
-    VALUES (
-        new.id,
-        new.raw_user_meta_data->>'full_name',
-        new.email,
-        new.raw_user_meta_data->>'raw_phone_number',
-        user_role_text::public.user_role,
-        user_managed_by,
-        v_office_id,
-        user_branch_id
-    );
-
-    RETURN new;
+  INSERT INTO public.users (id, name, email, phone, role)
+  VALUES (
+    new.id,
+    new.raw_user_meta_data->>'full_name',
+    new.email,
+    new.raw_user_meta_data->>'raw_phone_number',
+    (new.raw_user_meta_data->>'user_role')::public.user_role
+  );
+  return new;
 END;
 $$;
 
 
--- Function to create an investor profile and initial capital transactions.
 -- This function is now called from the frontend/edge function after user creation.
 CREATE OR REPLACE FUNCTION public.create_investor_profile(
     p_user_id UUID,
@@ -401,6 +384,12 @@ BEGIN
 END;
 $$;
 
+
+-- This trigger now ONLY calls a function to create a basic user profile.
+-- It no longer handles complex logic like office creation.
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE PROCEDURE public.create_user_profile();
 
 
 -- ========= Initial Data Inserts =========

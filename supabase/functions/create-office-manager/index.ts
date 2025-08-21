@@ -45,23 +45,20 @@ serve(async (req) => {
     const trialPeriodDays = (config.value as any)?.value ?? 14;
     const trialEndsAt = new Date(Date.now() + trialPeriodDays * 24 * 60 * 60 * 1000).toISOString();
 
-    // 3. Insert the user profile into public.users
+    // 3. Update the user profile with office_id and trial period
+    // The user record in public.users is already created by the initial trigger
     const { error: userProfileError } = await supabaseAdmin
       .from('users')
-      .insert({
-        id: user.id,
-        name: user.user_metadata.full_name,
-        email: user.email,
-        phone: user.user_metadata.raw_phone_number,
-        role: 'مدير المكتب',
+      .update({
         office_id: office.id,
         trialEndsAt: trialEndsAt
-      });
+      })
+      .eq('id', user.id);
       
     if (userProfileError) {
-        // If user profile fails, attempt to clean up the created office
+        // If user profile update fails, attempt to clean up the created office
         await supabaseAdmin.from('offices').delete().eq('id', office.id);
-        throw new Error(`Failed to create user profile: ${userProfileError.message}`);
+        throw new Error(`Failed to update user profile with office: ${userProfileError.message}`);
     }
 
     return new Response(JSON.stringify({ success: true, officeId: office.id }), {
