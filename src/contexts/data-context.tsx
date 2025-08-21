@@ -204,14 +204,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
 
         if (!currentUserProfile) {
-            // This might happen if the user confirmed their email but the profile is not yet created.
-            // Let's call the setup function.
             const { error: functionError } = await supabaseClient.functions.invoke('create-office-manager');
             if (functionError) {
                 await supabaseClient.auth.signOut();
                 throw new Error("فشل إكمال إعداد حسابك. يرجى المحاولة مرة أخرى أو التواصل مع الدعم الفني.");
             }
-            // Re-fetch all data after setup.
             return fetchData(supabaseClient);
         }
         
@@ -419,8 +416,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: signUpError.message };
     }
     
-    // The new flow only requires sign up. The profile/office creation is handled by an Edge Function
-    // after the first successful sign in by the user.
     if (signUpData.user) {
       return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
     }
