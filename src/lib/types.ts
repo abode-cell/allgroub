@@ -35,6 +35,7 @@ export type NewUserPayload = {
   password?: string;
   confirmPassword?: string;
   branch_id?: string | null;
+  office_id?: string; // Important for linking subordinates
 };
 
 export type NewManagerPayload = {
@@ -50,6 +51,7 @@ export type Office = {
   name: string;
   manager_id: string | null;
   created_at: string;
+  branches?: Branch[];
 };
 
 export type Branch = {
@@ -184,6 +186,7 @@ export type NewInvestorPayload = {
     installmentProfitShare: number;
     gracePeriodProfitShare: number;
     branch_id?: string | null;
+    office_id: string;
 };
 
 export type SupportTicket = {

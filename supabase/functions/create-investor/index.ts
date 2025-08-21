@@ -14,6 +14,7 @@ interface NewInvestorPayload {
   installmentProfitShare: number;
   gracePeriodProfitShare: number;
   branch_id?: string | null;
+  office_id: string; // Added office_id to be passed from the frontend
 }
 
 serve(async (req) => {
@@ -27,12 +28,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
     
-    // 1. Get the invoker's identity to check their permissions
     const authHeader = req.headers.get("Authorization")!;
     const { data: { user: invoker } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
     if (!invoker) throw new Error("User not found or invalid token");
 
-    // 2. Check if the invoker is an Office Manager
+    const payload: NewInvestorPayload = await req.json();
+
     const { data: invokerProfile, error: profileError } = await supabaseAdmin
         .from('users')
         .select('role, office_id, investorLimit')
@@ -41,6 +42,7 @@ serve(async (req) => {
 
     if (profileError || !invokerProfile) throw new Error("Could not find invoker profile or user is not authorized.");
     if (invokerProfile.role !== 'مدير المكتب') throw new Error("Only office managers can create new investors.");
+    if (invokerProfile.office_id !== payload.office_id) throw new Error("Unauthorized: Cannot create investor for another office.");
     
     const { data: investors, error: countError } = await supabaseAdmin
       .from('investors')
@@ -52,12 +54,9 @@ serve(async (req) => {
     if (investors && investors.length >= (invokerProfile.investorLimit || 0)) {
         throw new Error(`لقد وصلت للحد الأقصى للمستثمرين (${invokerProfile.investorLimit}).`);
     }
-
-    // 3. Get the payload to create the new investor
-    const payload: NewInvestorPayload = await req.json();
+    
     if (!payload.password) throw new Error("Password is required for the new investor account.");
 
-    // 4. Create the new auth user for the investor
     const { data: { user: newUser }, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
         email: payload.email,
         password: payload.password,
@@ -68,7 +67,7 @@ serve(async (req) => {
             full_name: payload.name,
             raw_phone_number: payload.phone,
             managedBy: invoker.id,
-            office_id: invokerProfile.office_id,
+            office_id: payload.office_id,
             branch_id: payload.branch_id || null
         }
     });
@@ -79,11 +78,10 @@ serve(async (req) => {
     }
     if (!newUser) throw new Error("User creation did not return a user object.");
 
-    // 5. Create the public investor profile and initial transactions using RPC
     const { error: rpcError } = await supabaseAdmin.rpc('create_investor_profile', {
         p_user_id: newUser.id,
         p_name: payload.name,
-        p_office_id: invokerProfile.office_id,
+        p_office_id: payload.office_id,
         p_branch_id: payload.branch_id || null,
         p_managed_by: invoker.id,
         p_submitted_by: invoker.id,
@@ -94,7 +92,6 @@ serve(async (req) => {
     });
     
     if (rpcError) {
-        // If profile creation fails, delete the created auth user to avoid orphans
         await supabaseAdmin.auth.admin.deleteUser(newUser.id);
         throw new Error(`Failed to create investor profile: ${rpcError.message}`);
     }

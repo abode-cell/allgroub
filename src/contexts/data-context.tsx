@@ -873,11 +873,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addInvestor = useCallback(
     async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        if (!currentUser) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
+        if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
             const { error } = await supabase.functions.invoke('create-investor', { 
-                body: payload,
+                body: {...payload, office_id: currentUser.office_id },
             });
             if (error) throw new Error(error.message);
             
