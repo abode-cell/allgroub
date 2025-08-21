@@ -198,7 +198,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
-        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
+        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).maybeSingle();
         if (profileError) {
             throw new Error(profileError?.message || "ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.");
         }
@@ -211,13 +211,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 await supabaseClient.auth.signOut();
                 throw new Error("فشل إكمال إعداد حسابك. يرجى المحاولة مرة أخرى أو التواصل مع الدعم الفني.");
             }
-            // Re-fetch the profile after setup.
-            const { data: newProfile, error: newProfileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
-            if(newProfileError || !newProfile) {
-                await supabaseClient.auth.signOut();
-                throw new Error("لا يمكن العثور على ملفك الشخصي بعد الإعداد. يرجى التواصل مع الدعم الفني.");
-            }
-            Object.assign(currentUserProfile, newProfile);
+            // Re-fetch all data after setup.
+            return fetchData(supabaseClient);
         }
         
         if (currentUserProfile.status !== 'نشط') {
@@ -424,7 +419,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: signUpError.message };
     }
     
-    // The new flow only requires sign up. The profile/office creation is handled by an edge function
+    // The new flow only requires sign up. The profile/office creation is handled by an Edge Function
     // after the first successful sign in by the user.
     if (signUpData.user) {
       return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
