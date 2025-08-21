@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -198,8 +199,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
         };
         
         const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
-        if (profileError || !currentUserProfile) {
+        if (profileError) {
             throw new Error(profileError?.message || "ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.");
+        }
+
+        if (!currentUserProfile) {
+            // This might happen if the user confirmed their email but the profile is not yet created.
+            // Let's call the setup function.
+            const { error: functionError } = await supabaseClient.functions.invoke('create-office-manager');
+            if (functionError) {
+                await supabaseClient.auth.signOut();
+                throw new Error("فشل إكمال إعداد حسابك. يرجى المحاولة مرة أخرى أو التواصل مع الدعم الفني.");
+            }
+            // Re-fetch the profile after setup.
+            const { data: newProfile, error: newProfileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
+            if(newProfileError || !newProfile) {
+                await supabaseClient.auth.signOut();
+                throw new Error("لا يمكن العثور على ملفك الشخصي بعد الإعداد. يرجى التواصل مع الدعم الفني.");
+            }
+            Object.assign(currentUserProfile, newProfile);
         }
         
         if (currentUserProfile.status !== 'نشط') {
@@ -243,7 +261,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
         }
         
-        const configData = app_config_data.reduce((acc: any, row: any) => {
+        const configData = (app_config_data || []).reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
             return acc;
         }, {} as any);
@@ -406,23 +424,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: signUpError.message };
     }
     
-    // This is the expected flow when email confirmation is enabled.
-    // The user exists, but there is no session.
-    if (signUpData.user && !signUpData.session) {
+    // The new flow only requires sign up. The profile/office creation is handled by an edge function
+    // after the first successful sign in by the user.
+    if (signUpData.user) {
       return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
-    }
-    
-    // If for some reason a session is created (e.g., email confirmation is disabled),
-    // proceed to call the edge function.
-    if(signUpData.session){
-      try {
-        const { error: functionError } = await supabase.functions.invoke('create-office-manager');
-        if (functionError) throw functionError;
-        return { success: true, message: 'تم إنشاء حسابك بنجاح.' };
-      } catch (error: any) {
-        console.error("Create Manager Function Error:", error);
-        return { success: false, message: error.message || 'فشل إكمال عملية إنشاء المكتب.' };
-      }
     }
     
     return { success: false, message: 'حدث خطأ غير متوقع أثناء التسجيل.' };
