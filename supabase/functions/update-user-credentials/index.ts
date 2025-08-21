@@ -104,7 +104,7 @@ serve(async (req) => {
         const { error: officeUpdateError } = await supabaseAdmin
             .from('offices')
             .update({ name: updates.officeName })
-            .eq('id', userToUpdate.office_id); // Use the office_id from the user to update the correct office
+            .eq('id', userToUpdate.office_id); 
         if (officeUpdateError) throw new Error(`Office name update error: ${officeUpdateError.message}`);
     }
 

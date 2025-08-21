@@ -1,4 +1,3 @@
-
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -203,7 +202,7 @@ CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql STABLE
 AS $$
-  SELECT get_my_claim('user_role') @> '"مدير النظام"'::jsonb
+  SELECT get_my_claim('user_role') @> '"مدير النظام"'::jsonb;
 $$;
 
 CREATE OR REPLACE FUNCTION get_current_office_id()
@@ -319,6 +318,7 @@ BEGIN
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
+    v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
 
     -- Handle office creation for 'مدير المكتب'
     IF user_role_text = 'مدير المكتب' THEN
@@ -332,8 +332,7 @@ BEGIN
         trial_period_days := COALESCE(trial_period_days, 14);
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
-        -- For other roles, get the office_id from their manager
-        v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+        -- For other roles, the office_id is passed directly from metadata
         trial_end_date := NULL;
     END IF;
 
@@ -438,4 +437,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-```

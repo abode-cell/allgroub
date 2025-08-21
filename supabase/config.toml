@@ -10,4 +10,5 @@ secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 [functions.handle-partial-payment]
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 
-[functions.update
+[functions.update-user-credentials]
+secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]

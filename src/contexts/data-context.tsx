@@ -111,7 +111,7 @@ type DataContextValue = {
   updateUserCredentials: (
     userId: string,
     updates: { email?: string; password?: string, officeName?: string; branch_id?: string | null }
-  ) => Promise<{ success: boolean; message: string }>;
+  ) => Promise<{ success: boolean, message: string }>;
   updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => void;
   updateUserLimits: (
