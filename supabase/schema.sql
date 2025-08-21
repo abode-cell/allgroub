@@ -299,10 +299,46 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 
 -- ========= Database Functions and Triggers =========
--- (No longer using handle_new_user trigger)
+
+-- This function is called by a trigger when a new user signs up in Supabase Auth.
+-- It is NO LONGER USED for 'مدير المكتب' role, which is now handled by an Edge Function.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    user_role_text TEXT;
+    user_managed_by UUID;
+    v_office_id UUID;
+    user_branch_id UUID;
+BEGIN
+    -- Extract role and other metadata from the new user's metadata
+    user_role_text := new.raw_user_meta_data->>'user_role';
+    user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
+    user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
+    v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+
+    -- Insert the new user into the public.users table
+    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
+    VALUES (
+        new.id,
+        new.raw_user_meta_data->>'full_name',
+        new.email,
+        new.raw_user_meta_data->>'raw_phone_number',
+        user_role_text::public.user_role,
+        user_managed_by,
+        v_office_id,
+        user_branch_id
+    );
+
+    RETURN new;
+END;
+$$;
+
 
 -- Function to create an investor profile and initial capital transactions.
--- This is called from the create-investor edge function
+-- This function is now called from the frontend/edge function after user creation.
 CREATE OR REPLACE FUNCTION public.create_investor_profile(
     p_user_id UUID,
     p_name TEXT,
@@ -365,22 +401,11 @@ END;
 $$;
 
 
--- Function to check for duplicate borrowers in other offices
-CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
-RETURNS TABLE(borrower_name TEXT, manager_name TEXT, manager_phone TEXT, manager_id UUID)
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT b.name, u.name, u.phone, u.id
-    FROM public.borrowers b
-    JOIN public.users u ON b."managedBy" = u.id
-    WHERE b."nationalId" = p_national_id
-      AND b.office_id != p_office_id
-      AND (b.status <> 'مرفوض' AND b."paymentStatus" <> 'تم السداد');
-END;
-$$;
+
+-- Trigger to call the function when a new user signs up
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 
 -- ========= Initial Data Inserts =========
