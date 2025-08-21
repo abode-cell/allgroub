@@ -16,7 +16,6 @@ serve(async (req) => {
     );
 
     // Get the user from the authorization header.
-    // This user has just signed up and confirmed their email.
     const authHeader = req.headers.get("Authorization")!;
     const { data: { user } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
     if (!user) throw new Error("User not found or invalid token");
@@ -26,13 +25,13 @@ serve(async (req) => {
         .from('users')
         .select('office_id')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
     
-    if(profileCheckError && profileCheckError.code !== 'PGRST116') { // Ignore 'exact one row' error
+    if(profileCheckError) {
         throw new Error(`Error checking user profile: ${profileCheckError.message}`);
     }
+
     if(existingProfile && existingProfile.office_id) {
-        // This manager is already set up, do nothing.
         return new Response(JSON.stringify({ success: true, message: "Manager already configured." }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
