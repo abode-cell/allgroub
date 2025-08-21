@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -386,7 +385,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    if (!payload.password) return { success: false, message: 'كلمة المرور مطلوبة.' };
+    if (!payload.password) {
+      return { success: false, message: 'كلمة المرور مطلوبة.' };
+    }
     
     try {
         const { error } = await supabase.functions.invoke('create-office-manager', { 

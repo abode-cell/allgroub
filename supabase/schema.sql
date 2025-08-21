@@ -1,3 +1,4 @@
+
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -400,12 +401,6 @@ BEGIN
 END;
 $$;
 
-
-
--- Trigger to call the function when a new user signs up
-CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 
 -- ========= Initial Data Inserts =========

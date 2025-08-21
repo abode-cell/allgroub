@@ -223,10 +223,3 @@ export default function SignUpPage() {
                 لديك حساب بالفعل؟{' '}
                 <Link href="/login" className="underline text-primary hover:text-primary/80">
                     تسجيل الدخول
-                </Link>
-            </p>
-        </CardFooter>
-      </Card>
-    </div>
-  );
-}
