@@ -28,7 +28,9 @@ serve(async (req) => {
         .eq('id', user.id)
         .single();
     
-    if(profileCheckError) throw new Error(`Error checking user profile: ${profileCheckError.message}`);
+    if(profileCheckError && profileCheckError.code !== 'PGRST116') { // Ignore 'exact one row' error
+        throw new Error(`Error checking user profile: ${profileCheckError.message}`);
+    }
     if(existingProfile && existingProfile.office_id) {
         // This manager is already set up, do nothing.
         return new Response(JSON.stringify({ success: true, message: "Manager already configured." }), {
