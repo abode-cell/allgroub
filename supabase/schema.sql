@@ -191,7 +191,7 @@ CREATE INDEX ON public.transactions ("office_id");
 CREATE INDEX ON public.branches ("office_id");
 
 -- ========= Helper Functions for RLS Policies =========
-CREATE OR REPLACE FUNCTION get_my_claim(claim TEXT)
+CREATE OR REPLACE FUNCTION public.get_my_claim(claim TEXT)
 RETURNS JSONB
 LANGUAGE sql STABLE
 AS $$
@@ -318,6 +318,7 @@ BEGIN
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
+    v_office_id := (new.raw_user_meta_data->>'office_id')::UUID; -- Get office_id directly from metadata
 
     -- Handle office creation for 'مدير المكتب'
     IF user_role_text = 'مدير المكتب' THEN
@@ -331,8 +332,7 @@ BEGIN
         trial_period_days := COALESCE(trial_period_days, 14);
         trial_end_date := NOW() + (trial_period_days || ' days')::interval;
     ELSE
-        -- For other roles, get the office_id from the metadata passed from the frontend.
-        v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+        -- For other roles, office_id is passed from the frontend and is used directly.
         trial_end_date := NULL;
     END IF;
 
