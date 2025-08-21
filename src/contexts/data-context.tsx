@@ -259,18 +259,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined
         }));
         
-        const usersWithFullData: User[] = (all_users_data || []).map(user => {
-          const office = (offices_data || []).find(o => o.id === user.office_id);
-          return {
-            ...user,
-            office_name: office?.name,
-            branches: (branches_data || []).filter(branch => branch.office_id === user.office_id)
-          }
-        });
+        const officesWithBranches = (offices_data || []).map(office => ({
+            ...office,
+            branches: (branches_data || []).filter(b => b.office_id === office.id)
+        }));
 
         setData({
-            users: usersWithFullData,
-            offices: offices_data || [],
+            users: all_users_data || [],
+            offices: officesWithBranches,
             investors: investors_data || [],
             borrowers: borrowersWithData,
             transactions: transactions_data || [],
@@ -338,8 +334,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const currentUser = useMemo(() => {
     if (!session?.user) return undefined;
-    return data.users.find((u) => u.id === session.user.id);
-  }, [data.users, session]);
+    const user = data.users.find((u) => u.id === session.user.id);
+    if (!user) return undefined;
+    
+    const office = data.offices.find(o => o.id === user.office_id);
+
+    return {
+        ...user,
+        office_name: office?.name,
+        branches: office?.branches || [],
+    }
+  }, [data.users, data.offices, session]);
   
   const visibleUsers = useMemo(() => {
     if (!currentUser) return [];
@@ -1114,7 +1119,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return {success: false, message: 'غير مصرح به.'};
     }
 
-    if((data.users.find(u => u.id === currentUser.id)?.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
+    if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
         toast({variant: 'destructive', title: 'خطأ', description: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'});
         return {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
     }
@@ -1130,7 +1135,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await fetchData(supabase);
     toast({title: 'تمت إضافة الفرع بنجاح.'});
     return {success: true, message: 'تمت إضافة الفرع بنجاح.'};
-  }, [currentUser, data.users, toast, fetchData]);
+  }, [currentUser, toast, fetchData]);
   
   const deleteBranch = useCallback(async (branchId: string) => {
       const supabase = getSupabaseBrowserClient();

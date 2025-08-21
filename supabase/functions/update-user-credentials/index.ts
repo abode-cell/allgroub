@@ -100,11 +100,11 @@ serve(async (req) => {
         if (dbError) throw new Error(`User DB update error: ${dbError.message}`);
     }
 
-    if (updates.officeName && userToUpdate.role === 'مدير المكتب') {
+    if (updates.officeName && userToUpdate.role === 'مدير المكتب' && userToUpdate.office_id) {
         const { error: officeUpdateError } = await supabaseAdmin
             .from('offices')
             .update({ name: updates.officeName })
-            .eq('manager_id', userId);
+            .eq('id', userToUpdate.office_id); // Use the office_id from the user to update the correct office
         if (officeUpdateError) throw new Error(`Office name update error: ${officeUpdateError.message}`);
     }
 
@@ -118,3 +118,4 @@ serve(async (req) => {
       status: 400,
     });
   }
+});
