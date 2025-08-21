@@ -191,7 +191,7 @@ CREATE INDEX ON public.transactions ("office_id");
 CREATE INDEX ON public.branches ("office_id");
 
 -- ========= Helper Functions for RLS Policies =========
-CREATE OR REPLACE FUNCTION public.get_my_claim(claim TEXT)
+CREATE OR REPLACE FUNCTION get_my_claim(claim TEXT)
 RETURNS JSONB
 LANGUAGE sql STABLE
 AS $$
@@ -300,60 +300,6 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 -- ========= Database Functions and Triggers =========
 
--- This function is called by a trigger when a new user signs up in Supabase Auth.
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE
-    user_role_text TEXT;
-    user_managed_by UUID;
-    v_office_id UUID;
-    user_branch_id UUID;
-    trial_period_days INT;
-    trial_end_date TIMESTAMPTZ;
-BEGIN
-    -- Extract role and other metadata from the new user's metadata
-    user_role_text := new.raw_user_meta_data->>'user_role';
-    user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
-    user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
-    v_office_id := (new.raw_user_meta_data->>'office_id')::UUID; -- Get office_id directly from metadata
-
-    -- Handle office creation for 'مدير المكتب'
-    IF user_role_text = 'مدير المكتب' THEN
-        -- Insert a new office and get its ID
-        INSERT INTO public.offices (name, manager_id)
-        VALUES (new.raw_user_meta_data->>'office_name', new.id)
-        RETURNING id INTO v_office_id;
-        
-        -- Set trial period for the new manager
-        SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
-        trial_period_days := COALESCE(trial_period_days, 14);
-        trial_end_date := NOW() + (trial_period_days || ' days')::interval;
-    ELSE
-        -- For other roles, office_id is passed from the frontend and is used directly.
-        trial_end_date := NULL;
-    END IF;
-
-    -- Insert the new user into the public.users table
-    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id, "trialEndsAt")
-    VALUES (
-        new.id,
-        new.raw_user_meta_data->>'full_name',
-        new.email,
-        new.raw_user_meta_data->>'raw_phone_number',
-        user_role_text::public.user_role,
-        user_managed_by,
-        v_office_id,
-        user_branch_id,
-        trial_end_date
-    );
-
-    RETURN new;
-END;
-$$;
-
 
 -- Function to create an investor profile and initial capital transactions.
 -- This function is now called from the frontend/edge function after user creation.
@@ -418,12 +364,6 @@ BEGIN
 END;
 $$;
 
-
-
--- Trigger to call the function when a new user signs up
-CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 
 -- ========= Initial Data Inserts =========
