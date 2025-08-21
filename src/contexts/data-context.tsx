@@ -383,26 +383,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   },[router]);
 
- const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     if (!payload.password) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: payload.email,
+      password: payload.password,
+      options: {
+        data: {
+          full_name: payload.name,
+          raw_phone_number: payload.phone
+        }
+      }
+    });
+
+    if (signUpError) {
+      if (signUpError.message.includes('already registered')) return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
+      return { success: false, message: signUpError.message };
+    }
+    
+    if (!signUpData.session) {
+      return { success: false, message: 'فشل إنشاء جلسة للمستخدم الجديد. الرجاء التحقق من البريد للتفعيل.' };
+    }
+
     try {
-        const { error } = await supabase.functions.invoke('create-office-manager', { 
-            body: payload,
-        });
-        if (error) throw new Error(error.message);
-        
-        await supabase.auth.resend({ type: 'signup', email: payload.email });
-        return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
+      const { error: functionError } = await supabase.functions.invoke('create-office-manager', {
+        headers: {
+          'Authorization': `Bearer ${signUpData.session.access_token}`
+        },
+        body: { officeName: payload.officeName },
+      });
+
+      if (functionError) throw functionError;
+
+      await supabase.auth.signOut();
+      return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
     } catch (error: any) {
-        console.error("Create Manager Error:", error);
-        const errorMessage = error.message.includes('already registered')
-            ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
-            : (error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.');
-        return { success: false, message: errorMessage };
+      console.error("Create Manager Function Error:", error);
+      // Clean up the user if the function fails
+      if (signUpData.user) {
+        const { error: deleteError } = await supabase.auth.admin.deleteUser(signUpData.user.id);
+        if(deleteError) console.error("Failed to delete user after function error:", deleteError);
+      }
+      return { success: false, message: error.message || 'فشل إكمال عملية إنشاء المكتب.' };
     }
   }, []);
   

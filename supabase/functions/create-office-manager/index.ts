@@ -4,11 +4,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
-interface NewManagerPayload {
-  email: string;
-  password?: string;
-  phone: string;
-  name: string;
+interface OfficeManagerPayload {
   officeName: string;
 }
 
@@ -22,34 +18,53 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    // Get the user from the authorization header
+    const authHeader = req.headers.get("Authorization")!;
+    const { data: { user } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (!user) throw new Error("User not found or invalid token");
     
-    const payload: NewManagerPayload = await req.json();
-    if (!payload.password) throw new Error("Password is required.");
+    const { officeName }: OfficeManagerPayload = await req.json();
 
-    // Step 1: Create the user in auth.users
-    const { data: { user: newUser }, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-        email: payload.email,
-        password: payload.password,
-        phone: payload.phone,
-        email_confirm: true,
-        user_metadata: {
-            user_role: 'مدير المكتب', // This is just for context in JWT, not for DB insertion here.
-            full_name: payload.name,
-            office_name: payload.officeName,
-            raw_phone_number: payload.phone,
-        }
-    });
+    // 1. Create a new office
+    const { data: office, error: officeError } = await supabaseAdmin
+      .from('offices')
+      .insert({ name: officeName, manager_id: user.id })
+      .select()
+      .single();
 
-    if (signUpError) {
-        if (signUpError.message.includes('already registered')) throw new Error('البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.');
-        throw new Error(`Failed to create auth user: ${signUpError.message}`);
+    if (officeError) throw new Error(`Failed to create office: ${officeError.message}`);
+
+    // 2. Fetch the default trial period days
+    const { data: config, error: configError } = await supabaseAdmin
+        .from('app_config')
+        .select('value')
+        .eq('key', 'defaultTrialPeriodDays')
+        .single();
+    if (configError) throw new Error(`Could not fetch trial period config: ${configError.message}`);
+    const trialPeriodDays = (config.value as any)?.value ?? 14;
+    const trialEndsAt = new Date(Date.now() + trialPeriodDays * 24 * 60 * 60 * 1000).toISOString();
+
+    // 3. Insert the user profile into public.users
+    const { error: userProfileError } = await supabaseAdmin
+      .from('users')
+      .insert({
+        id: user.id,
+        name: user.user_metadata.full_name,
+        email: user.email,
+        phone: user.user_metadata.raw_phone_number,
+        role: 'مدير المكتب',
+        office_id: office.id,
+        trialEndsAt: trialEndsAt
+      });
+      
+    if (userProfileError) {
+        // If user profile fails, attempt to clean up the created office
+        await supabaseAdmin.from('offices').delete().eq('id', office.id);
+        throw new Error(`Failed to create user profile: ${userProfileError.message}`);
     }
-    if (!newUser) throw new Error("User creation did not return a user object.");
-    
-    // NOTE: The handle_new_user trigger in the database will now execute and create the office and user profile.
-    // The trigger is now the single source of truth for creating the DB records after auth user creation.
 
-    return new Response(JSON.stringify({ success: true, userId: newUser.id }), {
+    return new Response(JSON.stringify({ success: true, officeId: office.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
