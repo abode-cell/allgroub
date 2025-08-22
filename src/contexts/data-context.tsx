@@ -883,10 +883,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addInvestor = useCallback(
     async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
-        const supabase = getSupabaseBrowserClient();
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
+            const supabase = getSupabaseBrowserClient();
             const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
             if (sessionError || !sessionData.session) throw new Error("No active session");
             
@@ -902,9 +902,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 body: JSON.stringify({ ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id })
             });
 
+            const responseData = await response.json();
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'فشل استدعاء الدالة السحابية.');
+                throw new Error(responseData.message || 'فشل استدعاء الدالة السحابية.');
             }
 
             await fetchData(supabase);
@@ -922,12 +922,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
-        const supabase = getSupabaseBrowserClient();
         if (!currentUser || !currentUser.office_id) {
             return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
         }
 
         try {
+            const supabase = getSupabaseBrowserClient();
             const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
             if (sessionError || !sessionData.session) throw new Error("No active session");
             
@@ -943,9 +943,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 body: JSON.stringify({ ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id })
             });
 
+            const responseData = await response.json();
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `فشل إنشاء حساب ${role}.`);
+                throw new Error(responseData.message || `فشل إنشاء حساب ${role}.`);
             }
             
             await fetchData(supabase);
@@ -980,8 +980,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
-    const supabase = getSupabaseBrowserClient();
     try {
+        const supabase = getSupabaseBrowserClient();
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session) throw new Error("No active session");
 
@@ -997,9 +997,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ userId, updates })
         });
         
+        const responseData = await response.json();
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'فشل استدعاء دالة تحديث بيانات المستخدم.');
+            throw new Error(responseData.message || 'فشل استدعاء دالة تحديث بيانات المستخدم.');
         }
         
         await fetchData(supabase);

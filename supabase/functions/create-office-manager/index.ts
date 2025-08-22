@@ -13,6 +13,7 @@ interface ManagerPayload {
 }
 
 serve(async (req) => {
+  // This is needed if you're planning to invoke your function from a browser.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -20,7 +21,7 @@ serve(async (req) => {
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
     const payload: ManagerPayload = await req.json();
@@ -51,10 +52,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("Function Error:", error);
-    const errorMessage = error.message.includes('already registered')
+    console.error("Create Office Manager Error:", error);
+    const errorMessage = error.message.includes('User already registered')
         ? "البريد الإلكتروني أو رقم الهاتف مسجل بالفعل."
-        : `فشل في إنشاء مستخدم المصادقة: ${error.message}`;
+        : error.message || 'فشل في إنشاء حساب مدير المكتب.';
 
     return new Response(JSON.stringify({ message: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
