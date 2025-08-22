@@ -395,20 +395,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   },[router]);
 
-  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+ const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    try {
-        const { error } = await supabase.functions.invoke('create-office-manager', { 
-            body: payload,
-        });
-        if (error) throw new Error(error.message);
-        
-        return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
-    } catch (error: any) {
-        console.error("Create Office Manager Error:", error);
-        return { success: false, message: `فشل إنشاء الحساب: ${error.message}` };
+    
+    if (!payload.password) {
+      return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
-  }, []);
+    
+    const { data, error } = await supabase.auth.signUp({
+      email: payload.email,
+      password: payload.password,
+      options: {
+        data: {
+          full_name: payload.name,
+          office_name: payload.officeName,
+          raw_phone_number: payload.phone,
+          user_role: 'مدير المكتب',
+        }
+      }
+    });
+
+    if (error) {
+      if (error.message.includes('User already registered')) {
+        return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
+      }
+       if (error.message.includes('Database error saving new user')) {
+        return { success: false, message: 'فشل إنشاء الحساب. خطأ في قاعدة البيانات أثناء حفظ المستخدم الجديد. يرجى مراجعة إعدادات قاعدة البيانات والمشغلات (Triggers).' };
+      }
+      return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
+    }
+    
+    if (!data.user) {
+        return { success: false, message: "فشل إنشاء الحساب، لم يتم إرجاع بيانات المستخدم."}
+    }
+    
+    // Manually refetch data as onAuthStateChange might not be fast enough
+    await fetchData(supabase);
+
+    return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
+  }, [fetchData]);
   
   const addNotification = useCallback(
     async (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
@@ -870,8 +895,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
-            const { error } = await supabase.functions.invoke('create-investor', { 
-                body: {...payload, office_id: currentUser.office_id },
+            const { error } = await supabase.rpc('create_investor_profile', {
+                p_user_id: undefined, // Let the function handle user creation
+                p_name: payload.name,
+                p_email: payload.email,
+                p_phone: payload.phone,
+                p_password: payload.password,
+                p_office_id: currentUser.office_id,
+                p_branch_id: payload.branch_id || null,
+                p_managed_by: currentUser.id,
+                p_submitted_by: currentUser.id,
+                p_installment_profit_share: payload.installmentProfitShare,
+                p_grace_period_profit_share: payload.gracePeriodProfitShare,
+                p_initial_installment_capital: payload.installmentCapital,
+                p_initial_grace_capital: payload.graceCapital
             });
             if (error) throw new Error(error.message);
             
@@ -879,7 +916,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
-             console.error("Create Investor Error:", error);
+            console.error("Create Investor Error:", error);
             const errorMessage = error.message.includes('already registered')
                 ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
                 : (error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.');

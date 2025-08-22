@@ -1,3 +1,4 @@
+
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -5,7 +6,7 @@ DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
 DROP FUNCTION IF EXISTS public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID) CASCADE;
-DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id UUID, p_name TEXT, p_office_id UUID, p_branch_id UUID, p_managed_by UUID, p_submitted_by UUID, p_installment_profit_share NUMERIC, p_grace_period_profit_share NUMERIC, p_initial_installment_capital NUMERIC, p_initial_grace_capital NUMERIC) CASCADE;
+DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id UUID, p_name TEXT, p_email TEXT, p_phone TEXT, p_password TEXT, p_office_id UUID, p_branch_id UUID, p_managed_by UUID, p_submitted_by UUID, p_installment_profit_share NUMERIC, p_grace_period_profit_share NUMERIC, p_initial_installment_capital NUMERIC, p_initial_grace_capital NUMERIC) CASCADE;
 
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
@@ -300,7 +301,6 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 -- ========= Database Functions and Triggers =========
 
--- This function is called by a trigger when a new user signs up.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -314,23 +314,19 @@ DECLARE
     v_office_name TEXT;
     trial_period_days INT;
 BEGIN
-    -- Extract metadata from the new user's metadata
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
     v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
     v_office_name := new.raw_user_meta_data->>'office_name';
 
-    -- If the user is an Office Manager, create a new office for them.
     IF user_role_text = 'مدير المكتب' THEN
         INSERT INTO public.offices (name, manager_id)
         VALUES (v_office_name, new.id)
         RETURNING id INTO v_office_id;
 
-        -- Get default trial period
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
         
-        -- Insert into users table
         INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
         VALUES (
             new.id,
@@ -339,10 +335,9 @@ BEGIN
             new.raw_user_meta_data->>'raw_phone_number',
             user_role_text::public.user_role,
             v_office_id,
-            NOW() + (COALESCE(trial_period_days, 14) || ' days')::INTERVAL
+            NOW() + (trial_period_days || ' days')::INTERVAL
         );
     ELSE
-        -- For other roles, insert them directly.
         INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
         VALUES (
             new.id,
