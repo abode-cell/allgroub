@@ -404,23 +404,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      const { data, error } = await supabase.functions.invoke('create-office-manager', {
-        body: payload
-      });
+        const { error, data } = await supabase.functions.invoke('create-office-manager', {
+            body: payload,
+        });
 
-      if (error) {
-        throw error;
-      }
-      
-      const responseData = data as { message?: string };
-      if (responseData && responseData.message) {
-         throw new Error(responseData.message);
-      }
+        if (error) throw error;
+        
+        const responseData = data as { message?: string };
+        if (responseData && responseData.message) {
+            throw new Error(responseData.message);
+        }
 
-      return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
-    } catch(error: any) {
-        console.error("Edge function error:", error);
-        return { success: false, message: `فشل إنشاء الحساب: ${error.message}` };
+        return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
+    } catch (error: any) {
+        console.error("Function Invocation Error:", error);
+        const errorMessage = error?.message || 'فشل إرسال الطلب إلى الدالة السحابية.';
+        return { success: false, message: `فشل إنشاء الحساب: ${errorMessage}` };
     }
   }, []);
   
@@ -884,14 +883,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError || !sessionData.session) throw new Error("No active session");
-
             const { error, data } = await supabase.functions.invoke('create-investor', { 
-                body: { ...payload, submittedBy: currentUser.id, managedBy: currentUser.managedBy || currentUser.id, office_id: currentUser.office_id },
-                headers: {
-                    Authorization: `Bearer ${sessionData.session.access_token}`
-                }
+                body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id },
             });
 
             if (error) throw error;
@@ -902,10 +895,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
-             console.error("Create Investor Error:", error);
-            const errorMessage = error.message.includes('already registered')
-                ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
-                : (error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.');
+            console.error("Create Investor Error:", error);
+            const errorMessage = error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.';
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -920,11 +911,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
         }
         
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !sessionData.session) {
-            return { success: false, message: "No active session" };
-        }
-        
         const { error } = await supabase.auth.signUp({
           email: payload.email,
           password: payload.password!,
@@ -933,8 +919,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
               user_role: role,
               full_name: payload.name,
               raw_phone_number: payload.phone,
-              managedBy: currentUser.id,
-              office_id: currentUser.office_id, // Pass office_id directly
+              managed_by: currentUser.id,
+              office_id: currentUser.office_id,
               branch_id: payload.branch_id || null
             }
           }

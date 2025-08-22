@@ -1,4 +1,3 @@
-
 // supabase/functions/create-office-manager/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -27,28 +26,38 @@ serve(async (req) => {
     const payload: NewManagerPayload = await req.json();
 
     if (!payload.password) {
-        throw new Error("Password is required.");
+      return new Response(JSON.stringify({ message: "Password is required." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
     
     // Step 1: Create the auth user securely
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: payload.email,
-        password: payload.password,
-        phone: payload.phone,
-        email_confirm: true, 
-        user_metadata: {
-            full_name: payload.name,
-            office_name: payload.officeName,
-            user_role: 'مدير المكتب'
-        }
+      email: payload.email,
+      password: payload.password,
+      phone: payload.phone,
+      email_confirm: true, 
+      user_metadata: {
+        full_name: payload.name,
+        office_name: payload.officeName,
+        user_role: 'مدير المكتب'
+      },
     });
 
     if (authError) {
-        throw new Error(`Auth Error: ${authError.message}`);
+      console.error('Auth Error:', authError.message);
+      return new Response(JSON.stringify({ message: `Auth Error: ${authError.message}` }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
     }
 
     if (!authData.user) {
-        throw new Error("User creation did not return a user object.");
+      return new Response(JSON.stringify({ message: "User creation did not return a user object." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
     }
     
     return new Response(JSON.stringify({ success: true, userId: authData.user.id }), {

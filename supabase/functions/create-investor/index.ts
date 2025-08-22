@@ -1,4 +1,3 @@
-
 // supabase/functions/create-investor/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -20,7 +19,6 @@ interface NewInvestorPayload {
     submittedBy?: string;
 }
 
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -35,35 +33,45 @@ serve(async (req) => {
     const payload: NewInvestorPayload = await req.json();
 
     if (!payload.password) {
-        throw new Error("Password is required for new investor.");
+      return new Response(JSON.stringify({ message: "Password is required for new investor." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
-    
+
     // Step 1: Create the auth user securely
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: payload.email,
-        password: payload.password,
-        phone: payload.phone,
-        email_confirm: true,
-        user_metadata: {
-            full_name: payload.name,
-            user_role: 'مستثمر',
-            office_id: payload.office_id,
-            branch_id: payload.branch_id,
-            managed_by: payload.managedBy,
-            submitted_by: payload.submittedBy,
-            installment_profit_share: payload.installmentProfitShare,
-            grace_period_profit_share: payload.gracePeriodProfitShare,
-            initial_installment_capital: payload.installmentCapital,
-            initial_grace_capital: payload.graceCapital
-        }
+      email: payload.email,
+      password: payload.password,
+      phone: payload.phone,
+      email_confirm: true,
+      user_metadata: {
+        full_name: payload.name,
+        user_role: 'مستثمر',
+        office_id: payload.office_id,
+        branch_id: payload.branch_id,
+        managed_by: payload.managedBy,
+        submitted_by: payload.submittedBy,
+        installment_profit_share: payload.installmentProfitShare,
+        grace_period_profit_share: payload.gracePeriodProfitShare,
+        initial_installment_capital: payload.installmentCapital,
+        initial_grace_capital: payload.graceCapital,
+      },
     });
 
     if (authError) {
-        throw new Error(`Auth Error: ${authError.message}`);
+      console.error('Auth Error:', authError.message);
+      return new Response(JSON.stringify({ message: `Auth Error: ${authError.message}` }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
     }
 
     if (!authData.user) {
-        throw new Error("User creation did not return a user object.");
+      return new Response(JSON.stringify({ message: "User creation did not return a user object." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
     }
 
     return new Response(JSON.stringify({ success: true, userId: authData.user.id }), {
