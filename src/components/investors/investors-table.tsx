@@ -514,7 +514,6 @@ export function InvestorsTable({
             const investorTransactions = transactions.filter(t => t.investor_id === selectedInvestor.id);
             const financials = calculateInvestorFinancials(selectedInvestor, borrowers, investorTransactions);
             const userDetails = users.find(u => u.id === selectedInvestor.id);
-            const officeDetails = offices.find(o => o.id === selectedInvestor.office_id);
 
             return (
               <div className="grid gap-6 pt-4 text-sm">
@@ -555,7 +554,7 @@ export function InvestorsTable({
                             <div className='flex items-center gap-2'>
                                 <Briefcase className='h-4 w-4 text-muted-foreground'/>
                                 <span className='text-muted-foreground'>المكتب:</span>
-                                <span className='font-bold float-left'>{officeDetails?.name || 'غير محدد'}</span>
+                                <span className='font-bold float-left'>{currentUser?.office_name || 'غير محدد'}</span>
                             </div>
                         </div>
                     </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -875,8 +876,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !sessionData.session) throw new Error("No active session");
+
             const { error } = await supabase.functions.invoke('create-investor', { 
-                body: payload,
+                body: { ...payload, submittedBy: currentUser.id, managedBy: currentUser.managedBy || currentUser.id },
+                headers: {
+                    Authorization: `Bearer ${sessionData.session.access_token}`
+                }
             });
             if (error) throw new Error(error.message);
             
@@ -900,6 +907,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const supabase = getSupabaseBrowserClient();
         if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) {
             return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
+        }
+        
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session) {
+            return { success: false, message: "No active session" };
         }
         
         const { error } = await supabase.auth.signUp({
@@ -950,7 +962,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
-        const { error } = await supabase.functions.invoke('update-user-credentials', { body: { userId, updates } });
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session) throw new Error("No active session");
+
+        const { error } = await supabase.functions.invoke('update-user-credentials', { 
+            body: { userId, updates },
+            headers: { Authorization: `Bearer ${sessionData.session.access_token}` }
+        });
         if (error) throw new Error(error.message);
         
         await fetchData(supabase);
