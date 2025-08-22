@@ -2,11 +2,12 @@
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.create_office_manager(TEXT,TEXT,TEXT,TEXT,TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
 DROP FUNCTION IF EXISTS public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID) CASCADE;
-DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id UUID, p_name TEXT, p_email TEXT, p_phone TEXT, p_password TEXT, p_office_id UUID, p_branch_id UUID, p_managed_by UUID, p_submitted_by UUID, p_installment_profit_share NUMERIC, p_grace_period_profit_share NUMERIC, p_initial_installment_capital NUMERIC, p_initial_grace_capital NUMERIC) CASCADE;
+DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id UUID, p_name TEXT, p_office_id UUID, p_branch_id UUID, p_managed_by UUID, p_submitted_by UUID, p_installment_profit_share NUMERIC, p_grace_period_profit_share NUMERIC, p_initial_installment_capital NUMERIC, p_initial_grace_capital NUMERIC) CASCADE;
 
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
@@ -343,7 +344,7 @@ BEGIN
             NOW() + (trial_period_days || ' days')::INTERVAL
         );
     ELSE
-        -- For other roles (Assistant, Employee), insert them directly.
+        -- For other roles, insert them directly.
         INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
         VALUES (
             new.id,
@@ -368,13 +369,12 @@ AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 
--- RPC function for creating investor profiles
+-- ========= RPC Functions =========
+
+-- Function to securely create a new investor profile and their transactions
 CREATE OR REPLACE FUNCTION public.create_investor_profile(
     p_user_id UUID,
     p_name TEXT,
-    p_email TEXT,
-    p_phone TEXT,
-    p_password TEXT,
     p_office_id UUID,
     p_branch_id UUID,
     p_managed_by UUID,
@@ -384,73 +384,90 @@ CREATE OR REPLACE FUNCTION public.create_investor_profile(
     p_initial_installment_capital NUMERIC,
     p_initial_grace_capital NUMERIC
 )
-RETURNS JSON
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+    -- Insert into investors table
+    INSERT INTO public.investors(id, name, office_id, branch_id, status, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare")
+    VALUES (p_user_id, p_name, p_office_id, p_branch_id, 'نشط', p_managed_by, p_submitted_by, p_installment_profit_share, p_grace_period_profit_share);
+
+    -- Insert initial capital transactions if provided
+    IF p_initial_installment_capital > 0 THEN
+        INSERT INTO public.transactions(id, office_id, investor_id, type, amount, description, "capitalSource")
+        VALUES (('tx_inst_' || p_user_id::text), p_office_id, p_user_id, 'إيداع رأس المال', p_initial_installment_capital, 'إيداع رأس مال تأسيسي (أقساط)', 'installment');
+    END IF;
+
+    IF p_initial_grace_capital > 0 THEN
+        INSERT INTO public.transactions(id, office_id, investor_id, type, amount, description, "capitalSource")
+        VALUES (('tx_grace_' || p_user_id::text), p_office_id, p_user_id, 'إيداع رأس المال', p_initial_grace_capital, 'إيداع رأس مال تأسيسي (مهلة)', 'grace');
+    END IF;
+END;
+$$;
+
+-- Function to check for duplicate borrowers in other offices
+CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
+RETURNS TABLE(borrower_name TEXT, manager_name TEXT, manager_phone TEXT, manager_id UUID)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    b.name as borrower_name,
+    u.name as manager_name,
+    u.phone as manager_phone,
+    u.id as manager_id
+  FROM public.borrowers b
+  JOIN public.users u ON b."managedBy" = u.id
+  WHERE b."nationalId" = p_national_id
+  AND b.office_id != p_office_id
+  AND b.status != 'مرفوض'
+  AND b."paymentStatus" != 'تم السداد'
+  LIMIT 1;
+$$;
+
+-- Function to create an office manager and associated records
+CREATE OR REPLACE FUNCTION public.create_office_manager(
+    p_email TEXT,
+    p_password TEXT,
+    p_phone TEXT,
+    p_name TEXT,
+    p_office_name TEXT
+)
+RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
     new_user_id UUID;
 BEGIN
-    -- Create the auth user
-    new_user_id := p_user_id;
-    IF new_user_id IS NULL THEN
-        INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, recovery_token, recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, phone)
-        VALUES (
-            '00000000-0000-0000-0000-000000000000',
-            gen_random_uuid(),
-            'authenticated',
-            'authenticated',
-            p_email,
-            crypt(p_password, gen_salt('bf')),
-            NOW(),
-            '',
-            NULL,
-            NULL,
-            '{"provider": "email", "providers": ["email"]}',
-            json_build_object('full_name', p_name, 'raw_phone_number', p_phone, 'user_role', 'مستثمر', 'office_id', p_office_id, 'branch_id', p_branch_id, 'managedBy', p_managed_by),
-            NOW(),
-            NOW(),
-            p_phone
-        ) RETURNING id INTO new_user_id;
-    END IF;
+    -- 1. Create the user in auth.users
+    INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, recovery_token, recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, phone)
+    VALUES (
+        current_setting('app.instance_id')::UUID,
+        gen_random_uuid(),
+        'authenticated',
+        'authenticated',
+        p_email,
+        crypt(p_password, gen_salt('bf')),
+        now(),
+        '',
+        null,
+        null,
+        '{"provider": "email", "providers": ["email"]}',
+        jsonb_build_object(
+            'full_name', p_name,
+            'office_name', p_office_name,
+            'raw_phone_number', p_phone,
+            'user_role', 'مدير المكتب'
+        ),
+        now(),
+        now(),
+        p_phone
+    ) RETURNING id INTO new_user_id;
 
-    -- Create the public.users profile
-    INSERT INTO public.users(id, office_id, branch_id, name, email, phone, role, status, "managedBy")
-    VALUES (new_user_id, p_office_id, p_branch_id, p_name, p_email, p_phone, 'مستثمر', 'نشط', p_managed_by);
-    
-    -- Create the public.investors profile
-    INSERT INTO public.investors(id, office_id, branch_id, name, status, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare")
-    VALUES (new_user_id, p_office_id, p_branch_id, p_name, 'نشط', p_managed_by, p_submitted_by, p_installment_profit_share, p_grace_period_profit_share);
-
-    -- Add initial capital transactions if provided
-    IF p_initial_installment_capital > 0 THEN
-        INSERT INTO public.transactions (id, office_id, investor_id, type, amount, description, "capitalSource")
-        VALUES ('tx_' || gen_random_uuid(), p_office_id, new_user_id, 'إيداع رأس المال', p_initial_installment_capital, 'إيداع تأسيسي لمحفظة الأقساط', 'installment');
-    END IF;
-
-    IF p_initial_grace_capital > 0 THEN
-        INSERT INTO public.transactions (id, office_id, investor_id, type, amount, description, "capitalSource")
-        VALUES ('tx_' || gen_random_uuid(), p_office_id, new_user_id, 'إيداع رأس المال', p_initial_grace_capital, 'إيداع تأسيسي لمحفظة المهلة', 'grace');
-    END IF;
-    
-    RETURN json_build_object('success', true, 'user_id', new_user_id);
+    -- The trigger `on_auth_user_created` will handle the rest of the logic.
 END;
-$$;
-
-
--- Function to check for duplicate borrowers in other offices
-CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
-RETURNS TABLE(borrower_name TEXT, manager_name TEXT, manager_phone TEXT)
-LANGUAGE sql
-SECURITY DEFINER
-AS $$
-  SELECT b.name as borrower_name, u.name as manager_name, u.phone as manager_phone
-  FROM public.borrowers b
-  JOIN public.users u ON b."managedBy" = u.id
-  WHERE b."nationalId" = p_national_id
-    AND b.office_id != p_office_id
-    AND b.status != 'مرفوض'
-    AND b.status != 'مسدد بالكامل';
 $$;
 
 

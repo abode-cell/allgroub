@@ -395,45 +395,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   },[router]);
 
- const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    
     if (!payload.password) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
-    const { data, error } = await supabase.auth.signUp({
-      email: payload.email,
-      password: payload.password,
-      options: {
-        data: {
-          full_name: payload.name,
-          office_name: payload.officeName,
-          raw_phone_number: payload.phone,
-          user_role: 'مدير المكتب',
-        }
-      }
+    // Use the secure RPC function to handle the entire creation process
+    const { error } = await supabase.rpc('create_office_manager', {
+        p_email: payload.email,
+        p_password: payload.password,
+        p_phone: payload.phone,
+        p_name: payload.name,
+        p_office_name: payload.officeName
     });
 
     if (error) {
-      if (error.message.includes('User already registered')) {
-        return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
-      }
-       if (error.message.includes('Database error saving new user')) {
-        return { success: false, message: 'فشل إنشاء الحساب. خطأ في قاعدة البيانات أثناء حفظ المستخدم الجديد. يرجى مراجعة إعدادات قاعدة البيانات والمشغلات (Triggers).' };
-      }
-      return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
+      console.error("RPC Error:", error);
+      const errorMessage = error.message.includes('already registered')
+        ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+        : `فشل إنشاء الحساب: ${error.message}`;
+      return { success: false, message: errorMessage };
     }
     
-    if (!data.user) {
-        return { success: false, message: "فشل إنشاء الحساب، لم يتم إرجاع بيانات المستخدم."}
-    }
-    
-    // Manually refetch data as onAuthStateChange might not be fast enough
-    await fetchData(supabase);
-
     return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
-  }, [fetchData]);
+  }, []);
   
   const addNotification = useCallback(
     async (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
