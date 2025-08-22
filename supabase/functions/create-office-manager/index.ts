@@ -51,24 +51,7 @@ serve(async (req) => {
         throw new Error("User creation did not return a user object.");
     }
     
-    const newUserId = authData.user.id;
-
-    // Step 2: Call the RPC function to create the public profiles
-    const { error: rpcError } = await supabaseAdmin.rpc('create_office_manager_profiles', {
-        p_user_id: newUserId,
-        p_email: payload.email,
-        p_phone: payload.phone,
-        p_name: payload.name,
-        p_office_name: payload.officeName
-    });
-
-    if (rpcError) {
-        // If RPC fails, try to clean up the auth user to prevent orphaned users
-        await supabaseAdmin.auth.admin.deleteUser(newUserId);
-        throw new Error(`RPC Error: ${rpcError.message}`);
-    }
-
-    return new Response(JSON.stringify({ success: true, userId: newUserId }), {
+    return new Response(JSON.stringify({ success: true, userId: authData.user.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

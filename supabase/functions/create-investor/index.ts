@@ -46,7 +46,15 @@ serve(async (req) => {
         email_confirm: true,
         user_metadata: {
             full_name: payload.name,
-            user_role: 'مستثمر'
+            user_role: 'مستثمر',
+            office_id: payload.office_id,
+            branch_id: payload.branch_id,
+            managed_by: payload.managedBy,
+            submitted_by: payload.submittedBy,
+            installment_profit_share: payload.installmentProfitShare,
+            grace_period_profit_share: payload.gracePeriodProfitShare,
+            initial_installment_capital: payload.installmentCapital,
+            initial_grace_capital: payload.graceCapital
         }
     });
 
@@ -57,32 +65,8 @@ serve(async (req) => {
     if (!authData.user) {
         throw new Error("User creation did not return a user object.");
     }
-    
-    const newUserId = authData.user.id;
 
-    // Step 2: Call the RPC function to create the public profiles
-    const { error: rpcError } = await supabaseAdmin.rpc('create_investor_profile', {
-        p_user_id: newUserId,
-        p_name: payload.name,
-        p_email: payload.email,
-        p_phone: payload.phone,
-        p_office_id: payload.office_id,
-        p_branch_id: payload.branch_id,
-        p_managed_by: payload.managedBy,
-        p_submitted_by: payload.submittedBy,
-        p_installment_profit_share: payload.installmentProfitShare,
-        p_grace_period_profit_share: payload.gracePeriodProfitShare,
-        p_initial_installment_capital: payload.installmentCapital,
-        p_initial_grace_capital: payload.graceCapital
-    });
-
-    if (rpcError) {
-        // If RPC fails, try to clean up the auth user to prevent orphaned users
-        await supabaseAdmin.auth.admin.deleteUser(newUserId);
-        throw new Error(`RPC Error: ${rpcError.message}`);
-    }
-
-    return new Response(JSON.stringify({ success: true, userId: newUserId }), {
+    return new Response(JSON.stringify({ success: true, userId: authData.user.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

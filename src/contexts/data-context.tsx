@@ -205,6 +205,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         if (!currentUserProfile) {
+            // Wait a moment and retry, as the DB trigger might have a slight delay
             console.log("No user profile found, attempting refetch shortly...");
             await new Promise(resolve => setTimeout(resolve, 2500));
             const { data: refetchedProfile, error: refetchError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
@@ -403,7 +404,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      const { error, data } = await supabase.functions.invoke('create-office-manager', {
+      const { data, error } = await supabase.functions.invoke('create-office-manager', {
         body: payload
       });
 
@@ -412,7 +413,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       
       const responseData = data as { message?: string };
-      if (responseData.message) {
+      if (responseData && responseData.message) {
          throw new Error(responseData.message);
       }
 
@@ -895,7 +896,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
             if (error) throw error;
             const responseData = data as { message?: string };
-            if (responseData.message) throw new Error(responseData.message);
+            if (responseData && responseData.message) throw new Error(responseData.message);
 
             await fetchData(supabase);
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
@@ -981,7 +982,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
         if (error) throw error;
         const responseData = data as { message?: string };
-        if (responseData.message) throw new Error(responseData.message);
+        if (responseData && responseData.message) throw new Error(responseData.message);
         
         await fetchData(supabase);
         toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
