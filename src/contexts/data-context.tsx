@@ -398,31 +398,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   },[router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
-    const supabase = getSupabaseBrowserClient();
     try {
-        const { data, error } = await supabase.auth.signUp({
-            email: payload.email,
-            password: payload.password!,
-            options: {
-                data: {
-                    full_name: payload.name,
-                    office_name: payload.officeName,
-                    phone: payload.phone,
-                    user_role: 'مدير المكتب'
-                }
-            }
+        const functionName = 'create-office-manager';
+        const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
+        
+        const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            },
+            body: JSON.stringify(payload)
         });
 
-        if (error) {
-            throw error;
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'فشل استدعاء الدالة السحابية.');
         }
 
         return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
     } catch (error: any) {
         console.error("Sign Up Error:", error);
-        const errorMessage = error.message.includes('already registered')
-            ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
-            : (error.message || 'فشل إنشاء الحساب.');
+        const errorMessage = error.message || 'فشل إنشاء الحساب.';
         return { success: false, message: errorMessage };
     }
   }, []);
@@ -891,8 +888,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (!sessionData.session) throw new Error("No active session");
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !sessionData.session) throw new Error("No active session");
             
             const functionName = 'create-investor';
             const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
@@ -927,34 +924,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
         const supabase = getSupabaseBrowserClient();
-        if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) {
+        if (!currentUser || !currentUser.office_id) {
             return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
         }
-        
-        const { error } = await supabase.auth.signUp({
-          email: payload.email,
-          password: payload.password!,
-          options: {
-            data: {
-              user_role: role,
-              full_name: payload.name,
-              phone: payload.phone,
-              managed_by: currentUser.id,
-              office_id: currentUser.office_id,
-              branch_id: payload.branch_id || null
-            }
-          }
-        });
 
-        if (error) {
-            const errorMessage = error.message.includes('already registered') ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' : (error.message || `فشل إنشاء حساب ${role}.`);
+        try {
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !sessionData.session) throw new Error("No active session");
+            
+            const functionName = 'create-subordinate';
+            const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
+            
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionData.session.access_token}`
+                },
+                body: JSON.stringify({ ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `فشل إنشاء حساب ${role}.`);
+            }
+            
+            await fetchData(supabase);
+            toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
+            return { success: true, message: `تمت إضافة ${role} بنجاح.` };
+
+        } catch (error: any) {
+            console.error(`Create ${role} Error:`, error);
+            const errorMessage = error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`;
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
-        
-        await fetchData(supabase);
-        toast({ title: `تمت إضافة ${role} بنجاح.` });
-        return { success: true, message: `تمت إضافة ${role} بنجاح.` };
     },
     [currentUser, fetchData, toast]
   );
@@ -982,19 +986,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session) throw new Error("No active session");
 
-        const { error, data } = await supabase.functions.invoke('update-user-credentials', { 
-            body: { userId, updates },
-            headers: { Authorization: `Bearer ${sessionData.session.access_token}` }
+        const functionName = 'update-user-credentials';
+        const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
+        
+        const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionData.session.access_token}`
+            },
+            body: JSON.stringify({ userId, updates })
         });
-        if (error) throw error;
-        const responseData = data as { message?: string };
-        if (responseData && responseData.message) throw new Error(responseData.message);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'فشل استدعاء دالة تحديث بيانات المستخدم.');
+        }
         
         await fetchData(supabase);
         toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
         return { success: true, message: "تم تحديث البيانات بنجاح." };
     } catch (error: any) {
-        const errorMessage = error.message.includes('already registered') ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' : (error.message || 'فشل تحديث بيانات المستخدم.');
+        const errorMessage = error.message || 'فشل تحديث بيانات المستخدم.';
         toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
         return { success: false, message: errorMessage };
     }

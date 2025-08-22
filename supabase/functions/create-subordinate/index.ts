@@ -1,27 +1,20 @@
 
-// supabase/functions/create-investor/index.ts
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
-interface InvestorPayload {
+interface SubordinatePayload {
     name: string;
     email: string;
     phone: string;
     password?: string;
+    role: 'موظف' | 'مساعد مدير المكتب';
     office_id: string;
     branch_id?: string;
-    managedBy: string;
-    submittedBy: string;
-    installmentProfitShare: number;
-    gracePeriodProfitShare: number;
-    installmentCapital: number;
-    graceCapital: number;
+    managed_by: string;
 }
 
 serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -32,25 +25,29 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const payload: InvestorPayload = await req.json();
+    const authHeader = req.headers.get("Authorization")!;
+    const { data: { user: invoker } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (!invoker) throw new Error("User not found or invalid token");
+    
+    const { data: invokerProfile } = await supabaseAdmin.from('users').select('role').eq('id', invoker.id).single();
+    if (!invokerProfile || invokerProfile.role !== 'مدير المكتب') {
+        throw new Error("Not authorized to create subordinate users.");
+    }
+
+    const payload: SubordinatePayload = await req.json();
 
     const { data, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: payload.email,
         password: payload.password,
         phone: payload.phone,
-        email_confirm: true, // Auto-confirm email for investors created by managers
+        email_confirm: true, // Auto-confirm email
         user_metadata: {
             full_name: payload.name,
             phone: payload.phone,
-            user_role: 'مستثمر',
+            user_role: payload.role,
             office_id: payload.office_id,
             branch_id: payload.branch_id,
-            managed_by: payload.managedBy,
-            submitted_by: payload.submittedBy,
-            installment_profit_share: payload.installmentProfitShare,
-            grace_period_profit_share: payload.gracePeriodProfitShare,
-            initial_installment_capital: payload.installmentCapital,
-            initial_grace_capital: payload.graceCapital
+            managed_by: payload.managed_by
         }
     });
 

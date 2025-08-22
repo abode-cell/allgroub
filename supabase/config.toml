@@ -1,3 +1,4 @@
+
 # supabase/config.toml
 
 project_id = "fsgabmgomgblwihchaso"
@@ -7,6 +8,9 @@ name = "al-finance"
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 
 [functions.create-office-manager]
+secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
+
+[functions.create-subordinate]
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 
 [functions.handle-partial-payment]

@@ -2,32 +2,59 @@
 // supabase/functions/create-office-manager/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 
-// This function is now deprecated and its logic has been moved to the frontend
-// in data-context.tsx for better reliability in a Vercel environment.
-// The trigger 'handle_new_user' in the database will now manage profile creation.
+interface ManagerPayload {
+    email: string;
+    password?: string;
+    phone: string;
+    name: string;
+    officeName: string;
+}
 
 serve(async (req) => {
-  // Respond to OPTIONS requests for CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Return a message indicating that this function is deprecated.
-    const responseBody = {
-      success: false,
-      message: "This Edge Function is deprecated. User creation is now handled by the client-side Supabase SDK and a database trigger.",
-    };
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
 
-    return new Response(JSON.stringify(responseBody), {
+    const payload: ManagerPayload = await req.json();
+
+    if (!payload.password) {
+        throw new Error("كلمة المرور مطلوبة.");
+    }
+    
+    const { data, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: payload.email,
+        password: payload.password,
+        phone: payload.phone,
+        email_confirm: false, // User needs to confirm their email
+        user_metadata: {
+            full_name: payload.name,
+            office_name: payload.officeName,
+            user_role: 'مدير المكتب'
+        }
+    });
+
+    if (authError) {
+        if(authError.message.includes('already registered')) {
+            throw new Error("البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.");
+        }
+        throw new Error(`فشل في إنشاء مستخدم المصادقة: ${authError.message}`);
+    }
+
+    return new Response(JSON.stringify({ success: true, user: data.user }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 410, // 410 Gone
+      status: 200,
     });
 
   } catch (error) {
-    // Generic error handler
     return new Response(JSON.stringify({ message: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
