@@ -317,10 +317,13 @@ DECLARE
     new_office_id uuid;
     trial_period_days int;
 BEGIN
-    -- Step 1: Create the user in auth.users
-    INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
-    VALUES (p_email, extensions.crypt(p_password, extensions.gen_salt('bf')), p_phone, 'authenticated', '{"provider":"email","providers":["email"]}')
-    RETURNING id INTO new_user_id;
+    -- Step 1: Create the user in auth.users using the signup function
+    -- This is the most reliable way to create a user and get their ID
+    SELECT auth.signup(p_email, p_password, jsonb_build_object('phone', p_phone)) INTO new_user_id;
+
+    IF new_user_id IS NULL THEN
+        RAISE EXCEPTION 'User creation failed in auth.signup';
+    END IF;
 
     -- Step 2: Create the office
     INSERT INTO public.offices (name)
@@ -333,7 +336,7 @@ BEGIN
         trial_period_days := 14; -- Default fallback
     END IF;
 
-    -- Step 4: Create the user profile
+    -- Step 4: Create the user profile in public.users
     INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
     VALUES (
         new_user_id,
@@ -378,9 +381,7 @@ DECLARE
 BEGIN
     -- Create a new auth user if p_user_id is NULL
     IF new_user_id IS NULL THEN
-        INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
-        VALUES (p_email, extensions.crypt(p_password, extensions.gen_salt('bf')), p_phone, 'authenticated', '{"provider":"email","providers":["email"]}')
-        RETURNING id INTO new_user_id;
+        SELECT auth.signup(p_email, p_password, jsonb_build_object('phone', p_phone)) INTO new_user_id;
     END IF;
 
     -- Create the user profile
@@ -445,3 +446,5 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+
+    
