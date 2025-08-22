@@ -397,32 +397,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   },[router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+    const supabase = getSupabaseBrowserClient();
     try {
-      const functionName = 'create-office-manager';
-      const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
-      
-      const response = await fetch(functionUrl, {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          },
-          body: JSON.stringify(payload)
+      const { data, error } = await supabase.functions.invoke('create-office-manager', {
+        body: payload,
       });
 
-      const responseData = await response.json();
-
-      if (!response.ok) {
-          throw new Error(responseData.message || 'فشل استدعاء الدالة السحابية.');
+      if (error) {
+        throw error;
       }
-
-      return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
+      
+      return { success: true, message: data.message };
     } catch (error: any) {
         console.error("Sign Up Error:", error);
-        if (error.message.includes("Failed to fetch")) {
-             return { success: false, message: 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.' };
-        }
-        return { success: false, message: error.message || 'فشل إنشاء الحساب.' };
+        const errorMessage = error.message.includes("Failed to fetch")
+            ? 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.'
+            : (error.data?.message || error.message || 'فشل إنشاء الحساب.');
+        return { success: false, message: errorMessage };
     }
   }, []);
   
@@ -898,33 +889,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         try {
             const supabase = getSupabaseBrowserClient();
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError || !sessionData.session) throw new Error("No active session");
-            
-            const functionName = 'create-investor';
-            const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
-            
-            const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionData.session.access_token}`,
-                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                },
-                body: JSON.stringify({ ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id })
+            const { error, data } = await supabase.functions.invoke('create-investor', { 
+                body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id }
             });
-
-            const responseData = await response.json();
-            if (!response.ok) {
-                throw new Error(responseData.message || 'فشل استدعاء الدالة السحابية.');
-            }
-
+            if(error) throw error;
+            
             await fetchData(supabase);
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
             console.error("Create Investor Error:", error);
-            const errorMessage = error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.';
+            const errorMessage = error.data?.message || error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.';
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -940,26 +915,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         try {
             const supabase = getSupabaseBrowserClient();
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError || !sessionData.session) throw new Error("No active session");
-            
-            const functionName = 'create-subordinate';
-            const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
-            
-            const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionData.session.access_token}`,
-                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                },
-                body: JSON.stringify({ ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id })
+            const { error, data } = await supabase.functions.invoke('create-subordinate', {
+              body: { ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id }
             });
-
-            const responseData = await response.json();
-            if (!response.ok) {
-                throw new Error(responseData.message || `فشل إنشاء حساب ${role}.`);
-            }
+            
+            if (error) throw error;
             
             await fetchData(supabase);
             toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
@@ -967,7 +927,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         } catch (error: any) {
             console.error(`Create ${role} Error:`, error);
-            const errorMessage = error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`;
+            const errorMessage = error.data?.message || error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`;
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -995,32 +955,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
     try {
         const supabase = getSupabaseBrowserClient();
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !sessionData.session) throw new Error("No active session");
-
-        const functionName = 'update-user-credentials';
-        const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
-        
-        const response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionData.session.access_token}`,
-                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            },
-            body: JSON.stringify({ userId, updates })
+        const { error, data } = await supabase.functions.invoke('update-user-credentials', {
+            body: { userId, updates }
         });
         
-        const responseData = await response.json();
-        if (!response.ok) {
-            throw new Error(responseData.message || 'فشل استدعاء دالة تحديث بيانات المستخدم.');
-        }
+        if (error) throw error;
         
         await fetchData(supabase);
         toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
         return { success: true, message: "تم تحديث البيانات بنجاح." };
     } catch (error: any) {
-        const errorMessage = error.message || 'فشل تحديث بيانات المستخدم.';
+        const errorMessage = error.data?.message || error.message || 'فشل تحديث بيانات المستخدم.';
         toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
         return { success: false, message: errorMessage };
     }
