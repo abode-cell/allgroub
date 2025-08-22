@@ -1,4 +1,3 @@
-
 // supabase/functions/create-office-manager/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -14,7 +13,6 @@ interface ManagerPayload {
 }
 
 serve(async (req) => {
-  // Handle preflight requests for CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -22,7 +20,7 @@ serve(async (req) => {
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_KEY") ?? ""
     );
 
     const payload: ManagerPayload = await req.json();
@@ -35,7 +33,7 @@ serve(async (req) => {
         email: payload.email,
         password: payload.password,
         phone: payload.phone,
-        email_confirm: false, // User needs to confirm their email
+        email_confirm: false,
         user_metadata: {
             full_name: payload.name,
             office_name: payload.officeName,
@@ -44,7 +42,7 @@ serve(async (req) => {
     });
 
     if (authError) {
-      throw authError; // Throw the error to be caught by the catch block
+      throw authError;
     }
 
     return new Response(JSON.stringify({ success: true, user: data.user }), {
@@ -60,7 +58,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ message: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400, // Use 400 for client errors like duplicates
+      status: 400,
     });
   }
 });

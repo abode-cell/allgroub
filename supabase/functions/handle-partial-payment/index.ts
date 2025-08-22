@@ -1,4 +1,3 @@
-
 // supabase/functions/handle-partial-payment/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -18,12 +17,11 @@ serve(async (req) => {
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_KEY") ?? ""
     );
 
     const { borrowerId, paidAmount }: PartialPaymentPayload = await req.json();
 
-    // 1. Fetch the original borrower
     const { data: originalBorrower, error: fetchError } = await supabaseAdmin
       .from("borrowers")
       .select("*")
@@ -41,7 +39,6 @@ serve(async (req) => {
     const remainingAmount = originalBorrower.amount - paidAmount;
     const newLoanId = `bor_rem_${Date.now()}`;
     
-    // 2. Update the original borrower
     const { error: updateError } = await supabaseAdmin
       .from("borrowers")
       .update({
@@ -57,7 +54,6 @@ serve(async (req) => {
       throw new Error(`فشل تحديث القرض الأصلي: ${updateError.message}`);
     }
 
-    // 3. Create the new remaining loan
     const { error: insertError } = await supabaseAdmin.from("borrowers").insert({
         id: newLoanId,
         office_id: originalBorrower.office_id,
@@ -69,7 +65,7 @@ serve(async (req) => {
         date: new Date().toISOString(),
         loanType: 'مهلة',
         status: 'منتظم',
-        dueDate: new Date().toISOString().split("T")[0], // Placeholder, should be updated by user
+        dueDate: new Date().toISOString().split("T")[0], 
         submittedBy: originalBorrower.submittedBy,
         managedBy: originalBorrower.managedBy,
         fundedBy: originalBorrower.fundedBy,
@@ -77,7 +73,6 @@ serve(async (req) => {
     });
 
     if (insertError) {
-      // Rollback the original borrower's status if new loan creation fails
       await supabaseAdmin.from("borrowers").update({
           status: originalBorrower.status,
           paymentStatus: originalBorrower.paymentStatus,

@@ -1,4 +1,3 @@
-
 // supabase/functions/update-user-credentials/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -23,24 +22,20 @@ serve(async (req) => {
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_KEY") ?? ""
     );
 
-    // 1. Get the invoker's identity
     const authHeader = req.headers.get("Authorization")!;
     const { data: { user: invoker } } = await supabaseAdmin.auth.getUser(
       authHeader.replace("Bearer ", "")
     );
     if (!invoker) throw new Error("User not found or invalid token");
 
-    // 2. Get the payload
     const { userId, updates }: UpdatePayload = await req.json();
     
     const { data: invokerProfile } = await supabaseAdmin.from('users').select('role, office_id').eq('id', invoker.id).single();
     if (!invokerProfile) throw new Error("Could not find invoker profile.");
 
-
-    // 3. Authorization Check: Ensure only authorized users can perform this action
     const { data: userToUpdate, error: userFetchError } = await supabaseAdmin
         .from('users')
         .select('role, office_id')
@@ -54,12 +49,10 @@ serve(async (req) => {
     
     let isAuthorized = false;
     if (isSystemAdmin) {
-        // System admin can update anyone except another system admin
         if(userToUpdate.role !== 'مدير النظام') {
             isAuthorized = true;
         }
     } else if (isOfficeManager) {
-        // Office manager can update their subordinates (users in the same office)
         if (userToUpdate.office_id === invokerProfile.office_id) {
             isAuthorized = true;
         }
@@ -69,7 +62,6 @@ serve(async (req) => {
         throw new Error("Not authorized to update this user's credentials.");
     }
 
-    // 4. Update Auth User
     const authUpdates: any = {};
     if (updates.email) authUpdates.email = updates.email;
     if (updates.password) authUpdates.password = updates.password;
@@ -84,7 +76,6 @@ serve(async (req) => {
         }
     }
 
-    // 5. Update public.users and public.offices tables
     const userDbUpdates: any = {};
     if (updates.email) userDbUpdates.email = updates.email;
     if (updates.branch_id !== undefined) userDbUpdates.branch_id = updates.branch_id;

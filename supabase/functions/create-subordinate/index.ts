@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -22,7 +21,7 @@ serve(async (req) => {
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_KEY") ?? ""
     );
 
     const authHeader = req.headers.get("Authorization")!;
@@ -40,7 +39,7 @@ serve(async (req) => {
         email: payload.email,
         password: payload.password,
         phone: payload.phone,
-        email_confirm: true, // Auto-confirm email
+        email_confirm: true, 
         user_metadata: {
             full_name: payload.name,
             phone: payload.phone,

@@ -205,7 +205,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         
         if (!currentUserProfile) {
-            // Wait a moment and retry, as the DB trigger might have a slight delay
             console.log("No user profile found, attempting refetch shortly...");
             await new Promise(resolve => setTimeout(resolve, 2500));
             const { data: refetchedProfile, error: refetchError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
@@ -768,7 +767,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           id: `bor_${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
-          fundedBy: [], // This will be set on approval
+          fundedBy: [], 
           office_id: currentUser.office_id,
           managedBy: manager.id,
       };
