@@ -1,5 +1,4 @@
-
--- Enable pgcrypto extension if it doesn't exist
+-- Create the pgcrypto extension if it doesn't exist
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- ========= Dropping existing objects (for a clean slate) =========
@@ -311,30 +310,29 @@ CREATE OR REPLACE FUNCTION public.create_office_manager(
 )
 RETURNS uuid
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
     new_user_id uuid;
     new_office_id uuid;
     trial_period_days int;
 BEGIN
-    -- Create the user in auth.users using the admin API
+    -- Step 1: Create the user in auth.users
     INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
-    VALUES (p_email, crypt(p_password, gen_salt('bf')), p_phone, 'authenticated', '{}')
+    VALUES (p_email, extensions.crypt(p_password, extensions.gen_salt('bf')), p_phone, 'authenticated', '{"provider":"email","providers":["email"]}')
     RETURNING id INTO new_user_id;
 
-    -- Create the office
+    -- Step 2: Create the office
     INSERT INTO public.offices (name)
     VALUES (p_office_name)
     RETURNING id INTO new_office_id;
 
-    -- Get default trial period
+    -- Step 3: Get default trial period
     SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
     IF trial_period_days IS NULL THEN
         trial_period_days := 14; -- Default fallback
     END IF;
 
-    -- Create the user profile in public.users
+    -- Step 4: Create the user profile
     INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
     VALUES (
         new_user_id,
@@ -346,7 +344,7 @@ BEGIN
         NOW() + (trial_period_days || ' days')::INTERVAL
     );
     
-    -- Link the office to the manager
+    -- Step 5: Link the office to the manager
     UPDATE public.offices SET manager_id = new_user_id WHERE id = new_office_id;
     
     RETURN new_user_id;
@@ -379,9 +377,9 @@ DECLARE
 BEGIN
     -- Create a new auth user if p_user_id is NULL
     IF new_user_id IS NULL THEN
-      INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
-      VALUES (p_email, crypt(p_password, gen_salt('bf')), p_phone, 'authenticated', '{}')
-      RETURNING id INTO new_user_id;
+        INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
+        VALUES (p_email, extensions.crypt(p_password, extensions.gen_salt('bf')), p_phone, 'authenticated', '{"provider":"email","providers":["email"]}')
+        RETURNING id INTO new_user_id;
     END IF;
 
     -- Create the user profile

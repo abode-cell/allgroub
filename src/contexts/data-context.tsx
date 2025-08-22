@@ -404,8 +404,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
-    const { error } = await supabase.functions.invoke('create-office-manager', { 
-        body: payload,
+    const { error } = await supabase.rpc('create_office_manager', {
+        p_email: payload.email,
+        p_password: payload.password,
+        p_phone: payload.phone,
+        p_name: payload.name,
+        p_office_name: payload.officeName
     });
 
     if (error) {
@@ -881,10 +885,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         try {
             const { error } = await supabase.rpc('create_investor_profile', {
                 p_user_id: null,
-                p_email: payload.email,
-                p_password: payload.password,
-                p_phone: payload.phone,
                 p_name: payload.name,
+                p_email: payload.email,
+                p_phone: payload.phone,
+                p_password: payload.password!,
                 p_office_id: currentUser.office_id,
                 p_branch_id: payload.branch_id || null,
                 p_managed_by: currentUser.id,
