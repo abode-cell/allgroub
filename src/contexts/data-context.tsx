@@ -897,7 +897,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionData.session.access_token}`
+                    'Authorization': `Bearer ${sessionData.session.access_token}`,
+                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
                 },
                 body: JSON.stringify({ ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id })
             });
@@ -938,7 +939,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionData.session.access_token}`
+                    'Authorization': `Bearer ${sessionData.session.access_token}`,
+                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
                 },
                 body: JSON.stringify({ ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id })
             });
@@ -992,7 +994,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionData.session.access_token}`
+                'Authorization': `Bearer ${sessionData.session.access_token}`,
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             },
             body: JSON.stringify({ userId, updates })
         });
@@ -1341,5 +1344,3 @@ export function useDataActions() {
       markInvestorAsNotified,
     };
 }
-
-    

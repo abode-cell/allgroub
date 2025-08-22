@@ -18,5 +18,3 @@ secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 
 [functions.update-user-credentials]
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
-
-    
