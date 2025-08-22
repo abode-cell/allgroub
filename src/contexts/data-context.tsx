@@ -399,12 +399,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    if (!payload.password) {
-      return { success: false, message: 'كلمة المرور مطلوبة.' };
-    }
-    
     try {
-        const { error, data } = await supabase.functions.invoke('create-office-manager', {
+        const { data, error } = await supabase.functions.invoke('create-office-manager', {
             body: payload,
         });
 
@@ -883,8 +879,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData.session) throw new Error("No active session");
+
             const { error, data } = await supabase.functions.invoke('create-investor', { 
                 body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id },
+                headers: { Authorization: `Bearer ${sessionData.session.access_token}` }
             });
 
             if (error) throw error;

@@ -69,7 +69,7 @@ serve(async (req) => {
     // Ensure that even in case of an error, a valid JSON response is sent.
     return new Response(JSON.stringify({ message: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400, // Use 400 for client-side errors or 500 for server-side.
+      status: 400,
     });
   }
 });
