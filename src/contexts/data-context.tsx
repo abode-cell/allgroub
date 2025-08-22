@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -198,13 +197,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
-        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
+        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).maybeSingle();
 
         if (profileError) {
              throw new Error(`فشل جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
         }
 
-        if (currentUserProfile.status !== 'نشط') {
+        if (currentUserProfile && currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا.';
             if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
             if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
@@ -391,25 +390,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    // We only call signUp here to get the user into the auth system and send a confirmation email.
+    // The trigger in the database will handle creating the user profile and office.
+    const { data, error } = await supabase.auth.signUp({
       email: payload.email,
       password: payload.password,
       options: {
         data: {
           full_name: payload.name,
-          raw_phone_number: payload.phone,
           office_name: payload.officeName,
-          user_role: 'مدير المكتب' // This is the key change
+          raw_phone_number: payload.phone,
+          user_role: 'مدير المكتب' // This metadata is crucial for the trigger
         }
       }
     });
 
-    if (signUpError) {
-      if (signUpError.message.includes('already registered')) return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
-      return { success: false, message: signUpError.message };
+    if (error) {
+      if (error.message.includes('already registered')) return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
+      return { success: false, message: error.message };
     }
     
-    if (signUpData.user) {
+    if (data.user) {
       return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
     }
     
