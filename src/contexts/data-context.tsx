@@ -399,6 +399,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           full_name: payload.name,
           raw_phone_number: payload.phone,
           office_name: payload.officeName,
+          user_role: 'مدير المكتب' // This is the key change
         }
       }
     });
