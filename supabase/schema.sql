@@ -323,36 +323,36 @@ BEGIN
 
     -- If the user is an Office Manager, create a new office for them.
     IF user_role_text = 'مدير المكتب' THEN
-        INSERT INTO public.offices (name)
-        VALUES (v_office_name)
+        INSERT INTO public.offices (name, manager_id)
+        VALUES (v_office_name, new.id)
         RETURNING id INTO v_office_id;
-    END IF;
-
-    -- Insert the new user into the public.users table
-    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
-    VALUES (
-        new.id,
-        new.raw_user_meta_data->>'full_name',
-        new.email,
-        new.raw_user_meta_data->>'raw_phone_number',
-        user_role_text::public.user_role,
-        user_managed_by,
-        v_office_id,
-        user_branch_id
-    );
-
-    -- If user is office manager, update the office with the manager_id
-    IF user_role_text = 'مدير المكتب' THEN
-        UPDATE public.offices
-        SET manager_id = new.id
-        WHERE id = v_office_id;
-
-        -- Set the trial period
-        SELECT (value->>'value')::INT INTO trial_days FROM app_config WHERE key = 'defaultTrialPeriodDays';
-        UPDATE public.users
-        SET "trialEndsAt" = now() + (trial_days * interval '1 day')
-        WHERE id = new.id;
-
+        
+        -- Get the default trial period and set the trial end date
+        SELECT (value->>'value')::INT INTO trial_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays';
+        
+        INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
+        VALUES (
+            new.id,
+            new.raw_user_meta_data->>'full_name',
+            new.email,
+            new.raw_user_meta_data->>'raw_phone_number',
+            user_role_text::public.user_role,
+            v_office_id,
+            NOW() + (trial_days || ' days')::INTERVAL
+        );
+    ELSE
+        -- For other roles, just insert them into the users table
+        INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
+        VALUES (
+            new.id,
+            new.raw_user_meta_data->>'full_name',
+            new.email,
+            new.raw_user_meta_data->>'raw_phone_number',
+            user_role_text::public.user_role,
+            user_managed_by,
+            v_office_id,
+            user_branch_id
+        );
     END IF;
 
     RETURN new;
@@ -377,4 +377,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-```
