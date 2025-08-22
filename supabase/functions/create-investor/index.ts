@@ -21,7 +21,7 @@ interface InvestorPayload {
 }
 
 serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
+  // Handle preflight requests for CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -55,10 +55,7 @@ serve(async (req) => {
     });
 
     if (authError) {
-        if(authError.message.includes('already registered')) {
-            throw new Error("البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.");
-        }
-        throw new Error(`فشل في إنشاء مستخدم المصادقة: ${authError.message}`);
+      throw authError; // Throw the error to be caught by the catch block
     }
 
     return new Response(JSON.stringify({ success: true, user: data.user }), {
@@ -67,9 +64,14 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ message: error.message }), {
+    console.error("Function Error:", error);
+    const errorMessage = error.message.includes('already registered')
+        ? "البريد الإلكتروني أو رقم الهاتف مسجل بالفعل."
+        : `فشل في إنشاء مستخدم المصادقة: ${error.message}`;
+
+    return new Response(JSON.stringify({ message: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 400, // Use 400 for client errors like duplicates
     });
   }
 });

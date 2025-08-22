@@ -1,3 +1,4 @@
+
 // supabase/functions/handle-partial-payment/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -94,9 +95,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    console.error("Function Error:", error);
     return new Response(JSON.stringify({ message: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 400,
     });
   }
 });

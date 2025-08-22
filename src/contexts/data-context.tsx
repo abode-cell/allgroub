@@ -411,16 +411,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify(payload)
         });
 
+        const responseData = await response.json();
+
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'فشل استدعاء الدالة السحابية.');
+            throw new Error(responseData.message || 'فشل استدعاء الدالة السحابية.');
         }
 
         return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
     } catch (error: any) {
         console.error("Sign Up Error:", error);
-        const errorMessage = error.message || 'فشل إنشاء الحساب.';
-        return { success: false, message: errorMessage };
+        return { success: false, message: error.message || 'فشل إنشاء الحساب.' };
     }
   }, []);
   

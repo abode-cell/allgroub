@@ -1,3 +1,4 @@
+
 // supabase/functions/update-user-credentials/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -79,10 +80,7 @@ serve(async (req) => {
             authUpdates
         );
         if (adminAuthError) {
-          if (adminAuthError.message.includes('already registered')) {
-            throw new Error('البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.');
-          }
-          throw new Error(`Auth update error: ${adminAuthError.message}`);
+          throw adminAuthError;
         }
     }
 
@@ -112,9 +110,14 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    return new Response(JSON.stringify({ message: error.message }), {
+    console.error("Function Error:", error);
+    const errorMessage = error.message.includes('already registered')
+            ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+            : (error.message || 'فشل تحديث بيانات المستخدم.');
+            
+    return new Response(JSON.stringify({ message: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 400,
     });
   }
 });
