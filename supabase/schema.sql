@@ -2,9 +2,8 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- ========= Dropping existing objects (for a clean slate) =========
-DROP FUNCTION IF EXISTS public.create_office_manager(p_email text, p_password text, p_phone text, p_name text, p_office_name text) CASCADE;
-DROP FUNCTION IF EXISTS public.create_office_manager_profiles(p_user_id UUID, p_email text, p_phone text, p_name text, p_office_name text) CASCADE;
-DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id uuid, p_name text, p_email text, p_phone text, p_password text, p_office_id uuid, p_branch_id uuid, p_managed_by uuid, p_submitted_by uuid, p_installment_profit_share numeric, p_grace_period_profit_share numeric, p_initial_installment_capital numeric, p_initial_grace_capital numeric) CASCADE;
+DROP FUNCTION IF EXISTS public.create_office_manager_profiles(p_user_id uuid, p_email text, p_phone text, p_name text, p_office_name text) CASCADE;
+DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id uuid, p_name text, p_email text, p_phone text, p_office_id uuid, p_branch_id uuid, p_managed_by uuid, p_submitted_by uuid, p_installment_profit_share numeric, p_grace_period_profit_share numeric, p_initial_installment_capital numeric, p_initial_grace_capital numeric) CASCADE;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
@@ -309,7 +308,7 @@ CREATE OR REPLACE FUNCTION public.create_office_manager_profiles(
     p_name text,
     p_office_name text
 )
-RETURNS uuid
+RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
@@ -322,13 +321,13 @@ BEGIN
     VALUES (p_office_name)
     RETURNING id INTO new_office_id;
 
-    -- Step 2: Get default trial period from app_config
+    -- Step 2: Get default trial period
     SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
     IF trial_period_days IS NULL THEN
         trial_period_days := 14; -- Default fallback
     END IF;
 
-    -- Step 3: Create the user profile in public.users
+    -- Step 3: Create the user profile
     INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
     VALUES (
         p_user_id,
@@ -342,18 +341,15 @@ BEGIN
     
     -- Step 4: Link the office to the manager
     UPDATE public.offices SET manager_id = p_user_id WHERE id = new_office_id;
-    
-    RETURN p_user_id;
 END;
 $$;
 
 
 CREATE OR REPLACE FUNCTION public.create_investor_profile(
-    p_user_id uuid, -- Can be NULL if creating a new user
+    p_user_id uuid,
     p_name text,
     p_email text,
     p_phone text,
-    p_password text,
     p_office_id uuid,
     p_branch_id uuid,
     p_managed_by uuid,
@@ -368,23 +364,15 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-    new_user_id uuid := p_user_id;
     new_investor_id uuid;
 BEGIN
-    -- Create a new auth user if p_user_id is NULL
-    IF new_user_id IS NULL THEN
-        INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
-        VALUES (p_email, extensions.crypt(p_password, extensions.gen_salt('bf')), p_phone, 'authenticated', '{"provider":"email","providers":["email"]}')
-        RETURNING id INTO new_user_id;
-    END IF;
-
     -- Create the user profile
     INSERT INTO public.users (id, name, email, phone, role, office_id, branch_id, "managedBy", status)
-    VALUES (new_user_id, p_name, p_email, p_phone, 'مستثمر', p_office_id, p_branch_id, p_managed_by, 'نشط');
+    VALUES (p_user_id, p_name, p_email, p_phone, 'مستثمر', p_office_id, p_branch_id, p_managed_by, 'نشط');
 
     -- Create the investor profile
     INSERT INTO public.investors (id, office_id, branch_id, name, "managedBy", "submittedBy", status, "installmentProfitShare", "gracePeriodProfitShare")
-    VALUES (new_user_id, p_office_id, p_branch_id, p_name, p_managed_by, p_submitted_by, 'نشط', p_installment_profit_share, p_grace_period_profit_share)
+    VALUES (p_user_id, p_office_id, p_branch_id, p_name, p_managed_by, p_submitted_by, 'نشط', p_installment_profit_share, p_grace_period_profit_share)
     RETURNING id INTO new_investor_id;
 
     -- Add initial capital transactions if provided
@@ -440,3 +428,4 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+```

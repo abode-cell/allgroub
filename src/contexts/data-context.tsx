@@ -875,20 +875,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
-            const { error } = await supabase.rpc('create_investor_profile', {
-                p_user_id: null,
-                p_name: payload.name,
-                p_email: payload.email,
-                p_phone: payload.phone,
-                p_password: payload.password!,
-                p_office_id: currentUser.office_id,
-                p_branch_id: payload.branch_id || null,
-                p_managed_by: currentUser.id,
-                p_submitted_by: currentUser.id,
-                p_installment_profit_share: payload.installmentProfitShare,
-                p_grace_period_profit_share: payload.gracePeriodProfitShare,
-                p_initial_installment_capital: payload.installmentCapital,
-                p_initial_grace_capital: payload.graceCapital
+            const { error } = await supabase.functions.invoke('create-investor', { 
+                body: payload,
             });
             if (error) throw new Error(error.message);
             
@@ -896,7 +884,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
-            console.error("Create Investor Error:", error);
+             console.error("Create Investor Error:", error);
             const errorMessage = error.message.includes('already registered')
                 ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
                 : (error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.');

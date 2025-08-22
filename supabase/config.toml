@@ -1,8 +1,10 @@
-
 # supabase/config.toml
 
 project_id = "fsgabmgomgblwihchaso"
 name = "al-finance"
+
+[functions.create-investor]
+secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 
 [functions.handle-partial-payment]
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
