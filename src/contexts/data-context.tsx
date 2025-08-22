@@ -198,6 +198,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
+        // Step 1: Fetch essential data first (user profile, config)
         let { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).maybeSingle();
 
         if (profileError) {
@@ -226,6 +227,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        // Step 2: Fetch all other data in parallel
         const [
           { data: all_users_data, error: usersError },
           { data: offices_data, error: officesError },
@@ -402,7 +404,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
-    const { error } = await supabase.rpc('create_office_manager', {
+    const { data, error } = await supabase.rpc('create_office_manager', {
         p_email: payload.email,
         p_password: payload.password,
         p_phone: payload.phone,
@@ -882,11 +884,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         try {
             const { error } = await supabase.rpc('create_investor_profile', {
-                p_user_id: undefined, // Let the function handle user creation
-                p_name: payload.name,
+                p_user_id: null,
                 p_email: payload.email,
-                p_phone: payload.phone,
                 p_password: payload.password,
+                p_phone: payload.phone,
+                p_name: payload.name,
                 p_office_id: currentUser.office_id,
                 p_branch_id: payload.branch_id || null,
                 p_managed_by: currentUser.id,
@@ -1194,8 +1196,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
       updateUserLimits, updateManagerSettings, updateAssistantPermission,
       updateEmployeePermission, requestCapitalIncrease, deleteUser,
-      clearUserNotifications, markUserNotificationsAsRead,
-      markBorrowerAsNotified, markInvestorAsNotified,
+      clearUserNotifications, markUserNotificationsAsRead, markBorrowerAsNotified,
+      markInvestorAsNotified,
     ]);
   
   return (

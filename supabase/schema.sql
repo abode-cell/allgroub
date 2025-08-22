@@ -1,12 +1,15 @@
+
+-- Enable pgcrypto extension if it doesn't exist
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 -- ========= Dropping existing objects (for a clean slate) =========
-DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.create_office_manager(p_email TEXT, p_password TEXT, p_name TEXT, p_office_name TEXT, p_phone TEXT) CASCADE;
-DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id UUID, p_name TEXT, p_office_id UUID, p_branch_id UUID, p_managed_by UUID, p_submitted_by UUID, p_installment_profit_share NUMERIC, p_grace_period_profit_share NUMERIC, p_initial_installment_capital NUMERIC, p_initial_grace_capital NUMERIC, p_email TEXT, p_phone TEXT, p_password TEXT) CASCADE;
-DROP FUNCTION IF EXISTS public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.create_office_manager(p_email text, p_password text, p_phone text, p_name text, p_office_name text) CASCADE;
+DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id uuid, p_name text, p_email text, p_phone text, p_password text, p_office_id uuid, p_branch_id uuid, p_managed_by uuid, p_submitted_by uuid, p_installment_profit_share numeric, p_grace_period_profit_share numeric, p_initial_installment_capital numeric, p_initial_grace_capital numeric) CASCADE;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
+DROP FUNCTION IF EXISTS public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID) CASCADE;
+
 
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.support_tickets CASCADE;
@@ -40,23 +43,27 @@ CREATE TYPE "public"."borrower_payment_status" AS ENUM ('منتظم', 'متأخ�
 
 -- ========= Creating Tables =========
 
+-- Application Configuration Table
 CREATE TABLE public.app_config (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL
 );
 COMMENT ON TABLE public.app_config IS 'Stores global application settings.';
 
+-- Offices Table (NEW)
 CREATE TABLE public.offices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
+    manager_id UUID UNIQUE, -- Can be null initially, to be updated later
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 COMMENT ON TABLE public.offices IS 'Stores independent office entities.';
 
+-- Users Table
 CREATE TABLE public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     office_id UUID REFERENCES public.offices(id) ON DELETE SET NULL,
-    branch_id UUID,
+    branch_id UUID, -- This will be a foreign key later
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     phone TEXT,
@@ -76,8 +83,10 @@ CREATE TABLE public.users (
     "defaultTrialPeriodDays" INT
 );
 COMMENT ON TABLE public.users IS 'Stores user profiles, extending auth.users.';
+ALTER TABLE public.offices ADD CONSTRAINT fk_manager_id FOREIGN KEY (manager_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
+-- Branches Table
 CREATE TABLE public.branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
@@ -85,9 +94,9 @@ CREATE TABLE public.branches (
     city TEXT NOT NULL
 );
 COMMENT ON TABLE public.branches IS 'Stores office branches linked to an office.';
-ALTER TABLE public.users ADD FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
+ALTER TABLE public.users ADD CONSTRAINT fk_branch_id FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
 
-
+-- Investors Table
 CREATE TABLE public.investors (
     id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
@@ -104,7 +113,7 @@ CREATE TABLE public.investors (
 );
 COMMENT ON TABLE public.investors IS 'Stores investor-specific data.';
 
-
+-- Borrowers Table
 CREATE TABLE public.borrowers (
     id TEXT PRIMARY KEY,
     office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
@@ -135,7 +144,7 @@ CREATE TABLE public.borrowers (
 );
 COMMENT ON TABLE public.borrowers IS 'Stores loan and borrower information.';
 
-
+-- Transactions Table
 CREATE TABLE public.transactions (
     id TEXT PRIMARY KEY,
     office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
@@ -149,6 +158,7 @@ CREATE TABLE public.transactions (
 );
 COMMENT ON TABLE public.transactions IS 'Records financial transactions for investors.';
 
+-- Support Tickets Table
 CREATE TABLE public.support_tickets (
     id TEXT PRIMARY KEY,
     date TIMESTAMPTZ DEFAULT NOW(),
@@ -162,6 +172,7 @@ CREATE TABLE public.support_tickets (
 );
 COMMENT ON TABLE public.support_tickets IS 'Stores support requests from users.';
 
+-- Notifications Table
 CREATE TABLE public.notifications (
     id TEXT PRIMARY KEY,
     date TIMESTAMPTZ DEFAULT NOW(),
@@ -290,42 +301,28 @@ CREATE POLICY "Allow users to manage their own submitted tickets" ON public.supp
 CREATE POLICY "Allow users to manage their own notifications" ON public.notifications FOR ALL TO authenticated USING (auth.uid() = "recipientId");
 
 
--- ========= Database RPC Functions =========
-
--- Function to create an office manager and their associated office
+-- ========= Database Functions =========
 CREATE OR REPLACE FUNCTION public.create_office_manager(
-    p_email TEXT,
-    p_password TEXT,
-    p_name TEXT,
-    p_office_name TEXT,
-    p_phone TEXT
-) RETURNS JSON
+    p_email text,
+    p_password text,
+    p_phone text,
+    p_name text,
+    p_office_name text
+)
+RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-    new_user_id UUID;
-    new_office_id UUID;
-    trial_period_days INT;
+    new_user_id uuid;
+    new_office_id uuid;
+    trial_period_days int;
 BEGIN
-    -- Check for existing user with the same email
-    IF EXISTS (SELECT 1 FROM auth.users WHERE email = p_email) THEN
-        RAISE EXCEPTION 'Email already registered';
-    END IF;
+    -- Create the user in auth.users using the admin API
+    INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
+    VALUES (p_email, crypt(p_password, gen_salt('bf')), p_phone, 'authenticated', '{}')
+    RETURNING id INTO new_user_id;
 
-    -- Create the new user in auth.users
-    new_user_id := auth.uid_from_email(p_email); -- This is a placeholder, actual user creation handles this
-    
-    INSERT INTO auth.users (id, email, encrypted_password, role, raw_app_meta_data, raw_user_meta_data)
-    VALUES (
-        new_user_id,
-        p_email,
-        crypt(p_password, gen_salt('bf')),
-        'authenticated',
-        '{"provider":"email","providers":["email"]}'::jsonb,
-        jsonb_build_object('full_name', p_name)
-    );
-    
     -- Create the office
     INSERT INTO public.offices (name)
     VALUES (p_office_name)
@@ -333,6 +330,9 @@ BEGIN
 
     -- Get default trial period
     SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
+    IF trial_period_days IS NULL THEN
+        trial_period_days := 14; -- Default fallback
+    END IF;
 
     -- Create the user profile in public.users
     INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
@@ -341,96 +341,98 @@ BEGIN
         p_name,
         p_email,
         p_phone,
-        'مدير المكتب'::public.user_role,
+        'مدير المكتب',
         new_office_id,
-        NOW() + (COALESCE(trial_period_days, 14) || ' days')::INTERVAL
+        NOW() + (trial_period_days || ' days')::INTERVAL
     );
     
-    RETURN json_build_object('success', true, 'user_id', new_user_id, 'office_id', new_office_id);
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('success', false, 'message', SQLERRM);
+    -- Link the office to the manager
+    UPDATE public.offices SET manager_id = new_user_id WHERE id = new_office_id;
+    
+    RETURN new_user_id;
 END;
 $$;
 
 
 CREATE OR REPLACE FUNCTION public.create_investor_profile(
-    p_user_id UUID,
-    p_name TEXT,
-    p_office_id UUID,
-    p_branch_id UUID,
-    p_managed_by UUID,
-    p_submitted_by UUID,
-    p_installment_profit_share NUMERIC,
-    p_grace_period_profit_share NUMERIC,
-    p_initial_installment_capital NUMERIC,
-    p_initial_grace_capital NUMERIC,
-    p_email TEXT,
-    p_phone TEXT,
-    p_password TEXT
+    p_user_id uuid, -- Can be NULL if creating a new user
+    p_name text,
+    p_email text,
+    p_phone text,
+    p_password text,
+    p_office_id uuid,
+    p_branch_id uuid,
+    p_managed_by uuid,
+    p_submitted_by uuid,
+    p_installment_profit_share numeric,
+    p_grace_period_profit_share numeric,
+    p_initial_installment_capital numeric,
+    p_initial_grace_capital numeric
 )
-RETURNS json
+RETURNS uuid
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-    new_user_id UUID;
+    new_user_id uuid := p_user_id;
+    new_investor_id uuid;
 BEGIN
-    -- Create user in auth.users
-    IF p_user_id IS NULL THEN
-         INSERT INTO auth.users (email, encrypted_password, role, raw_app_meta_data, raw_user_meta_data)
-         VALUES (
-            p_email,
-            crypt(p_password, gen_salt('bf')),
-            'authenticated',
-            '{"provider":"email","providers":["email"]}'::jsonb,
-            jsonb_build_object('full_name', p_name)
-         ) RETURNING id INTO new_user_id;
-    ELSE
-        new_user_id := p_user_id;
+    -- Create a new auth user if p_user_id is NULL
+    IF new_user_id IS NULL THEN
+      INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
+      VALUES (p_email, crypt(p_password, gen_salt('bf')), p_phone, 'authenticated', '{}')
+      RETURNING id INTO new_user_id;
     END IF;
 
-    -- Insert into public.users
-    INSERT INTO public.users (id, name, email, phone, role, office_id, branch_id, "managedBy", "submittedBy")
-    VALUES (new_user_id, p_name, p_email, p_phone, 'مستثمر'::public.user_role, p_office_id, p_branch_id, p_managed_by, p_submitted_by);
+    -- Create the user profile
+    INSERT INTO public.users (id, name, email, phone, role, office_id, branch_id, "managedBy", status)
+    VALUES (new_user_id, p_name, p_email, p_phone, 'مستثمر', p_office_id, p_branch_id, p_managed_by, 'نشط');
 
-    -- Insert into public.investors
-    INSERT INTO public.investors (id, name, office_id, branch_id, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare")
-    VALUES (new_user_id, p_name, p_office_id, p_branch_id, p_managed_by, p_submitted_by, p_installment_profit_share, p_grace_period_profit_share);
+    -- Create the investor profile
+    INSERT INTO public.investors (id, office_id, branch_id, name, "managedBy", "submittedBy", status, "installmentProfitShare", "gracePeriodProfitShare")
+    VALUES (new_user_id, p_office_id, p_branch_id, p_name, p_managed_by, p_submitted_by, 'نشط', p_installment_profit_share, p_grace_period_profit_share)
+    RETURNING id INTO new_investor_id;
 
-    -- Insert initial capital transactions if provided
+    -- Add initial capital transactions if provided
     IF p_initial_installment_capital > 0 THEN
         INSERT INTO public.transactions (id, office_id, investor_id, type, amount, description, "capitalSource")
-        VALUES ('tx_' || gen_random_uuid(), p_office_id, new_user_id, 'إيداع رأس المال', p_initial_installment_capital, 'رأس مال تأسيسي (أقساط)', 'installment');
+        VALUES ('tx_init_inst_' || new_investor_id, p_office_id, new_investor_id, 'إيداع رأس المال', p_initial_installment_capital, 'رأس مال تأسيسي (أقساط)', 'installment');
     END IF;
     IF p_initial_grace_capital > 0 THEN
         INSERT INTO public.transactions (id, office_id, investor_id, type, amount, description, "capitalSource")
-        VALUES ('tx_' || gen_random_uuid(), p_office_id, new_user_id, 'إيداع رأس المال', p_initial_grace_capital, 'رأس مال تأسيسي (مهلة)', 'grace');
+        VALUES ('tx_init_grace_' || new_investor_id, p_office_id, new_investor_id, 'إيداع رأس المال', p_initial_grace_capital, 'رأس مال تأسيسي (مهلة)', 'grace');
     END IF;
 
-    RETURN json_build_object('success', true, 'user_id', new_user_id);
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('success', false, 'message', SQLERRM);
+    RETURN new_investor_id;
 END;
 $$;
 
 
-CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
-RETURNS TABLE(borrower_name TEXT, manager_phone TEXT, manager_id UUID)
-LANGUAGE plpgsql
+CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(
+    p_national_id TEXT,
+    p_office_id UUID
+)
+RETURNS TABLE (
+    borrower_name TEXT,
+    manager_id UUID,
+    manager_phone TEXT
+)
+LANGUAGE sql
+STABLE
 AS $$
-BEGIN
-    RETURN QUERY
-    SELECT b.name, u.phone, u.id
-    FROM public.borrowers b
-    JOIN public.users u ON b."managedBy" = u.id
-    WHERE b."nationalId" = p_national_id
-      AND b.office_id != p_office_id
-      AND b.status != 'مرفوض'
-      AND b."paymentStatus" != 'تم السداد';
-END;
+  SELECT
+      b.name AS borrower_name,
+      b."managedBy" AS manager_id,
+      u.phone AS manager_phone
+  FROM public.borrowers b
+  JOIN public.users u ON b."managedBy" = u.id
+  WHERE b."nationalId" = p_national_id
+  AND b.office_id != p_office_id
+  AND b.status != 'مرفوض'
+  AND b."paymentStatus" != 'تم السداد'
+  LIMIT 1;
 $$;
+
 
 
 -- ========= Initial Data Inserts =========
