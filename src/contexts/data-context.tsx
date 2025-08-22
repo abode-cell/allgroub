@@ -375,6 +375,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'الرجاء تأكيد بريدك الإلكتروني أولاً.', reason: 'unconfirmed_email' };
     }
     
+    // On successful sign-in, fetchData will be triggered by onAuthStateChange
     return { success: true, message: 'جاري تسجيل الدخول...' };
   }, []);
 
@@ -386,35 +387,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    if (!payload.password) {
-      return { success: false, message: 'كلمة المرور مطلوبة.' };
+    try {
+        const { error } = await supabase.functions.invoke('create-office-manager', { 
+            body: payload,
+        });
+        if (error) throw new Error(error.message);
+        
+        return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
+    } catch (error: any) {
+        console.error("Register Error:", error);
+        return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
     }
-    
-    // We only call signUp here to get the user into the auth system and send a confirmation email.
-    // The trigger in the database will handle creating the user profile and office.
-    const { data, error } = await supabase.auth.signUp({
-      email: payload.email,
-      password: payload.password,
-      options: {
-        data: {
-          full_name: payload.name,
-          office_name: payload.officeName,
-          raw_phone_number: payload.phone,
-          user_role: 'مدير المكتب' // This metadata is crucial for the trigger
-        }
-      }
-    });
-
-    if (error) {
-      if (error.message.includes('already registered')) return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
-      return { success: false, message: error.message };
-    }
-    
-    if (data.user) {
-      return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
-    }
-    
-    return { success: false, message: 'حدث خطأ غير متوقع أثناء التسجيل.' };
   }, []);
   
   const addNotification = useCallback(
