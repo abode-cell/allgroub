@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -401,7 +402,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
-    // Use the secure RPC function to handle the entire creation process
     const { error } = await supabase.rpc('create_office_manager', {
         p_email: payload.email,
         p_password: payload.password,
