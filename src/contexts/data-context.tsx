@@ -403,12 +403,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      const { error } = await supabase.functions.invoke('create-office-manager', {
+      const { error, data } = await supabase.functions.invoke('create-office-manager', {
         body: payload
       });
+
       if (error) {
         throw error;
       }
+      
+      const responseData = data as { message?: string };
+      if (responseData.message) {
+         throw new Error(responseData.message);
+      }
+
       return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
     } catch(error: any) {
         console.error("Edge function error:", error);
@@ -879,14 +886,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
             if (sessionError || !sessionData.session) throw new Error("No active session");
 
-            const { error } = await supabase.functions.invoke('create-investor', { 
-                body: { ...payload, submittedBy: currentUser.id, managedBy: currentUser.managedBy || currentUser.id },
+            const { error, data } = await supabase.functions.invoke('create-investor', { 
+                body: { ...payload, submittedBy: currentUser.id, managedBy: currentUser.managedBy || currentUser.id, office_id: currentUser.office_id },
                 headers: {
                     Authorization: `Bearer ${sessionData.session.access_token}`
                 }
             });
-            if (error) throw new Error(error.message);
-            
+
+            if (error) throw error;
+            const responseData = data as { message?: string };
+            if (responseData.message) throw new Error(responseData.message);
+
             await fetchData(supabase);
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
@@ -965,11 +975,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session) throw new Error("No active session");
 
-        const { error } = await supabase.functions.invoke('update-user-credentials', { 
+        const { error, data } = await supabase.functions.invoke('update-user-credentials', { 
             body: { userId, updates },
             headers: { Authorization: `Bearer ${sessionData.session.access_token}` }
         });
-        if (error) throw new Error(error.message);
+        if (error) throw error;
+        const responseData = data as { message?: string };
+        if (responseData.message) throw new Error(responseData.message);
         
         await fetchData(supabase);
         toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });

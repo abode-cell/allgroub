@@ -1,3 +1,4 @@
+
 // supabase/functions/create-investor/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -86,9 +87,10 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
+    console.error('Function Error:', error.message);
     return new Response(JSON.stringify({ message: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500, // Use 500 for server errors
+      status: 500,
     });
   }
 });
