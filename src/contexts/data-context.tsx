@@ -1242,5 +1242,3 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
-
-    
