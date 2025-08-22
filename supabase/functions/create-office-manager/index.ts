@@ -30,72 +30,21 @@ serve(async (req) => {
         throw new Error("Password is required.");
     }
     
-    // 1. Create the user in auth.users
-    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: payload.email,
-        password: payload.password,
-        phone: payload.phone,
-        email_confirm: true, // Auto-confirm email for simplicity in this flow
+    // Use the RPC function to handle the creation logic
+    const { data, error } = await supabaseAdmin.rpc('create_office_manager', {
+        p_email: payload.email,
+        p_password: payload.password,
+        p_phone: payload.phone,
+        p_name: payload.name,
+        p_office_name: payload.officeName
     });
 
-    if (authError) {
-        if (authError.message.includes('already registered')) {
-          throw new Error('User with this email or phone already registered.');
-        }
-        throw new Error(`Auth user creation failed: ${authError.message}`);
-    }
-    
-    if (!authUser) {
-      throw new Error("Auth user was not created successfully.");
-    }
-    
-    // 2. Create the office
-    const { data: office, error: officeError } = await supabaseAdmin
-      .from('offices')
-      .insert({ name: payload.officeName })
-      .select()
-      .single();
-
-    if (officeError) {
-        // Cleanup: delete the auth user if office creation fails
-        await supabaseAdmin.auth.admin.deleteUser(authUser.id);
-        throw new Error(`Office creation failed: ${officeError.message}`);
+    if (error) {
+        console.error("RPC Error:", error);
+        throw new Error(error.message);
     }
 
-    // 3. Create the user profile in public.users
-    const trialPeriodDays = 14; // Default trial period
-    const { error: profileError } = await supabaseAdmin
-      .from('users')
-      .insert({
-        id: authUser.id,
-        name: payload.name,
-        email: payload.email,
-        phone: payload.phone,
-        role: 'مدير المكتب',
-        office_id: office.id,
-        status: 'نشط', // Activate immediately
-        "trialEndsAt": new Date(Date.now() + trialPeriodDays * 24 * 60 * 60 * 1000).toISOString(),
-      });
-
-    if (profileError) {
-        // Cleanup: delete auth user and office
-        await supabaseAdmin.auth.admin.deleteUser(authUser.id);
-        await supabaseAdmin.from('offices').delete().eq('id', office.id);
-        throw new Error(`User profile creation failed: ${profileError.message}`);
-    }
-
-    // 4. Link the office to the manager
-    const { error: linkError } = await supabaseAdmin
-        .from('offices')
-        .update({ manager_id: authUser.id })
-        .eq('id', office.id);
-
-    if(linkError){
-        // Cleanup...
-        throw new Error(`Failed to link office to manager: ${linkError.message}`);
-    }
-
-    return new Response(JSON.stringify({ success: true, userId: authUser.id, officeId: office.id }), {
+    return new Response(JSON.stringify({ success: true, userId: data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

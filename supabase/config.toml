@@ -4,11 +4,11 @@
 project_id = "fsgabmgomgblwihchaso"
 name = "al-finance"
 
-[functions.create-office-manager]
-secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
-
 [functions.handle-partial-payment]
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
 
 [functions.update-user-credentials]
+secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
+
+[functions.create-office-manager]
 secrets = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]

@@ -404,12 +404,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
-    const { data, error } = await supabase.rpc('create_office_manager', {
-        p_email: payload.email,
-        p_password: payload.password,
-        p_phone: payload.phone,
-        p_name: payload.name,
-        p_office_name: payload.officeName
+    const { error } = await supabase.functions.invoke('create-office-manager', { 
+        body: payload,
     });
 
     if (error) {
