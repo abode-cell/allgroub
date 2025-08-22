@@ -299,8 +299,72 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 
 -- ========= Database Functions and Triggers =========
--- This section is intentionally left blank. 
--- The handle_new_user trigger and function have been removed to rely on Edge Functions for user creation.
+
+-- This function is called by a trigger when a new user signs up.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    user_role_text TEXT;
+    user_managed_by UUID;
+    v_office_id UUID;
+    user_branch_id UUID;
+    v_office_name TEXT;
+    trial_period_days INT;
+BEGIN
+    -- Extract metadata from the new user's metadata
+    user_role_text := new.raw_user_meta_data->>'user_role';
+    user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
+    user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
+    v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+    v_office_name := new.raw_user_meta_data->>'office_name';
+
+    -- If the user is an Office Manager, create a new office for them.
+    IF user_role_text = 'مدير المكتب' THEN
+        INSERT INTO public.offices (name, manager_id)
+        VALUES (v_office_name, new.id)
+        RETURNING id INTO v_office_id;
+
+        -- Get default trial period
+        SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
+        
+        -- Insert into users table
+        INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
+        VALUES (
+            new.id,
+            new.raw_user_meta_data->>'full_name',
+            new.email,
+            new.raw_user_meta_data->>'raw_phone_number',
+            user_role_text::public.user_role,
+            v_office_id,
+            NOW() + (COALESCE(trial_period_days, 14) || ' days')::INTERVAL
+        );
+    ELSE
+        -- For other roles, insert them directly.
+        INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
+        VALUES (
+            new.id,
+            new.raw_user_meta_data->>'full_name',
+            new.email,
+            new.raw_user_meta_data->>'raw_phone_number',
+            user_role_text::public.user_role,
+            user_managed_by,
+            v_office_id,
+            user_branch_id
+        );
+    END IF;
+
+    RETURN new;
+END;
+$$;
+
+
+-- Trigger to call the function when a new user signs up
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 
 -- ========= Initial Data Inserts =========

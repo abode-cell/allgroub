@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -201,7 +200,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).maybeSingle();
 
         if (profileError) {
-             throw new Error(`فشل جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
+             throw new Error(`فشل جلب ملف المستخدم: ${profileError.message || 'المستخدم غير موجود'}`);
         }
         
         if (!currentUserProfile) {

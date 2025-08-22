@@ -32,6 +32,13 @@ serve(async (req) => {
         password: payload.password,
         phone: payload.phone,
         email_confirm: true, // User needs to confirm their email
+        user_metadata: {
+            // This data will be available to the trigger
+            full_name: payload.name,
+            office_name: payload.officeName,
+            raw_phone_number: payload.phone,
+            user_role: 'مدير المكتب',
+        }
     });
 
     if (signUpError) {
@@ -39,50 +46,6 @@ serve(async (req) => {
         throw new Error(`Auth Error: ${signUpError.message}`);
     }
     if (!user) throw new Error("User creation did not return a user object.");
-
-    // Step 2: Create the office
-    const { data: office, error: officeError } = await supabaseAdmin
-        .from('offices')
-        .insert({ name: payload.officeName, manager_id: user.id })
-        .select()
-        .single();
-    
-    if (officeError || !office) {
-        // Cleanup: delete the auth user if office creation fails
-        await supabaseAdmin.auth.admin.deleteUser(user.id);
-        throw new Error(`Office Creation Error: ${officeError?.message}`);
-    }
-
-    // Step 3: Get default trial period
-    const { data: config, error: configError } = await supabaseAdmin
-        .from('app_config')
-        .select('value')
-        .eq('key', 'defaultTrialPeriodDays')
-        .single();
-        
-    const trial_period_days = config?.value?.value || 14;
-
-
-    // Step 4: Create the user profile in public.users
-    const { error: profileError } = await supabaseAdmin
-        .from('users')
-        .insert({
-            id: user.id,
-            name: payload.name,
-            email: payload.email,
-            phone: payload.phone,
-            role: 'مدير المكتب',
-            office_id: office.id,
-            status: 'معلق', // Manager starts as pending until email is confirmed
-            "trialEndsAt": new Date(Date.now() + trial_period_days * 24 * 60 * 60 * 1000).toISOString()
-        });
-
-    if (profileError) {
-        // Cleanup: delete both auth user and office if profile creation fails
-        await supabaseAdmin.auth.admin.deleteUser(user.id);
-        await supabaseAdmin.from('offices').delete().eq('id', office.id);
-        throw new Error(`Profile Creation Error: ${profileError.message}`);
-    }
 
     return new Response(JSON.stringify({ success: true, userId: user.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
