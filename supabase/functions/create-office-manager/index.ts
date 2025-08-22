@@ -34,7 +34,7 @@ serve(async (req) => {
         email: payload.email,
         password: payload.password,
         phone: payload.phone,
-        email_confirm: true, // Auto-confirm email for simplicity, or set to false to require verification
+        email_confirm: true, 
         user_metadata: {
             full_name: payload.name,
             office_name: payload.officeName,
@@ -77,4 +77,3 @@ serve(async (req) => {
       status: 400,
     });
   }
-});

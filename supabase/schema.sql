@@ -1,4 +1,3 @@
-
 -- Create the pgcrypto extension if it doesn't exist
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
@@ -367,7 +366,7 @@ AS $$
 DECLARE
     new_investor_id uuid;
 BEGIN
-    -- Create the user profile
+    -- Create the user profile, assuming auth user already exists
     INSERT INTO public.users (id, name, email, phone, role, office_id, branch_id, "managedBy", status)
     VALUES (p_user_id, p_name, p_email, p_phone, 'مستثمر', p_office_id, p_branch_id, p_managed_by, 'نشط');
 
@@ -429,4 +428,4 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-
+```
