@@ -198,20 +198,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
-        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).maybeSingle();
+        const { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
+
         if (profileError) {
-            throw new Error(profileError?.message || "ملف المستخدم الخاص بك غير موجود أو ليس لديك صلاحية للوصول إليه.");
+             throw new Error(`فشل جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
         }
 
-        if (!currentUserProfile) {
-            const { error: functionError } = await supabaseClient.functions.invoke('create-office-manager');
-            if (functionError) {
-                await supabaseClient.auth.signOut();
-                throw new Error("فشل إكمال إعداد حسابك. يرجى المحاولة مرة أخرى أو التواصل مع الدعم الفني.");
-            }
-            return fetchData(supabaseClient);
-        }
-        
         if (currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا.';
             if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
