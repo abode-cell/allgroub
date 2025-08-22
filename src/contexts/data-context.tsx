@@ -398,27 +398,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     try {
-        const functionName = 'create-office-manager';
-        const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
-        
-        const response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            },
-            body: JSON.stringify(payload)
-        });
+      const functionName = 'create-office-manager';
+      const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
+      
+      const response = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          },
+          body: JSON.stringify(payload)
+      });
 
-        const responseData = await response.json();
+      const responseData = await response.json();
 
-        if (!response.ok) {
-            throw new Error(responseData.message || 'فشل استدعاء الدالة السحابية.');
-        }
+      if (!response.ok) {
+          throw new Error(responseData.message || 'فشل استدعاء الدالة السحابية.');
+      }
 
-        return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
+      return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
     } catch (error: any) {
         console.error("Sign Up Error:", error);
+        if (error.message.includes("Failed to fetch")) {
+             return { success: false, message: 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.' };
+        }
         return { success: false, message: error.message || 'فشل إنشاء الحساب.' };
     }
   }, []);
@@ -820,21 +823,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
     }
 
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session) throw new Error("No active session");
+    try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session) throw new Error("No active session");
 
-    const { error } = await supabase.functions.invoke('handle-partial-payment', { 
-        body: { borrowerId, paidAmount },
-        headers: { Authorization: `Bearer ${sessionData.session.access_token}` }
-    });
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/handle-partial-payment`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionData.session.access_token}`,
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            },
+            body: JSON.stringify({ borrowerId, paidAmount })
+        });
+        
+        const responseData = await response.json();
+        if (!response.ok) throw new Error(responseData.message);
 
-    if (error) {
-      toast({ variant: 'destructive', title: 'خطأ', description: error.message || 'فشل معالجة السداد الجزئي.' });
-      return;
+        await fetchData(supabase);
+        toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء قرض جديد بالمبلغ المتبقي.' });
+
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'خطأ', description: error.message || 'فشل معالجة السداد الجزئي.' });
     }
-    
-    await fetchData(supabase);
-    toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء قرض جديد بالمبلغ المتبقي.' });
   }, [data.borrowers, currentUser, toast, fetchData]);
 
   const updateInvestor = useCallback(
