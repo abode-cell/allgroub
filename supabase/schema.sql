@@ -3,6 +3,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.create_office_manager(p_email text, p_password text, p_phone text, p_name text, p_office_name text) CASCADE;
+DROP FUNCTION IF EXISTS public.create_office_manager_profiles(p_user_id UUID, p_email text, p_phone text, p_name text, p_office_name text) CASCADE;
 DROP FUNCTION IF EXISTS public.create_investor_profile(p_user_id uuid, p_name text, p_email text, p_phone text, p_password text, p_office_id uuid, p_branch_id uuid, p_managed_by uuid, p_submitted_by uuid, p_installment_profit_share numeric, p_grace_period_profit_share numeric, p_initial_installment_capital numeric, p_initial_grace_capital numeric) CASCADE;
 DROP FUNCTION IF EXISTS public.get_my_claim(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_current_office_id() CASCADE;
@@ -301,9 +302,9 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 
 -- ========= Database Functions =========
-CREATE OR REPLACE FUNCTION public.create_office_manager(
+CREATE OR REPLACE FUNCTION public.create_office_manager_profiles(
+    p_user_id uuid,
     p_email text,
-    p_password text,
     p_phone text,
     p_name text,
     p_office_name text
@@ -313,33 +314,24 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-    new_user_id uuid;
     new_office_id uuid;
     trial_period_days int;
 BEGIN
-    -- Step 1: Create the user in auth.users using auth.signup
-    SELECT auth.signup(p_email, p_password, jsonb_build_object('phone', p_phone)) INTO new_user_id;
-
-    -- This check is crucial. If signup fails (e.g., user exists), new_user_id will be null.
-    IF new_user_id IS NULL THEN
-        RAISE EXCEPTION 'Failed to create user in auth.users. The email or phone might already exist.';
-    END IF;
-
-    -- Step 2: Create the office
+    -- Step 1: Create the office
     INSERT INTO public.offices (name)
     VALUES (p_office_name)
     RETURNING id INTO new_office_id;
 
-    -- Step 3: Get default trial period
+    -- Step 2: Get default trial period from app_config
     SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
     IF trial_period_days IS NULL THEN
         trial_period_days := 14; -- Default fallback
     END IF;
 
-    -- Step 4: Create the user profile, now with a guaranteed new_user_id
+    -- Step 3: Create the user profile in public.users
     INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
     VALUES (
-        new_user_id,
+        p_user_id,
         p_name,
         p_email,
         p_phone,
@@ -348,10 +340,10 @@ BEGIN
         NOW() + (trial_period_days || ' days')::INTERVAL
     );
     
-    -- Step 5: Link the office to the manager
-    UPDATE public.offices SET manager_id = new_user_id WHERE id = new_office_id;
+    -- Step 4: Link the office to the manager
+    UPDATE public.offices SET manager_id = p_user_id WHERE id = new_office_id;
     
-    RETURN new_user_id;
+    RETURN p_user_id;
 END;
 $$;
 
@@ -448,4 +440,3 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
-```

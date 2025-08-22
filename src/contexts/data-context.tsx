@@ -401,21 +401,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
     
-    const { error } = await supabase.rpc('create_office_manager', {
-        p_email: payload.email,
-        p_password: payload.password,
-        p_phone: payload.phone,
-        p_name: payload.name,
-        p_office_name: payload.officeName
-    });
-
-    if (error) {
-      console.error("RPC Error:", error);
-      const errorMessage = `فشل إنشاء الحساب: ${error.message}`;
-      return { success: false, message: errorMessage };
+    try {
+      const { error } = await supabase.functions.invoke('create-office-manager', {
+        body: payload
+      });
+      if (error) {
+        throw error;
+      }
+      return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
+    } catch(error: any) {
+        console.error("Edge function error:", error);
+        return { success: false, message: `فشل إنشاء الحساب: ${error.message}` };
     }
-    
-    return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
   }, []);
   
   const addNotification = useCallback(

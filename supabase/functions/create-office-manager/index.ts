@@ -29,21 +29,45 @@ serve(async (req) => {
         throw new Error("Password is required.");
     }
     
-    // Use the RPC function to handle the creation logic
-    const { data, error } = await supabaseAdmin.rpc('create_office_manager', {
+    // Step 1: Create the auth user securely
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: payload.email,
+        password: payload.password,
+        phone: payload.phone,
+        email_confirm: true, // Auto-confirm email for simplicity, or set to false to require verification
+        user_metadata: {
+            full_name: payload.name,
+            office_name: payload.officeName,
+            user_role: 'مدير المكتب'
+        }
+    });
+
+    if (authError) {
+        throw new Error(`Auth Error: ${authError.message}`);
+    }
+
+    if (!authData.user) {
+        throw new Error("User creation did not return a user object.");
+    }
+    
+    const newUserId = authData.user.id;
+
+    // Step 2: Call the RPC function to create the public profiles
+    const { error: rpcError } = await supabaseAdmin.rpc('create_office_manager_profiles', {
+        p_user_id: newUserId,
         p_email: payload.email,
-        p_password: payload.password,
         p_phone: payload.phone,
         p_name: payload.name,
         p_office_name: payload.officeName
     });
 
-    if (error) {
-        console.error("RPC Error:", error);
-        throw new Error(error.message);
+    if (rpcError) {
+        // If RPC fails, try to clean up the auth user to prevent orphaned users
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        throw new Error(`RPC Error: ${rpcError.message}`);
     }
 
-    return new Response(JSON.stringify({ success: true, userId: data }), {
+    return new Response(JSON.stringify({ success: true, userId: newUserId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
