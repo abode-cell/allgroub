@@ -301,6 +301,7 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 -- ========= Database Functions and Triggers =========
 
+-- This function is called by a trigger when a new user signs up.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -314,19 +315,23 @@ DECLARE
     v_office_name TEXT;
     trial_period_days INT;
 BEGIN
+    -- Extract metadata from the new user's metadata
     user_role_text := new.raw_user_meta_data->>'user_role';
     user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
     user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
     v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
     v_office_name := new.raw_user_meta_data->>'office_name';
 
+    -- If the user is an Office Manager, create a new office for them.
     IF user_role_text = 'مدير المكتب' THEN
         INSERT INTO public.offices (name, manager_id)
         VALUES (v_office_name, new.id)
         RETURNING id INTO v_office_id;
 
+        -- Get default trial period
         SELECT (value->>'value')::INT INTO trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays' LIMIT 1;
         
+        -- Insert into users table
         INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
         VALUES (
             new.id,
@@ -338,6 +343,7 @@ BEGIN
             NOW() + (trial_period_days || ' days')::INTERVAL
         );
     ELSE
+        -- For other roles (Assistant, Employee), insert them directly.
         INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
         VALUES (
             new.id,
@@ -360,6 +366,92 @@ $$;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+
+-- RPC function for creating investor profiles
+CREATE OR REPLACE FUNCTION public.create_investor_profile(
+    p_user_id UUID,
+    p_name TEXT,
+    p_email TEXT,
+    p_phone TEXT,
+    p_password TEXT,
+    p_office_id UUID,
+    p_branch_id UUID,
+    p_managed_by UUID,
+    p_submitted_by UUID,
+    p_installment_profit_share NUMERIC,
+    p_grace_period_profit_share NUMERIC,
+    p_initial_installment_capital NUMERIC,
+    p_initial_grace_capital NUMERIC
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    new_user_id UUID;
+BEGIN
+    -- Create the auth user
+    new_user_id := p_user_id;
+    IF new_user_id IS NULL THEN
+        INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, recovery_token, recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, phone)
+        VALUES (
+            '00000000-0000-0000-0000-000000000000',
+            gen_random_uuid(),
+            'authenticated',
+            'authenticated',
+            p_email,
+            crypt(p_password, gen_salt('bf')),
+            NOW(),
+            '',
+            NULL,
+            NULL,
+            '{"provider": "email", "providers": ["email"]}',
+            json_build_object('full_name', p_name, 'raw_phone_number', p_phone, 'user_role', 'مستثمر', 'office_id', p_office_id, 'branch_id', p_branch_id, 'managedBy', p_managed_by),
+            NOW(),
+            NOW(),
+            p_phone
+        ) RETURNING id INTO new_user_id;
+    END IF;
+
+    -- Create the public.users profile
+    INSERT INTO public.users(id, office_id, branch_id, name, email, phone, role, status, "managedBy")
+    VALUES (new_user_id, p_office_id, p_branch_id, p_name, p_email, p_phone, 'مستثمر', 'نشط', p_managed_by);
+    
+    -- Create the public.investors profile
+    INSERT INTO public.investors(id, office_id, branch_id, name, status, "managedBy", "submittedBy", "installmentProfitShare", "gracePeriodProfitShare")
+    VALUES (new_user_id, p_office_id, p_branch_id, p_name, 'نشط', p_managed_by, p_submitted_by, p_installment_profit_share, p_grace_period_profit_share);
+
+    -- Add initial capital transactions if provided
+    IF p_initial_installment_capital > 0 THEN
+        INSERT INTO public.transactions (id, office_id, investor_id, type, amount, description, "capitalSource")
+        VALUES ('tx_' || gen_random_uuid(), p_office_id, new_user_id, 'إيداع رأس المال', p_initial_installment_capital, 'إيداع تأسيسي لمحفظة الأقساط', 'installment');
+    END IF;
+
+    IF p_initial_grace_capital > 0 THEN
+        INSERT INTO public.transactions (id, office_id, investor_id, type, amount, description, "capitalSource")
+        VALUES ('tx_' || gen_random_uuid(), p_office_id, new_user_id, 'إيداع رأس المال', p_initial_grace_capital, 'إيداع تأسيسي لمحفظة المهلة', 'grace');
+    END IF;
+    
+    RETURN json_build_object('success', true, 'user_id', new_user_id);
+END;
+$$;
+
+
+-- Function to check for duplicate borrowers in other offices
+CREATE OR REPLACE FUNCTION public.check_duplicate_borrower(p_national_id TEXT, p_office_id UUID)
+RETURNS TABLE(borrower_name TEXT, manager_name TEXT, manager_phone TEXT)
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT b.name as borrower_name, u.name as manager_name, u.phone as manager_phone
+  FROM public.borrowers b
+  JOIN public.users u ON b."managedBy" = u.id
+  WHERE b."nationalId" = p_national_id
+    AND b.office_id != p_office_id
+    AND b.status != 'مرفوض'
+    AND b.status != 'مسدد بالكامل';
+$$;
 
 
 -- ========= Initial Data Inserts =========
