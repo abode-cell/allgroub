@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -198,7 +197,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
-        // Step 1: Fetch essential data first (user profile, config)
         let { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).maybeSingle();
 
         if (profileError) {
@@ -227,7 +225,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Step 2: Fetch all other data in parallel
         const [
           { data: all_users_data, error: usersError },
           { data: offices_data, error: officesError },
@@ -414,9 +411,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       console.error("RPC Error:", error);
-      const errorMessage = error.message.includes('already registered')
-        ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
-        : `فشل إنشاء الحساب: ${error.message}`;
+      const errorMessage = `فشل إنشاء الحساب: ${error.message}`;
       return { success: false, message: errorMessage };
     }
     

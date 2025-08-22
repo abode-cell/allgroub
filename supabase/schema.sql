@@ -310,16 +310,25 @@ CREATE OR REPLACE FUNCTION public.create_office_manager(
 )
 RETURNS uuid
 LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
     new_user_id uuid;
     new_office_id uuid;
     trial_period_days int;
+    user_metadata jsonb;
+    app_metadata jsonb;
 BEGIN
-    -- Step 1: Create the user in auth.users
-    INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
-    VALUES (p_email, extensions.crypt(p_password, extensions.gen_salt('bf')), p_phone, 'authenticated', '{"provider":"email","providers":["email"]}')
-    RETURNING id INTO new_user_id;
+    -- Set user metadata
+    app_metadata := jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email'));
+    user_metadata := jsonb_build_object('full_name', p_name, 'raw_phone_number', p_phone, 'user_role', 'مدير المكتب');
+
+    -- Step 1: Create the user in auth.users using auth.signup()
+    SELECT auth.signup(p_email, p_password, user_metadata, app_metadata) INTO new_user_id;
+
+    IF new_user_id IS NULL THEN
+        RAISE EXCEPTION 'Failed to create user in auth.users';
+    END IF;
 
     -- Step 2: Create the office
     INSERT INTO public.offices (name)
@@ -374,12 +383,14 @@ AS $$
 DECLARE
     new_user_id uuid := p_user_id;
     new_investor_id uuid;
+    user_metadata jsonb;
+    app_metadata jsonb;
 BEGIN
     -- Create a new auth user if p_user_id is NULL
     IF new_user_id IS NULL THEN
-        INSERT INTO auth.users (email, encrypted_password, phone, role, raw_app_meta_data)
-        VALUES (p_email, extensions.crypt(p_password, extensions.gen_salt('bf')), p_phone, 'authenticated', '{"provider":"email","providers":["email"]}')
-        RETURNING id INTO new_user_id;
+        app_metadata := jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email'));
+        user_metadata := jsonb_build_object('full_name', p_name, 'raw_phone_number', p_phone, 'user_role', 'مستثمر');
+        SELECT auth.signup(p_email, p_password, user_metadata, app_metadata) INTO new_user_id;
     END IF;
 
     -- Create the user profile
