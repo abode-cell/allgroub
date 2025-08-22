@@ -1,4 +1,3 @@
-
 -- Create the pgcrypto extension if it doesn't exist
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
@@ -61,7 +60,7 @@ COMMENT ON TABLE public.offices IS 'Stores independent office entities.';
 
 -- Users Table
 CREATE TABLE public.users (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     office_id UUID REFERENCES public.offices(id) ON DELETE SET NULL,
     branch_id UUID, -- This will be a foreign key later
     name TEXT NOT NULL,
@@ -98,7 +97,7 @@ ALTER TABLE public.users ADD CONSTRAINT fk_branch_id FOREIGN KEY (branch_id) REF
 
 -- Investors Table
 CREATE TABLE public.investors (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     office_id UUID NOT NULL REFERENCES public.offices(id) ON DELETE CASCADE,
     branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
