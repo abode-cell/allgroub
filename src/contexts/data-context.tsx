@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -202,6 +203,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (profileError) {
              throw new Error(`فشل جلب ملف المستخدم: ${profileError?.message || 'المستخدم غير موجود'}`);
         }
+        
+        if (!currentUserProfile) {
+            // This is a new user who has just confirmed their email but whose profile isn't created yet by the trigger.
+            // The trigger might have a slight delay. We can refetch after a short moment.
+            console.log("No user profile found, attempting refetch shortly...");
+            await new Promise(resolve => setTimeout(resolve, 2500)); // Wait 2.5 seconds
+            const { data: refetchedProfile, error: refetchError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
+            if(refetchError || !refetchedProfile) {
+                 throw new Error("فشل إكمال إعداد حسابك. يرجى المحاولة مرة أخرى أو تواصل مع الدعم الفني.");
+            }
+        }
+
 
         if (currentUserProfile && currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا.';
@@ -387,17 +400,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
-    try {
-        const { error } = await supabase.functions.invoke('create-office-manager', { 
-            body: payload,
-        });
-        if (error) throw new Error(error.message);
-        
-        return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
-    } catch (error: any) {
-        console.error("Register Error:", error);
-        return { success: false, message: error.message || 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.' };
+    if (!payload.password) {
+      return { success: false, message: 'كلمة المرور مطلوبة.' };
     }
+
+    const { error } = await supabase.auth.signUp({
+      email: payload.email,
+      password: payload.password,
+      options: {
+        data: {
+          user_role: 'مدير المكتب',
+          full_name: payload.name,
+          office_name: payload.officeName,
+          raw_phone_number: payload.phone,
+        }
+      }
+    });
+
+    if (error) {
+      console.error("SignUp Error:", error);
+      if (error.message.includes('User already registered')) {
+        return { success: false, message: 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.' };
+      }
+      return { success: false, message: `فشل إنشاء الحساب: ${error.message}` };
+    }
+    
+    return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
   }, []);
   
   const addNotification = useCallback(
@@ -741,6 +769,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       const newEntry: Omit<Borrower, 'id'> = {
           ...borrower,
+          id: `bor_${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
           fundedBy: [], // This will be set on approval
@@ -1213,3 +1242,5 @@ export function useDataActions() {
       markBorrowerAsNotified, markInvestorAsNotified,
     };
 }
+
+    

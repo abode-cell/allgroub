@@ -1,3 +1,4 @@
+
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -229,6 +230,8 @@ ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 -- POLICIES FOR: app_config
 DROP POLICY IF EXISTS "Allow authenticated to read app_config" ON public.app_config;
 CREATE POLICY "Allow authenticated to read app_config" ON public.app_config FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow admin to manage app_config" ON public.app_config;
+CREATE POLICY "Allow admin to manage app_config" ON public.app_config FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 
 
 -- POLICIES FOR: offices
@@ -298,6 +301,66 @@ CREATE POLICY "Allow users to manage their own submitted tickets" ON public.supp
 CREATE POLICY "Allow users to manage their own notifications" ON public.notifications FOR ALL TO authenticated USING (auth.uid() = "recipientId");
 
 
+-- ========= Database Functions and Triggers =========
+
+-- This function is called by a trigger when a new user signs up.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    user_role_text TEXT;
+    user_managed_by UUID;
+    v_office_id UUID;
+    user_branch_id UUID;
+    v_office_name TEXT;
+BEGIN
+    -- Extract metadata from the new user's metadata, providing defaults for optional fields.
+    user_role_text := new.raw_user_meta_data->>'user_role';
+    user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
+    user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
+    v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+    v_office_name := new.raw_user_meta_data->>'office_name';
+
+    -- If the user is an Office Manager, create a new office for them.
+    IF user_role_text = 'مدير المكتب' THEN
+        INSERT INTO public.offices (name)
+        VALUES (v_office_name)
+        RETURNING id INTO v_office_id;
+    END IF;
+
+    -- Insert the new user into the public.users table
+    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
+    VALUES (
+        new.id,
+        new.raw_user_meta_data->>'full_name',
+        new.email,
+        new.raw_user_meta_data->>'raw_phone_number',
+        user_role_text::public.user_role,
+        user_managed_by,
+        v_office_id,
+        user_branch_id
+    );
+
+    -- If the user is an Office Manager, link the office to the new user record.
+    IF user_role_text = 'مدير المكتب' THEN
+      UPDATE public.offices
+      SET manager_id = new.id
+      WHERE id = v_office_id;
+    END IF;
+
+    RETURN new;
+END;
+$$;
+
+
+-- Trigger to call the function when a new user signs up
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+
 -- ========= Initial Data Inserts =========
 INSERT INTO public.app_config (key, value) VALUES
 ('baseInterestRate', '{"value": 15}'),
@@ -309,3 +372,5 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+
+    
