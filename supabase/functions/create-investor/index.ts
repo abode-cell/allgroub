@@ -20,6 +20,7 @@ interface NewInvestorPayload {
 }
 
 serve(async (req) => {
+  // This is needed if you're planning to invoke your function from a browser.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -33,18 +34,15 @@ serve(async (req) => {
     const payload: NewInvestorPayload = await req.json();
 
     if (!payload.password) {
-      return new Response(JSON.stringify({ message: "Password is required for new investor." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      throw new Error("Password is required for new investor.");
     }
 
-    // Step 1: Create the auth user securely
+    // Step 1: Create the auth user securely using the Admin client
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       password: payload.password,
       phone: payload.phone,
-      email_confirm: true,
+      email_confirm: true, // The user will need to confirm their email
       user_metadata: {
         full_name: payload.name,
         user_role: 'مستثمر',
@@ -61,28 +59,28 @@ serve(async (req) => {
 
     if (authError) {
       console.error('Auth Error:', authError.message);
-      return new Response(JSON.stringify({ message: `Auth Error: ${authError.message}` }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
+      if (authError.message.includes('already registered')) {
+          throw new Error('البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.');
+      }
+      throw new Error(`Auth Error: ${authError.message}`);
     }
 
     if (!authData.user) {
-      return new Response(JSON.stringify({ message: "User creation did not return a user object." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
+      throw new Error("User creation did not return a user object.");
     }
+    
+    // The handle_new_user trigger in the database will handle profile creation.
 
     return new Response(JSON.stringify({ success: true, userId: authData.user.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
+
   } catch (error) {
     console.error('Function Error:', error.message);
     return new Response(JSON.stringify({ message: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 400,
     });
   }
 });
