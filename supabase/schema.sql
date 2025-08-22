@@ -1,4 +1,3 @@
-
 -- ========= Dropping existing objects (for a clean slate) =========
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -301,66 +300,65 @@ CREATE POLICY "Allow users to manage their own notifications" ON public.notifica
 
 -- ========= Database Functions and Triggers =========
 
+-- This function is called by a trigger when a new user signs up.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
+    user_role_text TEXT;
+    user_managed_by UUID;
     v_office_id UUID;
-    v_user_role public.user_role;
-    v_trial_period_days INT;
-    v_trial_ends_at TIMESTAMPTZ;
+    user_branch_id UUID;
+    v_office_name TEXT;
+    trial_days INT;
 BEGIN
-    -- Extract role from metadata, default to 'مستثمر' if not provided
-    v_user_role := (new.raw_user_meta_data->>'user_role')::public.user_role;
+    -- Extract metadata from the new user's metadata
+    user_role_text := new.raw_user_meta_data->>'user_role';
+    user_managed_by := (new.raw_user_meta_data->>'managedBy')::UUID;
+    user_branch_id := (new.raw_user_meta_data->>'branch_id')::UUID;
+    v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+    v_office_name := new.raw_user_meta_data->>'office_name';
 
     -- If the user is an Office Manager, create a new office for them.
-    IF v_user_role = 'مدير المكتب' THEN
-        -- Get the default trial period from app_config
-        SELECT (value->>'value')::INT INTO v_trial_period_days FROM public.app_config WHERE key = 'defaultTrialPeriodDays';
-        v_trial_ends_at := NOW() + (v_trial_period_days || ' days')::interval;
-
-        -- Create the office first
+    IF user_role_text = 'مدير المكتب' THEN
         INSERT INTO public.offices (name)
-        VALUES (new.raw_user_meta_data->>'office_name')
+        VALUES (v_office_name)
         RETURNING id INTO v_office_id;
+    END IF;
 
-        -- Now insert the user with the new office_id
-        INSERT INTO public.users (id, name, email, phone, role, office_id, "trialEndsAt")
-        VALUES (
-            new.id,
-            new.raw_user_meta_data->>'full_name',
-            new.email,
-            new.raw_user_meta_data->>'raw_phone_number',
-            v_user_role,
-            v_office_id,
-            v_trial_ends_at
-        );
-        
-        -- Finally, update the office with the manager_id
-        UPDATE public.offices SET manager_id = new.id WHERE id = v_office_id;
+    -- Insert the new user into the public.users table
+    INSERT INTO public.users (id, name, email, phone, role, "managedBy", office_id, branch_id)
+    VALUES (
+        new.id,
+        new.raw_user_meta_data->>'full_name',
+        new.email,
+        new.raw_user_meta_data->>'raw_phone_number',
+        user_role_text::public.user_role,
+        user_managed_by,
+        v_office_id,
+        user_branch_id
+    );
 
-    ELSE
-        -- For other roles (Employee, Assistant, Investor), get office_id from metadata
-        v_office_id := (new.raw_user_meta_data->>'office_id')::UUID;
+    -- If user is office manager, update the office with the manager_id
+    IF user_role_text = 'مدير المكتب' THEN
+        UPDATE public.offices
+        SET manager_id = new.id
+        WHERE id = v_office_id;
 
-        INSERT INTO public.users (id, name, email, phone, role, office_id, "managedBy", branch_id)
-        VALUES (
-            new.id,
-            new.raw_user_meta_data->>'full_name',
-            new.email,
-            new.raw_user_meta_data->>'raw_phone_number',
-            v_user_role,
-            v_office_id,
-            (new.raw_user_meta_data->>'managedBy')::UUID,
-            (new.raw_user_meta_data->>'branch_id')::UUID
-        );
+        -- Set the trial period
+        SELECT (value->>'value')::INT INTO trial_days FROM app_config WHERE key = 'defaultTrialPeriodDays';
+        UPDATE public.users
+        SET "trialEndsAt" = now() + (trial_days * interval '1 day')
+        WHERE id = new.id;
+
     END IF;
 
     RETURN new;
 END;
 $$;
+
 
 -- Trigger to call the function when a new user signs up
 CREATE TRIGGER on_auth_user_created
@@ -379,3 +377,4 @@ INSERT INTO public.app_config (key, value) VALUES
 ('supportPhone', '{"value": "0598360380"}'),
 ('defaultTrialPeriodDays', '{"value": 14}')
 ON CONFLICT (key) DO NOTHING;
+```
