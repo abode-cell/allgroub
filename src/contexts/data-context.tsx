@@ -400,22 +400,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
-        const { data, error } = await supabase.functions.invoke('create-office-manager', {
-            body: payload,
+        const { data, error } = await supabase.auth.signUp({
+            email: payload.email,
+            password: payload.password!,
+            options: {
+                data: {
+                    full_name: payload.name,
+                    office_name: payload.officeName,
+                    phone: payload.phone,
+                    user_role: 'مدير المكتب'
+                }
+            }
         });
 
-        if (error) throw error;
-        
-        const responseData = data as { message?: string };
-        if (responseData && responseData.message) {
-            throw new Error(responseData.message);
+        if (error) {
+            throw error;
         }
 
         return { success: true, message: 'تم استلام طلبك. يرجى التحقق من بريدك الإلكتروني للتفعيل.' };
     } catch (error: any) {
-        console.error("Function Invocation Error:", error);
-        const errorMessage = error?.message || 'فشل إرسال الطلب إلى الدالة السحابية.';
-        return { success: false, message: `فشل إنشاء الحساب: ${errorMessage}` };
+        console.error("Sign Up Error:", error);
+        const errorMessage = error.message.includes('already registered')
+            ? 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.'
+            : (error.message || 'فشل إنشاء الحساب.');
+        return { success: false, message: errorMessage };
     }
   }, []);
   
@@ -816,8 +824,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
     }
 
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) throw new Error("No active session");
+
     const { error } = await supabase.functions.invoke('handle-partial-payment', { 
         body: { borrowerId, paidAmount },
+        headers: { Authorization: `Bearer ${sessionData.session.access_token}` }
     });
 
     if (error) {
@@ -881,15 +893,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         try {
             const { data: sessionData } = await supabase.auth.getSession();
             if (!sessionData.session) throw new Error("No active session");
-
-            const { error, data } = await supabase.functions.invoke('create-investor', { 
-                body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id },
-                headers: { Authorization: `Bearer ${sessionData.session.access_token}` }
+            
+            const functionName = 'create-investor';
+            const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`;
+            
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionData.session.access_token}`
+                },
+                body: JSON.stringify({ ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id })
             });
 
-            if (error) throw error;
-            const responseData = data as { message?: string };
-            if (responseData && responseData.message) throw new Error(responseData.message);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'فشل استدعاء الدالة السحابية.');
+            }
 
             await fetchData(supabase);
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
@@ -918,7 +938,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             data: {
               user_role: role,
               full_name: payload.name,
-              raw_phone_number: payload.phone,
+              phone: payload.phone,
               managed_by: currentUser.id,
               office_id: currentUser.office_id,
               branch_id: payload.branch_id || null
