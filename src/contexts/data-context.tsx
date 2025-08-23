@@ -414,38 +414,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
   },[router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+    const supabase = getSupabaseBrowserClient();
     try {
-        const supabase = getSupabaseBrowserClient();
         const { data, error } = await supabase.functions.invoke('create-office-manager', {
             body: payload,
         });
 
-        if (error) {
-            throw error;
-        }
-
-        let message = 'تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد.';
+        if (error) throw error;
+        
         if (data && data.message) {
-            message = data.message;
+            return { success: true, message: data.message };
         }
         
-        return { success: true, message: message };
+        return { success: true, message: "تم إرسال الطلب بنجاح. يرجى مراجعة بريدك الإلكتروني للتفعيل." };
 
     } catch (error: any) {
         console.error("Sign Up Error:", error);
-        
         let errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.';
-        
-        if (error.context && typeof error.context.json === 'function') {
-            try {
-                const jsonError = await error.context.json();
-                if (jsonError && jsonError.message) {
-                    errorMessage = jsonError.message;
-                }
-            } catch (e) {
-                // Ignore if parsing fails
+        if (error.context && error.context.json) {
+            const jsonError = await error.context.json();
+            if (jsonError && jsonError.message) {
+                errorMessage = jsonError.message;
             }
-        } else if (typeof error.message === 'string') {
+        } else if(error.message) {
             errorMessage = error.message;
         }
         
@@ -913,12 +904,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addInvestor = useCallback(
     async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
+        const supabase = getSupabaseBrowserClient();
         if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
         
         try {
-            const supabase = getSupabaseBrowserClient();
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !sessionData.session) throw new Error("No active session for function call");
+
             const { data, error } = await supabase.functions.invoke('create-investor', {
-                body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id }
+                body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id },
             });
             
             if (error) throw error;
@@ -928,7 +922,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
             console.error("Create Investor Error:", error);
-            const errorMessage = error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.';
+            let errorMessage = error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.';
+             if (error.context && error.context.json) {
+                const jsonError = await error.context.json();
+                if (jsonError && jsonError.message) {
+                    errorMessage = jsonError.message;
+                }
+            }
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -938,12 +938,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const addNewSubordinateUser = useCallback(
     async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
+        const supabase = getSupabaseBrowserClient();
         if (!currentUser || !currentUser.office_id) {
             return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
         }
 
         try {
-            const supabase = getSupabaseBrowserClient();
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !sessionData.session) throw new Error("No active session for function call");
+
             const { data, error } = await supabase.functions.invoke('create-subordinate', {
               body: { ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id }
             });
@@ -956,7 +959,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         } catch (error: any) {
             console.error(`Create ${role} Error:`, error);
-            const errorMessage = error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`;
+            let errorMessage = error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`;
+             if (error.context && error.context.json) {
+                const jsonError = await error.context.json();
+                if (jsonError && jsonError.message) {
+                    errorMessage = jsonError.message;
+                }
+            }
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -982,16 +991,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
+    const supabase = getSupabaseBrowserClient();
     try {
-        const supabase = getSupabaseBrowserClient();
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session) throw new Error("No active session");
         
-        const { error } = await supabase.functions.invoke('update-user-credentials', { 
-            body: { userId, updates },
-            headers: {
-                Authorization: `Bearer ${sessionData.session.access_token}`
-            }
+        const { data, error } = await supabase.functions.invoke('update-user-credentials', { 
+            body: { userId, updates }
         });
         if (error) throw error;
         
@@ -999,7 +1005,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
         return { success: true, message: "تم تحديث البيانات بنجاح." };
     } catch (error: any) {
-        const errorMessage = error.message || 'فشل تحديث بيانات المستخدم.';
+        let errorMessage = error.message || 'فشل تحديث بيانات المستخدم.';
+        if (error.context && error.context.json) {
+            const jsonError = await error.context.json();
+            if (jsonError && jsonError.message) {
+                errorMessage = jsonError.message;
+            }
+        }
         toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
         return { success: false, message: errorMessage };
     }
