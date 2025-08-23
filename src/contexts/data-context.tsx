@@ -198,23 +198,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         };
         
-        let { data: currentUserProfile, error: profileError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).maybeSingle();
+        // Fetch essential data first
+        const [
+            { data: all_users_data, error: usersError },
+            { data: offices_data, error: officesError },
+            { data: app_config_data, error: appConfigError }
+        ] = await Promise.all([
+            supabaseClient.from('users').select('*'),
+            supabaseClient.from('offices').select('*'),
+            supabaseClient.from('app_config').select('*')
+        ]);
 
-        if (profileError) {
-             throw new Error(`فشل جلب ملف المستخدم: ${profileError.message || 'المستخدم غير موجود'}`);
+        if (usersError || officesError || appConfigError) {
+            throw new Error(`Failed to fetch essential data. ${usersError?.message || officesError?.message || appConfigError?.message}`);
         }
+
+        const currentUserProfile = all_users_data?.find(u => u.id === authUser.id);
         
         if (!currentUserProfile) {
-            console.log("No user profile found, attempting refetch shortly...");
-            await new Promise(resolve => setTimeout(resolve, 2500));
-            const { data: refetchedProfile, error: refetchError } = await supabaseClient.from('users').select('*').eq('id', authUser.id).single();
-            if(refetchError || !refetchedProfile) {
-                 throw new Error("فشل إكمال إعداد حسابك. يرجى المحاولة مرة أخرى أو تواصل مع الدعم الفني.");
-            }
-            currentUserProfile = refetchedProfile;
+            await new Promise(resolve => setTimeout(resolve, 2500)); // Wait for potential DB replication delay
+             const { data: refetchedUsers, error: refetchError } = await supabaseClient.from('users').select('*');
+             if(refetchError || !refetchedUsers) {
+                 throw new Error("Failed to complete account setup. Please try again or contact support.");
+             }
+             const refetchedProfile = refetchedUsers.find(u => u.id === authUser.id);
+             if (!refetchedProfile) {
+                 throw new Error("Could not find user profile even after refetch.");
+             }
         }
-
-
+        
         if (currentUserProfile && currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا.';
             if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
@@ -226,36 +238,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        // Fetch non-essential data
         const [
-          { data: all_users_data, error: usersError },
-          { data: offices_data, error: officesError },
-          { data: investors_data, error: investorsError },
-          { data: borrowers_data, error: borrowersError },
-          { data: transactions_data, error: transactionsError },
-          { data: notifications_data, error: notificationsError },
-          { data: support_tickets_data, error: supportTicketsError },
-          { data: app_config_data, error: appConfigError },
-          { data: branches_data, error: branchesError }
+            { data: investors_data, error: investorsError },
+            { data: borrowers_data, error: borrowersError },
+            { data: transactions_data, error: transactionsError },
+            { data: notifications_data, error: notificationsError },
+            { data: support_tickets_data, error: supportTicketsError },
+            { data: branches_data, error: branchesError }
         ] = await Promise.all([
-          supabaseClient.from('users').select('*'),
-          supabaseClient.from('offices').select('*'),
-          supabaseClient.from('investors').select('*'),
-          supabaseClient.from('borrowers').select('*'),
-          supabaseClient.from('transactions').select('*'),
-          supabaseClient.from('notifications').select('*'),
-          supabaseClient.from('support_tickets').select('*'),
-          supabaseClient.from('app_config').select('*'),
-          supabaseClient.from('branches').select('*')
+            supabaseClient.from('investors').select('*'),
+            supabaseClient.from('borrowers').select('*'),
+            supabaseClient.from('transactions').select('*'),
+            supabaseClient.from('notifications').select('*'),
+            supabaseClient.from('support_tickets').select('*'),
+            supabaseClient.from('branches').select('*'),
         ]);
-        
-        const errors = { usersError, officesError, investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, appConfigError, branchesError };
-        for (const [key, error] of Object.entries(errors)) {
-            if (error) {
-                console.error(`Error fetching ${key}:`, error);
-                throw new Error(`فشل في جلب البيانات: ${key}. قد تكون صلاحيات RLS غير صحيحة.`);
-            }
+
+        const nonEssentialErrors = { investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, branchesError };
+        for (const [key, error] of Object.entries(nonEssentialErrors)) {
+            if (error) console.warn(`Warning: Non-critical fetch for ${key} failed.`, error);
         }
-        
+
         const configData = (app_config_data || []).reduce((acc: any, row: any) => {
             acc[row.key] = row.value.value;
             return acc;
@@ -399,20 +403,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
-      const { data, error } = await supabase.functions.invoke('create-office-manager', {
-        body: payload,
-      });
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
 
-      if (error) {
-        throw error;
-      }
-      
-      return { success: true, message: data.message };
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-office-manager`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const responseData = await response.json();
+        if (!response.ok) {
+            throw new Error(responseData.message || "An unknown error occurred.");
+        }
+        
+        return { success: true, message: responseData.message || "تم إنشاء الحساب بنجاح." };
+
     } catch (error: any) {
         console.error("Sign Up Error:", error);
         const errorMessage = error.message.includes("Failed to fetch")
             ? 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.'
-            : (error.data?.message || error.message || 'فشل إنشاء الحساب.');
+            : (error.message || 'فشل إنشاء الحساب.');
         return { success: false, message: errorMessage };
     }
   }, []);
@@ -758,7 +772,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       const newEntry: Omit<Borrower, 'id'> = {
           ...borrower,
-          id: `bor_${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           submittedBy: currentUser.id,
           fundedBy: [], 
@@ -889,17 +902,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         try {
             const supabase = getSupabaseBrowserClient();
-            const { error, data } = await supabase.functions.invoke('create-investor', { 
-                body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id }
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData.session) throw new Error("No active session");
+            
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-investor`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionData.session.access_token}`,
+                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                },
+                body: JSON.stringify({ ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id })
             });
-            if(error) throw error;
+            const responseData = await response.json();
+            if(!response.ok) throw new Error(responseData.message);
             
             await fetchData(supabase);
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
             return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
         } catch (error: any) {
             console.error("Create Investor Error:", error);
-            const errorMessage = error.data?.message || error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.';
+            const errorMessage = error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.';
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -915,11 +938,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         try {
             const supabase = getSupabaseBrowserClient();
-            const { error, data } = await supabase.functions.invoke('create-subordinate', {
-              body: { ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id }
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData.session) throw new Error("No active session");
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-subordinate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionData.session.access_token}`,
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              },
+              body: JSON.stringify({ ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id })
             });
             
-            if (error) throw error;
+            const responseData = await response.json();
+            if (!response.ok) throw new Error(responseData.message);
             
             await fetchData(supabase);
             toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
@@ -927,7 +960,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         } catch (error: any) {
             console.error(`Create ${role} Error:`, error);
-            const errorMessage = error.data?.message || error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`;
+            const errorMessage = error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`;
             toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
             return { success: false, message: errorMessage };
         }
@@ -955,17 +988,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
     try {
         const supabase = getSupabaseBrowserClient();
-        const { error, data } = await supabase.functions.invoke('update-user-credentials', {
-            body: { userId, updates }
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) throw new Error("No active session");
+        
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/update-user-credentials`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionData.session.access_token}`,
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            },
+            body: JSON.stringify({ userId, updates })
         });
         
-        if (error) throw error;
+        const responseData = await response.json();
+        if (!response.ok) throw new Error(responseData.message);
         
         await fetchData(supabase);
         toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
         return { success: true, message: "تم تحديث البيانات بنجاح." };
     } catch (error: any) {
-        const errorMessage = error.data?.message || error.message || 'فشل تحديث بيانات المستخدم.';
+        const errorMessage = error.message || 'فشل تحديث بيانات المستخدم.';
         toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
         return { success: false, message: errorMessage };
     }
