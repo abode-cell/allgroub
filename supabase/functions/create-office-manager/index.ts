@@ -43,45 +43,48 @@ serve(async (req) => {
     }
     
     const newUserId = authData.user.id;
+    let newOfficeId = '';
 
-    // Step 2: Create the office
-    const { data: officeData, error: officeError } = await supabaseAdmin
-        .from('offices')
-        .insert({ name: payload.officeName, manager_id: newUserId })
-        .select()
-        .single();
-    
-    if (officeError) {
-        // If office creation fails, we should delete the auth user to keep things clean
+    try {
+        // Step 2: Create the office
+        const { data: officeData, error: officeError } = await supabaseAdmin
+            .from('offices')
+            .insert({ name: payload.officeName, manager_id: newUserId })
+            .select()
+            .single();
+        
+        if (officeError) {
+            throw new Error(`Failed to create office: ${officeError.message}`);
+        }
+        newOfficeId = officeData.id;
+
+        // Step 3: Create the user profile in public.users
+        const { error: userProfileError } = await supabaseAdmin
+            .from('users')
+            .insert({
+                id: newUserId,
+                name: payload.name,
+                email: payload.email,
+                phone: payload.phone,
+                role: 'مدير المكتب',
+                status: 'معلق',
+                office_id: newOfficeId,
+                registrationDate: new Date().toISOString(),
+            });
+        
+        if (userProfileError) {
+            // Clean up office if profile creation fails
+            await supabaseAdmin.from('offices').delete().eq('id', newOfficeId);
+            throw new Error(`Failed to create user profile: ${userProfileError.message}`);
+        }
+    } catch (dbError) {
+        // If any DB operation fails, we must delete the auth user to keep things clean
         await supabaseAdmin.auth.admin.deleteUser(newUserId);
-        throw new Error(`فشل في إنشاء المكتب: ${officeError.message}`);
+        throw dbError; // re-throw the error to be caught by the outer catch block
     }
 
-    const newOfficeId = officeData.id;
 
-    // Step 3: Create the user profile in public.users
-    const { error: userProfileError } = await supabaseAdmin
-        .from('users')
-        .insert({
-            id: newUserId,
-            name: payload.name,
-            email: payload.email,
-            phone: payload.phone,
-            role: 'مدير المكتب',
-            status: 'معلق',
-            office_id: newOfficeId,
-            registrationDate: new Date().toISOString(),
-        });
-    
-    if (userProfileError) {
-        // Clean up if profile creation fails
-        await supabaseAdmin.auth.admin.deleteUser(newUserId);
-        await supabaseAdmin.from('offices').delete().eq('id', newOfficeId);
-        throw new Error(`فشل في إنشاء ملف المستخدم: ${userProfileError.message}`);
-    }
-
-
-    return new Response(JSON.stringify({ success: true, message: "تم إنشاء الحساب بنجاح." }), {
+    return new Response(JSON.stringify({ success: true, message: "تم إنشاء الحساب بنجاح. يرجى مراجعة بريدك الإلكتروني للتفعيل." }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

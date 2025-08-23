@@ -38,7 +38,7 @@ import { useRouter } from 'next/navigation';
 type SignInResult = {
   success: boolean;
   message: string;
-  reason?: 'unconfirmed_email' | 'other';
+  reason?: 'unconfirmed_email' | 'pending_review' | 'other';
 }
 
 type DataContextValue = {
@@ -216,6 +216,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const currentUserProfile = all_users_data?.find(u => u.id === authUser.id);
         
         if (!currentUserProfile) {
+             // This might happen due to replication delay after sign up. Let's try one more time.
+             await new Promise(resolve => setTimeout(resolve, 1000));
              const { data: refetchedUsers, error: refetchError } = await supabaseClient.from('users').select('*');
              if(refetchError || !refetchedUsers) {
                  throw new Error("Failed to complete account setup. Please try again or contact support.");
@@ -389,6 +391,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (data.user && !data.user.email_confirmed_at) {
         return { success: false, message: 'الرجاء تأكيد بريدك الإلكتروني أولاً.', reason: 'unconfirmed_email' };
     }
+
+    const { data: userProfile } = await supabase.from('users').select('status').eq('id', data.user.id).single();
+    if (userProfile && userProfile.status === 'معلق') {
+        await supabase.auth.signOut();
+        return { success: false, message: 'الحساب قيد المراجعة', reason: 'pending_review'};
+    }
     
     return { success: true, message: 'جاري تسجيل الدخول...' };
   }, []);
@@ -402,34 +410,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     try {
         const supabase = getSupabaseBrowserClient();
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-office-manager`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            },
-            body: JSON.stringify(payload),
+        const { data, error } = await supabase.functions.invoke('create-office-manager', {
+            body: payload,
         });
 
-        if (!response.ok) {
-            const errorBody = await response.json();
-            throw new Error(errorBody.message || 'فشل إنشاء الحساب.');
+        if (error) {
+            throw error;
+        }
+
+        // Handle both JSON and text responses
+        if (data && data.message) {
+            return { success: true, message: data.message };
         }
         
-        // Handle potentially empty success response
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            const responseData = await response.json();
-            return { success: true, message: responseData.message || "تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد." };
-        } else {
-            return { success: true, message: "تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد." };
-        }
+        return { success: true, message: "تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد." };
 
     } catch (error: any) {
         console.error("Sign Up Error:", error);
         
         let errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.';
-        if (error.message && !error.message.includes("Unexpected end of JSON input")) {
+        if (error.message) {
           errorMessage = error.message;
         }
 
@@ -837,18 +837,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session) throw new Error("No active session");
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/handle-partial-payment`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionData.session.access_token}`,
-                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            },
-            body: JSON.stringify({ borrowerId, paidAmount })
+        const { error } = await supabase.functions.invoke('handle-partial-payment', {
+            body: { borrowerId, paidAmount }
         });
         
-        const responseData = await response.json();
-        if (!response.ok) throw new Error(responseData.message);
+        if (error) throw new Error(error.message);
 
         await fetchData(supabase);
         toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء قرض جديد بالمبلغ المتبقي.' });
@@ -908,20 +901,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         try {
             const supabase = getSupabaseBrowserClient();
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (!sessionData.session) throw new Error("No active session");
-            
-            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-investor`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionData.session.access_token}`,
-                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                },
-                body: JSON.stringify({ ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id })
+            const { data, error } = await supabase.functions.invoke('create-investor', {
+                body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id }
             });
-            const responseData = await response.json();
-            if(!response.ok) throw new Error(responseData.message);
+            
+            if (error) throw error;
             
             await fetchData(supabase);
             toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
@@ -944,21 +928,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         try {
             const supabase = getSupabaseBrowserClient();
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (!sessionData.session) throw new Error("No active session");
-
-            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-subordinate`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionData.session.access_token}`,
-                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-              },
-              body: JSON.stringify({ ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id })
+            const { data, error } = await supabase.functions.invoke('create-subordinate', {
+              body: { ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id }
             });
             
-            const responseData = await response.json();
-            if (!response.ok) throw new Error(responseData.message);
+            if (error) throw error;
             
             await fetchData(supabase);
             toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
@@ -994,21 +968,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
     try {
         const supabase = getSupabaseBrowserClient();
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session) throw new Error("No active session");
-        
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/update-user-credentials`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionData.session.access_token}`,
-                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            },
-            body: JSON.stringify({ userId, updates })
+        const { error } = await supabase.functions.invoke('update-user-credentials', { 
+            body: { userId, updates },
         });
-        
-        const responseData = await response.json();
-        if (!response.ok) throw new Error(responseData.message);
+        if (error) throw error;
         
         await fetchData(supabase);
         toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });

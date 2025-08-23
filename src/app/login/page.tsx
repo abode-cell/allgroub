@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, LogIn, Eye, EyeOff, MailCheck } from 'lucide-react';
+import { Loader2, LogIn, Eye, EyeOff, MailCheck, Hourglass } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [isPendingReview, setIsPendingReview] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +34,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     setNeedsConfirmation(false);
+    setIsPendingReview(false);
     
     const result = await signIn(email, password);
 
@@ -42,11 +44,39 @@ export default function LoginPage() {
     } else {
       if (result.reason === 'unconfirmed_email') {
         setNeedsConfirmation(true);
+      } else if (result.reason === 'pending_review') {
+        setIsPendingReview(true);
       } else {
         setError(result.message);
       }
     }
   };
+
+  if (isPendingReview) {
+    return (
+       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+          <div className="mb-6">
+            <Logo />
+          </div>
+          <Card className="w-full max-w-md text-center">
+            <CardHeader className="items-center">
+                <Hourglass className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">الحساب قيد المراجعة</CardTitle>
+                <CardDescription className="text-base/relaxed pt-2">
+                    شكرًا لتسجيلك. حسابك يخضع حاليًا للمراجعة من قبل فريقنا.
+                    <br />
+                    سيتم إعلامك عبر البريد الإلكتروني بمجرد تفعيله.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={() => setIsPendingReview(false)}>
+                    العودة إلى صفحة تسجيل الدخول
+                </Button>
+            </CardContent>
+          </Card>
+        </div>
+    );
+  }
 
   if (needsConfirmation) {
     return (
@@ -83,7 +113,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
           <CardDescription>
-            أدخل بريدك الإلكتروني أو رقم جوالك للمتابعة.
+            أدخل بريدك الإلكتروني وكلمة المرور للمتابعة.
           </CardDescription>
         </CardHeader>
         <CardContent>
