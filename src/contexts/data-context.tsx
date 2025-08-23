@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -228,9 +229,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
              }
         }
         
+        if (currentUserProfile && currentUserProfile.status === 'معلق') {
+            return; // Don't sign out, but don't fetch full data yet. Let login page handle message.
+        }
+
         if (currentUserProfile && currentUserProfile.status !== 'نشط') {
             let message = 'حسابك غير نشط حاليًا.';
-            if (currentUserProfile.status === 'معلق') message = 'حسابك معلق. يرجى التواصل مع مديرك أو الدعم الفني.';
             if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
             
             await supabaseClient.auth.signOut();
@@ -376,7 +380,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     if (!password) return { success: false, message: "بيانات غير مكتملة." };
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         if (error.message.includes('Invalid login credentials')) {
@@ -388,16 +392,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
     }
     
-    if (data.user && !data.user.email_confirmed_at) {
+    if (signInData.user && !signInData.user.email_confirmed_at) {
         return { success: false, message: 'الرجاء تأكيد بريدك الإلكتروني أولاً.', reason: 'unconfirmed_email' };
     }
 
-    const { data: userProfile } = await supabase.from('users').select('status').eq('id', data.user.id).single();
+    const { data: userProfile } = await supabase.from('users').select('status').eq('id', signInData.user.id).single();
+    
     if (userProfile && userProfile.status === 'معلق') {
-        await supabase.auth.signOut();
+        // Don't sign out, just let the login page handle the message.
         return { success: false, message: 'الحساب قيد المراجعة', reason: 'pending_review'};
     }
     
+    // Success case, onAuthStateChange will trigger fetchData
     return { success: true, message: 'جاري تسجيل الدخول...' };
   }, []);
 
@@ -408,30 +414,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
   },[router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
-    setIsLoading(true);
     try {
         const supabase = getSupabaseBrowserClient();
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
         const { data, error } = await supabase.functions.invoke('create-office-manager', {
             body: payload,
-            headers: {
-                // No need for Authorization header for a public sign-up function
-            },
         });
 
         if (error) {
             throw error;
         }
 
-        // Handle both JSON and text responses robustly
         let message = 'تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد.';
         if (data && data.message) {
             message = data.message;
         }
         
-        setIsLoading(false);
         return { success: true, message: message };
 
     } catch (error: any) {
@@ -439,14 +436,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
         let errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.';
         
-        // Try to parse a JSON error message from the response
-        if (error.context && error.context.json) {
-            errorMessage = error.context.json.message || errorMessage;
+        if (error.context && typeof error.context.json === 'function') {
+            try {
+                const jsonError = await error.context.json();
+                if (jsonError && jsonError.message) {
+                    errorMessage = jsonError.message;
+                }
+            } catch (e) {
+                // Ignore if parsing fails
+            }
         } else if (typeof error.message === 'string') {
             errorMessage = error.message;
         }
         
-        setIsLoading(false);
         return { success: false, message: errorMessage };
     }
   }, []);
