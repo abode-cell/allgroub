@@ -400,31 +400,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
   },[router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
-    const supabase = getSupabaseBrowserClient();
     try {
-        const { error } = await supabase.functions.invoke('create-office-manager', {
-            body: payload,
+        const supabase = getSupabaseBrowserClient();
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-office-manager`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            },
+            body: JSON.stringify(payload),
         });
 
-        if (error) {
-            // The error from invoke might be a complex object.
-            // We'll try to get a meaningful message.
-            const errorMessage = typeof error.message === 'string' 
-                ? error.message 
-                : (error.message as any)?.message || JSON.stringify(error.message);
-            throw new Error(errorMessage || 'An unknown error occurred during function invocation.');
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(errorBody.message || 'فشل إنشاء الحساب.');
         }
-
-        return { success: true, message: "تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد." };
+        
+        // Handle potentially empty success response
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            const responseData = await response.json();
+            return { success: true, message: responseData.message || "تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد." };
+        } else {
+            return { success: true, message: "تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد." };
+        }
 
     } catch (error: any) {
         console.error("Sign Up Error:", error);
         
-        let errorMessage = error.message;
-        if (errorMessage.includes("Failed to fetch")) {
-            errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.';
-        } else if (errorMessage.includes("already registered")) {
-            errorMessage = 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.';
+        let errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.';
+        if (error.message && !error.message.includes("Unexpected end of JSON input")) {
+          errorMessage = error.message;
         }
 
         return { success: false, message: errorMessage };
@@ -1223,8 +1229,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteSupportTicket, replyToSupportTicket, addBorrower, updateBorrower,
       updateBorrowerPaymentStatus, approveBorrower, rejectBorrower, deleteBorrower,
       updateInstallmentStatus, handlePartialPayment, addInvestor, addNewSubordinateUser,
-      updateInvestor, approveInvestor, rejectInvestor, addInvestorTransaction,
-      updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
+      updateInvestor, approveInvestor, rejectInvestor,
+      addInvestorTransaction, updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
       updateUserLimits, updateManagerSettings, updateAssistantPermission,
       updateEmployeePermission, requestCapitalIncrease, deleteUser,
       clearUserNotifications, markUserNotificationsAsRead, markBorrowerAsNotified,
