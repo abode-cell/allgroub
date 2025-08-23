@@ -216,7 +216,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const currentUserProfile = all_users_data?.find(u => u.id === authUser.id);
         
         if (!currentUserProfile) {
-            await new Promise(resolve => setTimeout(resolve, 2500)); // Wait for potential DB replication delay
              const { data: refetchedUsers, error: refetchError } = await supabaseClient.from('users').select('*');
              if(refetchError || !refetchedUsers) {
                  throw new Error("Failed to complete account setup. Please try again or contact support.");
@@ -403,30 +402,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
     const supabase = getSupabaseBrowserClient();
     try {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-office-manager`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            },
-            body: JSON.stringify(payload),
+        const { error } = await supabase.functions.invoke('create-office-manager', {
+            body: payload,
         });
 
-        const responseData = await response.json();
-        if (!response.ok) {
-            throw new Error(responseData.message || "An unknown error occurred.");
+        if (error) {
+            // The error from invoke might be a complex object.
+            // We'll try to get a meaningful message.
+            const errorMessage = typeof error.message === 'string' 
+                ? error.message 
+                : (error.message as any)?.message || JSON.stringify(error.message);
+            throw new Error(errorMessage || 'An unknown error occurred during function invocation.');
         }
-        
-        return { success: true, message: responseData.message || "تم إنشاء الحساب بنجاح." };
+
+        return { success: true, message: "تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد." };
 
     } catch (error: any) {
         console.error("Sign Up Error:", error);
-        const errorMessage = error.message.includes("Failed to fetch")
-            ? 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.'
-            : (error.message || 'فشل إنشاء الحساب.');
+        
+        let errorMessage = error.message;
+        if (errorMessage.includes("Failed to fetch")) {
+            errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.';
+        } else if (errorMessage.includes("already registered")) {
+            errorMessage = 'البريد الإلكتروني أو رقم الهاتف مسجل بالفعل.';
+        }
+
         return { success: false, message: errorMessage };
     }
   }, []);
