@@ -408,31 +408,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
   },[router]);
 
   const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true);
     try {
         const supabase = getSupabaseBrowserClient();
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
         const { data, error } = await supabase.functions.invoke('create-office-manager', {
             body: payload,
+            headers: {
+                // No need for Authorization header for a public sign-up function
+            },
         });
 
         if (error) {
             throw error;
         }
 
-        // Handle both JSON and text responses
+        // Handle both JSON and text responses robustly
+        let message = 'تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد.';
         if (data && data.message) {
-            return { success: true, message: data.message };
+            message = data.message;
         }
         
-        return { success: true, message: "تم إرسال طلبك. يرجى مراجعة بريدك الإلكتروني للتأكيد." };
+        setIsLoading(false);
+        return { success: true, message: message };
 
     } catch (error: any) {
         console.error("Sign Up Error:", error);
         
         let errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.';
-        if (error.message) {
-          errorMessage = error.message;
+        
+        // Try to parse a JSON error message from the response
+        if (error.context && error.context.json) {
+            errorMessage = error.context.json.message || errorMessage;
+        } else if (typeof error.message === 'string') {
+            errorMessage = error.message;
         }
-
+        
+        setIsLoading(false);
         return { success: false, message: errorMessage };
     }
   }, []);
@@ -968,8 +982,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
     try {
         const supabase = getSupabaseBrowserClient();
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session) throw new Error("No active session");
+        
         const { error } = await supabase.functions.invoke('update-user-credentials', { 
             body: { userId, updates },
+            headers: {
+                Authorization: `Bearer ${sessionData.session.access_token}`
+            }
         });
         if (error) throw error;
         
