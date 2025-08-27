@@ -1,5 +1,3 @@
-
-
 // supabase/functions/update-user-credentials/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -24,13 +22,7 @@ serve(async (req) => {
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
     
     // Intentionally skipping invoker auth check to allow client-side calls
