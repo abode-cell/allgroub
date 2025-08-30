@@ -1,7 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// This is a singleton pattern to ensure we only have one instance of the client.
 let supabaseClient: SupabaseClient | null = null;
 
 export const getSupabaseBrowserClient = (): SupabaseClient => {
@@ -10,10 +9,16 @@ export const getSupabaseBrowserClient = (): SupabaseClient => {
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase URL or anonymous key is not set. Check your .env file.');
+      throw new Error('متغيرات البيئة الخاصة بـ Supabase غير مُعرَّفة. تحقق من ملف .env');
     }
     
-    supabaseClient = createBrowserClient(supabaseUrl, supabaseKey);
+    supabaseClient = createBrowserClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
   }
   return supabaseClient;
 };

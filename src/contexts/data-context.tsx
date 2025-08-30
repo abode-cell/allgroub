@@ -1,1348 +1,1346 @@
-
-
 'use client';
 
-import {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useCallback,
-  useMemo,
-  useEffect,
-} from 'react';
-import type {
-  Borrower,
-  Investor,
-  Transaction,
-  User,
-  UserRole,
-  SupportTicket,
-  Notification,
-  BorrowerPaymentStatus,
-  PermissionKey,
-  NewUserPayload,
-  UpdatableInvestor,
-  NewInvestorPayload,
-  InstallmentStatus,
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import type { Session, User as AuthUser } from '@supabase/supabase-js';
+import type { 
+  User, 
+  Borrower, 
+  Investor, 
+  Transaction, 
+  SupportTicket, 
+  Notification, 
+  NewUserPayload, 
+  NewManagerPayload, 
+  NewInvestorPayload, 
+  UpdatableInvestor, 
   AddBorrowerResult,
+  Office,
   Branch,
-  NewManagerPayload,
-  Office
+  BorrowerPaymentStatus,
+  InstallmentStatus
 } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { calculateInvestorFinancials, formatCurrency } from '@/lib/utils';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import type { SupabaseClient, Session } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation';
 
-type SignInResult = {
-  success: boolean;
-  message: string;
-  reason?: 'unconfirmed_email' | 'pending_review' | 'other';
-}
-
-type DataContextValue = {
-  currentUser: User | undefined;
+interface DataState {
+  // Auth state
   session: Session | null;
   authLoading: boolean;
   dataLoading: boolean;
+  
+  // User data
+  currentUser: User | null;
+  users: User[];
+  visibleUsers: User[];
+  
+  // Business data
   borrowers: Borrower[];
   investors: Investor[];
-  users: User[];
-  offices: Office[];
   transactions: Transaction[];
-  visibleUsers: User[];
-  supportTickets: SupportTicket[];
   notifications: Notification[];
-  salaryRepaymentPercentage: number;
+  supportTickets: SupportTicket[];
+  offices: Office[];
+  branches: Branch[];
+  
+  // App configuration
   baseInterestRate: number;
   investorSharePercentage: number;
+  salaryRepaymentPercentage: number;
   graceTotalProfitPercentage: number;
   graceInvestorSharePercentage: number;
   supportEmail: string;
   supportPhone: string;
-  signIn: (email: string, password?: string) => Promise<SignInResult>;
-  signOutUser: () => void;
+}
+
+interface DataActions {
+  // Auth actions
+  signIn: (email: string, password: string) => Promise<{ success: boolean; message: string; reason?: string }>;
+  signOutUser: () => Promise<void>;
   registerNewOfficeManager: (payload: NewManagerPayload) => Promise<{ success: boolean; message: string }>;
-  addBranch: (branch: Omit<Branch, 'id' | 'office_id'>) => Promise<{success: boolean, message: string}>;
-  deleteBranch: (branchId: string) => void;
-  updateSupportInfo: (info: { email?: string; phone?: string }) => void;
-  updateBaseInterestRate: (rate: number) => void;
-  updateInvestorSharePercentage: (percentage: number) => void;
-  updateSalaryRepaymentPercentage: (percentage: number) => void;
-  updateGraceTotalProfitPercentage: (percentage: number) => void;
-  updateGraceInvestorSharePercentage: (percentage: number) => void;
-  updateTrialPeriod: (days: number) => void;
-  addSupportTicket: (
-    ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead' | 'isReplied'>
-  ) => void;
-  deleteSupportTicket: (ticketId: string) => void;
-  replyToSupportTicket: (ticketId: string, replyMessage: string) => void;
-  addBorrower: (
-    borrower: Omit<
-      Borrower,
-      'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus' | 'fundedBy' | 'office_id' | 'managedBy'
-    >,
-    investorIds: string[],
-    force?: boolean
-  ) => Promise<AddBorrowerResult>;
-  updateBorrower: (borrower: Borrower) => void;
-  updateBorrowerPaymentStatus: (
-    borrowerId: string,
-    paymentStatus?: BorrowerPaymentStatus
-  ) => void;
-  approveBorrower: (borrowerId: string, investorIds: string[]) => void;
-  rejectBorrower: (borrowerId: string, reason: string) => void;
-  deleteBorrower: (borrowerId: string) => void;
-  updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => void;
-  handlePartialPayment: (borrowerId: string, paidAmount: number) => void;
-  addInvestor: (investor: NewInvestorPayload) => Promise<{ success: boolean; message: string }>;
-  addNewSubordinateUser: (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب') => Promise<{ success: boolean, message: string }>;
-  updateInvestor: (investor: UpdatableInvestor) => void;
-  approveInvestor: (investorId: string) => void;
-  rejectInvestor: (investorId: string, reason: string) => void;
-  addInvestorTransaction: (
-    investorId: string,
-    transaction: Omit<Transaction, 'id' | 'investor_id' | 'office_id'>
-  ) => void;
-  updateUserIdentity: (
-    updates: Partial<User>
-  ) => Promise<{ success: boolean; message: string }>;
-  updateUserCredentials: (
-    userId: string,
-    updates: { email?: string; password?: string, officeName?: string; branch_id?: string | null }
-  ) => Promise<{ success: boolean, message: string }>;
+  
+  // User management
+  addUser: (payload: NewUserPayload) => Promise<{ success: boolean; message: string }>;
+  updateUser: (userId: string, updates: Partial<User>) => Promise<void>;
   updateUserStatus: (userId: string, status: User['status']) => Promise<void>;
-  updateUserRole: (userId: string, role: UserRole) => void;
-  updateUserLimits: (
-    userId: string,
-    limits: { investorLimit: number; employeeLimit: number; assistantLimit: number; branchLimit: number }
-  ) => void;
-  updateManagerSettings: (
-    managerId: string,
-    settings: {
-      allowEmployeeSubmissions?: boolean;
-      hideEmployeeInvestorFunds?: boolean;
-      allowEmployeeLoanEdits?: boolean;
-    }
-  ) => void;
-  updateAssistantPermission: (
-    assistantId: string,
-    key: PermissionKey,
-    value: boolean
-  ) => void;
-  updateEmployeePermission: (
-    employeeId: string,
-    key: PermissionKey,
-    value: boolean
-  ) => void;
-  requestCapitalIncrease: (investorId: string) => void;
-  deleteUser: (userId: string) => void;
-  clearUserNotifications: (userId: string) => void;
-  markUserNotificationsAsRead: (userId: string) => void;
-  markBorrowerAsNotified: (borrowerId: string, message: string) => void;
-  markInvestorAsNotified: (investorId: string, message: string) => void;
-};
+  updateUserCredentials: (userId: string, updates: { email?: string; password?: string }) => Promise<{ success: boolean; message: string }>;
+  updateUserIdentity: (updates: { name?: string; phone?: string; password?: string }) => Promise<{ success: boolean; message: string }>;
+  deleteUser: (userId: string) => Promise<void>;
+  
+  // Business actions
+  addBorrower: (borrower: Omit<Borrower, 'id' | 'date' | 'fundedBy'>, investorIds: string[], force?: boolean) => Promise<AddBorrowerResult>;
+  updateBorrower: (borrower: Borrower) => Promise<void>;
+  updateBorrowerPaymentStatus: (borrowerId: string, paymentStatus?: BorrowerPaymentStatus) => Promise<void>;
+  updateInstallmentStatus: (borrowerId: string, month: number, status: InstallmentStatus) => Promise<void>;
+  deleteBorrower: (borrowerId: string) => Promise<void>;
+  handlePartialPayment: (borrowerId: string, paidAmount: number) => Promise<void>;
+  markBorrowerAsNotified: (borrowerId: string, message: string) => Promise<void>;
+  
+  addInvestor: (payload: NewInvestorPayload) => Promise<{ success: boolean; message: string }>;
+  updateInvestor: (investor: UpdatableInvestor) => Promise<void>;
+  approveInvestor: (investorId: string) => Promise<void>;
+  rejectInvestor: (investorId: string, reason: string) => Promise<void>;
+  addInvestorTransaction: (investorId: string, transaction: Omit<Transaction, 'id' | 'investor_id' | 'office_id'>) => Promise<void>;
+  requestCapitalIncrease: (investorId: string) => Promise<void>;
+  markInvestorAsNotified: (investorId: string, message: string) => Promise<void>;
+  
+  approveBorrower: (borrowerId: string, investorIds: string[]) => Promise<void>;
+  rejectBorrower: (borrowerId: string, reason: string) => Promise<void>;
+  
+  // Configuration
+  updateBaseInterestRate: (rate: number) => Promise<void>;
+  updateInvestorSharePercentage: (percentage: number) => Promise<void>;
+  updateSalaryRepaymentPercentage: (percentage: number) => Promise<void>;
+  updateGraceTotalProfitPercentage: (percentage: number) => Promise<void>;
+  updateGraceInvestorSharePercentage: (percentage: number) => Promise<void>;
+  updateSupportInfo: (info: { email: string; phone: string }) => Promise<void>;
+  updateTrialPeriod: (days: number) => Promise<void>;
+  
+  // Support and notifications
+  addSupportTicket: (ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead' | 'isReplied'>) => Promise<void>;
+  deleteSupportTicket: (ticketId: string) => Promise<void>;
+  replyToSupportTicket: (ticketId: string, reply: string) => Promise<void>;
+  markUserNotificationsAsRead: (userId: string) => Promise<void>;
+  clearUserNotifications: (userId: string) => Promise<void>;
+  
+  // Office and branch management
+  addBranch: (branch: Omit<Branch, 'id'>) => Promise<void>;
+  updateBranch: (branchId: string, updates: Partial<Branch>) => Promise<void>;
+  deleteBranch: (branchId: string) => Promise<void>;
+}
 
+const DataContext = createContext<DataState | null>(null);
+const DataActionsContext = createContext<DataActions | null>(null);
 
-const DataContext = createContext<DataContextValue | undefined>(undefined);
-
-type InitialDataState = Pick<DataContextValue, 
-  | 'borrowers' 
-  | 'investors' 
-  | 'users'
-  | 'offices' 
-  | 'transactions' 
-  | 'supportTickets' 
-  | 'notifications' 
-  | 'salaryRepaymentPercentage' 
-  | 'baseInterestRate' 
-  | 'investorSharePercentage' 
-  | 'graceTotalProfitPercentage' 
-  | 'graceInvestorSharePercentage' 
-  | 'supportEmail' 
-  | 'supportPhone'
->;
-
-const initialDataState: InitialDataState = {
+const initialState: DataState = {
+  session: null,
+  authLoading: true,
+  dataLoading: true,
+  currentUser: null,
   users: [],
-  offices: [],
+  visibleUsers: [],
   borrowers: [],
   investors: [],
   transactions: [],
-  supportTickets: [],
   notifications: [],
-  salaryRepaymentPercentage: 0,
-  baseInterestRate: 0,
-  investorSharePercentage: 0,
-  graceTotalProfitPercentage: 0,
-  graceInvestorSharePercentage: 0,
-  supportEmail: '',
-  supportPhone: '',
+  supportTickets: [],
+  offices: [],
+  branches: [],
+  baseInterestRate: 15,
+  investorSharePercentage: 70,
+  salaryRepaymentPercentage: 65,
+  graceTotalProfitPercentage: 25,
+  graceInvestorSharePercentage: 33.3,
+  supportEmail: 'qzmpty678@gmail.com',
+  supportPhone: '0598360380',
 };
 
-export function DataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState(initialDataState);
-  const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(true);
+export function DataProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<DataState>(initialState);
   const { toast } = useToast();
-  const router = useRouter();
-  
-  const fetchData = useCallback(async (supabaseClient: SupabaseClient) => {
-    setDataLoading(true);
+  const supabase = getSupabaseBrowserClient();
+
+  // Helper function to generate unique IDs
+  const generateId = useCallback(() => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, []);
+
+  // Load initial data
+  const loadData = useCallback(async () => {
     try {
-        const { data: { user: authUser } } = await supabaseClient.auth.getUser();
-        if (!authUser) {
-            setDataLoading(false);
-            return;
-        };
-        
-        // Fetch essential data first
-        const [
-            { data: all_users_data, error: usersError },
-            { data: offices_data, error: officesError },
-            { data: app_config_data, error: appConfigError }
-        ] = await Promise.all([
-            supabaseClient.from('users').select('*'),
-            supabaseClient.from('offices').select('*'),
-            supabaseClient.from('app_config').select('*')
-        ]);
+      setState(prev => ({ ...prev, dataLoading: true }));
 
-        if (usersError || officesError || appConfigError) {
-            throw new Error(`Failed to fetch essential data. ${usersError?.message || officesError?.message || appConfigError?.message}`);
-        }
+      const [
+        { data: users },
+        { data: borrowers },
+        { data: investors },
+        { data: transactions },
+        { data: notifications },
+        { data: supportTickets },
+        { data: offices },
+        { data: branches },
+        { data: appConfig }
+      ] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('borrowers').select('*'),
+        supabase.from('investors').select('*'),
+        supabase.from('transactions').select('*'),
+        supabase.from('notifications').select('*'),
+        supabase.from('support_tickets').select('*'),
+        supabase.from('offices').select('*'),
+        supabase.from('branches').select('*'),
+        supabase.from('app_config').select('*')
+      ]);
 
-        const currentUserProfile = all_users_data?.find(u => u.id === authUser.id);
-        
-        if (!currentUserProfile) {
-             // This might happen due to replication delay after sign up. Let's try one more time.
-             await new Promise(resolve => setTimeout(resolve, 1000));
-             const { data: refetchedUsers, error: refetchError } = await supabaseClient.from('users').select('*');
-             if(refetchError || !refetchedUsers) {
-                 throw new Error("Failed to complete account setup. Please try again or contact support.");
-             }
-             const refetchedProfile = refetchedUsers.find(u => u.id === authUser.id);
-             if (!refetchedProfile) {
-                 throw new Error("Could not find user profile even after refetch.");
-             }
-        }
-        
-        if (currentUserProfile && currentUserProfile.status === 'معلق') {
-            return; // Don't sign out, but don't fetch full data yet. Let login page handle message.
-        }
+      // Parse app configuration
+      const config = (appConfig || []).reduce((acc, item) => {
+        acc[item.key] = item.value.value;
+        return acc;
+      }, {} as any);
 
-        if (currentUserProfile && currentUserProfile.status !== 'نشط') {
-            let message = 'حسابك غير نشط حاليًا.';
-            if (currentUserProfile.status === 'مرفوض') message = 'تم رفض طلبك للانضمام.';
-            
-            await supabaseClient.auth.signOut();
-            toast({ variant: "destructive", title: "تم تسجيل الخروج", description: message });
-            setDataLoading(false);
-            return;
-        }
-
-        // Fetch non-essential data
-        const [
-            { data: investors_data, error: investorsError },
-            { data: borrowers_data, error: borrowersError },
-            { data: transactions_data, error: transactionsError },
-            { data: notifications_data, error: notificationsError },
-            { data: support_tickets_data, error: supportTicketsError },
-            { data: branches_data, error: branchesError }
-        ] = await Promise.all([
-            supabaseClient.from('investors').select('*'),
-            supabaseClient.from('borrowers').select('*'),
-            supabaseClient.from('transactions').select('*'),
-            supabaseClient.from('notifications').select('*'),
-            supabaseClient.from('support_tickets').select('*'),
-            supabaseClient.from('branches').select('*'),
-        ]);
-
-        const nonEssentialErrors = { investorsError, borrowersError, transactionsError, notificationsError, supportTicketsError, branchesError };
-        for (const [key, error] of Object.entries(nonEssentialErrors)) {
-            if (error) console.warn(`Warning: Non-critical fetch for ${key} failed.`, error);
-        }
-
-        const configData = (app_config_data || []).reduce((acc: any, row: any) => {
-            acc[row.key] = row.value.value;
-            return acc;
-        }, {} as any);
-        
-        const borrowersWithData: Borrower[] = (borrowers_data || []).map((borrower: any) => ({
-            ...borrower,
-            fundedBy: (borrower.fundedBy || []).map((f: any) => ({ investorId: f.investorId, amount: f.amount })),
-            installments: (borrower.installments || []).map((i: any) => ({ month: i.month, status: i.status as InstallmentStatus })),
-            partialPayment: borrower.partial_payment_paid_amount ? {
-                paidAmount: borrower.partial_payment_paid_amount,
-                remainingLoanId: borrower.partial_payment_remaining_loan_id!,
-            } : undefined
-        }));
-        
-        const officesWithBranches = (offices_data || []).map(office => ({
-            ...office,
-            branches: (branches_data || []).filter(b => b.office_id === office.id)
-        }));
-
-        setData({
-            users: all_users_data || [],
-            offices: officesWithBranches,
-            investors: investors_data || [],
-            borrowers: borrowersWithData,
-            transactions: transactions_data || [],
-            notifications: notifications_data || [],
-            supportTickets: support_tickets_data || [],
-            salaryRepaymentPercentage: configData.salaryRepaymentPercentage ?? 0,
-            baseInterestRate: configData.baseInterestRate ?? 0,
-            investorSharePercentage: configData.investorSharePercentage ?? 0,
-            graceTotalProfitPercentage: configData.graceTotalProfitPercentage ?? 0,
-            graceInvestorSharePercentage: configData.graceInvestorSharePercentage ?? 0,
-            supportEmail: configData.supportEmail ?? '',
-            supportPhone: configData.supportPhone ?? '',
-        });
-
-    } catch (error: any) {
-        console.error("Error in fetchData:", error);
-        toast({
-            variant: "destructive",
-            title: "فشل في جلب البيانات",
-            description: error.message || "لم نتمكن من تحميل بيانات التطبيق. يرجى تحديث الصفحة والمحاولة مرة أخرى.",
-        });
-    } finally {
-      setDataLoading(false);
-    }
-  }, [toast]);
-  
-  
-  useEffect(() => {
-    try {
-      const client = getSupabaseBrowserClient();
-      
-      const {
-        data: { subscription },
-      } = client.auth.onAuthStateChange((event, session) => {
-          setSession(session);
-          if (event === 'SIGNED_IN') {
-              fetchData(client);
-          }
-          if (event === 'SIGNED_OUT') {
-              setData(initialDataState);
-          }
-          setAuthLoading(false);
-      });
-
-      client.auth.getSession().then(({ data: { session } }) => {
-          setSession(session);
-          setAuthLoading(false);
-          if (session) {
-              fetchData(client);
-          } else {
-              setDataLoading(false);
-          }
-      });
-
-      return () => {
-        subscription.unsubscribe();
-      };
+      setState(prev => ({
+        ...prev,
+        users: users || [],
+        visibleUsers: users || [],
+        borrowers: borrowers || [],
+        investors: investors || [],
+        transactions: transactions || [],
+        notifications: notifications || [],
+        supportTickets: supportTickets || [],
+        offices: offices || [],
+        branches: branches || [],
+        baseInterestRate: config.baseInterestRate || 15,
+        investorSharePercentage: config.investorSharePercentage || 70,
+        salaryRepaymentPercentage: config.salaryRepaymentPercentage || 65,
+        graceTotalProfitPercentage: config.graceTotalProfitPercentage || 25,
+        graceInvestorSharePercentage: config.graceInvestorSharePercentage || 33.3,
+        supportEmail: config.supportEmail || 'qzmpty678@gmail.com',
+        supportPhone: config.supportPhone || '0598360380',
+        dataLoading: false,
+      }));
     } catch (error) {
-        console.error(error);
-        toast({ variant: 'destructive', title: 'خطأ فادح', description: 'لا يمكن تهيئة الاتصال بقاعدة البيانات. تحقق من إعدادات البيئة.'});
-        setAuthLoading(false);
-        setDataLoading(false);
+      console.error('Error loading data:', error);
+      setState(prev => ({ ...prev, dataLoading: false }));
     }
-  }, [fetchData, toast]);
-  
-  const currentUser = useMemo(() => {
-    if (!session?.user) return undefined;
-    const user = data.users.find((u) => u.id === session.user.id);
-    if (!user) return undefined;
-    
-    const office = data.offices.find(o => o.id === user.office_id);
+  }, [supabase]);
 
-    return {
-        ...user,
-        office_name: office?.name,
-        branches: office?.branches || [],
-    }
-  }, [data.users, data.offices, session]);
-  
-  const visibleUsers = useMemo(() => {
-    if (!currentUser) return [];
-    if (currentUser.role === 'مدير النظام') {
-        return data.users.filter(u => u.status !== 'محذوف');
-    }
-    return data.users.filter(u => u.office_id === currentUser.office_id && u.status !== 'محذوف');
-  }, [currentUser, data.users]);
+  // Auth state management
+  useEffect(() => {
+    let mounted = true;
 
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (mounted) {
+          setState(prev => ({ 
+            ...prev, 
+            session, 
+            authLoading: false 
+          }));
 
-  const signIn = useCallback(async (email: string, password?: string): Promise<SignInResult> => {
-    const supabase = getSupabaseBrowserClient();
-    if (!password) return { success: false, message: "بيانات غير مكتملة." };
+          if (session?.user) {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
 
-    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-            return { success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' };
+            if (mounted && userData) {
+              setState(prev => ({ 
+                ...prev, 
+                currentUser: userData 
+              }));
+              await loadData();
+            }
+          } else {
+            setState(prev => ({ ...prev, dataLoading: false }));
+          }
         }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setState(prev => ({ 
+            ...prev, 
+            authLoading: false, 
+            dataLoading: false 
+          }));
+        }
+      }
+    };
+
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+
+        setState(prev => ({ ...prev, session }));
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (userData) {
+            setState(prev => ({ ...prev, currentUser: userData }));
+            await loadData();
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setState(prev => ({ 
+            ...prev, 
+            currentUser: null,
+            users: [],
+            visibleUsers: [],
+            borrowers: [],
+            investors: [],
+            transactions: [],
+            notifications: [],
+            supportTickets: [],
+            offices: [],
+            branches: [],
+          }));
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase, loadData]);
+
+  // Auth actions
+  const signIn = useCallback(async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
         if (error.message.includes('Email not confirmed')) {
-            return { success: false, message: 'الرجاء تأكيد بريدك الإلكتروني أولاً.', reason: 'unconfirmed_email' };
+          return { success: false, message: 'يرجى تأكيد بريدك الإلكتروني أولاً.', reason: 'unconfirmed_email' };
         }
-        return { success: false, message: error.message };
-    }
-    
-    if (signInData.user && !signInData.user.email_confirmed_at) {
-        return { success: false, message: 'الرجاء تأكيد بريدك الإلكتروني أولاً.', reason: 'unconfirmed_email' };
-    }
+        return { success: false, message: 'بيانات الدخول غير صحيحة.' };
+      }
 
-    const { data: userProfile } = await supabase.from('users').select('status').eq('id', signInData.user.id).single();
-    
-    if (userProfile && userProfile.status === 'معلق') {
-        // Don't sign out, just let the login page handle the message.
-        return { success: false, message: 'الحساب قيد المراجعة', reason: 'pending_review'};
+      if (data.user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (userData?.status === 'معلق') {
+          await supabase.auth.signOut();
+          return { success: false, message: 'حسابك قيد المراجعة.', reason: 'pending_review' };
+        }
+
+        if (userData?.status === 'مرفوض') {
+          await supabase.auth.signOut();
+          return { success: false, message: 'تم رفض حسابك. يرجى التواصل مع الدعم.' };
+        }
+
+        if (userData?.status === 'محذوف') {
+          await supabase.auth.signOut();
+          return { success: false, message: 'هذا الحساب غير نشط.' };
+        }
+      }
+
+      return { success: true, message: 'تم تسجيل الدخول بنجاح.' };
+    } catch (error) {
+      console.error('Sign in error:', error);
+      return { success: false, message: 'حدث خطأ أثناء تسجيل الدخول.' };
     }
-    
-    // Success case, onAuthStateChange will trigger fetchData
-    return { success: true, message: 'جاري تسجيل الدخول...' };
-  }, []);
+  }, [supabase]);
 
   const signOutUser = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    router.push('/login');
-  },[router]);
-
-  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload): Promise<{ success: boolean; message: string }> => {
-    const supabase = getSupabaseBrowserClient();
     try {
-        const { data, error } = await supabase.functions.invoke('create-office-manager', {
-            body: payload,
-        });
-
-        if (error) throw error;
-        
-        if (data && data.message) {
-            return { success: true, message: data.message };
-        }
-        
-        return { success: true, message: "تم إرسال الطلب بنجاح. يرجى مراجعة بريدك الإلكتروني للتفعيل." };
-
-    } catch (error: any) {
-        console.error("Sign Up Error:", error);
-        let errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت أو التواصل مع الدعم.';
-        if (error.context && error.context.json) {
-            const jsonError = await error.context.json();
-            if (jsonError && jsonError.message) {
-                errorMessage = jsonError.message;
-            }
-        } else if(error.message) {
-            errorMessage = error.message;
-        }
-        
-        return { success: false, message: errorMessage };
+      await supabase.auth.signOut();
+      setState(initialState);
+    } catch (error) {
+      console.error('Sign out error:', error);
     }
-  }, []);
-  
-  const addNotification = useCallback(
-    async (notification: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
-       const supabase = getSupabaseBrowserClient();
-       const newNotification: Omit<Notification, 'id'> = {
-         ...notification,
-         date: new Date().toISOString(),
-         isRead: false,
-       };
-       await supabase.from('notifications').insert(newNotification);
-       fetchData(supabase);
-    },
-    [fetchData]
-  );
+  }, [supabase]);
 
-  const clearUserNotifications = useCallback(
-    async (userId: string) => {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.from('notifications').delete().eq('recipientId', userId);
-      fetchData(supabase);
-      toast({ title: 'تم حذف جميع التنبيهات' });
-    },
-    [toast, fetchData]
-  );
-
-  const markUserNotificationsAsRead = useCallback(async (userId: string) => {
-    const supabase = getSupabaseBrowserClient();
-    await supabase.from('notifications').update({ isRead: true }).eq('recipientId', userId).eq('isRead', false);
-    fetchData(supabase);
-  }, [fetchData]);
-
-  const updateTrialPeriod = useCallback(
-    async (days: number) => {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from('app_config').update({ value: { value: days } }).eq('key', 'defaultTrialPeriodDays');
-      if (error) {
-        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث الفترة التجريبية." });
-      } else {
-        await fetchData(supabase);
-        toast({
-          title: 'تم التحديث',
-          description: `تم تحديث الفترة التجريبية إلى ${days} يوم.`,
-        });
-      }
-    },
-    [toast, fetchData]
-  );
-
-  const updateSalaryRepaymentPercentage = useCallback(
-    async (percentage: number) => {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from('app_config').update({ value: { value: percentage } }).eq('key', 'salaryRepaymentPercentage');
-      if (error) {
-        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث نسبة السداد." });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تم التحديث', description: `تم تحديث نسبة السداد من الراتب إلى ${percentage}%.` });
-      }
-    },
-    [toast, fetchData]
-  );
-  const updateBaseInterestRate = useCallback(
-    async (rate: number) => {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from('app_config').update({ value: { value: rate } }).eq('key', 'baseInterestRate');
-      if (error) {
-        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث نسبة الربح." });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تم التحديث', description: `تم تحديث نسبة الربح الأساسية إلى ${rate}%.` });
-      }
-    },
-    [toast, fetchData]
-  );
-  const updateInvestorSharePercentage = useCallback(
-    async (percentage: number) => {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from('app_config').update({ value: { value: percentage } }).eq('key', 'investorSharePercentage');
-      if (error) {
-        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حصة المستثمر." });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تم التحديث', description: `تم تحديث حصة المستثمر من الأرباح إلى ${percentage}%.` });
-      }
-    },
-    [toast, fetchData]
-  );
-  const updateGraceTotalProfitPercentage = useCallback(
-    async (percentage: number) => {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from('app_config').update({ value: { value: percentage } }).eq('key', 'graceTotalProfitPercentage');
-      if (error) {
-        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث ربح المهلة." });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تم التحديث', description: `تم تحديث نسبة الربح الإجمالية لتمويل المهلة إلى ${percentage}%.` });
-      }
-    },
-    [toast, fetchData]
-  );
-  const updateGraceInvestorSharePercentage = useCallback(
-    async (percentage: number) => {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from('app_config').update({ value: { value: percentage } }).eq('key', 'graceInvestorSharePercentage');
-      if (error) {
-        toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حصة مستثمر المهلة." });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تم التحديث', description: `تم تحديث حصة المستثمر من أرباح المهلة إلى ${percentage}%.` });
-      }
-    },
-    [toast, fetchData]
-  );
-
-  const updateSupportInfo = useCallback(
-    async (info: { email?: string; phone?: string }) => {
-      const supabase = getSupabaseBrowserClient();
-      if(info.email) {
-        const { error } = await supabase.from('app_config').update({ value: { value: info.email } }).eq('key', 'supportEmail');
-        if (error) {
-          toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث البريد الإلكتروني للدعم." });
-          return;
-        }
-      }
-      if(info.phone) {
-        const { error } = await supabase.from('app_config').update({ value: { value: info.phone } }).eq('key', 'supportPhone');
-        if (error) {
-          toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث هاتف الدعم." });
-          return;
-        }
-      }
-      await fetchData(supabase);
-      toast({ title: 'تم تحديث معلومات الدعم', description: 'تم تحديث معلومات التواصل بنجاح.' });
-    },
-    [toast, fetchData]
-  );
-
-  const updateBorrower = useCallback(
-    async (updatedBorrower: Borrower) => {
-      const supabase = getSupabaseBrowserClient();
-      if (!currentUser) return;
-      
-      const originalBorrower = data.borrowers.find(b => b.id === updatedBorrower.id);
-      if (!originalBorrower) return;
-      
-      const manager = data.users.find(u => u.office_id === currentUser.office_id && u.role === 'مدير المكتب');
-
-      if(currentUser.role === 'موظف' && !(manager?.allowEmployeeLoanEdits)) {
-           toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك الصلاحية لتعديل القروض.'});
-           return;
-      } else if (currentUser.role === 'مساعد مدير المكتب' && !currentUser.permissions?.manageBorrowers) {
-          toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك صلاحية لتعديل القروض.' });
-          return;
-      }
-
-      if (originalBorrower.status !== 'معلق') {
-          const financialFieldsChanged = updatedBorrower.amount !== originalBorrower.amount ||
-                                         updatedBorrower.rate !== originalBorrower.rate ||
-                                         updatedBorrower.term !== originalBorrower.term ||
-                                         updatedBorrower.loanType !== originalBorrower.loanType ||
-                                         updatedBorrower.dueDate !== originalBorrower.dueDate;
-          if (financialFieldsChanged) {
-            toast({ variant: 'destructive', title: 'خطأ', description: 'لا يمكن تغيير البيانات المالية (المبلغ، الفائدة، المدة، نوع التمويل، تاريخ الاستحقاق) لقرض نشط.'});
-            return;
-          }
-      }
-      
-      if (originalBorrower.paymentStatus === 'تم السداد' || originalBorrower.status === 'مرفوض') {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'لا يمكن تعديل قرض تم سداده أو رفضه.' });
-          return;
-      }
-
-      let cleanedBorrower: Partial<Borrower> = { ...updatedBorrower };
-      if (updatedBorrower.loanType !== originalBorrower.loanType) {
-          if (updatedBorrower.loanType === 'اقساط') {
-              cleanedBorrower.discount = undefined;
-          } else {
-              cleanedBorrower.rate = undefined;
-              cleanedBorrower.term = undefined;
-              cleanedBorrower.installments = undefined;
-          }
-      }
-
-      const { error } = await supabase.from('borrowers').update(cleanedBorrower).eq('id', cleanedBorrower.id!);
-      if (error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل تحديث القرض في قاعدة البيانات.' });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تم تحديث القرض' });
-      }
-    },
-    [currentUser, data.borrowers, data.users, toast, fetchData]
-  );
-  
-  const updateBorrowerPaymentStatus = useCallback(
-    async (borrowerId: string, newPaymentStatus?: BorrowerPaymentStatus) => {
-      const supabase = getSupabaseBrowserClient();
-      const borrower = data.borrowers.find((b) => b.id === borrowerId);
-      if (!borrower) return;
-      
-      if (borrower.lastStatusChange) {
-          const lastChangeTime = new Date(borrower.lastStatusChange).getTime();
-          const now = new Date().getTime();
-          if (now - lastChangeTime < 60 * 1000) {
-            toast({ variant: 'destructive', title: 'الرجاء الانتظار', description: 'يجب الانتظار دقيقة واحدة قبل تغيير حالة هذا القرض مرة أخرى.' });
-            return;
-          }
-      }
-      
-      const updates: Partial<Borrower> = { paymentStatus: newPaymentStatus, lastStatusChange: new Date().toISOString() };
-      
-      if (newPaymentStatus === 'تم السداد') {
-        updates.paidOffDate = new Date().toISOString();
-        if (borrower.loanType === 'اقساط' && borrower.installments) {
-          updates.installments = borrower.installments.map(inst => ({ ...inst, status: 'تم السداد' }));
-        }
-      } else {
-        updates.paidOffDate = undefined;
-      }
-
-      const { error } = await supabase.from('borrowers').update(updates).eq('id', borrowerId);
-      if (error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل تحديث حالة السداد.' });
-      } else {
-        await fetchData(supabase);
-        const toastMessage = newPaymentStatus ? `تم تحديث حالة القرض إلى "${newPaymentStatus}".` : `تمت إزالة حالة السداد للقرض.`;
-        toast({ title: 'اكتمل تحديث حالة السداد', description: toastMessage });
-      }
-    },
-    [data.borrowers, toast, fetchData]
-  );
-  
-  const approveBorrower = useCallback(
-    async (borrowerId: string, investorIds: string[]) => {
-      const supabase = getSupabaseBrowserClient();
-      const loanToApprove = data.borrowers.find((b) => b.id === borrowerId);
-      if (!loanToApprove || loanToApprove.status !== 'معلق') {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض أو تمت معالجته بالفعل.' });
-        return;
-      }
-
-      let totalFundedAmount = 0;
-      let remainingAmountToFund = loanToApprove.amount;
-      const fundedByDetails: { investorId: string; amount: number }[] = [];
-      
-      for (const invId of investorIds) {
-          if (remainingAmountToFund <= 0) break;
-          const currentInvestorState = data.investors.find(i => i.id === invId);
-          if (!currentInvestorState) continue;
-          
-          const financials = calculateInvestorFinancials(currentInvestorState, data.borrowers, data.transactions);
-          const availableCapital = loanToApprove.loanType === 'اقساط' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
-          
-          const contribution = Math.min(availableCapital, remainingAmountToFund);
-          if (contribution > 0) {
-              remainingAmountToFund -= contribution;
-              totalFundedAmount += contribution;
-              fundedByDetails.push({ investorId: invId, amount: contribution });
-          }
-      }
-      
-      const { error } = await supabase.from('borrowers').update({ status: 'منتظم', fundedBy: fundedByDetails, amount: totalFundedAmount }).eq('id', borrowerId);
-      if(error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل الموافقة على القرض.' });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تمت الموافقة على القرض بنجاح' });
-      }
-    },
-    [data.borrowers, data.investors, data.transactions, toast, fetchData]
-  );
-
-  const rejectBorrower = useCallback(
-    async (borrowerId: string, reason: string) => {
-        const supabase = getSupabaseBrowserClient();
-        const { error } = await supabase.from('borrowers').update({ status: 'مرفوض', rejectionReason: reason }).eq('id', borrowerId);
-        if(error) {
-          toast({ variant: 'destructive', title: 'خطأ', description: 'فشل رفض القرض.' });
-        } else {
-          await fetchData(supabase);
-          toast({ variant: 'destructive', title: 'تم رفض القرض' });
-        }
-    },
-    [toast, fetchData]
-  );
-
-  const deleteBorrower = useCallback(async (borrowerId: string) => {
-    const supabase = getSupabaseBrowserClient();
-    const borrowerToDelete = data.borrowers.find(b => b.id === borrowerId);
-    if (!borrowerToDelete) return;
-
-    if (borrowerToDelete.status !== 'معلق' && borrowerToDelete.status !== 'مرفوض') {
-        toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف قرض تمت معالجته.' });
-        return;
-    }
-    
-    const { error } = await supabase.from('borrowers').delete().eq('id', borrowerId);
-    if (error) {
-      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل حذف القرض.' });
-    } else {
-      await fetchData(supabase);
-      toast({ title: 'تم الحذف', description: `تم حذف طلب القرض "${borrowerToDelete.name}" بنجاح.` });
-    }
-  }, [data.borrowers, toast, fetchData]);
-
-  const addBorrower = useCallback(
-    async (
-      borrower: Omit<Borrower, 'id' | 'date' | 'rejectionReason' | 'submittedBy' | 'paymentStatus' | 'fundedBy' | 'office_id' | 'managedBy'>,
-      investorIds: string[],
-      force: boolean = false
-    ): Promise<AddBorrowerResult> => {
-      const supabase = getSupabaseBrowserClient();
-      if (!currentUser || !currentUser.office_id) {
-          return { success: false, message: 'يجب أن تكون مسجلاً للدخول ومرتبطًا بمكتب.' };
-      }
-      
-      const manager = data.users.find(u => u.id === currentUser.id && u.role === 'مدير المكتب') || data.users.find(u => u.id === currentUser.managedBy);
-      if (!manager) {
-          return { success: false, message: 'لم يتم العثور على مدير المكتب المسؤول.'};
-      }
-      
-      if ((currentUser.role === 'موظف' || currentUser.role === 'مساعد مدير المكتب') && !manager?.allowEmployeeSubmissions) {
-          toast({ variant: 'destructive', title: 'غير مصرح به', description: 'ليس لديك الصلاحية لإضافة قروض.' });
-          return { success: false, message: 'غير مصرح به' };
-      }
-
-      if (!force) {
-        const { data: existingActiveLoans, error: checkError } = await supabase.rpc('check_duplicate_borrower', { p_national_id: borrower.nationalId, p_office_id: currentUser.office_id });
-        if (checkError) {
-            console.error("Duplicate check error:", checkError);
-            toast({ variant: 'destructive', title: 'خطأ', description: 'فشل التحقق من تكرار العميل.' });
-            return { success: false, message: 'فشل التحقق من تكرار العميل.' };
-        }
-        if (existingActiveLoans && existingActiveLoans.length > 0) {
-            const duplicate = existingActiveLoans[0];
-            const office = data.offices.find(o => o.manager_id === duplicate.manager_id);
-            return { success: false, message: 'عميل مكرر', isDuplicate: true, duplicateInfo: { borrowerName: duplicate.borrower_name, managerName: office?.name || 'مكتب غير معروف', managerPhone: duplicate.manager_phone || 'غير متوفر'}};
-        }
-      }
-
-      const newEntry: Omit<Borrower, 'id'> = {
-          ...borrower,
-          date: new Date().toISOString(),
-          submittedBy: currentUser.id,
-          fundedBy: [], 
-          office_id: currentUser.office_id,
-          managedBy: manager.id,
-      };
-
-      const { error } = await supabase.from('borrowers').insert(newEntry);
-      if (error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: `فشل إضافة القرض: ${error.message}` });
-        return { success: false, message: 'فشل إضافة القرض.' };
-      }
-
-      await fetchData(supabase);
-      toast({ title: 'تمت إضافة القرض بنجاح.' });
-      return { success: true, message: 'تمت إضافة القرض بنجاح.' };
-    },
-    [currentUser, data.users, data.offices, toast, fetchData]
-  );
-  
-  const updateInstallmentStatus = useCallback(async (borrowerId: string, month: number, status: InstallmentStatus) => {
-      const supabase = getSupabaseBrowserClient();
-      const borrower = data.borrowers.find(b => b.id === borrowerId);
-      if (!borrower) return;
-      
-      const numberOfPayments = (borrower.term || 0) * 12;
-      if (borrower.loanType !== 'اقساط' || numberOfPayments === 0) return;
-
-      const currentInstallments = borrower.installments || [];
-      const installmentsMap = new Map(currentInstallments.map(i => [i.month, i]));
-      
-      const fullInstallments = Array.from({ length: numberOfPayments }, (_, i) => {
-          const monthNum = i + 1;
-          return installmentsMap.get(monthNum) || { month: monthNum, status: 'لم يسدد بعد' as InstallmentStatus };
+  const registerNewOfficeManager = useCallback(async (payload: NewManagerPayload) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-office-manager`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify(payload),
       });
 
-      const newInstallments = fullInstallments.map(inst => inst.month === month ? { ...inst, status } : inst);
+      const result = await response.json();
       
-      const { error } = await supabase.from('borrowers').update({ installments: newInstallments }).eq('id', borrowerId);
-      if (error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل تحديث حالة القسط.' });
-      } else {
-        await fetchData(supabase);
+      if (!response.ok) {
+        return { success: false, message: result.message || 'فشل في إنشاء الحساب.' };
       }
-  }, [data.borrowers, toast, fetchData]);
+
+      return { success: true, message: result.message };
+    } catch (error) {
+      console.error('Registration error:', error);
+      return { success: false, message: 'حدث خطأ أثناء إنشاء الحساب.' };
+    }
+  }, []);
+
+  // User management actions
+  const addUser = useCallback(async (payload: NewUserPayload) => {
+    try {
+      if (!state.currentUser?.office_id) {
+        throw new Error('معرف المكتب غير متوفر.');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-subordinate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          ...payload,
+          office_id: state.currentUser.office_id,
+          managed_by: state.currentUser.id,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return { success: false, message: result.message || 'فشل في إضافة المستخدم.' };
+      }
+
+      await loadData();
+      toast({ title: 'نجاح', description: 'تم إضافة المستخدم بنجاح.' });
+      return { success: true, message: 'تم إضافة المستخدم بنجاح.' };
+    } catch (error) {
+      console.error('Add user error:', error);
+      return { success: false, message: 'حدث خطأ أثناء إضافة المستخدم.' };
+    }
+  }, [state.currentUser, supabase, loadData, toast]);
+
+  const updateUser = useCallback(async (userId: string, updates: Partial<User>) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        users: prev.users.map(user => 
+          user.id === userId ? { ...user, ...updates } : user
+        ),
+        visibleUsers: prev.visibleUsers.map(user => 
+          user.id === userId ? { ...user, ...updates } : user
+        ),
+        currentUser: prev.currentUser?.id === userId 
+          ? { ...prev.currentUser, ...updates } 
+          : prev.currentUser
+      }));
+
+      toast({ title: 'نجاح', description: 'تم تحديث المستخدم بنجاح.' });
+    } catch (error) {
+      console.error('Update user error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث المستخدم.' });
+    }
+  }, [supabase, toast]);
+
+  const updateUserStatus = useCallback(async (userId: string, status: User['status']) => {
+    await updateUser(userId, { status });
+  }, [updateUser]);
+
+  const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string }) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/update-user-credentials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ userId, updates }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return { success: false, message: result.message || 'فشل في تحديث البيانات.' };
+      }
+
+      if (updates.email) {
+        await updateUser(userId, { email: updates.email });
+      }
+
+      return { success: true, message: 'تم تحديث البيانات بنجاح.' };
+    } catch (error) {
+      console.error('Update credentials error:', error);
+      return { success: false, message: 'حدث خطأ أثناء تحديث البيانات.' };
+    }
+  }, [updateUser]);
+
+  const updateUserIdentity = useCallback(async (updates: { name?: string; phone?: string; password?: string }) => {
+    try {
+      if (!state.currentUser) {
+        return { success: false, message: 'المستخدم غير مسجل الدخول.' };
+      }
+
+      if (updates.password) {
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: updates.password
+        });
+        if (passwordError) throw passwordError;
+      }
+
+      if (updates.name || updates.phone) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .update({
+            ...(updates.name && { name: updates.name }),
+            ...(updates.phone && { phone: updates.phone })
+          })
+          .eq('id', state.currentUser.id);
+
+        if (profileError) throw profileError;
+
+        setState(prev => ({
+          ...prev,
+          currentUser: prev.currentUser ? {
+            ...prev.currentUser,
+            ...(updates.name && { name: updates.name }),
+            ...(updates.phone && { phone: updates.phone })
+          } : null
+        }));
+      }
+
+      return { success: true, message: 'تم تحديث البيانات بنجاح.' };
+    } catch (error) {
+      console.error('Update identity error:', error);
+      return { success: false, message: 'فشل في تحديث البيانات.' };
+    }
+  }, [state.currentUser, supabase]);
+
+  const deleteUser = useCallback(async (userId: string) => {
+    try {
+      await updateUser(userId, { status: 'محذوف' });
+      toast({ title: 'نجاح', description: 'تم حذف المستخدم بنجاح.' });
+    } catch (error) {
+      console.error('Delete user error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في حذف المستخدم.' });
+    }
+  }, [updateUser, toast]);
+
+  // Borrower management
+  const addBorrower = useCallback(async (
+    borrower: Omit<Borrower, 'id' | 'date' | 'fundedBy'>, 
+    investorIds: string[], 
+    force: boolean = false
+  ): Promise<AddBorrowerResult> => {
+    try {
+      if (!state.currentUser?.office_id) {
+        return { success: false, message: 'معرف المكتب غير متوفر.' };
+      }
+
+      // Check for duplicate borrower
+      if (!force) {
+        const { data: duplicateData } = await supabase
+          .rpc('check_duplicate_borrower', {
+            p_national_id: borrower.nationalId,
+            p_office_id: state.currentUser.office_id
+          });
+
+        if (duplicateData && duplicateData.length > 0) {
+          const duplicate = duplicateData[0];
+          return {
+            success: false,
+            message: 'عميل مسجل مسبقاً',
+            isDuplicate: true,
+            duplicateInfo: {
+              borrowerName: duplicate.borrower_name,
+              managerName: duplicate.manager_name,
+              managerPhone: duplicate.manager_phone
+            }
+          };
+        }
+      }
+
+      const borrowerId = `bor_${generateId()}`;
+      const fundedBy = investorIds.map(id => ({ investorId: id, amount: 0 }));
+
+      const newBorrower: Borrower = {
+        ...borrower,
+        id: borrowerId,
+        office_id: state.currentUser.office_id,
+        branch_id: state.currentUser.branch_id || null,
+        date: new Date().toISOString(),
+        fundedBy,
+        submittedBy: state.currentUser.id,
+        managedBy: state.currentUser.managedBy || state.currentUser.id,
+      };
+
+      const { error } = await supabase
+        .from('borrowers')
+        .insert(newBorrower);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        borrowers: [...prev.borrowers, newBorrower]
+      }));
+
+      toast({ title: 'نجاح', description: 'تم إضافة القرض بنجاح.' });
+      return { success: true, message: 'تم إضافة القرض بنجاح.' };
+    } catch (error) {
+      console.error('Add borrower error:', error);
+      return { success: false, message: 'فشل في إضافة القرض.' };
+    }
+  }, [state.currentUser, supabase, generateId, toast]);
+
+  const updateBorrower = useCallback(async (borrower: Borrower) => {
+    try {
+      const { error } = await supabase
+        .from('borrowers')
+        .update(borrower)
+        .eq('id', borrower.id);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        borrowers: prev.borrowers.map(b => 
+          b.id === borrower.id ? borrower : b
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم تحديث القرض بنجاح.' });
+    } catch (error) {
+      console.error('Update borrower error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث القرض.' });
+    }
+  }, [supabase, toast]);
+
+  const updateBorrowerPaymentStatus = useCallback(async (borrowerId: string, paymentStatus?: BorrowerPaymentStatus) => {
+    try {
+      const updates: any = { 
+        paymentStatus,
+        lastStatusChange: new Date().toISOString()
+      };
+
+      if (paymentStatus === 'تم السداد') {
+        updates.paidOffDate = new Date().toISOString();
+        updates.status = 'مسدد بالكامل';
+      }
+
+      const { error } = await supabase
+        .from('borrowers')
+        .update(updates)
+        .eq('id', borrowerId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        borrowers: prev.borrowers.map(b => 
+          b.id === borrowerId ? { ...b, ...updates } : b
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم تحديث حالة السداد.' });
+    } catch (error) {
+      console.error('Update payment status error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث حالة السداد.' });
+    }
+  }, [supabase, toast]);
+
+  const updateInstallmentStatus = useCallback(async (borrowerId: string, month: number, status: InstallmentStatus) => {
+    try {
+      const borrower = state.borrowers.find(b => b.id === borrowerId);
+      if (!borrower) return;
+
+      const updatedInstallments = [...(borrower.installments || [])];
+      const existingIndex = updatedInstallments.findIndex(i => i.month === month);
+
+      if (existingIndex >= 0) {
+        updatedInstallments[existingIndex].status = status;
+      } else {
+        updatedInstallments.push({ month, status });
+      }
+
+      const { error } = await supabase
+        .from('borrowers')
+        .update({ installments: updatedInstallments })
+        .eq('id', borrowerId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        borrowers: prev.borrowers.map(b => 
+          b.id === borrowerId ? { ...b, installments: updatedInstallments } : b
+        )
+      }));
+    } catch (error) {
+      console.error('Update installment status error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث حالة القسط.' });
+    }
+  }, [state.borrowers, supabase, toast]);
+
+  const deleteBorrower = useCallback(async (borrowerId: string) => {
+    try {
+      const { error } = await supabase
+        .from('borrowers')
+        .delete()
+        .eq('id', borrowerId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        borrowers: prev.borrowers.filter(b => b.id !== borrowerId)
+      }));
+
+      toast({ title: 'نجاح', description: 'تم حذف القرض بنجاح.' });
+    } catch (error) {
+      console.error('Delete borrower error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في حذف القرض.' });
+    }
+  }, [supabase, toast]);
 
   const handlePartialPayment = useCallback(async (borrowerId: string, paidAmount: number) => {
-    const supabase = getSupabaseBrowserClient();
-    if (!currentUser || !currentUser.office_id) return;
-    const originalBorrower = data.borrowers.find(b => b.id === borrowerId);
-    if (!originalBorrower) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على القرض الأصلي.' });
-        return;
-    }
-
     try {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !sessionData.session) throw new Error("No active session");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/handle-partial-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ borrowerId, paidAmount }),
+      });
 
-        const { error } = await supabase.functions.invoke('handle-partial-payment', {
-            body: { borrowerId, paidAmount }
-        });
-        
-        if (error) throw new Error(error.message);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message);
+      }
 
-        await fetchData(supabase);
-        toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء قرض جديد بالمبلغ المتبقي.' });
-
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'خطأ', description: error.message || 'فشل معالجة السداد الجزئي.' });
+      await loadData();
+      toast({ title: 'نجاح', description: 'تم تسجيل السداد الجزئي وإنشاء قرض جديد بالمبلغ المتبقي.' });
+    } catch (error) {
+      console.error('Partial payment error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: error.message || 'فشل في معالجة السداد الجزئي.' });
     }
-  }, [data.borrowers, currentUser, toast, fetchData]);
+  }, [loadData, toast]);
 
-  const updateInvestor = useCallback(
-    async (updatedInvestor: UpdatableInvestor) => {
-      const supabase = getSupabaseBrowserClient();
-      if (!currentUser || (currentUser.role !== 'مدير المكتب' && currentUser.role !== 'مدير النظام')) return;
-      
-      const { error } = await supabase.from('investors').update(updatedInvestor).eq('id', updatedInvestor.id);
-      if (error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل تحديث بيانات المستثمر.' });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تم تحديث المستثمر' });
-      }
-    },
-    [currentUser, toast, fetchData]
-  );
-  
-  const approveInvestor = useCallback(
-    async (investorId: string) => {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from('investors').update({ status: 'نشط' }).eq('id', investorId);
-      if (error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل الموافقة على المستثمر.' });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تمت الموافقة على المستثمر' });
-      }
-    },
-    [toast, fetchData]
-  );
-
-  const rejectInvestor = useCallback(
-    async (investorId: string, reason: string) => {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from('investors').update({ status: 'مرفوض', rejectionReason: reason }).eq('id', investorId);
-      if (error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل رفض المستثمر.' });
-      } else {
-        await fetchData(supabase);
-        toast({ variant: 'destructive', title: 'تم رفض المستثمر' });
-      }
-    },
-    [toast, fetchData]
-  );
-
-  const addInvestor = useCallback(
-    async (payload: NewInvestorPayload): Promise<{ success: boolean; message: string }> => {
-        const supabase = getSupabaseBrowserClient();
-        if (!currentUser || !currentUser.office_id) return { success: false, message: 'يجب تسجيل الدخول أولاً.' };
-        
-        try {
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError || !sessionData.session) throw new Error("No active session for function call");
-
-            const { data, error } = await supabase.functions.invoke('create-investor', {
-                body: { ...payload, office_id: currentUser.office_id, managedBy: currentUser.managedBy || currentUser.id, submittedBy: currentUser.id },
-            });
-            
-            if (error) throw error;
-            
-            await fetchData(supabase);
-            toast({ title: 'تمت إضافة المستثمر وإرسال دعوة له بنجاح.' });
-            return { success: true, message: 'تمت إضافة المستثمر بنجاح.' };
-        } catch (error: any) {
-            console.error("Create Investor Error:", error);
-            let errorMessage = error.message || 'فشل إنشاء حساب المستثمر. يرجى المحاولة مرة أخرى.';
-             if (error.context && error.context.json) {
-                const jsonError = await error.context.json();
-                if (jsonError && jsonError.message) {
-                    errorMessage = jsonError.message;
-                }
-            }
-            toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
-            return { success: false, message: errorMessage };
-        }
-    },
-    [currentUser, fetchData, toast]
-  );
-  
-  const addNewSubordinateUser = useCallback(
-    async (payload: NewUserPayload, role: 'موظف' | 'مساعد مدير المكتب'): Promise<{ success: boolean, message: string }> => {
-        const supabase = getSupabaseBrowserClient();
-        if (!currentUser || !currentUser.office_id) {
-            return { success: false, message: 'ليس لديك الصلاحية لإضافة مستخدمين.' };
-        }
-
-        try {
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError || !sessionData.session) throw new Error("No active session for function call");
-
-            const { data, error } = await supabase.functions.invoke('create-subordinate', {
-              body: { ...payload, role, office_id: currentUser.office_id, managed_by: currentUser.id }
-            });
-            
-            if (error) throw error;
-            
-            await fetchData(supabase);
-            toast({ title: `تمت إضافة ${role} بنجاح وإرسال دعوة له.` });
-            return { success: true, message: `تمت إضافة ${role} بنجاح.` };
-
-        } catch (error: any) {
-            console.error(`Create ${role} Error:`, error);
-            let errorMessage = error.message || `فشل إنشاء حساب ${role}. يرجى المحاولة مرة أخرى.`;
-             if (error.context && error.context.json) {
-                const jsonError = await error.context.json();
-                if (jsonError && jsonError.message) {
-                    errorMessage = jsonError.message;
-                }
-            }
-            toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
-            return { success: false, message: errorMessage };
-        }
-    },
-    [currentUser, fetchData, toast]
-  );
-  
-  const updateUserIdentity = useCallback(
-    async (updates: Partial<User>): Promise<{ success: boolean; message: string }> => {
-        const supabase = getSupabaseBrowserClient();
-        if (!currentUser) return { success: false, message: 'فشل: لم يتم العثور على المستخدم.' };
-        
-        const { error: authError } = await supabase.auth.updateUser({ password: updates.password });
-        if (authError) return { success: false, message: 'فشل تحديث بيانات المصادقة.' };
-        
-        const { error: dbError } = await supabase.from('users').update({ name: updates.name, phone: updates.phone }).eq('id', currentUser.id);
-        if (dbError) return { success: false, message: 'فشل تحديث بياناتك في قاعدة البيانات.' };
-        
-        await fetchData(supabase);
-        return { success: true, message: 'تم تحديث ملفك الشخصي بنجاح.' };
-    },
-    [currentUser, fetchData]
-  );
-  
-  const updateUserCredentials = useCallback(async (userId: string, updates: { email?: string; password?: string, officeName?: string, branch_id?: string | null }): Promise<{ success: boolean, message: string }> => {
-    const supabase = getSupabaseBrowserClient();
-    try {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !sessionData.session) throw new Error("No active session");
-        
-        const { data, error } = await supabase.functions.invoke('update-user-credentials', { 
-            body: { userId, updates }
-        });
-        if (error) throw error;
-        
-        await fetchData(supabase);
-        toast({ title: 'نجاح', description: `تم تحديث بيانات الدخول.` });
-        return { success: true, message: "تم تحديث البيانات بنجاح." };
-    } catch (error: any) {
-        let errorMessage = error.message || 'فشل تحديث بيانات المستخدم.';
-        if (error.context && error.context.json) {
-            const jsonError = await error.context.json();
-            if (jsonError && jsonError.message) {
-                errorMessage = jsonError.message;
-            }
-        }
-        toast({ variant: 'destructive', title: 'خطأ', description: errorMessage });
-        return { success: false, message: errorMessage };
-    }
-  }, [fetchData, toast]);
-
-
-  const addInvestorTransaction = useCallback(
-    async (investorId: string, transaction: Omit<Transaction, 'id' | 'investor_id' | 'office_id'>) => {
-      const supabase = getSupabaseBrowserClient();
-      if(!currentUser || !currentUser.office_id) return;
-
-      const investor = data.investors.find(i => i.id === investorId);
-      if (!investor) return;
-
-      if (transaction.type.includes('سحب')) {
-          const financials = calculateInvestorFinancials(investor, data.borrowers, data.transactions);
-          const availableCapital = transaction.capitalSource === 'installment' ? financials.idleInstallmentCapital : financials.idleGraceCapital;
-          if (transaction.amount > availableCapital) {
-              toast({ variant: 'destructive', title: 'رصيد غير كافٍ', description: `الرصيد الخامل المتاح (${formatCurrency(availableCapital)}) أقل من المبلغ المطلوب.` });
-              return;
-          }
-      }
-      
-      const { error } = await supabase.from('transactions').insert({ ...transaction, investor_id: investorId, office_id: currentUser.office_id });
-      if (error) {
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إضافة العملية المالية.' });
-      } else {
-        await fetchData(supabase);
-        toast({ title: 'تمت إضافة العملية المالية بنجاح' });
-      }
-    },
-    [currentUser, data.investors, data.borrowers, data.transactions, toast, fetchData]
-  );
-
-  const updateUserStatus = useCallback(
-    async (userId: string, status: User['status']) => {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.from('users').update({ status }).eq('id', userId);
-      await fetchData(supabase);
-      toast({ title: `تم تحديث حالة المستخدم إلى "${status}"`});
-    },
-    [toast, fetchData]
-  );
-  
-  const updateUserRole = useCallback(async (userId: string, role: UserRole) => {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.from('users').update({ role }).eq('id', userId);
-      await fetchData(supabase);
-      toast({title: `تم تحديث دور المستخدم.`});
-  }, [toast, fetchData]);
-  
-  const deleteUser = useCallback(async (userId: string) => {
-      const supabase = getSupabaseBrowserClient();
-      const userToDelete = data.users.find(u => u.id === userId);
-      if (!userToDelete) return;
-      
-      if (userToDelete.role === 'مستثمر') {
-          const investorProfile = data.investors.find(i => i.id === userId);
-          if (investorProfile) {
-              const financials = calculateInvestorFinancials(investorProfile, data.borrowers, data.transactions);
-              if(financials.activeCapital > 0 || financials.idleInstallmentCapital > 0 || financials.idleGraceCapital > 0) {
-                   toast({ variant: 'destructive', title: 'لا يمكن الحذف', description: 'لا يمكن حذف مستثمر لديه أموال نشطة أو خاملة.'});
-                   return;
-              }
-          }
-      }
-      
-      await supabase.from('users').update({ status: 'محذوف' }).eq('id', userId);
-      await fetchData(supabase);
-      toast({title: `تم حذف حساب ${userToDelete.name} بنجاح.`});
-  }, [data.users, data.investors, data.borrowers, data.transactions, toast, fetchData]);
-  
-  const updateUserLimits = useCallback(async (userId: string, limits: { investorLimit: number; employeeLimit: number; assistantLimit: number; branchLimit: number }) => {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.from('users').update(limits).eq('id', userId);
-      await fetchData(supabase);
-      toast({title: "تم تحديث الحدود بنجاح."});
-  }, [toast, fetchData]);
-  
-  const updateManagerSettings = useCallback(async (managerId: string, settings: { allowEmployeeSubmissions?: boolean; hideEmployeeInvestorFunds?: boolean, allowEmployeeLoanEdits?: boolean }) => {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.from('users').update(settings).eq('id', managerId);
-      await fetchData(supabase);
-       toast({title: "تم تحديث إعدادات المكتب."});
-  }, [toast, fetchData]);
-  
-  const updateAssistantPermission = useCallback(async (assistantId: string, key: PermissionKey, value: boolean) => {
-      const supabase = getSupabaseBrowserClient();
-      const assistant = data.users.find(u => u.id === assistantId);
-      if (!assistant) return;
-      const newPermissions = { ...assistant.permissions, [key]: value };
-      await supabase.from('users').update({ permissions: newPermissions }).eq('id', assistantId);
-      await fetchData(supabase);
-  }, [data.users, fetchData]);
-
-  const updateEmployeePermission = useCallback(async (employeeId: string, key: PermissionKey, value: boolean) => {
-      const supabase = getSupabaseBrowserClient();
-      const employee = data.users.find(u => u.id === employeeId);
-      if (!employee) return;
-      const newPermissions = { ...employee.permissions, [key]: value };
-      await supabase.from('users').update({ permissions: newPermissions }).eq('id', employeeId);
-      await fetchData(supabase);
-  }, [data.users, fetchData]);
-  
-  const addSupportTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead' | 'isReplied'>) => {
-    const supabase = getSupabaseBrowserClient();
-    await supabase.from('support_tickets').insert(ticket);
-    await fetchData(supabase);
-    toast({ title: 'تم إرسال رسالتك بنجاح' });
-  }, [toast, fetchData]);
-  
-  const requestCapitalIncrease = useCallback((investorId: string) => {
-      if(!currentUser) return;
-      const investor = data.investors.find(i => i.id === investorId);
-      if(!investor) return;
-      const subject = `طلب زيادة رأس مال لـ: ${investor.name}`;
-      const message = `طلب مدير المكتب: ${currentUser.name} زيادة رأس المال للمستثمر ${investor.name}.`;
-      addSupportTicket({ fromUserId: currentUser.id, fromUserName: currentUser.name, fromUserEmail: currentUser.email, subject, message });
-  }, [addSupportTicket, currentUser, data.investors]);
-  
-  const deleteSupportTicket = useCallback(async (ticketId: string) => {
-    const supabase = getSupabaseBrowserClient();
-    await supabase.from('support_tickets').delete().eq('id', ticketId);
-    await fetchData(supabase);
-    toast({ title: 'تم حذف رسالة الدعم.' });
-  }, [toast, fetchData]);
-  
-  const replyToSupportTicket = useCallback(async (ticketId: string, replyMessage: string) => {
-      const supabase = getSupabaseBrowserClient();
-      const ticket = data.supportTickets.find(t => t.id === ticketId);
-      if(!ticket) return;
-      
-      await supabase.from('notifications').insert({ recipientId: ticket.fromUserId, title: `رد على رسالتك: ${ticket.subject}`, description: replyMessage });
-      await supabase.from('support_tickets').update({ isReplied: true, isRead: true }).eq('id', ticketId);
-      
-      await fetchData(supabase);
-      toast({title: 'تم إرسال الرد بنجاح.'});
-  }, [data.supportTickets, toast, fetchData]);
-  
   const markBorrowerAsNotified = useCallback(async (borrowerId: string, message: string) => {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.from('borrowers').update({ isNotified: true }).eq('id', borrowerId);
-      await fetchData(supabase);
-       toast({ title: 'تم إرسال الرسالة بنجاح (محاكاة)' });
-  }, [toast, fetchData]);
+    try {
+      const { error } = await supabase
+        .from('borrowers')
+        .update({ isNotified: true })
+        .eq('id', borrowerId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        borrowers: prev.borrowers.map(b => 
+          b.id === borrowerId ? { ...b, isNotified: true } : b
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم تسجيل إرسال الرسالة للعميل.' });
+    } catch (error) {
+      console.error('Mark notified error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تسجيل الإشعار.' });
+    }
+  }, [supabase, toast]);
+
+  // Investor management
+  const addInvestor = useCallback(async (payload: NewInvestorPayload) => {
+    try {
+      if (!state.currentUser?.office_id) {
+        return { success: false, message: 'معرف المكتب غير متوفر.' };
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-investor`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          ...payload,
+          office_id: state.currentUser.office_id,
+          managedBy: state.currentUser.id,
+          submittedBy: state.currentUser.id,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return { success: false, message: result.message || 'فشل في إضافة المستثمر.' };
+      }
+
+      await loadData();
+      toast({ title: 'نجاح', description: 'تم إضافة المستثمر بنجاح.' });
+      return { success: true, message: 'تم إضافة المستثمر بنجاح.' };
+    } catch (error) {
+      console.error('Add investor error:', error);
+      return { success: false, message: 'حدث خطأ أثناء إضافة المستثمر.' };
+    }
+  }, [state.currentUser, loadData, toast]);
+
+  const updateInvestor = useCallback(async (investor: UpdatableInvestor) => {
+    try {
+      const { error } = await supabase
+        .from('investors')
+        .update({
+          name: investor.name,
+          status: investor.status,
+          installmentProfitShare: investor.installmentProfitShare,
+          gracePeriodProfitShare: investor.gracePeriodProfitShare,
+          branch_id: investor.branch_id
+        })
+        .eq('id', investor.id);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        investors: prev.investors.map(i => 
+          i.id === investor.id ? { ...i, ...investor } : i
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم تحديث المستثمر بنجاح.' });
+    } catch (error) {
+      console.error('Update investor error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث المستثمر.' });
+    }
+  }, [supabase, toast]);
+
+  const approveInvestor = useCallback(async (investorId: string) => {
+    try {
+      const { error } = await supabase
+        .from('investors')
+        .update({ status: 'نشط' })
+        .eq('id', investorId);
+
+      if (error) throw error;
+
+      await updateUser(investorId, { status: 'نشط' });
+      
+      setState(prev => ({
+        ...prev,
+        investors: prev.investors.map(i => 
+          i.id === investorId ? { ...i, status: 'نشط' } : i
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم الموافقة على المستثمر.' });
+    } catch (error) {
+      console.error('Approve investor error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في الموافقة على المستثمر.' });
+    }
+  }, [supabase, updateUser, toast]);
+
+  const rejectInvestor = useCallback(async (investorId: string, reason: string) => {
+    try {
+      const { error } = await supabase
+        .from('investors')
+        .update({ 
+          status: 'مرفوض',
+          rejectionReason: reason 
+        })
+        .eq('id', investorId);
+
+      if (error) throw error;
+
+      await updateUser(investorId, { status: 'مرفوض' });
+
+      setState(prev => ({
+        ...prev,
+        investors: prev.investors.map(i => 
+          i.id === investorId ? { ...i, status: 'مرفوض', rejectionReason: reason } : i
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم رفض طلب المستثمر.' });
+    } catch (error) {
+      console.error('Reject investor error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في رفض المستثمر.' });
+    }
+  }, [supabase, updateUser, toast]);
+
+  const addInvestorTransaction = useCallback(async (investorId: string, transaction: Omit<Transaction, 'id' | 'investor_id' | 'office_id'>) => {
+    try {
+      if (!state.currentUser?.office_id) {
+        throw new Error('معرف المكتب غير متوفر.');
+      }
+
+      const newTransaction: Transaction = {
+        ...transaction,
+        id: `tx_${generateId()}`,
+        investor_id: investorId,
+        office_id: state.currentUser.office_id,
+      };
+
+      const { error } = await supabase
+        .from('transactions')
+        .insert(newTransaction);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        transactions: [...prev.transactions, newTransaction]
+      }));
+
+      toast({ title: 'نجاح', description: 'تم إضافة العملية المالية بنجاح.' });
+    } catch (error) {
+      console.error('Add transaction error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في إضافة العملية المالية.' });
+    }
+  }, [state.currentUser, supabase, generateId, toast]);
+
+  const requestCapitalIncrease = useCallback(async (investorId: string) => {
+    try {
+      const investor = state.investors.find(i => i.id === investorId);
+      if (!investor || !state.currentUser) return;
+
+      const notificationId = `notif_${generateId()}`;
+      const notification: Notification = {
+        id: notificationId,
+        date: new Date().toISOString(),
+        recipientId: state.currentUser.id,
+        title: 'طلب زيادة رأس المال',
+        description: `المستثمر ${investor.name} يطلب زيادة رأس المال.`,
+        isRead: false,
+      };
+
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notification);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        notifications: [...prev.notifications, notification]
+      }));
+
+      toast({ title: 'نجاح', description: 'تم إرسال طلب زيادة رأس المال.' });
+    } catch (error) {
+      console.error('Request capital increase error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في إرسال الطلب.' });
+    }
+  }, [state.investors, state.currentUser, supabase, generateId, toast]);
 
   const markInvestorAsNotified = useCallback(async (investorId: string, message: string) => {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.from('investors').update({ isNotified: true }).eq('id', investorId);
-      await fetchData(supabase);
-       toast({ title: 'تم إرسال الرسالة بنجاح (محاكاة)' });
-  }, [toast, fetchData]);
-  
-  const addBranch = useCallback(async (branch: Omit<Branch, 'id' | 'office_id'>): Promise<{success: boolean, message: string}> => {
-    const supabase = getSupabaseBrowserClient();
-    if (!currentUser || currentUser.role !== 'مدير المكتب' || !currentUser.office_id) {
-        toast({variant: 'destructive', title: 'خطأ', description: 'غير مصرح به.'});
-        return {success: false, message: 'غير مصرح به.'};
-    }
+    try {
+      const { error } = await supabase
+        .from('investors')
+        .update({ isNotified: true })
+        .eq('id', investorId);
 
-    if((currentUser.branches?.length ?? 0) >= (currentUser.branchLimit ?? 0)) {
-        toast({variant: 'destructive', title: 'خطأ', description: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'});
-        return {success: false, message: 'لقد وصلت إلى الحد الأقصى لعدد الفروع.'};
-    }
+      if (error) throw error;
 
-    const { error } = await supabase.from('branches').insert({ ...branch, office_id: currentUser.office_id });
+      setState(prev => ({
+        ...prev,
+        investors: prev.investors.map(i => 
+          i.id === investorId ? { ...i, isNotified: true } : i
+        )
+      }));
 
-    if (error) {
-        console.error("Error adding branch:", error);
-        toast({variant: 'destructive', title: 'خطأ', description: 'فشل في إضافة الفرع.'});
-        return {success: false, message: 'فشل في إضافة الفرع.'};
+      toast({ title: 'نجاح', description: 'تم تسجيل إرسال الرسالة للمستثمر.' });
+    } catch (error) {
+      console.error('Mark investor notified error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تسجيل الإشعار.' });
     }
-    
-    await fetchData(supabase);
-    toast({title: 'تمت إضافة الفرع بنجاح.'});
-    return {success: true, message: 'تمت إضافة الفرع بنجاح.'};
-  }, [currentUser, toast, fetchData]);
-  
+  }, [supabase, toast]);
+
+  // Request management
+  const approveBorrower = useCallback(async (borrowerId: string, investorIds: string[]) => {
+    try {
+      const borrower = state.borrowers.find(b => b.id === borrowerId);
+      if (!borrower) return;
+
+      // Calculate funding distribution
+      const totalAmount = borrower.amount;
+      const selectedInvestors = state.investors.filter(i => investorIds.includes(i.id));
+      
+      let remainingAmount = totalAmount;
+      const fundedBy = selectedInvestors.map((investor, index) => {
+        const isLast = index === selectedInvestors.length - 1;
+        const amount = isLast ? remainingAmount : Math.floor(totalAmount / selectedInvestors.length);
+        remainingAmount -= amount;
+        return { investorId: investor.id, amount };
+      });
+
+      const { error } = await supabase
+        .from('borrowers')
+        .update({ 
+          status: 'منتظم',
+          fundedBy 
+        })
+        .eq('id', borrowerId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        borrowers: prev.borrowers.map(b => 
+          b.id === borrowerId ? { ...b, status: 'منتظم', fundedBy } : b
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم الموافقة على القرض وتمويله.' });
+    } catch (error) {
+      console.error('Approve borrower error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في الموافقة على القرض.' });
+    }
+  }, [state.borrowers, state.investors, supabase, toast]);
+
+  const rejectBorrower = useCallback(async (borrowerId: string, reason: string) => {
+    try {
+      const { error } = await supabase
+        .from('borrowers')
+        .update({ 
+          status: 'مرفوض',
+          rejectionReason: reason 
+        })
+        .eq('id', borrowerId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        borrowers: prev.borrowers.map(b => 
+          b.id === borrowerId ? { ...b, status: 'مرفوض', rejectionReason: reason } : b
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم رفض طلب القرض.' });
+    } catch (error) {
+      console.error('Reject borrower error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في رفض القرض.' });
+    }
+  }, [supabase, toast]);
+
+  // Configuration updates
+  const updateAppConfig = useCallback(async (key: string, value: number) => {
+    try {
+      const { error } = await supabase
+        .from('app_config')
+        .upsert({ key, value: { value } });
+
+      if (error) throw error;
+
+      setState(prev => ({ ...prev, [key]: value }));
+      toast({ title: 'نجاح', description: 'تم تحديث الإعداد بنجاح.' });
+    } catch (error) {
+      console.error('Update config error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث الإعداد.' });
+    }
+  }, [supabase, toast]);
+
+  const updateBaseInterestRate = useCallback((rate: number) => updateAppConfig('baseInterestRate', rate), [updateAppConfig]);
+  const updateInvestorSharePercentage = useCallback((percentage: number) => updateAppConfig('investorSharePercentage', percentage), [updateAppConfig]);
+  const updateSalaryRepaymentPercentage = useCallback((percentage: number) => updateAppConfig('salaryRepaymentPercentage', percentage), [updateAppConfig]);
+  const updateGraceTotalProfitPercentage = useCallback((percentage: number) => updateAppConfig('graceTotalProfitPercentage', percentage), [updateAppConfig]);
+  const updateGraceInvestorSharePercentage = useCallback((percentage: number) => updateAppConfig('graceInvestorSharePercentage', percentage), [updateAppConfig]);
+
+  const updateSupportInfo = useCallback(async (info: { email: string; phone: string }) => {
+    try {
+      await Promise.all([
+        supabase.from('app_config').upsert({ key: 'supportEmail', value: { value: info.email } }),
+        supabase.from('app_config').upsert({ key: 'supportPhone', value: { value: info.phone } })
+      ]);
+
+      setState(prev => ({
+        ...prev,
+        supportEmail: info.email,
+        supportPhone: info.phone
+      }));
+
+      toast({ title: 'نجاح', description: 'تم تحديث معلومات الدعم بنجاح.' });
+    } catch (error) {
+      console.error('Update support info error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث معلومات الدعم.' });
+    }
+  }, [supabase, toast]);
+
+  const updateTrialPeriod = useCallback(async (days: number) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ defaultTrialPeriodDays: days })
+        .eq('role', 'مدير النظام');
+
+      if (error) throw error;
+
+      await updateAppConfig('defaultTrialPeriodDays', days);
+    } catch (error) {
+      console.error('Update trial period error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث مدة التجربة.' });
+    }
+  }, [supabase, updateAppConfig, toast]);
+
+  // Support and notifications
+  const addSupportTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'date' | 'isRead' | 'isReplied'>) => {
+    try {
+      const newTicket: SupportTicket = {
+        ...ticket,
+        id: `ticket_${generateId()}`,
+        date: new Date().toISOString(),
+        isRead: false,
+        isReplied: false,
+      };
+
+      const { error } = await supabase
+        .from('support_tickets')
+        .insert(newTicket);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        supportTickets: [...prev.supportTickets, newTicket]
+      }));
+
+      toast({ title: 'نجاح', description: 'تم إرسال طلب الدعم بنجاح.' });
+    } catch (error) {
+      console.error('Add support ticket error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في إرسال طلب الدعم.' });
+    }
+  }, [supabase, generateId, toast]);
+
+  const deleteSupportTicket = useCallback(async (ticketId: string) => {
+    try {
+      const { error } = await supabase
+        .from('support_tickets')
+        .delete()
+        .eq('id', ticketId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        supportTickets: prev.supportTickets.filter(t => t.id !== ticketId)
+      }));
+
+      toast({ title: 'نجاح', description: 'تم حذف الرسالة بنجاح.' });
+    } catch (error) {
+      console.error('Delete support ticket error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في حذف الرسالة.' });
+    }
+  }, [supabase, toast]);
+
+  const replyToSupportTicket = useCallback(async (ticketId: string, reply: string) => {
+    try {
+      const ticket = state.supportTickets.find(t => t.id === ticketId);
+      if (!ticket) return;
+
+      // Update ticket as replied
+      const { error: updateError } = await supabase
+        .from('support_tickets')
+        .update({ isReplied: true, isRead: true })
+        .eq('id', ticketId);
+
+      if (updateError) throw updateError;
+
+      // Create notification for the user
+      const notification: Notification = {
+        id: `notif_${generateId()}`,
+        date: new Date().toISOString(),
+        recipientId: ticket.fromUserId,
+        title: `رد على: ${ticket.subject}`,
+        description: reply,
+        isRead: false,
+      };
+
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert(notification);
+
+      if (notifError) throw notifError;
+
+      setState(prev => ({
+        ...prev,
+        supportTickets: prev.supportTickets.map(t => 
+          t.id === ticketId ? { ...t, isReplied: true, isRead: true } : t
+        ),
+        notifications: [...prev.notifications, notification]
+      }));
+
+      toast({ title: 'نجاح', description: 'تم إرسال الرد بنجاح.' });
+    } catch (error) {
+      console.error('Reply to ticket error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في إرسال الرد.' });
+    }
+  }, [state.supportTickets, supabase, generateId, toast]);
+
+  const markUserNotificationsAsRead = useCallback(async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ isRead: true })
+        .eq('recipientId', userId)
+        .eq('isRead', false);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        notifications: prev.notifications.map(n => 
+          n.recipientId === userId ? { ...n, isRead: true } : n
+        )
+      }));
+    } catch (error) {
+      console.error('Mark notifications read error:', error);
+    }
+  }, [supabase]);
+
+  const clearUserNotifications = useCallback(async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('recipientId', userId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        notifications: prev.notifications.filter(n => n.recipientId !== userId)
+      }));
+
+      toast({ title: 'نجاح', description: 'تم حذف جميع التنبيهات.' });
+    } catch (error) {
+      console.error('Clear notifications error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في حذف التنبيهات.' });
+    }
+  }, [supabase, toast]);
+
+  // Branch management
+  const addBranch = useCallback(async (branch: Omit<Branch, 'id'>) => {
+    try {
+      const newBranch: Branch = {
+        ...branch,
+        id: generateId(),
+      };
+
+      const { error } = await supabase
+        .from('branches')
+        .insert(newBranch);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        branches: [...prev.branches, newBranch]
+      }));
+
+      toast({ title: 'نجاح', description: 'تم إضافة الفرع بنجاح.' });
+    } catch (error) {
+      console.error('Add branch error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في إضافة الفرع.' });
+    }
+  }, [supabase, generateId, toast]);
+
+  const updateBranch = useCallback(async (branchId: string, updates: Partial<Branch>) => {
+    try {
+      const { error } = await supabase
+        .from('branches')
+        .update(updates)
+        .eq('id', branchId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        branches: prev.branches.map(b => 
+          b.id === branchId ? { ...b, ...updates } : b
+        )
+      }));
+
+      toast({ title: 'نجاح', description: 'تم تحديث الفرع بنجاح.' });
+    } catch (error) {
+      console.error('Update branch error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في تحديث الفرع.' });
+    }
+  }, [supabase, toast]);
+
   const deleteBranch = useCallback(async (branchId: string) => {
-      const supabase = getSupabaseBrowserClient();
-      if (!currentUser || currentUser.role !== 'مدير المكتب') return;
-      
-      const { error } = await supabase.from('branches').delete().eq('id', branchId);
-      if (error) {
-          console.error("Error deleting branch:", error);
-          toast({variant: 'destructive', title: 'خطأ', description: 'فشل في حذف الفرع.'});
-          return;
-      }
-      
-      await fetchData(supabase);
-      toast({title: 'تم حذف الفرع بنجاح.'});
-  }, [currentUser, toast, fetchData]);
-  
-  const value = useMemo(() => ({
-      currentUser, session, authLoading, dataLoading, ...data, visibleUsers,
-      signIn, signOutUser, registerNewOfficeManager, addBranch, deleteBranch, updateSupportInfo,
-      updateBaseInterestRate, updateInvestorSharePercentage, updateSalaryRepaymentPercentage,
-      updateGraceTotalProfitPercentage, updateGraceInvestorSharePercentage, updateTrialPeriod,
-      addSupportTicket, deleteSupportTicket, replyToSupportTicket, addBorrower, updateBorrower,
-      updateBorrowerPaymentStatus, approveBorrower, rejectBorrower, deleteBorrower, updateInstallmentStatus,
-      handlePartialPayment, addInvestor, addNewSubordinateUser, updateInvestor, approveInvestor, rejectInvestor,
-      addInvestorTransaction, updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
-      updateUserLimits, updateManagerSettings, updateAssistantPermission,
-      updateEmployeePermission, requestCapitalIncrease, deleteUser, clearUserNotifications, markUserNotificationsAsRead,
-      markBorrowerAsNotified, markInvestorAsNotified,
-    }), [
-      currentUser, session, authLoading, dataLoading, data, visibleUsers,
-      signIn, signOutUser, registerNewOfficeManager, addBranch, deleteBranch,
-      updateSupportInfo, updateBaseInterestRate, updateInvestorSharePercentage,
-      updateSalaryRepaymentPercentage, updateGraceTotalProfitPercentage,
-      updateGraceInvestorSharePercentage, updateTrialPeriod, addSupportTicket,
-      deleteSupportTicket, replyToSupportTicket, addBorrower, updateBorrower,
-      updateBorrowerPaymentStatus, approveBorrower, rejectBorrower, deleteBorrower,
-      updateInstallmentStatus, handlePartialPayment, addInvestor, addNewSubordinateUser,
-      updateInvestor, approveInvestor, rejectInvestor,
-      addInvestorTransaction, updateUserIdentity, updateUserCredentials, updateUserStatus, updateUserRole,
-      updateUserLimits, updateManagerSettings, updateAssistantPermission,
-      updateEmployeePermission, requestCapitalIncrease, deleteUser,
-      clearUserNotifications, markUserNotificationsAsRead, markBorrowerAsNotified,
-      markInvestorAsNotified,
-    ]);
-  
+    try {
+      const { error } = await supabase
+        .from('branches')
+        .delete()
+        .eq('id', branchId);
+
+      if (error) throw error;
+
+      setState(prev => ({
+        ...prev,
+        branches: prev.branches.filter(b => b.id !== branchId)
+      }));
+
+      toast({ title: 'نجاح', description: 'تم حذف الفرع بنجاح.' });
+    } catch (error) {
+      console.error('Delete branch error:', error);
+      toast({ variant: 'destructive', title: 'خطأ', description: 'فشل في حذف الفرع.' });
+    }
+  }, [supabase, toast]);
+
+  const actions: DataActions = {
+    signIn,
+    signOutUser,
+    registerNewOfficeManager,
+    addUser,
+    updateUser,
+    updateUserStatus,
+    updateUserCredentials,
+    updateUserIdentity,
+    deleteUser,
+    addBorrower,
+    updateBorrower,
+    updateBorrowerPaymentStatus,
+    updateInstallmentStatus,
+    deleteBorrower,
+    handlePartialPayment,
+    markBorrowerAsNotified,
+    addInvestor,
+    updateInvestor,
+    approveInvestor,
+    rejectInvestor,
+    addInvestorTransaction,
+    requestCapitalIncrease,
+    markInvestorAsNotified,
+    approveBorrower,
+    rejectBorrower,
+    updateBaseInterestRate,
+    updateInvestorSharePercentage,
+    updateSalaryRepaymentPercentage,
+    updateGraceTotalProfitPercentage,
+    updateGraceInvestorSharePercentage,
+    updateSupportInfo,
+    updateTrialPeriod,
+    addSupportTicket,
+    deleteSupportTicket,
+    replyToSupportTicket,
+    markUserNotificationsAsRead,
+    clearUserNotifications,
+    addBranch,
+    updateBranch,
+    deleteBranch,
+  };
+
   return (
-    <DataContext.Provider value={value}>
+    <DataContext.Provider value={state}>
+      <DataActionsContext.Provider value={actions}>
         {children}
+      </DataActionsContext.Provider>
     </DataContext.Provider>
   );
 }
 
-export function useDataState() {
+export const useDataState = () => {
   const context = useContext(DataContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useDataState must be used within a DataProvider');
   }
   return context;
-}
+};
 
-export function useDataActions() {
-    const context = useContext(DataContext);
-    if (context === undefined) {
-        throw new Error('useDataActions must be used within a DataProvider');
-    }
-    const { 
-      signIn,
-      signOutUser,
-      registerNewOfficeManager,
-      addBranch,
-      deleteBranch,
-      updateSupportInfo,
-      updateBaseInterestRate,
-      updateInvestorSharePercentage,
-      updateSalaryRepaymentPercentage,
-      updateGraceTotalProfitPercentage,
-      updateGraceInvestorSharePercentage,
-      updateTrialPeriod,
-      addSupportTicket,
-      deleteSupportTicket,
-      replyToSupportTicket,
-      addBorrower,
-      updateBorrower,
-      updateBorrowerPaymentStatus,
-      approveBorrower,
-      rejectBorrower,
-      deleteBorrower,
-      updateInstallmentStatus,
-      handlePartialPayment,
-      addInvestor,
-      addNewSubordinateUser,
-      updateInvestor,
-      approveInvestor,
-      rejectInvestor,
-      addInvestorTransaction,
-      updateUserIdentity,
-      updateUserCredentials,
-      updateUserStatus,
-      updateUserRole,
-      updateUserLimits,
-      updateManagerSettings,
-      updateAssistantPermission,
-      updateEmployeePermission,
-      requestCapitalIncrease,
-      deleteUser,
-      clearUserNotifications,
-      markUserNotificationsAsRead,
-      markBorrowerAsNotified,
-      markInvestorAsNotified,
-    } = context;
-    
-    return {
-      signIn,
-      signOutUser,
-      registerNewOfficeManager,
-      addBranch,
-      deleteBranch,
-      updateSupportInfo,
-      updateBaseInterestRate,
-      updateInvestorSharePercentage,
-      updateSalaryRepaymentPercentage,
-      updateGraceTotalProfitPercentage,
-      updateGraceInvestorSharePercentage,
-      updateTrialPeriod,
-      addSupportTicket,
-      deleteSupportTicket,
-      replyToSupportTicket,
-      addBorrower,
-      updateBorrower,
-      updateBorrowerPaymentStatus,
-      approveBorrower,
-      rejectBorrower,
-      deleteBorrower,
-      updateInstallmentStatus,
-      handlePartialPayment,
-      addInvestor,
-      addNewSubordinateUser,
-      updateInvestor,
-      approveInvestor,
-      rejectInvestor,
-      addInvestorTransaction,
-      updateUserIdentity,
-      updateUserCredentials,
-      updateUserStatus,
-      updateUserRole,
-      updateUserLimits,
-      updateManagerSettings,
-      updateAssistantPermission,
-      updateEmployeePermission,
-      requestCapitalIncrease,
-      deleteUser,
-      clearUserNotifications,
-      markUserNotificationsAsRead,
-      markBorrowerAsNotified,
-      markInvestorAsNotified,
-    };
-}
+export const useDataActions = () => {
+  const context = useContext(DataActionsContext);
+  if (!context) {
+    throw new Error('useDataActions must be used within a DataProvider');
+  }
+  return context;
+};

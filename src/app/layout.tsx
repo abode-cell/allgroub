@@ -7,6 +7,7 @@ import { DataProvider } from '@/contexts/data-context';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Tajawal } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,20 @@ const tajawal = Tajawal({
 
 export const metadata: Metadata = {
   title: 'منصة عال',
-  description: 'منصة متكاملة لإدارة التمويل والاستثمارات والقروض.',
+  description: 'منصة متكاملة لإدارة التمويل والاستثمارات والقروض',
+  keywords: ['تمويل', 'استثمار', 'قروض', 'إدارة مالية', 'السعودية'],
+  authors: [{ name: 'مجموعة عال' }],
+  creator: 'مجموعة عال',
+  publisher: 'مجموعة عال',
+  robots: {
+    index: false,
+    follow: false,
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({
@@ -35,9 +49,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <DataProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </DataProvider>
+          <ErrorBoundary>
+            <DataProvider>
+              <ClientLayout>{children}</ClientLayout>
+            </DataProvider>
+          </ErrorBoundary>
           <Toaster />
         </ThemeProvider>
       </body>

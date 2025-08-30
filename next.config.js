@@ -1,14 +1,22 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  // Production optimizations
+  compress: true,
+  poweredByHeader: false,
+  
+  // Only ignore build errors in development
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: process.env.NODE_ENV === 'development',
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: process.env.NODE_ENV === 'development',
   },
+  
+  // Image optimization
   images: {
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 60,
     remotePatterns: [
       {
         protocol: 'https',
@@ -16,7 +24,18 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
+  },
+  
+  // Security headers
+  async headers() {
+    return [];
   },
 };
 
